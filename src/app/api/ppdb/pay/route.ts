@@ -12,7 +12,7 @@ export async function POST(request: Request) {
 
     let determinedStatus = paymentStatus;
     if (!determinedStatus) {
-      if (paymentMethod === 'TRANSFER') {
+      if (paymentMethod === 'TRANSFER' || paymentMethod === 'QRIS') {
         determinedStatus = 'PENDING_TRANSFER';
       } else if (paymentMethod === 'CASH') {
         determinedStatus = 'PENDING_CASH';
@@ -31,7 +31,9 @@ export async function POST(request: Request) {
         paymentNotes: paymentNotes || (
           paymentMethod === 'CASH' 
             ? 'Menunggu pembayaran tunai di loket kasir PPDB sekolah' 
-            : 'Menunggu verifikasi bukti transfer'
+            : paymentMethod === 'QRIS'
+            ? 'Menunggu verifikasi bukti transaksi QRIS'
+            : 'Menunggu verifikasi bukti transfer bank'
         )
       }
     });

@@ -16,7 +16,8 @@ import {
   Loader2, 
   ShieldCheck, 
   ExternalLink, 
-  Download
+  Download,
+  QrCode
 } from 'lucide-react';
 import { updateSubmissionStatus, verifyPayment } from './actions';
 
@@ -435,7 +436,7 @@ export default function PPDBClient({ initialSubmissions }: { initialSubmissions:
                               <CheckCircle size={12} /> LUNAS
                             </span>
                             <div className="text-[11px] text-gray-400 mt-1">
-                              {sub.paymentMethod === 'CASH' ? 'Tunai di Loket' : 'Transfer Bank'}
+                              {sub.paymentMethod === 'QRIS' ? 'QRIS' : sub.paymentMethod === 'CASH' ? 'Tunai di Loket' : 'Transfer Bank'}
                               {sub.verifiedBy && ` • Verif: ${sub.verifiedBy}`}
                             </div>
                           </div>
@@ -446,13 +447,17 @@ export default function PPDBClient({ initialSubmissions }: { initialSubmissions:
                                 setSelectedPaymentApplicant(sub);
                                 setVerifyingNotes('');
                               }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-xl font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition-all active:scale-95 cursor-pointer"
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-xl font-bold text-white shadow-sm transition-all active:scale-95 cursor-pointer ${
+                                sub.paymentMethod === 'QRIS'
+                                  ? 'bg-rose-600 hover:bg-rose-700'
+                                  : 'bg-amber-500 hover:bg-amber-600'
+                              }`}
                             >
-                              <CreditCard size={14} />
-                              <span>Cek Bukti & Verif</span>
+                              {sub.paymentMethod === 'QRIS' ? <QrCode size={14} /> : <CreditCard size={14} />}
+                              <span>{sub.paymentMethod === 'QRIS' ? 'Cek Bukti QRIS' : 'Cek Bukti & Verif'}</span>
                             </button>
                             <span className="block text-[11px] text-amber-600 dark:text-amber-400 font-semibold mt-1">
-                              Bukti diunggah
+                              {sub.paymentMethod === 'QRIS' ? 'QRIS • Bukti diunggah' : 'Bukti diunggah'}
                             </span>
                           </div>
                         ) : sub.paymentStatus === 'PENDING_CASH' ? (
@@ -543,6 +548,8 @@ export default function PPDBClient({ initialSubmissions }: { initialSubmissions:
                     <h3 className="font-extrabold text-lg text-white mt-1">
                       {selectedPaymentApplicant.paymentMethod === 'CASH' 
                         ? 'Konfirmasi Pembayaran Kasir Loket (CASH)' 
+                        : selectedPaymentApplicant.paymentMethod === 'QRIS'
+                        ? 'Pemeriksaan Bukti Transaksi QRIS'
                         : 'Pemeriksaan Bukti Transfer Bank'}
                     </h3>
                     <p className="text-xs text-slate-300 mt-0.5 font-mono">
@@ -581,30 +588,42 @@ export default function PPDBClient({ initialSubmissions }: { initialSubmissions:
                       Rp {(selectedPaymentApplicant.paymentAmount || 150000).toLocaleString('id-ID')}
                     </span>
                   </div>
+                  <div className="col-span-2 pt-1 border-t border-slate-200/60 dark:border-gray-700/60 flex items-center justify-between">
+                    <span className="text-slate-400 text-[11px]">Metode Pembayaran:</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      {selectedPaymentApplicant.paymentMethod === 'QRIS'
+                        ? 'QRIS (Scan Barcode)'
+                        : selectedPaymentApplicant.paymentMethod === 'CASH'
+                        ? 'Tunai di Loket'
+                        : 'Transfer Bank'}
+                    </span>
+                  </div>
                 </div>
 
-                {/* Bagian Khusus TRANSFER: Preview Bukti */}
-                {selectedPaymentApplicant.paymentMethod === 'TRANSFER' && (
+                {/* Bagian Khusus TRANSFER atau QRIS: Preview Bukti */}
+                {(selectedPaymentApplicant.paymentMethod === 'TRANSFER' || selectedPaymentApplicant.paymentMethod === 'QRIS' || !selectedPaymentApplicant.paymentMethod) && (
                   <div className="space-y-3">
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                      Lampiran Struk Bukti Transfer:
+                      {selectedPaymentApplicant.paymentMethod === 'QRIS'
+                        ? 'Lampiran Screenshot Transaksi QRIS:'
+                        : 'Lampiran Struk Bukti Transfer:'}
                     </label>
 
                     {selectedPaymentApplicant.paymentProof ? (
                       <div className="border border-slate-200 dark:border-gray-700 rounded-2xl overflow-hidden bg-slate-100 dark:bg-gray-800 relative group">
                         <img 
                           src={selectedPaymentApplicant.paymentProof} 
-                          alt="Bukti Transfer" 
+                          alt="Bukti Pembayaran" 
                           className="w-full max-h-64 object-contain mx-auto"
                         />
                         <div className="p-3 bg-white dark:bg-gray-900 border-t border-slate-200 dark:border-gray-700 flex items-center justify-between">
                           <span className="text-xs text-slate-500 font-medium truncate max-w-xs">
-                            {selectedPaymentApplicant.paymentNotes || 'Bukti transfer diunggah'}
+                            {selectedPaymentApplicant.paymentNotes || (selectedPaymentApplicant.paymentMethod === 'QRIS' ? 'Bukti QRIS diunggah' : 'Bukti transfer diunggah')}
                           </span>
                           <button
                             type="button"
                             onClick={() => openDocumentPreview({
-                              title: 'Bukti Transfer Pembayaran Formulir',
+                              title: selectedPaymentApplicant.paymentMethod === 'QRIS' ? 'Bukti Transaksi QRIS' : 'Bukti Transfer Pembayaran Formulir',
                               url: selectedPaymentApplicant.paymentProof!,
                               studentName: selectedPaymentApplicant.fullName,
                               nisn: selectedPaymentApplicant.nisn,
@@ -620,7 +639,9 @@ export default function PPDBClient({ initialSubmissions }: { initialSubmissions:
                     ) : (
                       <div className="p-4 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 rounded-xl text-xs flex items-center gap-2">
                         <AlertCircle size={16} />
-                        Pendaftar belum mengunggah file bukti transfer.
+                        {selectedPaymentApplicant.paymentMethod === 'QRIS'
+                          ? 'Pendaftar belum mengunggah screenshot bukti transaksi QRIS.'
+                          : 'Pendaftar belum mengunggah file bukti transfer.'}
                       </div>
                     )}
                   </div>
@@ -653,6 +674,8 @@ export default function PPDBClient({ initialSubmissions }: { initialSubmissions:
                     placeholder={
                       selectedPaymentApplicant.paymentMethod === 'CASH'
                         ? 'Contoh: No Kwitansi Kasir: KW-2026/048'
+                        : selectedPaymentApplicant.paymentMethod === 'QRIS'
+                        ? 'Contoh: Notifikasi QRIS GoPay/BCA cocok a.n Ahmad'
                         : 'Contoh: Mutasi rekening BCA cocok a.n Ahmad'
                     }
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-gray-700 bg-slate-50 dark:bg-gray-800 text-slate-900 dark:text-white text-xs focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
@@ -670,7 +693,7 @@ export default function PPDBClient({ initialSubmissions }: { initialSubmissions:
                     Tutup
                   </button>
 
-                  {selectedPaymentApplicant.paymentMethod === 'TRANSFER' && (
+                  {(selectedPaymentApplicant.paymentMethod === 'TRANSFER' || selectedPaymentApplicant.paymentMethod === 'QRIS' || !selectedPaymentApplicant.paymentMethod) && (
                     <button
                       type="button"
                       onClick={() => handleVerifyPayment('REJECTED')}

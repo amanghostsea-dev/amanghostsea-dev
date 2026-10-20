@@ -84,6 +84,10 @@ export async function getPPDBPaymentConfig(): Promise<PPDBPaymentConfig> {
       bankHolder: cfg.bankHolder || DEFAULT_PPDB_PAYMENT_CONFIG.bankHolder,
       cashLocation: cfg.cashLocation || DEFAULT_PPDB_PAYMENT_CONFIG.cashLocation,
       cashHours: cfg.cashHours || DEFAULT_PPDB_PAYMENT_CONFIG.cashHours,
+      qrisEnabled: cfg.qrisEnabled !== false,
+      qrisImageUrl: cfg.qrisImageUrl || '',
+      qrisMerchantName: cfg.qrisMerchantName || DEFAULT_PPDB_PAYMENT_CONFIG.qrisMerchantName,
+      qrisNmid: cfg.qrisNmid || DEFAULT_PPDB_PAYMENT_CONFIG.qrisNmid,
       reguler: {
         enabled: regulerSource.enabled !== false,
         title: regulerSource.title || DEFAULT_TRACK_REGULER.title,

@@ -373,9 +373,11 @@ export default function StatusClient({ schoolName, contactPhone = '082246464677'
                         <Clock size={22} />
                       </div>
                       <div>
-                        <h4 className="font-extrabold text-amber-950 text-base">Menunggu Verifikasi Bukti Transfer</h4>
+                        <h4 className="font-extrabold text-amber-950 text-base">
+                          {applicant.paymentMethod === 'QRIS' ? 'Menunggu Verifikasi Bukti QRIS' : 'Menunggu Verifikasi Bukti Transfer'}
+                        </h4>
                         <p className="text-xs text-amber-800 mt-0.5">
-                          Bukti transfer yang Anda kirimkan telah masuk ke antrean pengecekan panitia keuangan. Verifikasi berlangsung maksimal 1x24 jam kerja.
+                          Bukti {applicant.paymentMethod === 'QRIS' ? 'transaksi QRIS' : 'transfer'} yang Anda kirimkan telah masuk ke antrean pengecekan panitia keuangan. Verifikasi berlangsung maksimal 1x24 jam kerja.
                         </p>
                         {applicant.paymentProof && (
                           <div className="mt-2.5">
@@ -385,7 +387,7 @@ export default function StatusClient({ schoolName, contactPhone = '082246464677'
                               rel="noreferrer" 
                               className="text-xs text-blue-600 font-bold underline hover:text-blue-800 inline-flex items-center gap-1"
                             >
-                              Lihat Bukti Transfer yang Diunggah &rarr;
+                              Lihat Bukti {applicant.paymentMethod === 'QRIS' ? 'QRIS' : 'Transfer'} yang Diunggah &rarr;
                             </a>
                           </div>
                         )}
@@ -520,6 +522,19 @@ export default function StatusClient({ schoolName, contactPhone = '082246464677'
                 <div className="bg-slate-50/70 p-3.5 rounded-2xl border border-slate-100">
                   <span className="text-slate-400 block text-xs font-medium">Waktu Registrasi Masuk</span>
                   <span className="font-bold text-slate-900">{formatDate(applicant.createdAt)}</span>
+                </div>
+
+                <div className="bg-slate-50/70 p-3.5 rounded-2xl border border-slate-100">
+                  <span className="text-slate-400 block text-xs font-medium">Metode Pembayaran</span>
+                  <span className="font-bold text-slate-900">
+                    {applicant.paymentMethod === 'QRIS'
+                      ? 'QRIS (E-Wallet & M-Banking)'
+                      : applicant.paymentMethod === 'CASH'
+                      ? 'Bayar Tunai di Loket'
+                      : applicant.paymentMethod === 'TRANSFER'
+                      ? 'Transfer Bank'
+                      : '-'}
+                  </span>
                 </div>
 
                 {applicant.jalur === 'afirmasi' && (

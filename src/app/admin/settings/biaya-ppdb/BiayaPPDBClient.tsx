@@ -19,7 +19,8 @@ import {
   RefreshCw,
   Award,
   Users,
-  HeartHandshake
+  HeartHandshake,
+  QrCode
 } from 'lucide-react';
 import Link from 'next/link';
 import { 
@@ -679,6 +680,66 @@ export default function BiayaPPDBClient({ initialConfig }: BiayaPPDBClientProps)
                 </div>
               </div>
             </div>
+
+            {/* QRIS Section */}
+            <div className="space-y-4 pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-bold text-purple-800 uppercase tracking-wider">
+                  <QrCode size={15} /> 3. Pembayaran QRIS (Quick Response Code)
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={config.qrisEnabled !== false}
+                    onChange={(e) => setConfig({ ...config, qrisEnabled: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                  <span className="ml-2 text-xs font-bold text-slate-700">
+                    {config.qrisEnabled !== false ? 'QRIS Aktif' : 'QRIS Nonaktif'}
+                  </span>
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Nama Merchant / Akun QRIS</label>
+                  <input
+                    type="text"
+                    value={config.qrisMerchantName || ''}
+                    onChange={(e) => setConfig({ ...config, qrisMerchantName: e.target.value })}
+                    placeholder="Contoh: SMK GARUDA MAHADHIKA"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:ring-2 focus:ring-purple-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">NMID / ID Merchant (Opsional)</label>
+                  <input
+                    type="text"
+                    value={config.qrisNmid || ''}
+                    onChange={(e) => setConfig({ ...config, qrisNmid: e.target.value })}
+                    placeholder="Contoh: ID1020000000000"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono focus:ring-2 focus:ring-purple-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  URL / Link Gambar Barcode QRIS Sekolah (Bisa Di-scan Siswa)
+                </label>
+                <input
+                  type="text"
+                  value={config.qrisImageUrl || ''}
+                  onChange={(e) => setConfig({ ...config, qrisImageUrl: e.target.value })}
+                  placeholder="Contoh: /images/qris.png atau https://link-gambar-qris.png"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                />
+                <span className="text-[11px] text-slate-400 mt-1 block">
+                  Jika dikosongkan, sistem menyediakan tampilan barcode QRIS digital interaktif lengkap dengan logo QRIS nasional.
+                </span>
+              </div>
+            </div>
           </div>
 
         </div>
@@ -788,6 +849,26 @@ export default function BiayaPPDBClient({ initialConfig }: BiayaPPDBClientProps)
                   </div>
                   <div className="text-[10px] text-slate-400">A.N. {config.bankHolder || '-'}</div>
                 </div>
+
+                {/* QRIS Info Preview */}
+                {config.qrisEnabled !== false && (
+                  <div className="p-3 rounded-xl bg-purple-950/40 border border-purple-500/30 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-purple-300 font-bold flex items-center gap-1.5">
+                        <QrCode size={14} /> QRIS Nasional:
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300">
+                        Scan &amp; Pay
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-white font-semibold">
+                      {config.qrisMerchantName || 'SMK GARUDA MAHADHIKA'}
+                    </div>
+                    <div className="text-[10px] text-slate-400">
+                      Mendukung BCA, Mandiri, BRI, BNI, GoPay, OVO, DANA, ShopeePay
+                    </div>
+                  </div>
+                )}
 
                 {/* Cash Info Preview */}
                 <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 space-y-1">

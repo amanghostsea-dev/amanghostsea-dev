@@ -20,6 +20,12 @@ export interface PPDBPaymentConfig {
   cashLocation: string;
   cashHours: string;
 
+  // QRIS Payment Configurations
+  qrisEnabled?: boolean;
+  qrisImageUrl?: string;
+  qrisMerchantName?: string;
+  qrisNmid?: string;
+
   // Multi-track fee structures:
   reguler: PPDBTrackFeeConfig;
   afirmasi: PPDBTrackFeeConfig;
@@ -72,6 +78,13 @@ export const DEFAULT_PPDB_PAYMENT_CONFIG: PPDBPaymentConfig = {
   bankHolder: 'SMK GARUDA MAHADHIKA',
   cashLocation: 'Ruang Panitia PPDB / Loket Kasir Gedung Utama SMK GaMa',
   cashHours: 'Senin s/d Sabtu, pukul 08.00 - 14.00 WIB',
+
+  // QRIS Defaults
+  qrisEnabled: true,
+  qrisImageUrl: '',
+  qrisMerchantName: 'SMK GARUDA MAHADHIKA',
+  qrisNmid: 'ID1020000000000',
+
   reguler: DEFAULT_TRACK_REGULER,
   afirmasi: DEFAULT_TRACK_AFIRMASI,
   prestasi: DEFAULT_TRACK_PRESTASI,

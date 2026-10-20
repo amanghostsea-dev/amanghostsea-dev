@@ -27,7 +27,9 @@ import {
   Radio,
   Cpu,
   Layers,
-  GraduationCap
+  GraduationCap,
+  QrCode,
+  Download
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -163,8 +165,8 @@ export default function PPDBClient({
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [applicantData, setApplicantData] = useState<any>(null);
 
-  // Payment State (Transfer vs Cash)
-  const [payMethod, setPayMethod] = useState<'TRANSFER' | 'CASH'>('TRANSFER');
+  // Payment State (QRIS vs Transfer vs Cash)
+  const [payMethod, setPayMethod] = useState<'QRIS' | 'TRANSFER' | 'CASH'>('QRIS');
   const [transferProofUrl, setTransferProofUrl] = useState<string>('');
   const [transferNotes, setTransferNotes] = useState<string>('');
   const [copiedBank, setCopiedBank] = useState<string | null>(null);
@@ -250,6 +252,36 @@ export default function PPDBClient({
       }
     } catch (error) {
       alert('Gagal menghubungi server. Silakan periksa koneksi internet Anda.');
+      setIsSubmitting(false);
+    }
+  };
+
+  const handlePayQRIS = async () => {
+    if (!transferProofUrl) {
+      alert('Silakan unggah tangkapan layar (screenshot) bukti pembayaran QRIS Anda terlebih dahulu.');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const res = await fetch('/api/ppdb/pay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: applicantData.id,
+          paymentMethod: 'QRIS',
+          paymentProof: transferProofUrl,
+          paymentNotes: transferNotes || 'Pembayaran via QRIS (E-Wallet / M-Banking)',
+        }),
+      });
+
+      if (!res.ok) throw new Error('Gagal mengirim bukti pembayaran QRIS');
+      setIsSubmitting(false);
+      setPaymentSuccess(true);
+      setTimeout(() => {
+        router.push(`/ppdb/success?id=${applicantData.id}&name=${encodeURIComponent(applicantData.fullName)}&method=QRIS`);
+      }, 1200);
+    } catch (err: any) {
+      alert(err.message || 'Gagal menghubungi server untuk verifikasi pembayaran QRIS');
       setIsSubmitting(false);
     }
   };
@@ -1433,33 +1465,141 @@ export default function PPDBClient({
                     })()}
 
                     {/* Pilihan Metode */}
-                    <div className="grid grid-cols-2 gap-2.5">
+                    <div className="grid grid-cols-3 gap-2">
                       <button
                         type="button"
-                        onClick={() => setPayMethod('TRANSFER')}
-                        className={`p-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                          payMethod === 'TRANSFER'
-                            ? 'bg-blue-600 text-white border-blue-500 shadow-md'
+                        onClick={() => setPayMethod('QRIS')}
+                        className={`p-2.5 sm:p-3 rounded-xl border text-[11px] sm:text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
+                          payMethod === 'QRIS'
+                            ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-purple-500 shadow-md ring-2 ring-purple-500/20'
                             : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
                         }`}
                       >
-                        <CreditCard size={15} />
-                        <span>Transfer / QRIS</span>
+                        <QrCode size={16} className={payMethod === 'QRIS' ? 'text-white' : 'text-purple-400'} />
+                        <span>Scan QRIS</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setPayMethod('TRANSFER')}
+                        className={`p-2.5 sm:p-3 rounded-xl border text-[11px] sm:text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
+                          payMethod === 'TRANSFER'
+                            ? 'bg-blue-600 text-white border-blue-500 shadow-md ring-2 ring-blue-500/20'
+                            : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <CreditCard size={16} className={payMethod === 'TRANSFER' ? 'text-white' : 'text-blue-400'} />
+                        <span>Transfer Bank</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => setPayMethod('CASH')}
-                        className={`p-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                        className={`p-2.5 sm:p-3 rounded-xl border text-[11px] sm:text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
                           payMethod === 'CASH'
-                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-md'
+                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-md ring-2 ring-emerald-500/20'
                             : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
                         }`}
                       >
-                        <Banknote size={15} />
-                        <span>Bayar Tunai di Loket</span>
+                        <Banknote size={16} className={payMethod === 'CASH' ? 'text-white' : 'text-emerald-400'} />
+                        <span>Bayar Tunai</span>
                       </button>
                     </div>
+
+                    {/* Mode QRIS */}
+                    {payMethod === 'QRIS' && (
+                      <div className="space-y-4">
+                        <div className="p-4 rounded-2xl bg-white text-slate-900 border border-slate-200 shadow-lg text-center space-y-3">
+                          {/* QRIS Header Banner */}
+                          <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                            <div className="flex items-center gap-1.5">
+                              <span className="px-2 py-0.5 bg-rose-600 text-white rounded font-mono text-[10px] font-black tracking-widest">
+                                QRIS
+                              </span>
+                              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                                Standar Pembayaran Nasional
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+                              GPN
+                            </span>
+                          </div>
+
+                          {/* Barcode Display */}
+                          <div className="py-2 flex flex-col items-center justify-center">
+                            {paymentConfig.qrisImageUrl ? (
+                              <div className="flex flex-col items-center">
+                                <img
+                                  src={paymentConfig.qrisImageUrl}
+                                  alt="QRIS SMK Garuda Mahadhika"
+                                  className="w-52 h-52 sm:w-60 sm:h-60 object-contain rounded-2xl border-2 border-slate-200 p-2 bg-white shadow-sm"
+                                />
+                                <a
+                                  href={paymentConfig.qrisImageUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="mt-2 text-xs text-purple-700 hover:underline font-bold inline-flex items-center gap-1"
+                                >
+                                  <Download size={13} /> Buka / Simpan Gambar Barcode QRIS &rarr;
+                                </a>
+                              </div>
+                            ) : (
+                              <div className="w-52 h-52 sm:w-60 sm:h-60 bg-gradient-to-b from-slate-50 to-slate-100 rounded-2xl border-2 border-dashed border-slate-300 p-4 flex flex-col items-center justify-center relative shadow-inner">
+                                <QrCode size={110} className="text-slate-800" />
+                                <div className="mt-2 text-center">
+                                  <div className="text-[11px] font-black text-slate-900 uppercase tracking-tight">
+                                    {paymentConfig.qrisMerchantName || 'SMK GARUDA MAHADHIKA'}
+                                  </div>
+                                  <div className="text-[9px] text-slate-500 font-mono mt-0.5">
+                                    NMID: {paymentConfig.qrisNmid || 'ID1020000000000'}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Detail Merchant & Tagihan Pas */}
+                          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-left space-y-1.5">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-slate-500">Merchant / Akun:</span>
+                              <span className="font-bold text-slate-900">{paymentConfig.qrisMerchantName || 'SMK GARUDA MAHADHIKA'}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-slate-500">Nominal Tagihan Pas:</span>
+                              <span className="font-mono font-black text-rose-600 text-base">
+                                Rp {(getTrackConfig(paymentConfig, jalur).totalAmount || 0).toLocaleString('id-ID')}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Supported Banks & E-Wallets Info */}
+                          <div className="pt-1 text-[10px] text-slate-500 leading-relaxed">
+                            Bisa di-scan dari <strong>BCA Mobile, Livin&apos; Mandiri, BRImo, BNI, GoPay, OVO, DANA, ShopeePay, LinkAja</strong> &amp; semua aplikasi perbankan digital.
+                          </div>
+                        </div>
+
+                        <div>
+                          <FileUpload
+                            name="paymentProof"
+                            label="Unggah Tangkapan Layar (Screenshot) Bukti QRIS (Wajib)"
+                            colorTheme="purple"
+                            helperText="Screenshot status transaksi berhasil dari aplikasi e-wallet / m-banking (Maks: 4.5MB)"
+                            required={true}
+                            onChange={(url: string) => setTransferProofUrl(url)}
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handlePayQRIS}
+                          disabled={isSubmitting || !transferProofUrl}
+                          className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-purple-600/25"
+                        >
+                          {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                          <span>Konfirmasi Pembayaran QRIS</span>
+                        </button>
+                      </div>
+                    )}
 
                     {/* Mode Transfer */}
                     {payMethod === 'TRANSFER' && (

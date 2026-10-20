@@ -89,9 +89,11 @@ export default async function PPDBSucceessPage({
                   <Clock size={24} />
                 </div>
                 <div>
-                  <h4 className="font-extrabold text-amber-950 text-base">Menunggu Verifikasi Bukti Transfer</h4>
+                  <h4 className="font-extrabold text-amber-950 text-base">
+                    {paymentMethod === 'QRIS' ? 'Menunggu Verifikasi Bukti Pembayaran QRIS' : 'Menunggu Verifikasi Bukti Transfer'}
+                  </h4>
                   <p className="text-xs text-amber-700 mt-0.5">
-                    Bukti transfer telah Anda kirimkan dan sedang dalam antrean pemeriksaan oleh bendahara/panitia PPDB (maks. 1x24 jam).
+                    Bukti {paymentMethod === 'QRIS' ? 'transaksi QRIS' : 'transfer'} telah Anda kirimkan dan sedang dalam antrean pemeriksaan oleh bendahara/panitia PPDB (maks. 1x24 jam).
                   </p>
                   {applicant?.paymentProof && (
                     <div className="mt-2">
@@ -101,7 +103,7 @@ export default async function PPDBSucceessPage({
                         rel="noreferrer" 
                         className="text-xs text-blue-600 font-bold underline hover:text-blue-800 inline-flex items-center gap-1"
                       >
-                        Lihat Bukti Transfer yang Diunggah &rarr;
+                        Lihat Bukti {paymentMethod === 'QRIS' ? 'QRIS' : 'Transfer'} yang Diunggah &rarr;
                       </a>
                     </div>
                   )}
@@ -212,7 +214,7 @@ export default async function PPDBSucceessPage({
               <div>
                 <span className="text-slate-400 block text-xs">Metode Pembayaran</span>
                 <span className="font-bold text-slate-900">
-                  {paymentMethod === 'CASH' ? 'Tunai di Loket Sekolah' : paymentMethod === 'TRANSFER' ? 'Transfer Bank / QRIS' : 'Gratis / Beasiswa'}
+                  {paymentMethod === 'CASH' ? 'Tunai di Loket PPDB' : paymentMethod === 'QRIS' ? 'QRIS (E-Wallet & M-Banking)' : paymentMethod === 'TRANSFER' ? 'Transfer Bank' : 'Gratis / Beasiswa'}
                 </span>
               </div>
               <div>
