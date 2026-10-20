@@ -235,4 +235,13 @@ button:active:not(:disabled),
   will-change: transform;
 }
 
+@keyframes shrinkWidth {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+.animate-shrink-width {
+  animation-name: shrinkWidth;
+}
+
 

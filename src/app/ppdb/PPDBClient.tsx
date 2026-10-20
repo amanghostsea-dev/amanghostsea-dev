@@ -37,6 +37,7 @@ import Image from "next/image";
 import { useRouter } from 'next/navigation';
 import FileUpload from '@/components/FileUpload';
 import { PPDBPaymentConfig, DEFAULT_PPDB_PAYMENT_CONFIG, getTrackConfig } from '@/app/admin/settings/types';
+import { useNotification } from '@/components/NotificationProvider';
 
 export interface JurusanItem {
   id?: string;
@@ -122,6 +123,7 @@ export default function PPDBClient({
   paymentConfig?: PPDBPaymentConfig;
 }) {
   const router = useRouter();
+  const { success, warning, error: notifyError, info, confirm, celebrate } = useNotification();
 
   // Active Theme State
   const [theme, setTheme] = useState<PPDBTheme>(defaultTheme || 'cyber-cards');
@@ -191,32 +193,32 @@ export default function PPDBClient({
 
   const handleStep2Next = () => {
     if (!formDataState.fullName.trim() || formDataState.fullName.trim().length < 3) {
-      alert('Nama lengkap calon siswa wajib diisi minimal 3 karakter.');
+      warning('Nama Lengkap Belum Valid', 'Nama lengkap calon siswa wajib diisi minimal 3 karakter.');
       return;
     }
     if (!/^\d{10}$/.test(formDataState.nisn.trim())) {
-      alert('Format NISN tidak valid! NISN harus terdiri dari tepat 10 digit angka (contoh: 0071234567).');
+      warning('Format NISN Tidak Valid', 'NISN harus terdiri dari tepat 10 digit angka resmi (contoh: 0071234567).');
       return;
     }
     if (!formDataState.gender) {
-      alert('Silakan pilih jenis kelamin.');
+      warning('Jenis Kelamin Wajib Dipilih', 'Silakan tentukan jenis kelamin calon siswa.');
       return;
     }
     const cleanPhone = formDataState.phone.replace(/[\s-]/g, '').trim();
     if (!/^(08|\+62|62)\d{8,12}$/.test(cleanPhone)) {
-      alert('Format nomor WhatsApp tidak valid! Harap masukkan nomor aktif yang diawali 08 (10-14 digit).');
+      warning('Nomor WhatsApp Tidak Valid', 'Harap masukkan nomor WhatsApp aktif yang diawali 08 (10-14 digit angka).');
       return;
     }
     if (!formDataState.birthInfo.trim()) {
-      alert('Tempat dan tanggal lahir wajib diisi.');
+      warning('Tempat & Tanggal Lahir Kosong', 'Tempat dan tanggal lahir calon siswa wajib diisi.');
       return;
     }
     if (!formDataState.previousSchool.trim()) {
-      alert('Nama asal sekolah (SMP/MTs) wajib diisi.');
+      warning('Asal Sekolah Kosong', 'Nama asal sekolah (SMP/MTs) wajib diisi.');
       return;
     }
     if (!formDataState.address.trim()) {
-      alert('Alamat tempat tinggal wajib diisi.');
+      warning('Alamat Kosong', 'Alamat tempat tinggal calon siswa wajib diisi.');
       return;
     }
     setCurrentStep(3);
@@ -233,6 +235,7 @@ export default function PPDBClient({
   const handleCopy = (text: string, bank: string) => {
     navigator.clipboard.writeText(text);
     setCopiedBank(bank);
+    info('Tersalin ke Papan Klip', `Nomor rekening ${text} berhasil disalin.`);
     setTimeout(() => setCopiedBank(null), 2500);
   };
 
@@ -265,21 +268,21 @@ export default function PPDBClient({
     // Validasi Keamanan & Format Ketat
     const rawFullName = String(data.fullName || '').trim();
     if (rawFullName.length < 3) {
-      alert('Nama lengkap calon siswa wajib diisi minimal 3 karakter.');
+      warning('Nama Lengkap Belum Valid', 'Nama lengkap calon siswa wajib diisi minimal 3 karakter.');
       setIsSubmitting(false);
       return;
     }
 
     const rawNisn = String(data.nisn || '').trim();
     if (!/^\d{10}$/.test(rawNisn)) {
-      alert('Format NISN tidak valid! NISN harus terdiri dari tepat 10 digit angka (contoh: 0071234567).');
+      warning('Format NISN Tidak Valid', 'Format NISN harus terdiri dari tepat 10 digit angka (contoh: 0071234567).');
       setIsSubmitting(false);
       return;
     }
 
     const rawPhone = String(data.phone || '').replace(/[\s-]/g, '').trim();
     if (!/^(08|\+62|62)\d{8,12}$/.test(rawPhone)) {
-      alert('Format nomor WhatsApp / HP tidak valid! Harap masukkan nomor aktif yang diawali 08... (10 - 14 digit angka).');
+      warning('Nomor WhatsApp Tidak Valid', 'Harap masukkan nomor WhatsApp aktif yang diawali 08 (10 - 14 digit angka).');
       setIsSubmitting(false);
       return;
     }
@@ -290,17 +293,17 @@ export default function PPDBClient({
       const docAfirmasi = (data.documentAfirmasi as string || '').trim();
 
       if (afirmasiType === 'kip' && !docKip) {
-        alert('Silakan unggah Berkas / Foto Kartu Indonesia Pintar (KIP) terlebih dahulu.');
+        warning('Berkas KIP Diperlukan', 'Silakan unggah Berkas / Foto Kartu Indonesia Pintar (KIP) terlebih dahulu.');
         setIsSubmitting(false);
         return;
       }
       if (afirmasiType === 'sktm' && !docAfirmasi) {
-        alert('Silakan unggah Surat Keterangan Tidak Mampu (SKTM) dari pihak berwenang terlebih dahulu.');
+        warning('Surat SKTM Diperlukan', 'Silakan unggah Surat Keterangan Tidak Mampu (SKTM) dari pihak berwenang terlebih dahulu.');
         setIsSubmitting(false);
         return;
       }
       if (afirmasiType === 'both' && !docKip && !docAfirmasi) {
-        alert('Silakan unggah minimal salah satu berkas afirmasi: Berkas Kartu KIP atau Surat SKTM.');
+        warning('Berkas Afirmasi Diperlukan', 'Silakan unggah minimal salah satu berkas afirmasi: Berkas Kartu KIP atau Surat SKTM.');
         setIsSubmitting(false);
         return;
       }
@@ -309,10 +312,29 @@ export default function PPDBClient({
     if (jalur === 'beasiswa') {
       const docPrestasi = data.documentPrestasi as string;
       if (!docPrestasi || docPrestasi === '[]' || docPrestasi.trim() === '') {
-        alert('Silakan unggah minimal 1 berkas bukti prestasi (surat ranking kelas / piagam / sertifikat) terlebih dahulu.');
+        warning('Bukti Prestasi Diperlukan', 'Silakan unggah minimal 1 berkas bukti prestasi (surat ranking kelas / piagam / sertifikat) terlebih dahulu.');
         setIsSubmitting(false);
         return;
       }
+    }
+
+    const confirmed = await confirm({
+      title: 'Konfirmasi Pengiriman Berkas PPDB',
+      message: 'Periksa kembali data diri dan pilihan kompetensi keahlian Anda. Setelah dikirim, data akan masuk resmi ke antrean panitia seleksi.',
+      confirmText: 'Ya, Kirim Pendaftaran',
+      cancelText: 'Periksa Kembali',
+      icon: 'shield',
+      details: [
+        { label: 'Calon Siswa', value: rawFullName },
+        { label: 'NISN', value: rawNisn },
+        { label: 'Pilihan Jurusan', value: data.major },
+        { label: 'Jalur Masuk', value: jalur === 'afirmasi' ? 'Afirmasi (KIP / SKTM)' : jalur === 'beasiswa' ? 'Prestasi / Beasiswa' : 'Reguler' },
+      ],
+    });
+
+    if (!confirmed) {
+      setIsSubmitting(false);
+      return;
     }
 
     try {
@@ -327,13 +349,15 @@ export default function PPDBClient({
       const result = await res.json();
 
       if (!res.ok) {
-        alert(result.error || 'Terjadi kesalahan saat menyimpan data pendaftaran.');
+        notifyError('Pendaftaran Gagal Disimpan', result.error || 'Terjadi kesalahan saat menyimpan data pendaftaran.');
         setIsSubmitting(false);
         return;
       }
 
       setApplicantData(result.applicant);
       setIsSubmitting(false);
+      success('Pendaftaran Berhasil Dikirim!', `Data calon siswa ${rawFullName} telah berhasil tercatat dalam sistem.`);
+      celebrate();
 
       const trackConfig = getTrackConfig(paymentConfig, jalur);
       const isFeeRequired = paymentConfig.enabled && trackConfig.enabled && trackConfig.totalAmount > 0;
@@ -344,16 +368,32 @@ export default function PPDBClient({
         router.push(`/ppdb/success?id=${result.applicant.id}&name=${encodeURIComponent(result.applicant.fullName)}`);
       }
     } catch (error) {
-      alert('Gagal menghubungi server. Silakan periksa koneksi internet Anda.');
+      notifyError('Gangguan Jaringan', 'Gagal menghubungi server. Silakan periksa koneksi internet Anda.');
       setIsSubmitting(false);
     }
   };
 
   const handlePayQRIS = async () => {
     if (!transferProofUrl) {
-      alert('Silakan unggah tangkapan layar (screenshot) bukti pembayaran QRIS Anda terlebih dahulu.');
+      warning('Unggah Bukti Diperlukan', 'Silakan unggah tangkapan layar (screenshot) bukti pembayaran QRIS Anda terlebih dahulu.');
       return;
     }
+
+    const confirmed = await confirm({
+      title: 'Konfirmasi Pembayaran QRIS',
+      message: 'Apakah bukti transfer QRIS sudah sesuai dengan nominal tagihan resmi sekolah?',
+      confirmText: 'Ya, Konfirmasi Pembayaran',
+      cancelText: 'Periksa Kembali',
+      icon: 'shield',
+      details: [
+        { label: 'Calon Siswa', value: applicantData?.fullName || '-' },
+        { label: 'Nominal Tagihan', value: `Rp ${(getTrackConfig(paymentConfig, jalur).totalAmount || 0).toLocaleString('id-ID')}` },
+        { label: 'Metode Pembayaran', value: 'Scan QRIS Digital' }
+      ]
+    });
+
+    if (!confirmed) return;
+
     setIsSubmitting(true);
     try {
       const res = await fetch('/api/ppdb/pay', {
@@ -370,20 +410,38 @@ export default function PPDBClient({
       if (!res.ok) throw new Error('Gagal mengirim bukti pembayaran QRIS');
       setIsSubmitting(false);
       setPaymentSuccess(true);
+      success('Pembayaran QRIS Berhasil Dikirim!', 'Mengarahkan ke kartu bukti registrasi Anda...');
+      celebrate();
       setTimeout(() => {
         router.push(`/ppdb/success?id=${applicantData.id}&name=${encodeURIComponent(applicantData.fullName)}&method=QRIS`);
       }, 1200);
     } catch (err: any) {
-      alert(err.message || 'Gagal menghubungi server untuk verifikasi pembayaran QRIS');
+      notifyError('Gagal Memproses', err.message || 'Gagal menghubungi server untuk verifikasi pembayaran QRIS');
       setIsSubmitting(false);
     }
   };
 
   const handlePayTransfer = async () => {
     if (!transferProofUrl) {
-      alert('Silakan unggah struk atau bukti transfer terlebih dahulu.');
+      warning('Unggah Bukti Diperlukan', 'Silakan unggah struk atau bukti transfer bank terlebih dahulu.');
       return;
     }
+
+    const confirmed = await confirm({
+      title: 'Konfirmasi Pembayaran Transfer Bank',
+      message: 'Pastikan bukti transfer yang diunggah sah dan nominal sesuai tagihan.',
+      confirmText: 'Ya, Konfirmasi Pembayaran',
+      cancelText: 'Periksa Kembali',
+      icon: 'shield',
+      details: [
+        { label: 'Calon Siswa', value: applicantData?.fullName || '-' },
+        { label: 'Nominal Tagihan', value: `Rp ${(getTrackConfig(paymentConfig, jalur).totalAmount || 0).toLocaleString('id-ID')}` },
+        { label: 'Metode Pembayaran', value: 'Transfer Rekening Bank' }
+      ]
+    });
+
+    if (!confirmed) return;
+
     setIsSubmitting(true);
     try {
       const res = await fetch('/api/ppdb/pay', {
@@ -400,16 +458,33 @@ export default function PPDBClient({
       if (!res.ok) throw new Error('Gagal mengirim bukti pembayaran');
       setIsSubmitting(false);
       setPaymentSuccess(true);
+      success('Pembayaran Transfer Berhasil Dikirim!', 'Mengarahkan ke kartu bukti registrasi Anda...');
+      celebrate();
       setTimeout(() => {
         router.push(`/ppdb/success?id=${applicantData.id}&name=${encodeURIComponent(applicantData.fullName)}&method=TRANSFER`);
       }, 1200);
     } catch (err: any) {
-      alert(err.message || 'Gagal menghubungi server untuk verifikasi pembayaran');
+      notifyError('Gagal Memproses', err.message || 'Gagal menghubungi server untuk verifikasi pembayaran');
       setIsSubmitting(false);
     }
   };
 
   const handlePayCash = async () => {
+    const confirmed = await confirm({
+      title: 'Konfirmasi Bayar Tunai di Loket',
+      message: 'Sistem akan menerbitkan Kode Booking Kasir PPDB. Pembayaran dilakukan langsung di loket kasir sekolah.',
+      confirmText: 'Ya, Dapatkan Kode Booking',
+      cancelText: 'Batal',
+      icon: 'shield',
+      details: [
+        { label: 'Calon Siswa', value: applicantData?.fullName || '-' },
+        { label: 'Nominal Pas', value: `Rp ${(getTrackConfig(paymentConfig, jalur).totalAmount || 0).toLocaleString('id-ID')}` },
+        { label: 'Metode', value: 'Tunai di Loket Kasir PPDB' }
+      ]
+    });
+
+    if (!confirmed) return;
+
     setIsSubmitting(true);
     try {
       const res = await fetch('/api/ppdb/pay', {
@@ -425,11 +500,13 @@ export default function PPDBClient({
       if (!res.ok) throw new Error('Gagal memilih metode bayar tunai');
       setIsSubmitting(false);
       setPaymentSuccess(true);
+      success('Kode Booking Pembayaran Tunai Diterbitkan!', 'Mengarahkan ke halaman bukti registrasi...');
+      celebrate();
       setTimeout(() => {
         router.push(`/ppdb/success?id=${applicantData.id}&name=${encodeURIComponent(applicantData.fullName)}&method=CASH`);
       }, 1200);
     } catch (err: any) {
-      alert(err.message || 'Gagal menghubungi server');
+      notifyError('Gagal Memproses', err.message || 'Gagal menghubungi server');
       setIsSubmitting(false);
     }
   };

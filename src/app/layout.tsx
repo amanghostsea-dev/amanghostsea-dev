@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Chatbot from "@/components/Chatbot";
+import { NotificationProvider } from "@/components/NotificationProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,10 +34,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col relative">
-        <div className="flex-grow flex flex-col">
-          {children}
-        </div>
-        <Chatbot />
+        <NotificationProvider>
+          <div className="flex-grow flex flex-col">
+            {children}
+          </div>
+          <Chatbot />
+        </NotificationProvider>
       </body>
     </html>
   );

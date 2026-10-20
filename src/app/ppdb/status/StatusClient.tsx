@@ -29,6 +29,7 @@ import {
 
 import { PPDBPaymentConfig, getTrackConfig } from '@/app/admin/settings/types';
 import FileUpload from '@/components/FileUpload';
+import { useNotification } from '@/components/NotificationProvider';
 
 interface ApplicantData {
   id: string;
@@ -87,6 +88,8 @@ export default function StatusClient({ schoolName, contactPhone = '082246464677'
   const [applicant, setApplicant] = useState<ApplicantData | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const { success, warning, error: notifyError, info, confirm, celebrate } = useNotification();
+
   // Payment Modal State
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [payMethod, setPayMethod] = useState<'TRANSFER' | 'QRIS' | 'CASH'>('TRANSFER');
@@ -102,6 +105,7 @@ export default function StatusClient({ schoolName, contactPhone = '082246464677'
   const handleCopy = (text: string, bank: string) => {
     navigator.clipboard.writeText(text);
     setCopiedBank(bank);
+    info('Tersalin ke Papan Klip', `Nomor rekening ${text} berhasil disalin.`);
     setTimeout(() => setCopiedBank(null), 2500);
   };
 
@@ -109,9 +113,29 @@ export default function StatusClient({ schoolName, contactPhone = '082246464677'
     if (!applicant) return;
 
     if ((payMethod === 'TRANSFER' || payMethod === 'QRIS') && !transferProofUrl) {
-      alert(`Silakan unggah foto struk / tangkapan layar (screenshot) bukti pembayaran ${payMethod === 'QRIS' ? 'QRIS' : 'transfer bank'} terlebih dahulu.`);
+      warning(
+        'Unggah Bukti Diperlukan',
+        `Silakan unggah foto struk atau screenshot bukti pembayaran ${payMethod === 'QRIS' ? 'QRIS' : 'transfer bank'} terlebih dahulu.`
+      );
       return;
     }
+
+    const confirmed = await confirm({
+      title: 'Konfirmasi Pembayaran PPDB',
+      message: 'Pastikan data dan bukti pembayaran telah sesuai sebelum dikirimkan ke sistem panitia keuangan.',
+      confirmText: 'Ya, Kirimkan Bukti',
+      cancelText: 'Periksa Kembali',
+      icon: 'shield',
+      details: [
+        { label: 'Calon Siswa', value: applicant.fullName },
+        { label: 'NISN', value: applicant.nisn },
+        { label: 'Jalur', value: trackConfig?.title || applicant.jalur },
+        { label: 'Total Tagihan', value: `Rp ${expectedAmount.toLocaleString('id-ID')}` },
+        { label: 'Metode Pembayaran', value: payMethod === 'QRIS' ? 'Scan QRIS Digital' : payMethod === 'CASH' ? 'Tunai di Loket Kasir PPDB' : 'Transfer Bank Resmi' }
+      ]
+    });
+
+    if (!confirmed) return;
 
     setIsSubmittingPay(true);
     try {
@@ -133,7 +157,11 @@ export default function StatusClient({ schoolName, contactPhone = '082246464677'
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || 'Gagal memperbarui status pembayaran');
 
-      alert('Berhasil! Bukti pembayaran pendaftaran Anda telah berhasil dikirim dan tersimpan di sistem.');
+      success(
+        'Pembayaran Berhasil Dikirim!',
+        'Bukti pembayaran Anda telah tersimpan dan masuk antrean verifikasi panitia keuangan.'
+      );
+      celebrate();
       setShowPaymentModal(false);
       setTransferProofUrl('');
       // Refetch applicant status in realtime
@@ -141,7 +169,7 @@ export default function StatusClient({ schoolName, contactPhone = '082246464677'
         await fetchStatus(searchQuery);
       }
     } catch (err: any) {
-      alert(err.message || 'Terjadi kesalahan saat memproses pembayaran');
+      notifyError('Gagal Memproses Pembayaran', err.message || 'Terjadi kesalahan sistem saat memproses pembayaran');
     } finally {
       setIsSubmittingPay(false);
     }

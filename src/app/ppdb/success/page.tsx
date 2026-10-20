@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { CheckCircle2, Clock, AlertTriangle, Building, Banknote, CreditCard, ArrowLeft, Download, Printer, Search, Phone } from "lucide-react";
 import PrintButton from "./PrintButton";
+import SuccessNotificationBanner from "./SuccessNotificationBanner";
 import { getPPDBPaymentConfig } from "@/app/admin/settings/actions";
 import { getTrackConfig } from "@/app/admin/settings/types";
 
@@ -45,6 +46,16 @@ export default async function PPDBSucceessPage({
       
       {/* Container */}
       <div className="max-w-2xl mx-auto">
+
+        {/* Futuristic Confirmation Notification Banner */}
+        <SuccessNotificationBanner
+          name={name}
+          regId={regId}
+          nisn={nisn}
+          jalur={jalur}
+          paymentStatus={paymentStatus}
+          paymentMethod={paymentMethod}
+        />
 
         {/* Printable Card */}
         <div id="print-area" className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden print:border-none print:shadow-none p-6 sm:p-10 mb-6">
