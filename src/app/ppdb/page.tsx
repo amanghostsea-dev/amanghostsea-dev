@@ -13,7 +13,12 @@ export async function generateMetadata() {
 
 export const dynamic = "force-dynamic";
 
-export default async function PPDBPage() {
+export default async function PPDBPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ theme?: string }>;
+}) {
+  const resolvedParams = searchParams ? await searchParams : {};
   const [settings, jurusanList] = await Promise.all([
     getWebSettings(),
     prisma.jurusan.findMany({
@@ -22,7 +27,14 @@ export default async function PPDBPage() {
   ]);
 
   const schoolName = settings?.schoolName || "SMK GaMa";
+  const defaultTheme = (resolvedParams?.theme || settings?.ppdbTheme || "cyber-cards") as 'cyber-cards' | 'stepper' | 'dark-glass';
   
-  return <PPDBClient schoolName={schoolName} jurusanList={jurusanList} />;
+  return (
+    <PPDBClient 
+      schoolName={schoolName} 
+      jurusanList={jurusanList} 
+      defaultTheme={defaultTheme} 
+    />
+  );
 }
 

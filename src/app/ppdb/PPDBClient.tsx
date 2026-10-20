@@ -13,24 +13,24 @@ import {
   Award, 
   HeartHandshake, 
   Loader2, 
-  QrCode, 
   Sparkles, 
   Check, 
   ShieldCheck, 
   ChevronRight,
-  Layers,
+  ChevronLeft,
   ArrowLeft,
   Copy,
   Banknote,
   Building,
-  AlertCircle,
-  Clock,
-  ExternalLink,
-  FileCheck,
   FileText,
-  Search
+  Search,
+  Radio,
+  Cpu,
+  Layers,
+  GraduationCap
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from 'next/navigation';
 import FileUpload from '@/components/FileUpload';
 
@@ -42,14 +42,89 @@ export interface JurusanItem {
   description?: string;
 }
 
+export type PPDBTheme = 'cyber-cards' | 'stepper' | 'dark-glass';
+
+interface JurusanEmblemInfo {
+  code: string;
+  name: string;
+  title: string;
+  tagline: string;
+  badge: string;
+  image: string;
+  accent: string;
+  borderActive: string;
+  bgActive: string;
+  textColor: string;
+  glow: string;
+  iconBg: string;
+}
+
+const JURUSAN_EMBLEMS: Record<string, JurusanEmblemInfo> = {
+  TJKT: {
+    code: 'TJKT',
+    name: 'Teknik Jaringan Komputer & Telekomunikasi',
+    title: 'TJKT Garuda Mahadhika',
+    tagline: 'Cybersecurity, Cloud Infrastructure & Fiber Telecom Network',
+    badge: 'Akreditasi A • Kuota 72 Siswa',
+    image: '/images/emblem/tjkt.png',
+    accent: '#dc2626',
+    borderActive: 'border-red-500 ring-2 ring-red-500/20',
+    bgActive: 'bg-red-50/80 dark:bg-red-950/30',
+    textColor: 'text-red-600 dark:text-red-400',
+    glow: 'rgba(220, 38, 38, 0.4)',
+    iconBg: 'from-red-600 to-rose-700',
+  },
+  DKV: {
+    code: 'DKV',
+    name: 'Desain Komunikasi Visual',
+    title: 'DKV Garuda Mahadhika',
+    tagline: 'Creative Multimedia, UI/UX Design, 3D Motion & Digital Arts',
+    badge: 'Akreditasi A • Kuota 72 Siswa',
+    image: '/images/emblem/dkv.png',
+    accent: '#9333ea',
+    borderActive: 'border-purple-500 ring-2 ring-purple-500/20',
+    bgActive: 'bg-purple-50/80 dark:bg-purple-950/30',
+    textColor: 'text-purple-600 dark:text-purple-400',
+    glow: 'rgba(147, 51, 234, 0.4)',
+    iconBg: 'from-purple-600 to-fuchsia-700',
+  },
+  MPLB: {
+    code: 'MPLB',
+    name: 'Manajemen Perkantoran & Layanan Bisnis',
+    title: 'MPLB Garuda Mahadhika',
+    tagline: 'Modern Corporate Governance, Digital Business & Administration',
+    badge: 'Akreditasi A • Kuota 72 Siswa',
+    image: '/images/emblem/mplb.png',
+    accent: '#0284c7',
+    borderActive: 'border-sky-500 ring-2 ring-sky-500/20',
+    bgActive: 'bg-sky-50/80 dark:bg-sky-950/30',
+    textColor: 'text-sky-600 dark:text-sky-400',
+    glow: 'rgba(2, 132, 199, 0.4)',
+    iconBg: 'from-sky-600 to-blue-700',
+  },
+};
+
 export default function PPDBClient({ 
   schoolName = "SMK GaMa",
-  jurusanList = []
+  jurusanList = [],
+  defaultTheme = 'cyber-cards'
 }: { 
   schoolName?: string;
   jurusanList?: JurusanItem[];
+  defaultTheme?: PPDBTheme;
 }) {
   const router = useRouter();
+
+  // Active Theme State (Switchable by admin / user preview)
+  const [theme, setTheme] = useState<PPDBTheme>(defaultTheme || 'cyber-cards');
+
+  // Selected Jurusan for Dynamic Emblems & Watermark
+  const [selectedMajor, setSelectedMajor] = useState<string>('TJKT');
+
+  // Stepper Current Step (for Theme 2: Stepper)
+  const [currentStep, setCurrentStep] = useState<number>(1);
+
+  // Form States
   const [jalur, setJalur] = useState<'normal' | 'afirmasi' | 'beasiswa'>('normal');
   const [afirmasiType, setAfirmasiType] = useState<'kip' | 'sktm' | 'both'>('kip');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -57,11 +132,13 @@ export default function PPDBClient({
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [applicantData, setApplicantData] = useState<any>(null);
 
-  // Metode Pembayaran State (Transfer vs Cash)
+  // Payment State (Transfer vs Cash)
   const [payMethod, setPayMethod] = useState<'TRANSFER' | 'CASH'>('TRANSFER');
   const [transferProofUrl, setTransferProofUrl] = useState<string>('');
   const [transferNotes, setTransferNotes] = useState<string>('');
   const [copiedBank, setCopiedBank] = useState<string | null>(null);
+
+  const activeMajorData = JURUSAN_EMBLEMS[selectedMajor] || JURUSAN_EMBLEMS.TJKT;
 
   const handleCopy = (text: string, bank: string) => {
     navigator.clipboard.writeText(text);
@@ -75,8 +152,13 @@ export default function PPDBClient({
 
     const formData = new FormData(e.currentTarget);
     const data = Object.fromEntries(formData.entries());
+
+    // Pastikan major terisi dari kartu terpilih jika belum ada
+    if (!data.major) {
+      data.major = selectedMajor;
+    }
     
-    // Validasi Dokumen Wajib per Jalur Khusus (Jalur reguler tidak mewajibkan unggah berkas awal)
+    // Validasi Dokumen Wajib per Jalur Khusus
     if (jalur === 'afirmasi') {
       const docKip = (data.documentKip as string || '').trim();
       const docAfirmasi = (data.documentAfirmasi as string || '').trim();
@@ -119,7 +201,7 @@ export default function PPDBClient({
       const result = await res.json();
 
       if (!res.ok) {
-        alert(result.error || 'Terjadi kesalahan');
+        alert(result.error || 'Terjadi kesalahan saat menyimpan data pendaftaran.');
         setIsSubmitting(false);
         return;
       }
@@ -133,7 +215,7 @@ export default function PPDBClient({
         router.push(`/ppdb/success?id=${result.applicant.id}&name=${encodeURIComponent(result.applicant.fullName)}`);
       }
     } catch (error) {
-      alert('Gagal menghubungi server');
+      alert('Gagal menghubungi server. Silakan periksa koneksi internet Anda.');
       setIsSubmitting(false);
     }
   };
@@ -193,1037 +275,1100 @@ export default function PPDBClient({
     }
   };
 
+  const isDarkMode = theme === 'dark-glass';
+
   return (
-    <div className="min-h-screen bg-slate-100/90 font-sans py-10 sm:py-16 relative overflow-hidden text-slate-800">
-      
-      {/* 3D Ambient Lighting & Spatial Background Effects */}
-      <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none opacity-60" />
-      <div className="absolute -top-36 left-1/2 -translate-x-1/2 w-[850px] h-[450px] bg-gradient-to-tr from-blue-400/20 via-indigo-400/15 to-purple-400/15 blur-[120px] rounded-full pointer-events-none -z-0" />
-      <div className="absolute top-[550px] -left-28 w-[450px] h-[450px] bg-blue-300/15 blur-[110px] rounded-full pointer-events-none -z-0" />
-      <div className="absolute top-[950px] -right-28 w-[450px] h-[450px] bg-indigo-300/15 blur-[110px] rounded-full pointer-events-none -z-0" />
+    <div className={`min-h-screen font-sans relative overflow-hidden transition-colors duration-700 ${
+      isDarkMode 
+        ? 'bg-[#070b14] text-white selection:bg-cyan-500/30 selection:text-cyan-200' 
+        : 'bg-slate-100/95 text-slate-800 selection:bg-blue-500/20'
+    }`}>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      {/* =========================================================================
+          FLOATING ADMIN / LIVE THEME SWITCHER TOOLBAR
+          ========================================================================= */}
+      <aside aria-label="PPDB Theme Selector" className="fixed top-4 right-4 z-50 flex items-center gap-1.5 p-1.5 rounded-2xl backdrop-blur-xl bg-slate-950/85 border border-white/20 shadow-2xl text-xs text-white">
+        <span className="text-[11px] font-mono font-bold text-slate-400 px-2 flex items-center gap-1.5 hidden sm:flex">
+          <Sparkles size={13} className="text-amber-400 animate-spin-slow" />
+          <span>TEMA PPDB:</span>
+        </span>
+
+        <button
+          type="button"
+          onClick={() => setTheme('cyber-cards')}
+          className={`py-1.5 px-3 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            theme === 'cyber-cards'
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-500/40'
+              : 'text-slate-400 hover:text-white hover:bg-white/10'
+          }`}
+          title="Kartu Jurusan 3D dengan Logo Transparan & Aura Dinamis"
+        >
+          <Layers size={13} />
+          <span>1. 3D Cards</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setTheme('stepper')}
+          className={`py-1.5 px-3 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            theme === 'stepper'
+              ? 'bg-purple-600 text-white shadow-md shadow-purple-500/40'
+              : 'text-slate-400 hover:text-white hover:bg-white/10'
+          }`}
+          title="Formulir Bertahap 4 Langkah dengan Progress Bar Neon"
+        >
+          <Cpu size={13} />
+          <span>2. Stepper</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setTheme('dark-glass')}
+          className={`py-1.5 px-3 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            theme === 'dark-glass'
+              ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/30'
+              : 'text-slate-400 hover:text-white hover:bg-white/10'
+          }`}
+          title="Tema Gelap Cyberpunk Senada dengan Halaman Login"
+        >
+          <Radio size={13} />
+          <span>3. Dark Glass</span>
+        </button>
+      </aside>
+
+      {/* =========================================================================
+          BACKGROUND LAYER: Dynamic Grid & Giant Floating Transparent Watermark
+          ========================================================================= */}
+      <div 
+        className={`absolute inset-0 pointer-events-none ${isDarkMode ? 'opacity-20' : 'opacity-40'}`}
+        style={{
+          backgroundImage: isDarkMode
+            ? `linear-gradient(to right, rgba(255, 255, 255, 0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(255, 255, 255, 0.08) 1px, transparent 1px)`
+            : `radial-gradient(#94a3b8 1px, transparent 1px)`,
+          backgroundSize: isDarkMode ? '40px 40px' : '24px 24px',
+        }}
+      />
+
+      {/* Ambient Radial Aura matching Selected Jurusan */}
+      <div 
+        className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] sm:w-[900px] sm:h-[900px] rounded-full blur-[150px] pointer-events-none transition-all duration-1000 animate-pulse-glow"
+        style={{
+          background: `radial-gradient(circle, ${activeMajorData.glow} 0%, rgba(0,0,0,0) 70%)`
+        }}
+      />
+
+      {/* Giant Transparent Watermark of the Chosen Garuda Mahadhika Crest */}
+      <div className="fixed inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0">
+        <div className="absolute w-[500px] h-[500px] sm:w-[700px] sm:h-[700px] rounded-full border border-white/5 animate-spin-slow" />
+        <div 
+          className="relative w-[340px] h-[340px] sm:w-[580px] sm:h-[580px] lg:w-[720px] lg:h-[720px] transition-all duration-1000 transform animate-float"
+          style={{ opacity: isDarkMode ? 0.12 : 0.07 }}
+        >
+          <Image
+            src={activeMajorData.image}
+            alt={activeMajorData.title}
+            fill
+            sizes="(max-width: 768px) 340px, (max-width: 1200px) 580px, 720px"
+            className="object-contain filter drop-shadow-[0_0_60px_rgba(255,255,255,0.2)]"
+            priority
+          />
+        </div>
+      </div>
+
+      {/* =========================================================================
+          TOP NAVIGATION BAR
+          ========================================================================= */}
+      <header className={`relative z-20 w-full px-6 py-4 flex items-center justify-between border-b backdrop-blur-md transition-colors ${
+        isDarkMode 
+          ? 'border-white/10 bg-slate-950/60' 
+          : 'border-slate-200/80 bg-white/70 shadow-xs'
+      }`}>
+        <Link 
+          href="/" 
+          className={`group inline-flex items-center gap-2 text-xs sm:text-sm font-semibold transition-colors py-1.5 px-3 rounded-xl border ${
+            isDarkMode 
+              ? 'text-slate-300 hover:text-white border-white/10 hover:border-white/25 bg-white/5' 
+              : 'text-slate-700 hover:text-blue-600 border-slate-200 hover:border-blue-300 bg-white shadow-xs'
+          }`}
+        >
+          <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-1" />
+          <span>Kembali ke Beranda</span>
+        </Link>
+
+        <div className="flex items-center gap-3">
+          <Link 
+            href="/ppdb/status" 
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-cyan-400 hover:underline py-1 px-2.5 rounded-lg"
+          >
+            <Search size={14} />
+            <span>Cek Status & Verifikasi</span>
+          </Link>
+          <Link 
+            href="/login" 
+            className={`hidden sm:inline-flex items-center gap-1 text-xs font-mono font-semibold py-1.5 px-3 rounded-lg border transition-all ${
+              isDarkMode 
+                ? 'border-white/10 hover:border-white/30 text-slate-300' 
+                : 'border-slate-200 hover:border-slate-300 text-slate-600'
+            }`}
+          >
+            <span>Portal Petugas</span>
+          </Link>
+        </div>
+      </header>
+
+      {/* =========================================================================
+          HERO BANNER: The 3 Garuda Mahadhika Emblems in Glowing Spotlight
+          ========================================================================= */}
+      <section className="relative z-10 pt-8 pb-6 px-4 text-center max-w-5xl mx-auto">
         
-        {/* Top Header */}
-        <div className="text-center mb-10">
-          <div className="flex flex-wrap items-center justify-center gap-3 mb-6">
-            <a 
-              href="https://smkgama.sch.id" 
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/80 hover:bg-white text-slate-700 font-semibold text-sm shadow-sm hover:shadow-md border border-slate-200/80 transition-all duration-200 group"
-            >
-              <ArrowLeft size={16} className="group-hover:-translate-x-0.5 transition-transform" />
-              <span>Kembali ke Beranda</span>
-            </a>
+        {/* Spotlight Crest Showcase */}
+        <div className="flex items-center justify-center gap-3 sm:gap-6 mb-6">
+          {(['TJKT', 'DKV', 'MPLB'] as const).map((code) => {
+            const item = JURUSAN_EMBLEMS[code];
+            const isChosen = selectedMajor === code;
+            return (
+              <button
+                key={code}
+                type="button"
+                onClick={() => setSelectedMajor(code)}
+                className={`group relative flex flex-col items-center transition-all duration-500 cursor-pointer p-2 rounded-2xl ${
+                  isChosen ? 'scale-110 -translate-y-1' : 'opacity-70 hover:opacity-100 hover:scale-105'
+                }`}
+              >
+                {/* Spotlight Aura */}
+                <div 
+                  className={`absolute inset-0 rounded-full blur-xl transition-all duration-700 ${
+                    isChosen ? 'opacity-80 animate-pulse-glow' : 'opacity-0 group-hover:opacity-40'
+                  }`}
+                  style={{ background: item.accent }}
+                />
 
-            <Link 
-              href="/ppdb/status" 
-              className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-sm hover:shadow-md transition-all duration-200 group"
-            >
-              <Search size={16} />
-              <span>Cek Status & Verifikasi Pendaftaran</span>
-            </Link>
-          </div>
-
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-blue-50 border border-blue-200/60 text-blue-700 text-xs font-bold tracking-wider uppercase mb-3 shadow-sm">
-            <Sparkles size={14} className="text-blue-500 animate-pulse" />
-            PPDB ONLINE 2026/2027
-          </div>
-
-          <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tight mb-4 drop-shadow-sm">
-            Pendaftaran Peserta Didik Baru
-          </h1>
-          <p className="text-base sm:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed mb-6">
-            Selamat datang di portal pendaftaran resmi <span className="font-semibold text-slate-800">{schoolName}</span>. Silakan lengkapi formulir di bawah ini dengan data yang sah dan valid.
-          </p>
-
-          {/* Quick Status Check Callout & Help */}
-          <div className="max-w-xl mx-auto flex flex-col gap-2.5">
-            <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200/80 rounded-2xl p-3.5 text-xs text-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
-              <div className="flex items-center gap-2 text-left">
-                <div className="p-1.5 bg-emerald-600 text-white rounded-lg flex-shrink-0">
-                  <ShieldCheck size={16} />
+                {/* Floating Transparent Emblem */}
+                <div className="relative w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.4)]">
+                  <Image
+                    src={item.image}
+                    alt={item.title}
+                    fill
+                    sizes="96px"
+                    className="object-contain"
+                    priority
+                  />
                 </div>
-                <span>Sudah pernah mendaftar? Pantau verifikasi berkas & kelulusan Anda.</span>
-              </div>
-              <Link
-                href="/ppdb/status"
-                className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl whitespace-nowrap shadow-sm transition-all"
-              >
-                Cek Status &rarr;
-              </Link>
-            </div>
 
-            <div className="text-center">
-              <a
-                href="https://wa.me/6282246464677?text=Halo%20Panitia%20PPDB%20SMK%20GaMa,%20saya%20ingin%20bertanya%20mengenai%20pendaftaran%20PPDB."
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-800 hover:text-emerald-950 bg-white/80 hover:bg-white px-3.5 py-1.5 rounded-full border border-emerald-200 transition-all shadow-xs"
-              >
-                <Phone size={13} className="text-emerald-600" />
-                <span>Bantuan Panitia PPDB (WhatsApp): <strong>0822-4646-4677</strong></span>
-              </a>
-            </div>
-          </div>
+                {/* Micro Label */}
+                <span className={`text-[11px] sm:text-xs font-black tracking-wider uppercase mt-2 px-2.5 py-0.5 rounded-full transition-all ${
+                  isChosen 
+                    ? 'bg-slate-900 text-white border border-white/20 shadow-md' 
+                    : 'text-slate-500 dark:text-slate-400'
+                }`}>
+                  {item.code}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* 3D Floating Sheet ("Lembar Form") */}
-        <div className="relative bg-white rounded-3xl sm:rounded-[2.5rem] shadow-[0_25px_70px_-15px_rgba(15,23,42,0.18),0_10px_30px_-5px_rgba(15,23,42,0.06),0_0_0_1px_rgba(255,255,255,1)_inset] border border-slate-200/80 ring-1 ring-slate-900/[0.05] overflow-hidden transition-all duration-300">
-          
-          {/* Top 3D Accent Line */}
-          <div className="h-2 w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-500 shadow-sm" />
+        {/* Title & Badge */}
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold tracking-wider uppercase mb-3 border backdrop-blur-md shadow-sm transition-all"
+             style={{
+               backgroundColor: `${activeMajorData.accent}15`,
+               borderColor: `${activeMajorData.accent}55`,
+               color: isDarkMode ? '#f8fafc' : activeMajorData.accent
+             }}>
+          <Sparkles size={14} className="animate-spin-slow" />
+          <span>GARUDA MAHADHIKA • PPDB TAHUN AJARAN 2026/2027</span>
+        </div>
 
-          {/* Form Hero Banner */}
-          <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 p-6 sm:p-8 text-white relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full blur-2xl pointer-events-none -mr-20 -mt-20" />
-            <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="p-1.5 rounded-lg bg-white/20 backdrop-blur-md">
-                    <ShieldCheck size={20} className="text-blue-100" />
-                  </div>
-                  <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Lembar Formulir Pendaftaran</h2>
-                </div>
-                <p className="text-blue-100 text-sm">Pastikan data NISN, nama lengkap, dan dokumen sesuai ijazah asli</p>
-              </div>
+        <h1 className={`text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight ${
+          isDarkMode ? 'text-white' : 'text-slate-900'
+        }`}>
+          Pendaftaran Peserta Didik Baru
+        </h1>
+        <p className={`text-xs sm:text-base mt-2 max-w-2xl mx-auto leading-relaxed ${
+          isDarkMode ? 'text-slate-400' : 'text-slate-600'
+        }`}>
+          Gerbang resmi menuju keunggulan kejuruan digital berstandar industri. Lengkapi formulir di bawah ini dengan data yang sah dan valid.
+        </p>
 
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/15 backdrop-blur-md border border-white/20 rounded-full font-semibold text-xs sm:text-sm text-white shadow-inner">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping inline-block" />
-                <span>Gelombang 1 : Dibuka</span>
-              </div>
-            </div>
-          </div>
-
-          {/* 3D Interactive Jalur Selection Cards */}
-          <div className="p-6 sm:px-10 pt-8 pb-8 border-b border-slate-100 bg-gradient-to-b from-slate-50/90 to-white">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-xs sm:text-sm font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                  <Layers size={16} className="text-blue-600" />
-                  PILIH JALUR PENDAFTARAN
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">Tentukan jalur yang sesuai dengan kualifikasi pendaftar</p>
-              </div>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-200/60 text-slate-600">
-                Pilih 1 Jalur
+        {/* =====================================================================
+            THEME 2 ONLY: Futuristic Multi-Step Progress Stepper
+            ===================================================================== */}
+        {theme === 'stepper' && (
+          <div className="mt-8 max-w-3xl mx-auto p-4 rounded-3xl bg-slate-900/90 border border-purple-500/30 text-white shadow-xl backdrop-blur-xl animate-fade-in">
+            <div className="flex items-center justify-between mb-3 text-xs font-mono">
+              <span className="text-purple-300 font-bold flex items-center gap-2">
+                <Cpu size={14} className="text-purple-400" />
+                TAHAP {currentStep} DARI 4
               </span>
+              <span className="text-purple-400 font-bold">{currentStep * 25}% SELESAI</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              
-              {/* Jalur Reguler */}
-              <button 
-                type="button"
-                onClick={() => setJalur('normal')}
-                className={`relative p-5 rounded-2xl border-2 text-left transition-all duration-300 group cursor-pointer ${
-                  jalur === 'normal' 
-                    ? 'border-blue-600 bg-gradient-to-b from-blue-50/90 via-white to-blue-50/30 shadow-[0_14px_30px_-6px_rgba(37,99,235,0.25),0_4px_10px_rgba(37,99,235,0.08)] ring-2 ring-blue-500/20 -translate-y-1' 
-                    : 'border-slate-200/90 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.03)] hover:border-blue-400 hover:shadow-lg hover:-translate-y-0.5'
-                }`}
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
-                    jalur === 'normal' 
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30 ring-2 ring-blue-200' 
-                      : 'bg-slate-100 text-slate-600 group-hover:bg-blue-50 group-hover:text-blue-600'
-                  }`}>
-                    <User size={22} />
-                  </div>
-                  
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${
-                    jalur === 'normal'
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'border-2 border-slate-300 group-hover:border-slate-400'
-                  }`}>
-                    {jalur === 'normal' ? <Check size={14} className="stroke-[3]" /> : null}
-                  </div>
-                </div>
+            {/* Neon Bar */}
+            <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden mb-4">
+              <div 
+                className="h-full bg-gradient-to-r from-purple-500 via-fuchsia-500 to-cyan-400 transition-all duration-500"
+                style={{ width: `${currentStep * 25}%` }}
+              />
+            </div>
 
-                <div className="flex items-center gap-2 mb-1">
-                  <span className={`font-black text-base ${jalur === 'normal' ? 'text-blue-700' : 'text-slate-800'}`}>
-                    Reguler
-                  </span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
-                    Umum
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Jalur umum menggunakan nilai rapor & wawancara. Tanpa syarat upload berkas awal.
-                </p>
-              </button>
-
-              {/* Jalur Afirmasi */}
-              <button 
-                type="button"
-                onClick={() => setJalur('afirmasi')}
-                className={`relative p-5 rounded-2xl border-2 text-left transition-all duration-300 group cursor-pointer ${
-                  jalur === 'afirmasi' 
-                    ? 'border-emerald-600 bg-gradient-to-b from-emerald-50/90 via-white to-emerald-50/30 shadow-[0_14px_30px_-6px_rgba(16,185,129,0.25),0_4px_10px_rgba(16,185,129,0.08)] ring-2 ring-emerald-500/20 -translate-y-1' 
-                    : 'border-slate-200/90 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.03)] hover:border-emerald-400 hover:shadow-lg hover:-translate-y-0.5'
-                }`}
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
-                    jalur === 'afirmasi' 
-                      ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/30 ring-2 ring-emerald-200' 
-                      : 'bg-slate-100 text-slate-600 group-hover:bg-emerald-50 group-hover:text-emerald-600'
-                  }`}>
-                    <HeartHandshake size={22} />
-                  </div>
-                  
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${
-                    jalur === 'afirmasi'
-                      ? 'bg-emerald-600 text-white shadow-sm'
-                      : 'border-2 border-slate-300 group-hover:border-slate-400'
-                  }`}>
-                    {jalur === 'afirmasi' ? <Check size={14} className="stroke-[3]" /> : null}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 mb-1">
-                  <span className={`font-black text-base ${jalur === 'afirmasi' ? 'text-emerald-700' : 'text-slate-800'}`}>
-                    Afirmasi
-                  </span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
-                    Bantuan
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Khusus pemegang SKTM dari yang berwenang atau kartu KIP / PKH (Bebas biaya pendaftaran).
-                </p>
-              </button>
-
-              {/* Jalur Prestasi / Beasiswa */}
-              <button 
-                type="button"
-                onClick={() => setJalur('beasiswa')}
-                className={`relative p-5 rounded-2xl border-2 text-left transition-all duration-300 group cursor-pointer ${
-                  jalur === 'beasiswa' 
-                    ? 'border-purple-600 bg-gradient-to-b from-purple-50/90 via-white to-purple-50/30 shadow-[0_14px_30px_-6px_rgba(147,51,234,0.25),0_4px_10px_rgba(147,51,234,0.08)] ring-2 ring-purple-500/20 -translate-y-1' 
-                    : 'border-slate-200/90 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.03)] hover:border-purple-400 hover:shadow-lg hover:-translate-y-0.5'
-                }`}
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
-                    jalur === 'beasiswa' 
-                      ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30 ring-2 ring-purple-200' 
-                      : 'bg-slate-100 text-slate-600 group-hover:bg-purple-50 group-hover:text-purple-600'
-                  }`}>
-                    <Award size={22} />
-                  </div>
-                  
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${
-                    jalur === 'beasiswa'
-                      ? 'bg-purple-600 text-white shadow-sm'
-                      : 'border-2 border-slate-300 group-hover:border-slate-400'
-                  }`}>
-                    {jalur === 'beasiswa' ? <Check size={14} className="stroke-[3]" /> : null}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 mb-1">
-                  <span className={`font-black text-base ${jalur === 'beasiswa' ? 'text-purple-700' : 'text-slate-800'}`}>
-                    Prestasi/Beasiswa
-                  </span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">
-                    Khusus
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Jalur prestasi akademik (ranking raport) & non-akademik (piagam penghargaan/sertifikat).
-                </p>
-              </button>
-
+            {/* Stepper Tabs */}
+            <div className="grid grid-cols-4 gap-1 text-[11px] sm:text-xs">
+              {[
+                { s: 1, label: '1. Jalur' },
+                { s: 2, label: '2. Biodata' },
+                { s: 3, label: '3. Jurusan' },
+                { s: 4, label: '4. Berkas' }
+              ].map(st => (
+                <button
+                  key={st.s}
+                  type="button"
+                  onClick={() => setCurrentStep(st.s)}
+                  className={`py-1.5 px-2 rounded-xl font-bold transition-all ${
+                    currentStep === st.s
+                      ? 'bg-purple-600 text-white shadow-md'
+                      : currentStep > st.s
+                      ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-500/30'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {st.label}
+                </button>
+              ))}
             </div>
           </div>
+        )}
+      </section>
 
-          {/* Form Content */}
-          <form className="p-6 sm:p-10 space-y-10" onSubmit={handleSubmit}>
+      {/* =========================================================================
+          MAIN FORM CONTAINER
+          ========================================================================= */}
+      <main className="relative z-10 max-w-5xl mx-auto px-4 pb-20">
+        
+        <div className={`rounded-3xl border transition-all duration-500 overflow-hidden ${
+          isDarkMode
+            ? 'bg-slate-950/80 border-white/10 backdrop-blur-2xl shadow-[0_0_90px_rgba(0,0,0,0.9)]'
+            : 'bg-white/95 border-slate-200/90 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.08)] backdrop-blur-md'
+        }`}>
+
+          {/* Form Top Accent Stripe */}
+          <div 
+            className="h-1.5 w-full transition-colors duration-700"
+            style={{
+              background: `linear-gradient(90deg, ${activeMajorData.accent}, #06b6d4, ${activeMajorData.accent})`
+            }}
+          />
+
+          <form onSubmit={handleSubmit} className="p-6 sm:p-10 space-y-10">
             <input type="hidden" name="jalur" value={jalur} />
             <input type="hidden" name="jalurPendaftaran" value={jalur} />
-            
-            {/* Section 01: Data Pribadi */}
-            <section className="relative">
-              <div className="flex items-center gap-3.5 mb-6">
-                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-sm shadow-md shadow-blue-500/30 ring-4 ring-blue-50 shrink-0">
-                  01
-                </div>
-                <div>
-                  <h3 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
-                    <User className="text-blue-600" size={20} /> Data Pribadi Calon Siswa
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">Isi data identitas diri sesuai dengan kartu keluarga dan akta kelahiran</p>
-                </div>
-              </div>
+            <input type="hidden" name="major" value={selectedMajor} />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                {/* Nama Lengkap */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Nama Lengkap <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                      <User size={18} />
-                    </div>
-                    <input 
-                      required 
-                      type="text" 
-                      name="fullName" 
-                      className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-slate-200/90 bg-slate-50/70 hover:bg-slate-50 text-slate-900 placeholder:text-slate-400 font-medium shadow-[inset_0_2px_4px_rgba(0,0,0,0.03),0_1px_2px_rgba(255,255,255,0.8)] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15 focus:shadow-[0_4px_20px_rgba(37,99,235,0.12)] outline-none transition-all duration-200" 
-                      placeholder="Masukkan nama lengkap sesuai ijazah" 
-                    />
-                  </div>
-                </div>
-
-                {/* NISN */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    NISN <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                      <CreditCard size={18} />
-                    </div>
-                    <input 
-                      required 
-                      type="number" 
-                      name="nisn" 
-                      className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-slate-200/90 bg-slate-50/70 hover:bg-slate-50 text-slate-900 placeholder:text-slate-400 font-medium shadow-[inset_0_2px_4px_rgba(0,0,0,0.03),0_1px_2px_rgba(255,255,255,0.8)] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15 focus:shadow-[0_4px_20px_rgba(37,99,235,0.12)] outline-none transition-all duration-200" 
-                      placeholder="Nomor Induk Siswa Nasional (10 digit)" 
-                    />
-                  </div>
-                </div>
-
-                {/* Tempat, Tanggal Lahir */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Tempat, Tanggal Lahir <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                      <Calendar size={18} />
-                    </div>
-                    <input 
-                      required 
-                      type="text" 
-                      name="birthInfo" 
-                      className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-slate-200/90 bg-slate-50/70 hover:bg-slate-50 text-slate-900 placeholder:text-slate-400 font-medium shadow-[inset_0_2px_4px_rgba(0,0,0,0.03),0_1px_2px_rgba(255,255,255,0.8)] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15 focus:shadow-[0_4px_20px_rgba(37,99,235,0.12)] outline-none transition-all duration-200" 
-                      placeholder="Contoh: Jakarta, 12 Agustus 2010" 
-                    />
-                  </div>
-                </div>
-
-                {/* Jenis Kelamin */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Jenis Kelamin <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                      <User size={18} />
-                    </div>
-                    <select 
-                      required 
-                      name="gender" 
-                      defaultValue=""
-                      className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-slate-200/90 bg-slate-50/70 hover:bg-slate-50 text-slate-900 font-medium shadow-[inset_0_2px_4px_rgba(0,0,0,0.03),0_1px_2px_rgba(255,255,255,0.8)] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15 focus:shadow-[0_4px_20px_rgba(37,99,235,0.12)] outline-none transition-all duration-200"
-                    >
-                      <option value="" disabled>Pilih Jenis Kelamin</option>
-                      <option value="L">Laki-laki</option>
-                      <option value="P">Perempuan</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Alamat Lengkap */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Alamat Lengkap Domisili <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <div className="absolute top-4 left-4 pointer-events-none text-slate-400">
-                      <MapPin size={18} />
-                    </div>
-                    <textarea 
-                      required 
-                      name="address" 
-                      rows={3} 
-                      className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-slate-200/90 bg-slate-50/70 hover:bg-slate-50 text-slate-900 placeholder:text-slate-400 font-medium shadow-[inset_0_2px_4px_rgba(0,0,0,0.03),0_1px_2px_rgba(255,255,255,0.8)] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15 focus:shadow-[0_4px_20px_rgba(37,99,235,0.12)] outline-none transition-all duration-200 resize-none" 
-                      placeholder="Masukkan nama jalan, RT/RW, kelurahan, kecamatan, dan kota/kabupaten"
-                    ></textarea>
-                  </div>
-                </div>
-
-              </div>
-            </section>
-
-            {/* Section 02: Syarat Khusus Jalur (Conditional) */}
-            {(jalur === 'afirmasi' || jalur === 'beasiswa') && (
-              <section className={`p-6 sm:p-8 rounded-3xl border-2 transition-all duration-300 shadow-sm ${
-                jalur === 'afirmasi' 
-                  ? 'bg-gradient-to-br from-emerald-50/70 via-white to-emerald-50/30 border-emerald-300/80 shadow-emerald-500/5' 
-                  : 'bg-gradient-to-br from-purple-50/70 via-white to-purple-50/30 border-purple-300/80 shadow-purple-500/5'
-              }`}>
-                <div className="flex items-center gap-3.5 mb-6">
-                  <div className={`w-10 h-10 rounded-2xl text-white flex items-center justify-center font-black text-sm shadow-md shrink-0 ${
-                    jalur === 'afirmasi' 
-                      ? 'bg-gradient-to-br from-emerald-600 to-teal-600 shadow-emerald-500/30 ring-4 ring-emerald-100' 
-                      : 'bg-gradient-to-br from-purple-600 to-indigo-600 shadow-purple-500/30 ring-4 ring-purple-100'
-                  }`}>
-                    02
+            {/* ===================================================================
+                SECTION 01: PILIH JALUR PENDAFTARAN
+                =================================================================== */}
+            {(theme !== 'stepper' || currentStep === 1) && (
+              <section className="space-y-6 animate-fade-in">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-sm shadow-md shadow-blue-500/30 ring-4 ring-blue-500/20 shrink-0">
+                    01
                   </div>
                   <div>
-                    <h3 className={`text-lg sm:text-xl font-bold flex items-center gap-2 ${
-                      jalur === 'afirmasi' ? 'text-emerald-800' : 'text-purple-800'
+                    <h2 className={`text-lg sm:text-xl font-bold flex items-center gap-2 ${
+                      isDarkMode ? 'text-white' : 'text-slate-900'
                     }`}>
-                      {jalur === 'afirmasi' ? <HeartHandshake size={20} /> : <Award size={20} />} 
-                      Syarat Khusus Jalur {jalur === 'afirmasi' ? 'Afirmasi' : 'Prestasi & Beasiswa'}
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      {jalur === 'afirmasi' 
-                        ? 'Lampirkan berkas Kartu Indonesia Pintar (KIP / PIP) atau Surat Keterangan Tidak Mampu (SKTM) resmi' 
-                        : 'Lampirkan berkas bukti prestasi, seperti surat keterangan ranking kelas, piagam penghargaan, atau sertifikat kejuaraan'}
+                      <Layers className="text-blue-500" size={20} />
+                      Pilih Jalur Pendaftaran
+                    </h2>
+                    <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      Tentukan jalur yang sesuai dengan kualifikasi pendaftar
                     </p>
                   </div>
                 </div>
-                
-                {jalur === 'afirmasi' && (
-                  <div className="space-y-5">
-                    {/* Pemilih Dokumen Afirmasi: KIP vs SKTM vs Lengkap */}
-                    <div className="bg-white/80 backdrop-blur-sm p-4 sm:p-5 rounded-2xl border border-emerald-200/90 shadow-xs">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-                        <label className="block text-xs font-bold text-emerald-950 uppercase tracking-wider">
-                          Pilih Dokumen Afirmasi yang Dilampirkan:
-                        </label>
-                        <span className="text-[11px] text-emerald-700 font-semibold bg-emerald-100/70 px-2.5 py-0.5 rounded-full w-fit">
-                          Bebas Biaya Formulir (100% Gratis)
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Jalur Reguler */}
+                  <button 
+                    type="button"
+                    onClick={() => setJalur('normal')}
+                    className={`p-5 rounded-2xl border-2 text-left transition-all duration-300 cursor-pointer relative group ${
+                      jalur === 'normal' 
+                        ? (isDarkMode 
+                            ? 'border-blue-500 bg-blue-950/40 text-white shadow-[0_0_30px_rgba(37,99,235,0.3)] ring-2 ring-blue-500/20 -translate-y-1'
+                            : 'border-blue-600 bg-gradient-to-b from-blue-50/90 via-white to-blue-50/30 shadow-lg ring-2 ring-blue-500/20 -translate-y-1 text-slate-900')
+                        : (isDarkMode 
+                            ? 'border-white/10 bg-slate-900/60 text-slate-300 hover:border-white/30 hover:bg-slate-900' 
+                            : 'border-slate-200 bg-white hover:border-blue-300 hover:shadow-md text-slate-800')
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
+                        jalur === 'normal' 
+                          ? 'bg-blue-600 text-white shadow-md shadow-blue-500/40' 
+                          : 'bg-slate-800/20 text-slate-400 group-hover:text-blue-500'
+                      }`}>
+                        <School size={22} />
+                      </div>
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                        jalur === 'normal' ? 'bg-blue-600 text-white' : 'border border-slate-400'
+                      }`}>
+                        {jalur === 'normal' && <Check size={14} className="stroke-[3]" />}
+                      </div>
+                    </div>
+                    <div className="font-black text-base mb-1">Jalur Reguler</div>
+                    <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      Jalur umum menggunakan nilai rapor & tes wawancara. Tanpa syarat unggah berkas awal.
+                    </p>
+                  </button>
+
+                  {/* Jalur Afirmasi (KIP / SKTM) */}
+                  <button 
+                    type="button"
+                    onClick={() => setJalur('afirmasi')}
+                    className={`p-5 rounded-2xl border-2 text-left transition-all duration-300 cursor-pointer relative group ${
+                      jalur === 'afirmasi' 
+                        ? (isDarkMode 
+                            ? 'border-emerald-500 bg-emerald-950/40 text-white shadow-[0_0_30px_rgba(16,185,129,0.3)] ring-2 ring-emerald-500/20 -translate-y-1'
+                            : 'border-emerald-600 bg-gradient-to-b from-emerald-50/90 via-white to-emerald-50/30 shadow-lg ring-2 ring-emerald-500/20 -translate-y-1 text-slate-900')
+                        : (isDarkMode 
+                            ? 'border-white/10 bg-slate-900/60 text-slate-300 hover:border-white/30 hover:bg-slate-900' 
+                            : 'border-slate-200 bg-white hover:border-emerald-300 hover:shadow-md text-slate-800')
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
+                        jalur === 'afirmasi' 
+                          ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/40' 
+                          : 'bg-slate-800/20 text-slate-400 group-hover:text-emerald-500'
+                      }`}>
+                        <HeartHandshake size={22} />
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          GRATIS
                         </span>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                        <button
-                          type="button"
-                          onClick={() => setAfirmasiType('kip')}
-                          className={`p-3.5 rounded-2xl border-2 text-left transition-all flex items-center gap-3 cursor-pointer ${
-                            afirmasiType === 'kip'
-                              ? 'bg-emerald-600 text-white border-emerald-700 shadow-md shadow-emerald-600/25 ring-2 ring-emerald-300 -translate-y-0.5'
-                              : 'bg-white text-slate-700 border-emerald-200/80 hover:border-emerald-400 hover:bg-emerald-50/50'
-                          }`}
-                        >
-                          <div className={`p-2 rounded-xl shrink-0 ${afirmasiType === 'kip' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
-                            <CreditCard size={18} />
-                          </div>
-                          <div>
-                            <div className="font-extrabold text-xs sm:text-sm">Kartu KIP / PIP</div>
-                            <div className={`text-[11px] ${afirmasiType === 'kip' ? 'text-emerald-100' : 'text-slate-400'}`}>Kartu Indonesia Pintar</div>
-                          </div>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setAfirmasiType('sktm')}
-                          className={`p-3.5 rounded-2xl border-2 text-left transition-all flex items-center gap-3 cursor-pointer ${
-                            afirmasiType === 'sktm'
-                              ? 'bg-emerald-600 text-white border-emerald-700 shadow-md shadow-emerald-600/25 ring-2 ring-emerald-300 -translate-y-0.5'
-                              : 'bg-white text-slate-700 border-emerald-200/80 hover:border-emerald-400 hover:bg-emerald-50/50'
-                          }`}
-                        >
-                          <div className={`p-2 rounded-xl shrink-0 ${afirmasiType === 'sktm' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
-                            <FileText size={18} />
-                          </div>
-                          <div>
-                            <div className="font-extrabold text-xs sm:text-sm">Surat SKTM / PKH</div>
-                            <div className={`text-[11px] ${afirmasiType === 'sktm' ? 'text-emerald-100' : 'text-slate-400'}`}>Kelurahan / Desa</div>
-                          </div>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setAfirmasiType('both')}
-                          className={`p-3.5 rounded-2xl border-2 text-left transition-all flex items-center gap-3 cursor-pointer ${
-                            afirmasiType === 'both'
-                              ? 'bg-emerald-600 text-white border-emerald-700 shadow-md shadow-emerald-600/25 ring-2 ring-emerald-300 -translate-y-0.5'
-                              : 'bg-white text-slate-700 border-emerald-200/80 hover:border-emerald-400 hover:bg-emerald-50/50'
-                          }`}
-                        >
-                          <div className={`p-2 rounded-xl shrink-0 ${afirmasiType === 'both' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
-                            <Layers size={18} />
-                          </div>
-                          <div>
-                            <div className="font-extrabold text-xs sm:text-sm">KIP & SKTM</div>
-                            <div className={`text-[11px] ${afirmasiType === 'both' ? 'text-emerald-100' : 'text-slate-400'}`}>Lampirkan Keduanya</div>
-                          </div>
-                        </button>
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                          jalur === 'afirmasi' ? 'bg-emerald-600 text-white' : 'border border-slate-400'
+                        }`}>
+                          {jalur === 'afirmasi' && <Check size={14} className="stroke-[3]" />}
+                        </div>
                       </div>
                     </div>
+                    <div className="font-black text-base mb-1">Jalur Afirmasi (KIP/SKTM)</div>
+                    <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      Khusus pemegang Kartu Indonesia Pintar (KIP/PIP) atau surat SKTM. 100% bebas biaya formulir.
+                    </p>
+                  </button>
 
-                    {/* Mode KIP */}
-                    {afirmasiType === 'kip' && (
-                      <div className="bg-white/90 p-5 sm:p-6 rounded-2xl border border-emerald-200 shadow-xs animate-fade-in">
-                        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-emerald-100">
-                          <CreditCard size={18} className="text-emerald-600" />
-                          <h4 className="font-bold text-sm text-emerald-950">Berkas Kartu Indonesia Pintar (KIP / PIP Kemdikbud)</h4>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">
-                              Nomor KIP (Kartu Indonesia Pintar) / PIP <span className="text-red-500">*</span>
-                            </label>
-                            <div className="relative">
-                              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                                <CreditCard size={18} />
-                              </div>
-                              <input 
-                                required 
-                                type="text" 
-                                name="kipNumber" 
-                                className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-emerald-300/80 bg-white text-slate-900 placeholder:text-slate-400 font-medium shadow-[inset_0_2px_4px_rgba(0,0,0,0.03)] focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/15 outline-none transition-all duration-200 text-sm" 
-                                placeholder="Contoh: KIP-8921820 atau no. seri kartu KIP/PIP" 
-                              />
-                            </div>
-                            <p className="text-[11px] text-emerald-700/80 mt-1.5 font-medium">
-                              Ketikkan nomor identitas yang tertera pada kartu KIP fisik atau KIP Digital resmi
-                            </p>
-                          </div>
-                          <div>
-                            <FileUpload
-                              name="documentKip"
-                              label="Unggah Berkas / Foto Kartu KIP (Wajib)"
-                              colorTheme="green"
-                              helperText="Foto asli kartu KIP fisik atau tangkapan layar KIP Digital (PDF, JPG, PNG Maks 4.5MB)"
-                              required={true}
-                            />
-                          </div>
-                        </div>
-                        <div className="mt-4 pt-3 border-t border-emerald-50 flex items-center justify-between">
-                          <p className="text-xs text-slate-500">
-                            Punya surat SKTM juga dari Kelurahan/Desa?
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => setAfirmasiType('both')}
-                            className="text-xs font-bold text-emerald-700 hover:text-emerald-900 underline cursor-pointer"
-                          >
-                            + Lampirkan juga Berkas SKTM
-                          </button>
+                  {/* Jalur Prestasi / Beasiswa */}
+                  <button 
+                    type="button"
+                    onClick={() => setJalur('beasiswa')}
+                    className={`p-5 rounded-2xl border-2 text-left transition-all duration-300 cursor-pointer relative group ${
+                      jalur === 'beasiswa' 
+                        ? (isDarkMode 
+                            ? 'border-purple-500 bg-purple-950/40 text-white shadow-[0_0_30px_rgba(168,85,247,0.3)] ring-2 ring-purple-500/20 -translate-y-1'
+                            : 'border-purple-600 bg-gradient-to-b from-purple-50/90 via-white to-purple-50/30 shadow-lg ring-2 ring-purple-500/20 -translate-y-1 text-slate-900')
+                        : (isDarkMode 
+                            ? 'border-white/10 bg-slate-900/60 text-slate-300 hover:border-white/30 hover:bg-slate-900' 
+                            : 'border-slate-200 bg-white hover:border-purple-300 hover:shadow-md text-slate-800')
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
+                        jalur === 'beasiswa' 
+                          ? 'bg-purple-600 text-white shadow-md shadow-purple-500/40' 
+                          : 'bg-slate-800/20 text-slate-400 group-hover:text-purple-500'
+                      }`}>
+                        <Award size={22} />
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                          BEASISWA
+                        </span>
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                          jalur === 'beasiswa' ? 'bg-purple-600 text-white' : 'border border-slate-400'
+                        }`}>
+                          {jalur === 'beasiswa' && <Check size={14} className="stroke-[3]" />}
                         </div>
                       </div>
-                    )}
-
-                    {/* Mode SKTM */}
-                    {afirmasiType === 'sktm' && (
-                      <div className="bg-white/90 p-5 sm:p-6 rounded-2xl border border-emerald-200 shadow-xs animate-fade-in">
-                        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-emerald-100">
-                          <FileText size={18} className="text-emerald-600" />
-                          <h4 className="font-bold text-sm text-emerald-950">Surat Keterangan Tidak Mampu (SKTM / PKH / KKS)</h4>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">
-                              Nomor Surat SKTM / Kartu PKH / KKS <span className="text-red-500">*</span>
-                            </label>
-                            <div className="relative">
-                              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                                <FileText size={18} />
-                              </div>
-                              <input 
-                                required 
-                                type="text" 
-                                name="afirmasiNumber" 
-                                className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-emerald-300/80 bg-white text-slate-900 placeholder:text-slate-400 font-medium shadow-[inset_0_2px_4px_rgba(0,0,0,0.03)] focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/15 outline-none transition-all duration-200 text-sm" 
-                                placeholder="Nomor surat SKTM dari kelurahan/desa atau no. kartu PKH/KKS" 
-                              />
-                            </div>
-                            <p className="text-[11px] text-emerald-700/80 mt-1.5 font-medium">
-                              Nomor surat resmi dari Kelurahan/Desa atau nomor kartu bansos pemerintah
-                            </p>
-                          </div>
-                          <div>
-                            <FileUpload
-                              name="documentAfirmasi"
-                              label="Unggah Berkas Surat SKTM / PKH (Wajib)"
-                              colorTheme="green"
-                              helperText="Scan/foto surat keterangan dari kelurahan/desa atau kartu bansos (Maks 4.5MB)"
-                              required={true}
-                            />
-                          </div>
-                        </div>
-                        <div className="mt-4 pt-3 border-t border-emerald-50 flex items-center justify-between">
-                          <p className="text-xs text-slate-500">
-                            Punya kartu KIP (Kartu Indonesia Pintar) juga?
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => setAfirmasiType('both')}
-                            className="text-xs font-bold text-emerald-700 hover:text-emerald-900 underline cursor-pointer"
-                          >
-                            + Lampirkan juga Berkas KIP
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Mode Keduanya (KIP & SKTM) */}
-                    {afirmasiType === 'both' && (
-                      <div className="space-y-4 animate-fade-in">
-                        {/* Box 1: KIP */}
-                        <div className="bg-white/90 p-5 sm:p-6 rounded-2xl border border-emerald-200 shadow-xs">
-                          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-emerald-100">
-                            <CreditCard size={18} className="text-emerald-600" />
-                            <h4 className="font-bold text-sm text-emerald-950">1. Berkas Kartu Indonesia Pintar (KIP / PIP)</h4>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                Nomor KIP (Kartu Indonesia Pintar) <span className="text-red-500">*</span>
-                              </label>
-                              <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                                  <CreditCard size={18} />
-                                </div>
-                                <input 
-                                  required 
-                                  type="text" 
-                                  name="kipNumber" 
-                                  className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-emerald-300/80 bg-white text-slate-900 placeholder:text-slate-400 font-medium shadow-[inset_0_2px_4px_rgba(0,0,0,0.03)] focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/15 outline-none transition-all duration-200 text-sm" 
-                                  placeholder="Contoh: KIP-8921820" 
-                                />
-                              </div>
-                              <p className="text-[11px] text-emerald-700/80 mt-1.5 font-medium">
-                                Nomor tercantum pada fisik KIP atau identitas resmi KIP Digital
-                              </p>
-                            </div>
-                            <div>
-                              <FileUpload
-                                name="documentKip"
-                                label="Unggah Berkas / Foto Kartu KIP (Wajib)"
-                                colorTheme="green"
-                                helperText="Foto/scan kartu KIP fisik atau screenshot KIP Digital (PDF/JPG/PNG Maks 4.5MB)"
-                                required={true}
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Box 2: SKTM */}
-                        <div className="bg-white/90 p-5 sm:p-6 rounded-2xl border border-emerald-200 shadow-xs">
-                          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-emerald-100">
-                            <FileText size={18} className="text-emerald-600" />
-                            <h4 className="font-bold text-sm text-emerald-950">2. Surat Keterangan Tidak Mampu (SKTM / PKH)</h4>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                Nomor Surat SKTM / PKH / KKS <span className="text-red-500">*</span>
-                              </label>
-                              <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                                  <FileText size={18} />
-                                </div>
-                                <input 
-                                  required 
-                                  type="text" 
-                                  name="afirmasiNumber" 
-                                  className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-emerald-300/80 bg-white text-slate-900 placeholder:text-slate-400 font-medium shadow-[inset_0_2px_4px_rgba(0,0,0,0.03)] focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/15 outline-none transition-all duration-200 text-sm" 
-                                  placeholder="Nomor SKTM dari kelurahan/desa" 
-                                />
-                              </div>
-                              <p className="text-[11px] text-emerald-700/80 mt-1.5 font-medium">
-                                Nomor surat dari instansi berwenang (Kelurahan/Desa)
-                              </p>
-                            </div>
-                            <div>
-                              <FileUpload
-                                name="documentAfirmasi"
-                                label="Unggah Berkas Surat SKTM / PKH (Wajib)"
-                                colorTheme="green"
-                                helperText="Scan atau foto surat SKTM berstempel resmi dari Kelurahan/Desa (Maks 4.5MB)"
-                                required={true}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {jalur === 'beasiswa' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">
-                        Kategori & Rincian Prestasi <span className="text-red-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                          <Award size={18} />
-                        </div>
-                        <input 
-                          required 
-                          type="text" 
-                          name="prestasiType" 
-                          className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-purple-300/80 bg-white text-slate-900 placeholder:text-slate-400 font-medium shadow-[inset_0_2px_4px_rgba(0,0,0,0.03)] focus:border-purple-500 focus:ring-4 focus:ring-purple-500/15 outline-none transition-all duration-200" 
-                          placeholder="Contoh: Ranking 1 Kelas IX SMP / Juara 1 FLS2N / Piagam O2SN" 
-                        />
-                      </div>
-                      <p className="text-[11px] text-purple-700/80 mt-1.5 font-medium">
-                        Tuliskan perolehan ranking kelas raport atau bidang kejuaraan perlombaan yang pernah diraih
-                      </p>
                     </div>
-                    <div>
-                      <FileUpload
-                        name="documentPrestasi"
-                        label="Unggah Berkas Prestasi (Bisa Beberapa File)"
-                        colorTheme="purple"
-                        helperText="Dapat mengunggah lebih dari 1 file (sertifikat, piagam, ranking raport)"
-                        required={true}
-                        multiple={true}
-                        maxFiles={10}
-                      />
-                    </div>
+                    <div className="font-black text-base mb-1">Prestasi & Beasiswa</div>
+                    <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      Ranking kelas atau pemegang piagam/sertifikat kejuaraan akademik & non-akademik.
+                    </p>
+                  </button>
+                </div>
+
+                {theme === 'stepper' && (
+                  <div className="flex justify-end pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(2)}
+                      className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center gap-2 cursor-pointer shadow-md"
+                    >
+                      <span>Lanjut: Data Pribadi</span>
+                      <ChevronRight size={16} />
+                    </button>
                   </div>
                 )}
               </section>
             )}
 
-            {/* Section: Data Akademik */}
-            <section className="relative">
-              <div className="flex items-center gap-3.5 mb-6">
-                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-sm shadow-md shadow-blue-500/30 ring-4 ring-blue-50 shrink-0">
-                  {jalur === 'normal' ? '02' : '03'}
-                </div>
-                <div>
-                  <h3 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
-                    <School className="text-blue-600" size={20} /> Data Akademik & Pilihan Jurusan
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">Tentukan program keahlian kejuruan yang ingin dipelajari</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                {/* Asal Sekolah */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Asal Sekolah (SMP/MTs) <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                      <School size={18} />
-                    </div>
-                    <input 
-                      required 
-                      type="text" 
-                      name="previousSchool" 
-                      className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-slate-200/90 bg-slate-50/70 hover:bg-slate-50 text-slate-900 placeholder:text-slate-400 font-medium shadow-[inset_0_2px_4px_rgba(0,0,0,0.03),0_1px_2px_rgba(255,255,255,0.8)] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15 focus:shadow-[0_4px_20px_rgba(37,99,235,0.12)] outline-none transition-all duration-200" 
-                      placeholder="Contoh: SMP Negeri 1 Jakarta" 
-                    />
+            {/* ===================================================================
+                SECTION 02: DATA PRIBADI & ASAL SEKOLAH
+                =================================================================== */}
+            {(theme !== 'stepper' || currentStep === 2) && (
+              <section className="space-y-6 animate-fade-in">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-sm shadow-md shadow-blue-500/30 ring-4 ring-blue-500/20 shrink-0">
+                    02
+                  </div>
+                  <div>
+                    <h2 className={`text-lg sm:text-xl font-bold flex items-center gap-2 ${
+                      isDarkMode ? 'text-white' : 'text-slate-900'
+                    }`}>
+                      <User className="text-blue-500" size={20} />
+                      Data Pribadi & Kontak Siswa
+                    </h2>
+                    <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      Lengkapi identitas diri sesuai kartu keluarga dan nomor WhatsApp aktif
+                    </p>
                   </div>
                 </div>
 
-                {/* Pilihan Jurusan */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Pilihan Jurusan Prioritas <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                      <BookOpen size={18} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Nama Lengkap */}
+                  <div>
+                    <label className={`block text-xs font-semibold uppercase tracking-wider mb-2 font-mono ${
+                      isDarkMode ? 'text-slate-300' : 'text-slate-700'
+                    }`}>
+                      Nama Lengkap <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <User size={18} className="absolute left-3.5 top-3.5 text-slate-400" />
+                      <input 
+                        required 
+                        type="text" 
+                        name="fullName" 
+                        placeholder="Sesuai ijazah SMP/MTs"
+                        className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium outline-none transition-all ${
+                          isDarkMode 
+                            ? 'bg-slate-900/80 border-white/10 text-white focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20' 
+                            : 'bg-slate-50 border-slate-200 text-slate-900 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'
+                        }`}
+                      />
                     </div>
-                    <select 
-                      required 
-                      name="major" 
+                  </div>
+
+                  {/* NISN */}
+                  <div>
+                    <label className={`block text-xs font-semibold uppercase tracking-wider mb-2 font-mono ${
+                      isDarkMode ? 'text-slate-300' : 'text-slate-700'
+                    }`}>
+                      NISN (10 Digit) <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <CreditCard size={18} className="absolute left-3.5 top-3.5 text-slate-400" />
+                      <input 
+                        required 
+                        type="text" 
+                        name="nisn" 
+                        maxLength={10}
+                        placeholder="Contoh: 0071234567"
+                        className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium outline-none transition-all ${
+                          isDarkMode 
+                            ? 'bg-slate-900/80 border-white/10 text-white focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20' 
+                            : 'bg-slate-50 border-slate-200 text-slate-900 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Jenis Kelamin */}
+                  <div>
+                    <label className={`block text-xs font-semibold uppercase tracking-wider mb-2 font-mono ${
+                      isDarkMode ? 'text-slate-300' : 'text-slate-700'
+                    }`}>
+                      Jenis Kelamin <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      required
+                      name="gender"
                       defaultValue=""
-                      className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-slate-200/90 bg-slate-50/70 hover:bg-slate-50 text-slate-900 font-medium shadow-[inset_0_2px_4px_rgba(0,0,0,0.03),0_1px_2px_rgba(255,255,255,0.8)] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15 focus:shadow-[0_4px_20px_rgba(37,99,235,0.12)] outline-none transition-all duration-200"
+                      className={`w-full px-4 py-3 rounded-xl border text-sm font-medium outline-none transition-all ${
+                        isDarkMode 
+                          ? 'bg-slate-900/80 border-white/10 text-white focus:border-cyan-400' 
+                          : 'bg-slate-50 border-slate-200 text-slate-900 focus:bg-white focus:border-blue-500'
+                      }`}
                     >
-                      <option value="" disabled>Pilih Program Keahlian</option>
-                      {jurusanList && jurusanList.length > 0 ? (
-                        jurusanList.map((j) => {
-                          const displayName = j.code && !j.name.includes(`(${j.code})`)
-                            ? `${j.name} (${j.code})`
-                            : j.name;
-                          return (
-                            <option key={j.id || j.code} value={j.code || j.name}>
-                              {displayName}
-                            </option>
-                          );
-                        })
-                      ) : (
-                        <>
-                          <option value="RPL">Rekayasa Perangkat Lunak (RPL)</option>
-                          <option value="TKJ">Teknik Komputer & Jaringan (TKJ)</option>
-                          <option value="MM">Multimedia (Desain Komunikasi Visual)</option>
-                          <option value="AK">Akuntansi & Keuangan Lembaga</option>
-                          <option value="OTKP">Otomatisasi & Tata Kelola Perkantoran</option>
-                        </>
-                      )}
+                      <option value="" disabled>Pilih Jenis Kelamin</option>
+                      <option value="Laki-laki">Laki-laki</option>
+                      <option value="Perempuan">Perempuan</option>
                     </select>
                   </div>
-                </div>
 
-              </div>
-            </section>
-
-            {/* Section: Kontak Calon Siswa */}
-            <section className="relative">
-              <div className="flex items-center gap-3.5 mb-6">
-                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-sm shadow-md shadow-blue-500/30 ring-4 ring-blue-50 shrink-0">
-                  {jalur === 'normal' ? '03' : '04'}
-                </div>
-                <div>
-                  <h3 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
-                    <Phone className="text-blue-600" size={20} /> Informasi Kontak Calon Siswa
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">Nomor WhatsApp aktif digunakan untuk konfirmasi status pendaftaran & pengumuman seleksi</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-                
-                {/* Telepon */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Nomor WhatsApp / Telepon Aktif <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                      <Phone size={18} />
+                  {/* Nomor WhatsApp */}
+                  <div>
+                    <label className={`block text-xs font-semibold uppercase tracking-wider mb-2 font-mono ${
+                      isDarkMode ? 'text-slate-300' : 'text-slate-700'
+                    }`}>
+                      Nomor WhatsApp Aktif <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Phone size={18} className="absolute left-3.5 top-3.5 text-slate-400" />
+                      <input 
+                        required 
+                        type="tel" 
+                        name="phone" 
+                        placeholder="Contoh: 081234567890"
+                        className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium outline-none transition-all ${
+                          isDarkMode 
+                            ? 'bg-slate-900/80 border-white/10 text-white focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20' 
+                            : 'bg-slate-50 border-slate-200 text-slate-900 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'
+                        }`}
+                      />
                     </div>
-                    <input 
-                      required 
-                      type="tel" 
-                      name="phone" 
-                      className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-slate-200/90 bg-slate-50/70 hover:bg-slate-50 text-slate-900 placeholder:text-slate-400 font-medium shadow-[inset_0_2px_4px_rgba(0,0,0,0.03),0_1px_2px_rgba(255,255,255,0.8)] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15 focus:shadow-[0_4px_20px_rgba(37,99,235,0.12)] outline-none transition-all duration-200" 
-                      placeholder="Contoh: 081234567890" 
-                    />
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-2 flex items-center gap-1.5">
-                    <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />
-                    Pastikan nomor WhatsApp aktif untuk menerima bukti pendaftaran & jadwal tes seleksi
-                  </p>
-                </div>
 
-                {/* Callout Info Jalur & Berkas */}
-                <div className="rounded-2xl p-5 bg-gradient-to-br from-blue-50/90 via-indigo-50/40 to-slate-50/80 border border-blue-200/70 flex flex-col justify-center">
-                  <div className="flex items-center gap-2 mb-2 text-blue-950 font-bold text-sm">
-                    <ShieldCheck size={18} className="text-blue-600 shrink-0" />
-                    <span>Konfirmasi Layanan PPDB</span>
-                  </div>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    {jalur === 'normal' 
-                      ? 'Calon siswa jalur Reguler tidak perlu mengunggah berkas pada formulir ini. Berkas fisik dapat dibawa saat tahap verifikasi dan wawancara.'
-                      : jalur === 'afirmasi'
-                      ? 'Pastikan Surat Keterangan Tidak Mampu (SKTM) dari pihak berwenang atau kartu bantuan telah diunggah dengan jelas pada bagian Syarat Khusus di atas.'
-                      : 'Pastikan berkas bukti prestasi (surat ranking kelas, piagam penghargaan, atau sertifikat juara) telah diunggah pada bagian Syarat Khusus di atas.'}
-                  </p>
-                </div>
-
-              </div>
-            </section>
-
-            {/* Checkbox Persetujuan (3D Card) */}
-            <div className="flex items-start gap-3.5 p-5 bg-gradient-to-r from-blue-50/80 via-indigo-50/40 to-blue-50/80 rounded-2xl border border-blue-200/70 shadow-sm">
-              <input 
-                required 
-                type="checkbox" 
-                id="terms" 
-                className="mt-1 w-5 h-5 text-blue-600 rounded-lg border-slate-300 focus:ring-blue-500 cursor-pointer" 
-              />
-              <label htmlFor="terms" className="text-xs sm:text-sm text-slate-700 leading-relaxed cursor-pointer select-none">
-                Saya menyatakan bahwa seluruh data yang diisikan adalah benar dan dapat dipertanggungjawabkan. Saya bersedia mengikuti seluruh tahapan seleksi PPDB di <span className="font-bold text-slate-900">{schoolName}</span> sesuai dengan ketentuan yang berlaku untuk jalur <span className="font-bold text-blue-700 uppercase">[{jalur === 'normal' ? 'Reguler' : jalur}]</span>.
-              </label>
-            </div>
-
-            {/* Submit Button Area */}
-            <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <ShieldCheck size={16} className="text-emerald-600" />
-                Data dienkripsi secara aman & rahasia
-              </div>
-
-              <button 
-                type="submit" 
-                disabled={isSubmitting}
-                className="w-full sm:w-auto px-10 py-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:via-indigo-700 hover:to-blue-800 disabled:opacity-60 text-white rounded-2xl font-bold shadow-[0_12px_28px_-6px_rgba(37,99,235,0.4),0_4px_10px_rgba(0,0,0,0.05),inset_0_1px_0_rgba(255,255,255,0.3)] hover:shadow-[0_16px_36px_-6px_rgba(37,99,235,0.5),0_6px_14px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 active:translate-y-0.5 transition-all duration-200 flex items-center justify-center gap-3 text-base sm:text-lg cursor-pointer"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="animate-spin" size={22} />
-                    <span>Sedang Memproses...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 size={22} className="text-blue-100" />
-                    <span>Kirim Formulir Pendaftaran</span>
-                    <ChevronRight size={18} className="opacity-70" />
-                  </>
-                )}
-              </button>
-            </div>
-
-          </form>
-
-          {/* Modern 3D Payment Hub Modal (Cash & Transfer) */}
-          {showPayment && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-4 animate-fade-in overflow-y-auto">
-              <div className="bg-white rounded-3xl shadow-[0_30px_90px_-20px_rgba(0,0,0,0.35)] border border-slate-100 w-full max-w-xl overflow-hidden my-8 animate-zoom-in">
-                
-                {/* Header */}
-                <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 text-white p-6 relative">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-500/30 text-blue-200 border border-blue-400/30 uppercase tracking-wider">
-                        Tahap 2: Pembayaran Formulir
-                      </span>
-                      <h3 className="font-extrabold text-xl text-white mt-1.5">Metode Pembayaran PPDB</h3>
-                      <p className="text-slate-300 text-xs sm:text-sm mt-0.5">
-                        {applicantData?.fullName} • NISN: {applicantData?.nisn}
-                      </p>
+                  {/* Tempat, Tanggal Lahir */}
+                  <div>
+                    <label className={`block text-xs font-semibold uppercase tracking-wider mb-2 font-mono ${
+                      isDarkMode ? 'text-slate-300' : 'text-slate-700'
+                    }`}>
+                      Tempat & Tanggal Lahir <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Calendar size={18} className="absolute left-3.5 top-3.5 text-slate-400" />
+                      <input 
+                        required 
+                        type="text" 
+                        name="birthInfo" 
+                        placeholder="Contoh: Jakarta, 15 Mei 2010"
+                        className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium outline-none transition-all ${
+                          isDarkMode 
+                            ? 'bg-slate-900/80 border-white/10 text-white focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20' 
+                            : 'bg-slate-50 border-slate-200 text-slate-900 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'
+                        }`}
+                      />
                     </div>
-                    <button 
-                      onClick={() => setShowPayment(false)} 
-                      className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors text-sm"
+                  </div>
+
+                  {/* Asal Sekolah */}
+                  <div>
+                    <label className={`block text-xs font-semibold uppercase tracking-wider mb-2 font-mono ${
+                      isDarkMode ? 'text-slate-300' : 'text-slate-700'
+                    }`}>
+                      Asal Sekolah (SMP/MTs) <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <School size={18} className="absolute left-3.5 top-3.5 text-slate-400" />
+                      <input 
+                        required 
+                        type="text" 
+                        name="previousSchool" 
+                        placeholder="Nama SMP/MTs asal"
+                        className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium outline-none transition-all ${
+                          isDarkMode 
+                            ? 'bg-slate-900/80 border-white/10 text-white focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20' 
+                            : 'bg-slate-50 border-slate-200 text-slate-900 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Alamat Lengkap */}
+                  <div className="md:col-span-2">
+                    <label className={`block text-xs font-semibold uppercase tracking-wider mb-2 font-mono ${
+                      isDarkMode ? 'text-slate-300' : 'text-slate-700'
+                    }`}>
+                      Alamat Tempat Tinggal <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <MapPin size={18} className="absolute left-3.5 top-3.5 text-slate-400" />
+                      <textarea 
+                        required 
+                        name="address" 
+                        rows={2} 
+                        placeholder="Nama jalan, RT/RW, kelurahan, kecamatan, kota/kabupaten"
+                        className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium outline-none transition-all resize-none ${
+                          isDarkMode 
+                            ? 'bg-slate-900/80 border-white/10 text-white focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20' 
+                            : 'bg-slate-50 border-slate-200 text-slate-900 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'
+                        }`}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {theme === 'stepper' && (
+                  <div className="flex justify-between pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(1)}
+                      className="px-5 py-2.5 border border-slate-700 text-slate-300 rounded-xl font-bold flex items-center gap-1.5 cursor-pointer"
                     >
-                      ✕
+                      <ChevronLeft size={16} />
+                      <span>Kembali</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(3)}
+                      className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center gap-2 cursor-pointer shadow-md"
+                    >
+                      <span>Lanjut: Pilih Jurusan</span>
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* ===================================================================
+                SECTION 03: PILIHAN JURUSAN (3D HOLOGRAPHIC CARDS)
+                =================================================================== */}
+            {(theme !== 'stepper' || currentStep === 3) && (
+              <section className="space-y-6 animate-fade-in">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-sm shadow-md shadow-blue-500/30 ring-4 ring-blue-500/20 shrink-0">
+                    03
+                  </div>
+                  <div>
+                    <h2 className={`text-lg sm:text-xl font-bold flex items-center gap-2 ${
+                      isDarkMode ? 'text-white' : 'text-slate-900'
+                    }`}>
+                      <GraduationCap className="text-blue-500" size={20} />
+                      Pilihan Program Keahlian (Garuda Mahadhika)
+                    </h2>
+                    <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      Klik salah satu kartu jurusan di bawah ini untuk memilih prioritas kejuruanmu
+                    </p>
+                  </div>
+                </div>
+
+                {/* The 3 Interactive Major Cards with Transparent Emblems */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  {(['TJKT', 'DKV', 'MPLB'] as const).map((code) => {
+                    const j = JURUSAN_EMBLEMS[code];
+                    const isSelected = selectedMajor === code;
+
+                    return (
+                      <div
+                        key={code}
+                        onClick={() => setSelectedMajor(code)}
+                        className={`p-6 rounded-3xl border-2 transition-all duration-300 cursor-pointer relative group flex flex-col justify-between ${
+                          isSelected
+                            ? (isDarkMode 
+                                ? `${j.borderActive} bg-slate-900/90 shadow-[0_0_40px_${j.glow}] -translate-y-1.5` 
+                                : `${j.borderActive} ${j.bgActive} shadow-xl -translate-y-1.5`)
+                            : (isDarkMode 
+                                ? 'border-white/10 bg-slate-900/50 hover:border-white/30 hover:bg-slate-900/80 hover:-translate-y-0.5' 
+                                : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-lg hover:-translate-y-0.5')
+                        }`}
+                      >
+                        {/* Top Badge & Checkmark */}
+                        <div className="flex items-center justify-between mb-4">
+                          <span className={`text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full border ${
+                            isSelected 
+                              ? 'bg-slate-900 text-white border-white/20' 
+                              : 'bg-slate-200/60 dark:bg-slate-800 text-slate-500 border-transparent'
+                          }`}>
+                            {j.badge}
+                          </span>
+
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${
+                            isSelected ? 'bg-emerald-500 text-white shadow-sm' : 'border border-slate-300 dark:border-slate-600'
+                          }`}>
+                            {isSelected && <Check size={14} className="stroke-[3]" />}
+                          </div>
+                        </div>
+
+                        {/* Floating Transparent Crest */}
+                        <div className="relative w-28 h-28 mx-auto my-2 flex items-center justify-center">
+                          {/* Glow backdrop on select */}
+                          <div 
+                            className={`absolute inset-0 rounded-full blur-xl transition-all duration-500 ${
+                              isSelected ? 'opacity-80 animate-pulse-glow' : 'opacity-0 group-hover:opacity-40'
+                            }`}
+                            style={{ background: j.accent }}
+                          />
+
+                          <div className="relative w-24 h-24 transform group-hover:scale-105 transition-transform duration-300 filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.35)]">
+                            <Image
+                              src={j.image}
+                              alt={j.title}
+                              fill
+                              sizes="96px"
+                              className="object-contain"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Text Information */}
+                        <div className="text-center mt-3">
+                          <h3 className={`font-black text-lg ${isSelected ? j.textColor : (isDarkMode ? 'text-white' : 'text-slate-900')}`}>
+                            {j.name}
+                          </h3>
+                          <p className={`text-xs mt-1.5 leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                            {j.tagline}
+                          </p>
+                        </div>
+
+                        {/* Selected Indicator Bar */}
+                        <div className={`mt-5 pt-3 border-t text-center text-xs font-bold transition-colors ${
+                          isSelected 
+                            ? `${j.textColor} border-current/20` 
+                            : 'text-slate-400 border-slate-100 dark:border-slate-800'
+                        }`}>
+                          {isSelected ? '✓ Jurusan Terpilih' : 'Klik untuk Memilih'}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {theme === 'stepper' && (
+                  <div className="flex justify-between pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(2)}
+                      className="px-5 py-2.5 border border-slate-700 text-slate-300 rounded-xl font-bold flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <ChevronLeft size={16} />
+                      <span>Kembali</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(4)}
+                      className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center gap-2 cursor-pointer shadow-md"
+                    >
+                      <span>Lanjut: Berkas & Konfirmasi</span>
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* ===================================================================
+                SECTION 04: PERSYARATAN BERKAS & KONFIRMASI
+                =================================================================== */}
+            {(theme !== 'stepper' || currentStep === 4) && (
+              <section className="space-y-6 animate-fade-in">
+                
+                {/* Syarat Khusus Jalur Afirmasi (KIP / SKTM) */}
+                {jalur === 'afirmasi' && (
+                  <div className={`p-6 rounded-3xl border-2 transition-all ${
+                    isDarkMode 
+                      ? 'border-emerald-500/40 bg-emerald-950/20 text-white' 
+                      : 'border-emerald-300 bg-emerald-50/70 text-slate-900'
+                  }`}>
+                    <div className="flex items-center gap-3 mb-4">
+                      <HeartHandshake className="text-emerald-500" size={22} />
+                      <div>
+                        <h3 className="font-extrabold text-base">Syarat Khusus: Berkas Afirmasi</h3>
+                        <p className="text-xs text-slate-400">Pilih dokumen yang ingin dilampirkan (Bebas Biaya Formulir)</p>
+                      </div>
+                    </div>
+
+                    {/* Selector Jenis Dokumen */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-5">
+                      <button
+                        type="button"
+                        onClick={() => setAfirmasiType('kip')}
+                        className={`p-3 rounded-xl border text-left font-bold text-xs transition-all cursor-pointer flex items-center gap-2.5 ${
+                          afirmasiType === 'kip' 
+                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-md' 
+                            : 'bg-white/10 border-white/10 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <CreditCard size={16} />
+                        <span>Kartu KIP / PIP</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setAfirmasiType('sktm')}
+                        className={`p-3 rounded-xl border text-left font-bold text-xs transition-all cursor-pointer flex items-center gap-2.5 ${
+                          afirmasiType === 'sktm' 
+                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-md' 
+                            : 'bg-white/10 border-white/10 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <FileText size={16} />
+                        <span>Surat SKTM / PKH</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setAfirmasiType('both')}
+                        className={`p-3 rounded-xl border text-left font-bold text-xs transition-all cursor-pointer flex items-center gap-2.5 ${
+                          afirmasiType === 'both' 
+                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-md' 
+                            : 'bg-white/10 border-white/10 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <CheckCircle2 size={16} />
+                        <span>Keduanya (KIP & SKTM)</span>
+                      </button>
+                    </div>
+
+                    {/* Input Fields untuk KIP */}
+                    {(afirmasiType === 'kip' || afirmasiType === 'both') && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-4 rounded-2xl bg-black/20 border border-white/10">
+                        <div>
+                          <label className="block text-xs font-semibold uppercase mb-1 font-mono">
+                            Nomor Kartu KIP / PIP <span className="text-red-400">*</span>
+                          </label>
+                          <input 
+                            required 
+                            type="text" 
+                            name="kipNumber" 
+                            placeholder="Contoh: KIP-8921820"
+                            className="w-full px-4 py-2.5 rounded-xl border border-white/20 bg-slate-900 text-white text-sm outline-none focus:border-emerald-400"
+                          />
+                        </div>
+                        <div>
+                          <FileUpload
+                            name="documentKip"
+                            label="Unggah Foto/Scan Kartu KIP"
+                            colorTheme="green"
+                            helperText="Format JPG/PNG/PDF (Maks: 4.5MB)"
+                            required={true}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Input Fields untuk SKTM */}
+                    {(afirmasiType === 'sktm' || afirmasiType === 'both') && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-2xl bg-black/20 border border-white/10">
+                        <div>
+                          <label className="block text-xs font-semibold uppercase mb-1 font-mono">
+                            Nomor Surat SKTM / PKH <span className="text-red-400">*</span>
+                          </label>
+                          <input 
+                            required 
+                            type="text" 
+                            name="afirmasiNumber" 
+                            placeholder="Nomor surat resmi dari kelurahan"
+                            className="w-full px-4 py-2.5 rounded-xl border border-white/20 bg-slate-900 text-white text-sm outline-none focus:border-emerald-400"
+                          />
+                        </div>
+                        <div>
+                          <FileUpload
+                            name="documentAfirmasi"
+                            label="Unggah Berkas Surat SKTM"
+                            colorTheme="green"
+                            helperText="Scan surat keterangan tidak mampu resmi (Maks: 4.5MB)"
+                            required={true}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Syarat Khusus Jalur Prestasi */}
+                {jalur === 'beasiswa' && (
+                  <div className={`p-6 rounded-3xl border-2 transition-all ${
+                    isDarkMode 
+                      ? 'border-purple-500/40 bg-purple-950/20 text-white' 
+                      : 'border-purple-300 bg-purple-50/70 text-slate-900'
+                  }`}>
+                    <div className="flex items-center gap-3 mb-4">
+                      <Award className="text-purple-500" size={22} />
+                      <div>
+                        <h3 className="font-extrabold text-base">Syarat Khusus: Berkas Prestasi</h3>
+                        <p className="text-xs text-slate-400">Unggah bukti prestasi akademik (ranking raport) atau piagam penghargaan</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-2xl bg-black/20 border border-white/10">
+                      <div>
+                        <label className="block text-xs font-semibold uppercase mb-1 font-mono">
+                          Jenis Prestasi <span className="text-red-400">*</span>
+                        </label>
+                        <select
+                          required
+                          name="prestasiType"
+                          defaultValue=""
+                          className="w-full px-4 py-2.5 rounded-xl border border-white/20 bg-slate-900 text-white text-sm outline-none focus:border-purple-400"
+                        >
+                          <option value="" disabled>Pilih Jenis Prestasi</option>
+                          <option value="Akademik">Akademik (Ranking 1-3 Raport)</option>
+                          <option value="Non-Akademik">Non-Akademik (Juara Lomba / OSN / O2SN / FLS2N)</option>
+                          <option value="Tahfidz">Tahfidz Quran / Keagamaan</option>
+                        </select>
+                      </div>
+                      <div>
+                        <FileUpload
+                          name="documentPrestasi"
+                          label="Unggah Piagam / Sertifikat / Bukti Ranking"
+                          colorTheme="blue"
+                          helperText="Format JPG/PNG/PDF (Maks: 4.5MB)"
+                          required={true}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Checkbox Pernyataan */}
+                <div className={`p-5 rounded-2xl border flex items-start gap-3.5 ${
+                  isDarkMode 
+                    ? 'bg-slate-900/60 border-white/10 text-slate-300' 
+                    : 'bg-blue-50/70 border-blue-200 text-slate-700'
+                }`}>
+                  <input 
+                    required 
+                    type="checkbox" 
+                    id="terms" 
+                    className="mt-1 w-4 h-4 rounded text-blue-600 focus:ring-0 cursor-pointer"
+                  />
+                  <label htmlFor="terms" className="text-xs sm:text-sm leading-relaxed cursor-pointer select-none">
+                    Saya menyatakan bahwa seluruh data yang diisikan adalah benar dan siap dipertanggungjawabkan. Saya memilih jurusan <strong className="font-bold underline">{activeMajorData.name} ({activeMajorData.code})</strong> pada <span className="font-bold">{schoolName}</span>.
+                  </label>
+                </div>
+
+                {/* Submit Area */}
+                <div className="pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-2 text-xs text-slate-400">
+                    <ShieldCheck size={16} className="text-emerald-500" />
+                    <span>Enkripsi Data SSL 256-Bit • Aman & Terverifikasi</span>
+                  </div>
+
+                  <div className="flex items-center gap-3 w-full sm:w-auto">
+                    {theme === 'stepper' && (
+                      <button
+                        type="button"
+                        onClick={() => setCurrentStep(3)}
+                        className="px-5 py-3 border border-slate-700 text-slate-300 rounded-2xl font-bold flex items-center gap-1.5 cursor-pointer text-sm"
+                      >
+                        <ChevronLeft size={16} />
+                        <span>Kembali</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 disabled:opacity-50 text-white rounded-2xl font-black text-sm sm:text-base shadow-xl shadow-blue-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer group active:scale-95"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 size={18} className="animate-spin" />
+                          <span>Mengirim Formulir...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 size={18} className="text-cyan-200" />
+                          <span>Kirim Formulir PPDB</span>
+                          <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
+
+              </section>
+            )}
+
+          </form>
+
+          {/* ===================================================================
+              MODAL PEMBAYARAN FORMULIR (JALUR REGULER)
+              =================================================================== */}
+          {showPayment && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-fade-in overflow-y-auto">
+              <div className="bg-slate-900 text-white rounded-3xl border border-white/20 w-full max-w-lg overflow-hidden shadow-2xl my-8 animate-zoom-in">
                 
+                {/* Header Modal */}
+                <div className="p-6 border-b border-white/10 bg-slate-950 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/30 uppercase">
+                      Langkah 2: Biaya Pendaftaran
+                    </span>
+                    <h3 className="text-lg font-black text-white mt-1">Metode Pembayaran PPDB</h3>
+                    <p className="text-xs text-slate-400">{applicantData?.fullName} • NISN: {applicantData?.nisn}</p>
+                  </div>
+                  <button 
+                    onClick={() => setShowPayment(false)}
+                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-sm"
+                  >
+                    ✕
+                  </button>
+                </div>
+
                 {!paymentSuccess ? (
-                  <div className="p-6">
-                    {/* Ringkasan Tagihan */}
-                    <div className="bg-gradient-to-br from-blue-50 via-indigo-50/50 to-slate-50 border border-blue-100/80 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-inner">
+                  <div className="p-6 space-y-6">
+                    {/* Ringkasan Biaya */}
+                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between">
                       <div>
-                        <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Biaya Pendaftaran & Verifikasi</div>
-                        <div className="text-2xl font-black text-blue-900 mt-0.5">Rp 150.000</div>
+                        <span className="text-xs text-slate-400 block">Biaya Formulir & Seleksi:</span>
+                        <span className="text-2xl font-black text-cyan-400">Rp 150.000</span>
                       </div>
-                      <div className="flex sm:flex-col items-center sm:items-end gap-1.5">
-                        <span className="text-[11px] font-semibold text-slate-500">Kode Tagihan:</span>
-                        <span className="text-xs font-mono font-bold bg-white text-blue-700 px-2.5 py-1 rounded-lg border border-blue-200 shadow-sm">
-                          INV-{applicantData?.id?.slice(-6).toUpperCase()}
-                        </span>
-                      </div>
+                      <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                        Jalur Reguler
+                      </span>
                     </div>
 
-                    {/* Tab Switcher: Transfer vs Cash */}
-                    <div className="grid grid-cols-2 gap-2 p-1.5 bg-slate-100 rounded-2xl mb-6">
+                    {/* Pilihan Metode */}
+                    <div className="grid grid-cols-2 gap-2.5">
                       <button
                         type="button"
                         onClick={() => setPayMethod('TRANSFER')}
-                        className={`py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+                        className={`p-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                           payMethod === 'TRANSFER'
-                            ? 'bg-white text-blue-700 shadow-md shadow-blue-500/10'
-                            : 'text-slate-600 hover:text-slate-900'
+                            ? 'bg-blue-600 text-white border-blue-500 shadow-md'
+                            : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
                         }`}
                       >
-                        <CreditCard size={18} />
+                        <CreditCard size={15} />
                         <span>Transfer / QRIS</span>
                       </button>
+
                       <button
                         type="button"
                         onClick={() => setPayMethod('CASH')}
-                        className={`py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+                        className={`p-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                           payMethod === 'CASH'
-                            ? 'bg-white text-emerald-700 shadow-md shadow-emerald-500/10'
-                            : 'text-slate-600 hover:text-slate-900'
+                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-md'
+                            : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
                         }`}
                       >
-                        <Banknote size={18} />
-                        <span>Tunai di Loket</span>
+                        <Banknote size={15} />
+                        <span>Bayar Tunai di Loket</span>
                       </button>
                     </div>
 
-                    {/* OPSI 1: TRANSFER BANK & QRIS */}
+                    {/* Mode Transfer */}
                     {payMethod === 'TRANSFER' && (
                       <div className="space-y-4">
-                        <div className="text-xs text-slate-500 font-medium">
-                          Silakan transfer ke salah satu rekening resmi panitia PPDB berikut:
-                        </div>
-
-                        {/* Rekening BCA */}
-                        <div className="p-3.5 rounded-2xl border border-slate-200 hover:border-blue-300 bg-white shadow-sm flex items-center justify-between transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className="w-11 h-11 rounded-xl bg-blue-600 text-white font-extrabold text-xs flex items-center justify-center shadow-sm">
-                              BCA
-                            </div>
-                            <div>
-                              <div className="font-bold text-slate-900 text-sm font-mono tracking-wide">8735-0918-2231</div>
-                              <div className="text-xs text-slate-500">a.n SMK GaMa Official</div>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleCopy('873509182231', 'BCA')}
-                            className="px-3 py-1.5 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
-                          >
-                            {copiedBank === 'BCA' ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-                            {copiedBank === 'BCA' ? 'Tersalin' : 'Salin'}
-                          </button>
-                        </div>
-
-                        {/* Rekening BRI */}
-                        <div className="p-3.5 rounded-2xl border border-slate-200 hover:border-blue-300 bg-white shadow-sm flex items-center justify-between transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className="w-11 h-11 rounded-xl bg-blue-800 text-white font-extrabold text-xs flex items-center justify-center shadow-sm">
-                              BRI
-                            </div>
-                            <div>
-                              <div className="font-bold text-slate-900 text-sm font-mono tracking-wide">0341-0100-2918-538</div>
-                              <div className="text-xs text-slate-500">a.n Panitia PPDB SMK GaMa</div>
+                        <div className="p-4 rounded-2xl bg-black/40 border border-white/10 space-y-2 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-400">Bank BRI:</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-bold text-white">0123-01-001234-56-7</span>
+                              <button
+                                type="button"
+                                onClick={() => handleCopy('012301001234567', 'BRI')}
+                                className="text-cyan-400 hover:underline flex items-center gap-1 cursor-pointer"
+                              >
+                                <Copy size={12} /> {copiedBank === 'BRI' ? 'Tersalin!' : 'Salin'}
+                              </button>
                             </div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => handleCopy('034101002918538', 'BRI')}
-                            className="px-3 py-1.5 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
-                          >
-                            {copiedBank === 'BRI' ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-                            {copiedBank === 'BRI' ? 'Tersalin' : 'Salin'}
-                          </button>
-                        </div>
-
-                        {/* QRIS Box */}
-                        <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/60 flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-11 h-11 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-sm">
-                              <QrCode size={22} />
-                            </div>
-                            <div>
-                              <div className="font-bold text-slate-900 text-xs sm:text-sm">QRIS All Payment</div>
-                              <div className="text-[11px] text-slate-500">GoPay, Dana, OVO, ShopeePay, BCA/Mandiri Mobile</div>
-                            </div>
-                          </div>
-                          <span className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-md">
-                            Auto Check
-                          </span>
-                        </div>
-
-                        {/* Upload Bukti Struk */}
-                        <div className="pt-2">
-                          <FileUpload
-                            name="paymentProof"
-                            label="Upload Bukti Transfer / Struk / Screenshot (Wajib)"
-                            required={true}
-                            accept=".jpg,.jpeg,.png,.webp,.pdf"
-                            value={transferProofUrl}
-                            onChange={(url) => setTransferProofUrl(url)}
-                            colorTheme="blue"
-                            helperText="Format JPG, PNG, atau PDF (Maks 10MB)"
-                          />
+                          <div className="text-[11px] text-slate-400">A.N. SMK GARUDA MAHADHIKA</div>
                         </div>
 
                         <div>
-                          <label className="block text-xs font-semibold text-slate-700 mb-1">
-                            Nama Pemilik Rekening / Bank Pengirim (Opsional)
-                          </label>
-                          <input
-                            type="text"
-                            value={transferNotes}
-                            onChange={(e) => setTransferNotes(e.target.value)}
-                            placeholder="Contoh: BCA a.n Hendra Wijaya"
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-slate-900 text-xs focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                          <FileUpload
+                            name="paymentProof"
+                            label="Unggah Struk Bukti Transfer (Wajib)"
+                            colorTheme="blue"
+                            helperText="Screenshot m-banking atau foto struk ATM (Maks: 4.5MB)"
+                            required={true}
+                            onChange={(url: string) => setTransferProofUrl(url)}
                           />
                         </div>
 
@@ -1231,106 +1376,73 @@ export default function PPDBClient({
                           type="button"
                           onClick={handlePayTransfer}
                           disabled={isSubmitting || !transferProofUrl}
-                          className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 text-white rounded-xl font-bold shadow-lg shadow-blue-500/25 transition-all flex items-center justify-center gap-2 mt-4 text-sm"
+                          className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
                         >
-                          {isSubmitting ? (
-                            <>
-                              <Loader2 size={18} className="animate-spin" /> Sedang Mengirim Bukti...
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle2 size={18} /> Kirim Bukti Transfer & Selesaikan
-                            </>
-                          )}
+                          {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                          <span>Konfirmasi Pembayaran Transfer</span>
                         </button>
                       </div>
                     )}
 
-                    {/* OPSI 2: BAYAR TUNAI DI LOKET (CASH) */}
+                    {/* Mode Tunai */}
                     {payMethod === 'CASH' && (
                       <div className="space-y-4">
-                        {/* Kupon Slip Booking Tunai 3D */}
-                        <div className="border-2 border-dashed border-emerald-300 bg-gradient-to-br from-emerald-50 via-teal-50/40 to-white rounded-2xl p-5 shadow-sm relative overflow-hidden">
-                          <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs uppercase tracking-wider mb-2">
-                            <Banknote size={16} /> Slip Booking Pembayaran Tunai
-                          </div>
-                          
-                          <div className="text-2xl font-black font-mono text-emerald-950 tracking-wider">
+                        <div className="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 text-xs space-y-2">
+                          <div className="font-bold text-emerald-300">KODE BOOKING LOKET:</div>
+                          <div className="text-xl font-black font-mono text-white">
                             CASH-{applicantData?.id?.slice(-6).toUpperCase()}
                           </div>
-                          <p className="text-xs text-emerald-700 mt-1">
-                            Tunjukkan kode ini kepada kasir/panitia saat melakukan pembayaran di sekolah.
+                          <p className="text-slate-300 text-[11px]">
+                            Tunjukkan kode ini ke petugas loket kasir SMK Garuda Mahadhika dalam waktu 3x24 jam untuk pelunasan.
                           </p>
-
-                          <div className="mt-4 pt-4 border-t border-emerald-200/60 grid grid-cols-2 gap-3 text-xs">
-                            <div>
-                              <span className="text-slate-500 block text-[11px]">Nominal Tunai:</span>
-                              <span className="font-bold text-slate-900 text-sm">Rp 150.000</span>
-                            </div>
-                            <div>
-                              <span className="text-slate-500 block text-[11px]">Batas Waktu:</span>
-                              <span className="font-bold text-slate-900">3x24 Jam</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Petunjuk Loket */}
-                        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-2.5 text-xs text-slate-700">
-                          <div className="font-bold text-slate-900 flex items-center gap-2 text-sm">
-                            <Building size={16} className="text-blue-600" />
-                            Lokasi & Waktu Layanan Loket:
-                          </div>
-                          <ul className="space-y-1.5 list-disc list-inside text-slate-600">
-                            <li><strong>Lokasi:</strong> Ruang Panitia PPDB & Kasir Gedung Utama SMK GaMa.</li>
-                            <li><strong>Hari & Jam:</strong> Senin s/d Sabtu, pukul 08.00 – 14.00 WIB.</li>
-                            <li><strong>Alur:</strong> Serahkan uang tunai pas & kode booking kepada petugas, Anda akan menerima bukti kwitansi fisik bertanda tangan panitia dan status langsung diubah menjadi <strong>LUNAS (PAID)</strong>.</li>
-                          </ul>
                         </div>
 
                         <button
                           type="button"
                           onClick={handlePayCash}
                           disabled={isSubmitting}
-                          className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/25 transition-all flex items-center justify-center gap-2 mt-4 text-sm"
+                          className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
                         >
-                          {isSubmitting ? (
-                            <>
-                              <Loader2 size={18} className="animate-spin" /> Memproses...
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle2 size={18} /> Konfirmasi Pilih Bayar Tunai di Loket
-                            </>
-                          )}
+                          {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                          <span>Konfirmasi Bayar Tunai di Loket</span>
                         </button>
                       </div>
                     )}
 
                   </div>
                 ) : (
-                  <div className="p-8 text-center">
-                    <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-zoom-in shadow-inner">
-                      <CheckCircle2 size={44} />
+                  <div className="p-8 text-center space-y-3">
+                    <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
+                      <CheckCircle2 size={36} />
                     </div>
-                    <h3 className="text-2xl font-black text-slate-900 mb-2">Pendaftaran & Pembayaran Diproses!</h3>
-                    <p className="text-slate-600 text-sm mb-6">
-                      {payMethod === 'TRANSFER'
-                        ? 'Bukti transfer berhasil dikirim. Panitia PPDB akan memverifikasi berkas dan pembayaran Anda.'
-                        : 'Metode bayar tunai di loket telah tercatat. Silakan kunjungi ruang panitia PPDB untuk pelunasan.'}
+                    <h3 className="text-xl font-black text-white">Pendaftaran Berhasil Diproses!</h3>
+                    <p className="text-xs text-slate-400">
+                      Mengarahkan Anda ke lembar tanda bukti pendaftaran...
                     </p>
-                    <div className="text-xs text-blue-600 font-semibold animate-pulse flex items-center justify-center gap-2">
-                      <Loader2 size={14} className="animate-spin" /> Menyiapkan kartu bukti pendaftaran...
-                    </div>
                   </div>
                 )}
+
               </div>
             </div>
           )}
 
         </div>
-        
-      </div>
+
+      </main>
+
+      {/* =========================================================================
+          FOOTER
+          ========================================================================= */}
+      <footer className={`relative z-20 w-full px-6 py-6 border-t text-center text-xs transition-colors ${
+        isDarkMode 
+          ? 'border-white/10 bg-slate-950/60 text-slate-400' 
+          : 'border-slate-200 bg-white/70 text-slate-500'
+      }`}>
+        <p>
+          &copy; {new Date().getFullYear()} <strong className={isDarkMode ? 'text-white' : 'text-slate-800'}>SMK Garuda Mahadhika</strong>. Panitia Penerimaan Peserta Didik Baru (PPDB).
+        </p>
+      </footer>
+
     </div>
   );
 }
-
