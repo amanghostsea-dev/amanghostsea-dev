@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { CheckCircle2, Clock, AlertTriangle, Building, Banknote, CreditCard, ArrowLeft, Download, Printer, Search, Phone } from "lucide-react";
 import PrintButton from "./PrintButton";
+import { getPPDBPaymentConfig } from "@/app/admin/settings/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -14,16 +15,15 @@ export default async function PPDBSucceessPage({
   const id = resolvedParams.id as string;
   const urlName = resolvedParams.name as string;
 
-  let applicant: any = null;
-  if (id) {
-    try {
-      applicant = await prisma.ppdbApplicant.findUnique({
-        where: { id }
-      });
-    } catch (e) {
-      console.error('Error fetching applicant for success page:', e);
-    }
-  }
+  const [applicant, paymentConfig] = await Promise.all([
+    id
+      ? prisma.ppdbApplicant.findUnique({ where: { id } }).catch((e) => {
+          console.error('Error fetching applicant for success page:', e);
+          return null;
+        })
+      : Promise.resolve(null),
+    getPPDBPaymentConfig(),
+  ]);
 
   const name = applicant?.fullName || urlName || 'Calon Siswa';
   const nisn = applicant?.nisn || '-';
@@ -33,6 +33,7 @@ export default async function PPDBSucceessPage({
   const paymentMethod = applicant?.paymentMethod || (jalur === 'normal' ? 'TRANSFER' : 'BEASISWA/GRATIS');
   const regId = id ? `PPDB-${id.slice(-6).toUpperCase()}` : 'PPDB-XXXXXX';
   const cashCode = id ? `CASH-${id.slice(-6).toUpperCase()}` : 'CASH-XXXXXX';
+  const totalAmount = applicant?.paymentAmount || paymentConfig.totalAmount || 150000;
 
   return (
     <div className="min-h-screen bg-slate-100/90 font-sans py-10 px-4 sm:px-6 relative text-slate-800">
@@ -115,12 +116,14 @@ export default async function PPDBSucceessPage({
                   </div>
                   <div className="text-left sm:text-right">
                     <span className="text-[11px] text-slate-500 block">Nominal Tunai Pas:</span>
-                    <span className="text-xl font-black text-emerald-800">Rp 150.000</span>
+                    <span className="text-xl font-black text-emerald-800">
+                      Rp {totalAmount.toLocaleString('id-ID')}
+                    </span>
                   </div>
                 </div>
                 <div className="text-xs text-slate-600 bg-white/80 p-3 rounded-xl border border-emerald-200 mt-3 space-y-1">
-                  <p><strong>Lokasi:</strong> Ruang Panitia PPDB / Loket Kasir Gedung Utama SMK GaMa.</p>
-                  <p><strong>Jam Layanan:</strong> Senin s/d Sabtu, pukul 08.00 - 14.00 WIB (Batas: 3x24 Jam).</p>
+                  <p><strong>Lokasi:</strong> {paymentConfig.cashLocation || 'Ruang Panitia PPDB / Loket Kasir Gedung Utama SMK GaMa'}</p>
+                  <p><strong>Jam Layanan:</strong> {paymentConfig.cashHours || 'Senin s/d Sabtu, pukul 08.00 - 14.00 WIB (Batas: 3x24 Jam)'}</p>
                   <p>Tunjukkan kode booking ini kepada petugas kasir untuk mendapatkan kwitansi fisik bertanda tangan & cap resmi.</p>
                 </div>
               </div>
@@ -138,6 +141,48 @@ export default async function PPDBSucceessPage({
               </div>
             )}
           </div>
+
+          {/* Rincian Komponen Biaya Pendaftaran (Jalur Reguler) */}
+          {jalur === 'normal' && (
+            <div className="border border-slate-200 rounded-2xl p-5 mb-6 text-sm bg-slate-50/50">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-2.5 mb-3">
+                <h5 className="font-bold text-slate-900 flex items-center gap-2">
+                  <Banknote size={16} className="text-blue-600" />
+                  Rincian Biaya Pembayaran Pendaftaran:
+                </h5>
+                <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+                  paymentStatus === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                }`}>
+                  {paymentStatus === 'PAID' ? 'LUNAS' : 'Menunggu Pelunasan'}
+                </span>
+              </div>
+              <div className="space-y-2 text-xs">
+                {paymentConfig.feeItems && paymentConfig.feeItems.length > 0 ? (
+                  paymentConfig.feeItems.map((item, idx) => (
+                    <div key={item.id || idx} className="flex items-center justify-between py-1 border-b border-slate-200/60 last:border-none">
+                      <span className="text-slate-600">{item.name}</span>
+                      <span className="font-mono font-bold text-slate-900">
+                        Rp {Number(item.amount || 0).toLocaleString('id-ID')}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex items-center justify-between py-1">
+                    <span className="text-slate-600">Biaya Formulir & Seleksi PPDB</span>
+                    <span className="font-mono font-bold text-slate-900">
+                      Rp {totalAmount.toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                )}
+                <div className="pt-2 mt-1 border-t-2 border-slate-300 flex items-center justify-between font-bold text-sm text-slate-900">
+                  <span>Total Tagihan Masuk</span>
+                  <span className="font-mono text-blue-700 text-base">
+                    Rp {totalAmount.toLocaleString('id-ID')}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Data Calon Siswa */}
           <div className="space-y-3 border border-slate-200 rounded-2xl p-5 mb-6 text-sm">

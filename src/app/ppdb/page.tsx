@@ -1,4 +1,4 @@
-import { getWebSettings } from "@/app/admin/settings/actions";
+import { getWebSettings, getPPDBPaymentConfig } from "@/app/admin/settings/actions";
 import prisma from "@/lib/prisma";
 import PPDBClient from "./PPDBClient";
 
@@ -19,8 +19,9 @@ export default async function PPDBPage({
   searchParams?: Promise<{ theme?: string }>;
 }) {
   const resolvedParams = searchParams ? await searchParams : {};
-  const [settings, jurusanList] = await Promise.all([
+  const [settings, paymentConfig, jurusanList] = await Promise.all([
     getWebSettings(),
+    getPPDBPaymentConfig(),
     prisma.jurusan.findMany({
       orderBy: { createdAt: "asc" },
     }).catch(() => [])
@@ -34,6 +35,7 @@ export default async function PPDBPage({
       schoolName={schoolName} 
       jurusanList={jurusanList} 
       defaultTheme={defaultTheme} 
+      paymentConfig={paymentConfig}
     />
   );
 }

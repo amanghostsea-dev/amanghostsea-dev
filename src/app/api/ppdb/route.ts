@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { getPPDBPaymentConfig } from '@/app/admin/settings/actions';
 
 export async function POST(request: Request) {
   try {
@@ -17,6 +18,10 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    const paymentConfig = await getPPDBPaymentConfig();
+    const nominal = (jalur === 'normal' && paymentConfig.enabled) ? (paymentConfig.totalAmount || 150000) : 0;
+    const initialPaymentStatus = (jalur === 'normal' && paymentConfig.enabled && nominal > 0) ? 'UNPAID' : 'PAID';
 
     const applicant = await prisma.ppdbApplicant.create({
       data: {
@@ -36,7 +41,8 @@ export async function POST(request: Request) {
         documentAfirmasi: data.documentAfirmasi || null,
         documentKip: data.documentKip || null,
         documentPrestasi: data.documentPrestasi || null,
-        paymentStatus: jalur === 'normal' ? 'UNPAID' : 'PAID', // Simulasi: normal bayar, lainnya gratis
+        paymentStatus: initialPaymentStatus,
+        paymentAmount: nominal,
         status: 'PENDING'
       }
     });

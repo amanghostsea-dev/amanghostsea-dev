@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { getWebSettings } from '@/app/admin/settings/actions';
+import { getWebSettings, getPPDBPaymentConfig } from '@/app/admin/settings/actions';
 import StatusClient from './StatusClient';
 
 export async function generateMetadata() {
@@ -14,7 +14,10 @@ export async function generateMetadata() {
 export const dynamic = 'force-dynamic';
 
 export default async function PPDBStatusPage() {
-  const settings = await getWebSettings();
+  const [settings, paymentConfig] = await Promise.all([
+    getWebSettings(),
+    getPPDBPaymentConfig(),
+  ]);
   const schoolName = settings?.schoolName || 'SMK GaMa';
   const contactPhone = settings?.ppdbPhone || '082246464677';
 
@@ -27,7 +30,7 @@ export default async function PPDBStatusPage() {
         </div>
       </div>
     }>
-      <StatusClient schoolName={schoolName} contactPhone={contactPhone} />
+      <StatusClient schoolName={schoolName} contactPhone={contactPhone} paymentConfig={paymentConfig} />
     </Suspense>
   );
 }

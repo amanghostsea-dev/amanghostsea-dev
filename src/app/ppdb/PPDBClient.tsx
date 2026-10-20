@@ -33,6 +33,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from 'next/navigation';
 import FileUpload from '@/components/FileUpload';
+import { PPDBPaymentConfig, DEFAULT_PPDB_PAYMENT_CONFIG } from '@/app/admin/settings/types';
 
 export interface JurusanItem {
   id?: string;
@@ -109,11 +110,13 @@ const SHOWCASE_ROTATION: ('TJKT' | 'DKV' | 'MPLB')[] = ['TJKT', 'DKV', 'MPLB'];
 export default function PPDBClient({ 
   schoolName = "SMK GaMa",
   jurusanList = [],
-  defaultTheme = 'cyber-cards'
+  defaultTheme = 'cyber-cards',
+  paymentConfig = DEFAULT_PPDB_PAYMENT_CONFIG,
 }: { 
   schoolName?: string;
   jurusanList?: JurusanItem[];
   defaultTheme?: PPDBTheme;
+  paymentConfig?: PPDBPaymentConfig;
 }) {
   const router = useRouter();
 
@@ -1364,15 +1367,55 @@ export default function PPDBClient({
 
                 {!paymentSuccess ? (
                   <div className="p-6 space-y-6">
-                    {/* Ringkasan Biaya */}
-                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between">
-                      <div>
-                        <span className="text-xs text-slate-400 block">Biaya Formulir & Seleksi:</span>
-                        <span className="text-2xl font-black text-cyan-400">Rp 150.000</span>
+                    {/* Ringkasan & Rincian Komponen Biaya */}
+                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+                      <div className="flex items-start justify-between gap-3 pb-2.5 border-b border-white/10">
+                        <div>
+                          <span className="text-[11px] text-slate-400 block font-medium">
+                            {paymentConfig.title || 'Biaya Pendaftaran & Seleksi Masuk'}
+                          </span>
+                          <span className="text-2xl font-black text-cyan-400 font-mono">
+                            Rp {(paymentConfig.totalAmount || 150000).toLocaleString('id-ID')}
+                          </span>
+                        </div>
+                        <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 flex-shrink-0">
+                          Jalur Reguler
+                        </span>
                       </div>
-                      <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
-                        Jalur Reguler
-                      </span>
+
+                      {/* Rincian Komponen Biaya */}
+                      {paymentConfig.feeItems && paymentConfig.feeItems.length > 0 && (
+                        <div className="space-y-1.5 text-xs">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                            Rincian Pembayaran:
+                          </span>
+                          <div className="bg-black/30 rounded-xl p-3 space-y-1.5 border border-white/5">
+                            {paymentConfig.feeItems.map((item, idx) => (
+                              <div key={item.id || idx} className="flex items-center justify-between text-xs py-0.5">
+                                <span className="text-slate-300 flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400/80"></span>
+                                  {item.name}
+                                </span>
+                                <span className="font-mono font-semibold text-white">
+                                  Rp {Number(item.amount || 0).toLocaleString('id-ID')}
+                                </span>
+                              </div>
+                            ))}
+                            <div className="pt-2 mt-1 border-t border-white/10 flex items-center justify-between font-bold text-xs text-cyan-300">
+                              <span>Total Tagihan Pembayaran</span>
+                              <span className="font-mono text-sm">
+                                Rp {(paymentConfig.totalAmount || 150000).toLocaleString('id-ID')}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {paymentConfig.notes && (
+                        <p className="text-[11px] text-slate-400 italic">
+                          *{paymentConfig.notes}
+                        </p>
+                      )}
                     </div>
 
                     {/* Pilihan Metode */}
@@ -1409,19 +1452,21 @@ export default function PPDBClient({
                       <div className="space-y-4">
                         <div className="p-4 rounded-2xl bg-black/40 border border-white/10 space-y-2 text-xs">
                           <div className="flex items-center justify-between">
-                            <span className="text-slate-400">Bank BRI:</span>
+                            <span className="text-slate-400">{paymentConfig.bankName || 'Bank BRI'}:</span>
                             <div className="flex items-center gap-2">
-                              <span className="font-mono font-bold text-white">0123-01-001234-56-7</span>
+                              <span className="font-mono font-bold text-white">
+                                {paymentConfig.bankAccount || '0123-01-001234-56-7'}
+                              </span>
                               <button
                                 type="button"
-                                onClick={() => handleCopy('012301001234567', 'BRI')}
+                                onClick={() => handleCopy((paymentConfig.bankAccount || '012301001234567').replace(/[^0-9]/g, ''), 'BANK')}
                                 className="text-cyan-400 hover:underline flex items-center gap-1 cursor-pointer"
                               >
-                                <Copy size={12} /> {copiedBank === 'BRI' ? 'Tersalin!' : 'Salin'}
+                                <Copy size={12} /> {copiedBank === 'BANK' ? 'Tersalin!' : 'Salin'}
                               </button>
                             </div>
                           </div>
-                          <div className="text-[11px] text-slate-400">A.N. SMK GARUDA MAHADHIKA</div>
+                          <div className="text-[11px] text-slate-400">A.N. {paymentConfig.bankHolder || 'SMK GARUDA MAHADHIKA'}</div>
                         </div>
 
                         <div>
@@ -1450,14 +1495,18 @@ export default function PPDBClient({
                     {/* Mode Tunai */}
                     {payMethod === 'CASH' && (
                       <div className="space-y-4">
-                        <div className="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 text-xs space-y-2">
+                        <div className="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 text-xs space-y-2.5">
                           <div className="font-bold text-emerald-300">KODE BOOKING LOKET:</div>
                           <div className="text-xl font-black font-mono text-white">
                             CASH-{applicantData?.id?.slice(-6).toUpperCase()}
                           </div>
-                          <p className="text-slate-300 text-[11px]">
-                            Tunjukkan kode ini ke petugas loket kasir SMK Garuda Mahadhika dalam waktu 3x24 jam untuk pelunasan.
-                          </p>
+                          <div className="space-y-1 text-slate-300 text-[11px] pt-1.5 border-t border-emerald-500/20">
+                            <p><strong>Lokasi:</strong> {paymentConfig.cashLocation || 'Ruang Panitia PPDB / Loket Kasir Gedung Utama SMK GaMa'}</p>
+                            <p><strong>Jam Layanan:</strong> {paymentConfig.cashHours || 'Senin s/d Sabtu, pukul 08.00 - 14.00 WIB'}</p>
+                            <p className="text-emerald-200">
+                              Tunjukkan kode ini ke petugas loket kasir SMK Garuda Mahadhika dalam waktu 3x24 jam untuk pelunasan biaya sebesar <strong>Rp {(paymentConfig.totalAmount || 150000).toLocaleString('id-ID')}</strong>.
+                            </p>
+                          </div>
                         </div>
 
                         <button

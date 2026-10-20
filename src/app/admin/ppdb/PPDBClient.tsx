@@ -577,7 +577,9 @@ export default function PPDBClient({ initialSubmissions }: { initialSubmissions:
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[11px]">Total Tagihan:</span>
-                    <span className="font-black text-blue-600 dark:text-blue-400 text-sm">Rp 150.000</span>
+                    <span className="font-black text-blue-600 dark:text-blue-400 text-sm">
+                      Rp {(selectedPaymentApplicant.paymentAmount || 150000).toLocaleString('id-ID')}
+                    </span>
                   </div>
                 </div>
 
@@ -634,7 +636,7 @@ export default function PPDBClient({ initialSubmissions }: { initialSubmissions:
                       CASH-{selectedPaymentApplicant.id.slice(-6).toUpperCase()}
                     </div>
                     <p className="text-xs text-teal-700 dark:text-teal-400 mt-1">
-                      Pastikan calon siswa telah menyerahkan uang pas sebesar <strong>Rp 150.000</strong> ke bendahara sekolah sebelum menekan tombol konfirmasi lunas.
+                      Pastikan calon siswa telah menyerahkan uang pas sebesar <strong>Rp {(selectedPaymentApplicant.paymentAmount || 150000).toLocaleString('id-ID')}</strong> ke bendahara sekolah sebelum menekan tombol konfirmasi lunas.
                     </p>
                   </div>
                 )}

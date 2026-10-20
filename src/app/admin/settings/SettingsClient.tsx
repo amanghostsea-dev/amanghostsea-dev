@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Settings, Image as ImageIcon, Save, Check, ArrowLeft, Upload, Loader2 } from 'lucide-react';
+import { Settings, Image as ImageIcon, Save, Check, ArrowLeft, Upload, Loader2, Banknote, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 
 import { saveWebSettings } from './actions';
@@ -55,14 +55,35 @@ export default function SettingsClient(props: { initialData: any }) {
   return (
     <div className="p-6">
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center gap-4 mb-8">
-          
+        <div className="flex items-center gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
               <Settings className="text-gray-600" /> Pengaturan Web & Identitas
             </h1>
             <p className="text-gray-500 text-sm">Sesuaikan nama sekolah, logo, dan tampilan website utama</p>
           </div>
+        </div>
+
+        {/* Banner Quick-link: Rincian Biaya PPDB */}
+        <div className="mb-8 p-5 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-2xl text-white shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="p-3 bg-blue-500/20 text-blue-300 rounded-xl border border-blue-400/30 flex-shrink-0">
+              <Banknote size={24} />
+            </div>
+            <div>
+              <h3 className="font-bold text-base text-white">Kelola Rincian Biaya PPDB & Rekening</h3>
+              <p className="text-xs text-blue-200 mt-0.5">
+                Atur komponen biaya pendaftaran calon siswa (formulir, tes minat bakat, seragam) hingga ke ranah total otomatis.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/admin/settings/biaya-ppdb"
+            className="px-4 py-2.5 bg-blue-500 hover:bg-blue-600 active:scale-95 text-white font-bold text-xs rounded-xl shadow transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 cursor-pointer"
+          >
+            <span>Buka Pengaturan Biaya</span>
+            <ExternalLink size={14} />
+          </Link>
         </div>
 
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden text-gray-900 dark:text-white">

@@ -20,6 +20,8 @@ import {
   ExternalLink
 } from 'lucide-react';
 
+import { PPDBPaymentConfig } from '@/app/admin/settings/types';
+
 interface ApplicantData {
   id: string;
   regId: string;
@@ -54,9 +56,10 @@ interface ApplicantData {
 interface StatusClientProps {
   schoolName: string;
   contactPhone?: string;
+  paymentConfig?: PPDBPaymentConfig;
 }
 
-export default function StatusClient({ schoolName, contactPhone = '082246464677' }: StatusClientProps) {
+export default function StatusClient({ schoolName, contactPhone = '082246464677', paymentConfig }: StatusClientProps) {
   const ppdbPhone = contactPhone || '082246464677';
   const displayPhone = '0822-4646-4677';
 
@@ -400,12 +403,27 @@ export default function StatusClient({ schoolName, contactPhone = '082246464677'
                     </div>
                     <div className="text-left sm:text-right">
                       <span className="text-[11px] text-slate-500 block">Nominal Tunai Pas:</span>
-                      <span className="text-xl font-black text-emerald-800">Rp 150.000</span>
+                      <span className="text-xl font-black text-emerald-800">
+                        Rp {(applicant.paymentAmount || paymentConfig?.totalAmount || 150000).toLocaleString('id-ID')}
+                      </span>
                     </div>
                   </div>
-                  <div className="text-xs text-slate-600 bg-white/80 p-3 rounded-xl border border-emerald-200 mt-3 space-y-1">
-                    <p><strong>Lokasi:</strong> Ruang Panitia PPDB / Loket Kasir Gedung Utama SMK GaMa.</p>
-                    <p><strong>Jam Layanan:</strong> Senin s/d Sabtu, pukul 08.00 - 14.00 WIB.</p>
+
+                  {paymentConfig?.feeItems && paymentConfig.feeItems.length > 0 && (
+                    <div className="bg-white/90 p-3 rounded-xl border border-emerald-200/80 my-2 text-xs space-y-1">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Rincian Komponen Biaya:</span>
+                      {paymentConfig.feeItems.map((item, idx) => (
+                        <div key={item.id || idx} className="flex items-center justify-between py-0.5 text-slate-700">
+                          <span>{item.name}</span>
+                          <span className="font-mono font-semibold">Rp {Number(item.amount || 0).toLocaleString('id-ID')}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="text-xs text-slate-600 bg-white/80 p-3 rounded-xl border border-emerald-200 mt-2 space-y-1">
+                    <p><strong>Lokasi:</strong> {paymentConfig?.cashLocation || 'Ruang Panitia PPDB / Loket Kasir Gedung Utama SMK GaMa'}</p>
+                    <p><strong>Jam Layanan:</strong> {paymentConfig?.cashHours || 'Senin s/d Sabtu, pukul 08.00 - 14.00 WIB'}</p>
                     <p>Tunjukkan kode booking ini kepada petugas kasir untuk mendapatkan kwitansi fisik bertanda tangan & cap resmi.</p>
                   </div>
                   {applicant.paymentNotes && (

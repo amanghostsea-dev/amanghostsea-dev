@@ -1,5 +1,5 @@
 'use client';
-import { Users, Settings, Database, Activity, LogOut, BookOpen, Network, LayoutDashboard, TrendingUp, Briefcase, ExternalLink, CheckSquare } from 'lucide-react';
+import { Users, Settings, Database, Activity, LogOut, BookOpen, Network, LayoutDashboard, TrendingUp, Briefcase, ExternalLink, CheckSquare, Banknote } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import SchoolLogo from '@/components/SchoolLogo';
@@ -24,6 +24,7 @@ export default function AdminSidebar({ logoUrl, userRole = 'Super Admin', userNa
   const superAdminMenuItems = [
     { name: 'Dashboard Utama', path: '/admin', icon: <Activity size={20} /> },
     { name: 'Modul PPDB', path: '/admin/ppdb', icon: <Database size={20} /> },
+    { name: 'Rincian Biaya PPDB', path: '/admin/settings/biaya-ppdb', icon: <Banknote size={20} /> },
     { name: 'BKK Lowongan', path: '/admin/bkk/jobs', icon: <Briefcase size={20} /> },
     { name: 'Tracer Study', path: '/admin/bkk/tracer-study', icon: <TrendingUp size={20} /> },
     { name: 'Manajemen Akun', path: '/admin/users', icon: <Users size={20} /> },
