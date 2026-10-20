@@ -165,6 +165,57 @@ export default function PPDBClient({
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [applicantData, setApplicantData] = useState<any>(null);
 
+  // Controlled form state to guarantee values are never lost across stepper steps
+  const [formDataState, setFormDataState] = useState({
+    fullName: '',
+    nisn: '',
+    birthInfo: '',
+    gender: 'Laki-laki',
+    phone: '',
+    previousSchool: '',
+    address: '',
+  });
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormDataState((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleStep2Next = () => {
+    if (!formDataState.fullName.trim() || formDataState.fullName.trim().length < 3) {
+      alert('Nama lengkap calon siswa wajib diisi minimal 3 karakter.');
+      return;
+    }
+    if (!/^\d{10}$/.test(formDataState.nisn.trim())) {
+      alert('Format NISN tidak valid! NISN harus terdiri dari tepat 10 digit angka (contoh: 0071234567).');
+      return;
+    }
+    if (!formDataState.gender) {
+      alert('Silakan pilih jenis kelamin.');
+      return;
+    }
+    const cleanPhone = formDataState.phone.replace(/[\s-]/g, '').trim();
+    if (!/^(08|\+62|62)\d{8,12}$/.test(cleanPhone)) {
+      alert('Format nomor WhatsApp tidak valid! Harap masukkan nomor aktif yang diawali 08 (10-14 digit).');
+      return;
+    }
+    if (!formDataState.birthInfo.trim()) {
+      alert('Tempat dan tanggal lahir wajib diisi.');
+      return;
+    }
+    if (!formDataState.previousSchool.trim()) {
+      alert('Nama asal sekolah (SMP/MTs) wajib diisi.');
+      return;
+    }
+    if (!formDataState.address.trim()) {
+      alert('Alamat tempat tinggal wajib diisi.');
+      return;
+    }
+    setCurrentStep(3);
+  };
+
   // Payment State (QRIS vs Transfer vs Cash)
   const [payMethod, setPayMethod] = useState<'QRIS' | 'TRANSFER' | 'CASH'>('QRIS');
   const [transferProofUrl, setTransferProofUrl] = useState<string>('');
@@ -184,7 +235,21 @@ export default function PPDBClient({
     setIsSubmitting(true);
 
     const formData = new FormData(e.currentTarget);
-    const data = Object.fromEntries(formData.entries());
+    const formEntries = Object.fromEntries(formData.entries());
+
+    // Explicitly merge formDataState and formEntries so stepper inputs are NEVER undefined
+    const data: Record<string, any> = {
+      ...formEntries,
+      fullName: (formDataState.fullName || formEntries.fullName || '').toString().trim(),
+      nisn: (formDataState.nisn || formEntries.nisn || '').toString().trim(),
+      gender: formDataState.gender || (formEntries.gender as string) || 'Laki-laki',
+      phone: (formDataState.phone || formEntries.phone || '').toString().trim(),
+      birthInfo: (formDataState.birthInfo || formEntries.birthInfo || '').toString().trim(),
+      previousSchool: (formDataState.previousSchool || formEntries.previousSchool || '').toString().trim(),
+      address: (formDataState.address || formEntries.address || '').toString().trim(),
+      jalur,
+      major: selectedMajor,
+    };
 
     // Pastikan major terisi dari kartu terpilih jika belum ada
     if (!data.major) {
@@ -689,6 +754,7 @@ export default function PPDBClient({
               <input type="text" id="_hp_company" name="_hp_company" tabIndex={-1} autoComplete="off" defaultValue="" />
             </div>
 
+            {/* Form Hidden Inputs (Always submitted across all steps) */}
             <input type="hidden" name="jalur" value={jalur} />
             <input type="hidden" name="jalurPendaftaran" value={jalur} />
             <input type="hidden" name="major" value={selectedMajor} />
@@ -696,8 +762,7 @@ export default function PPDBClient({
             {/* ===================================================================
                 SECTION 01: PILIH JALUR PENDAFTARAN
                 =================================================================== */}
-            {(theme !== 'stepper' || currentStep === 1) && (
-              <section className="space-y-6 animate-fade-in">
+            <section className={`space-y-6 animate-fade-in ${theme === 'stepper' && currentStep !== 1 ? 'hidden' : 'block'}`}>
                 <div className="flex items-center gap-3.5">
                   <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-sm shadow-md shadow-blue-500/30 ring-4 ring-blue-500/20 shrink-0">
                     01
@@ -842,13 +907,11 @@ export default function PPDBClient({
                   </div>
                 )}
               </section>
-            )}
 
             {/* ===================================================================
                 SECTION 02: DATA PRIBADI & ASAL SEKOLAH
                 =================================================================== */}
-            {(theme !== 'stepper' || currentStep === 2) && (
-              <section className="space-y-6 animate-fade-in">
+            <section className={`space-y-6 animate-fade-in ${theme === 'stepper' && currentStep !== 2 ? 'hidden' : 'block'}`}>
                 <div className="flex items-center gap-3.5">
                   <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-sm shadow-md shadow-blue-500/30 ring-4 ring-blue-500/20 shrink-0">
                     02
@@ -877,9 +940,10 @@ export default function PPDBClient({
                     <div className="relative">
                       <User size={18} className="absolute left-3.5 top-3.5 text-slate-400" />
                       <input 
-                        required 
                         type="text" 
                         name="fullName" 
+                        value={formDataState.fullName}
+                        onChange={handleInputChange}
                         placeholder="Sesuai ijazah SMP/MTs"
                         className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium outline-none transition-all ${
                           isDarkMode 
@@ -900,10 +964,11 @@ export default function PPDBClient({
                     <div className="relative">
                       <CreditCard size={18} className="absolute left-3.5 top-3.5 text-slate-400" />
                       <input 
-                        required 
                         type="text" 
                         name="nisn" 
                         maxLength={10}
+                        value={formDataState.nisn}
+                        onChange={handleInputChange}
                         placeholder="Contoh: 0071234567"
                         className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium outline-none transition-all ${
                           isDarkMode 
@@ -922,16 +987,15 @@ export default function PPDBClient({
                       Jenis Kelamin <span className="text-red-500">*</span>
                     </label>
                     <select
-                      required
                       name="gender"
-                      defaultValue=""
+                      value={formDataState.gender}
+                      onChange={handleInputChange}
                       className={`w-full px-4 py-3 rounded-xl border text-sm font-medium outline-none transition-all ${
                         isDarkMode 
                           ? 'bg-slate-900/80 border-white/10 text-white focus:border-cyan-400' 
                           : 'bg-slate-50 border-slate-200 text-slate-900 focus:bg-white focus:border-blue-500'
                       }`}
                     >
-                      <option value="" disabled>Pilih Jenis Kelamin</option>
                       <option value="Laki-laki">Laki-laki</option>
                       <option value="Perempuan">Perempuan</option>
                     </select>
@@ -947,9 +1011,10 @@ export default function PPDBClient({
                     <div className="relative">
                       <Phone size={18} className="absolute left-3.5 top-3.5 text-slate-400" />
                       <input 
-                        required 
                         type="tel" 
                         name="phone" 
+                        value={formDataState.phone}
+                        onChange={handleInputChange}
                         placeholder="Contoh: 081234567890"
                         className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium outline-none transition-all ${
                           isDarkMode 
@@ -970,9 +1035,10 @@ export default function PPDBClient({
                     <div className="relative">
                       <Calendar size={18} className="absolute left-3.5 top-3.5 text-slate-400" />
                       <input 
-                        required 
                         type="text" 
                         name="birthInfo" 
+                        value={formDataState.birthInfo}
+                        onChange={handleInputChange}
                         placeholder="Contoh: Jakarta, 15 Mei 2010"
                         className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium outline-none transition-all ${
                           isDarkMode 
@@ -993,9 +1059,10 @@ export default function PPDBClient({
                     <div className="relative">
                       <School size={18} className="absolute left-3.5 top-3.5 text-slate-400" />
                       <input 
-                        required 
                         type="text" 
                         name="previousSchool" 
+                        value={formDataState.previousSchool}
+                        onChange={handleInputChange}
                         placeholder="Nama SMP/MTs asal"
                         className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium outline-none transition-all ${
                           isDarkMode 
@@ -1016,9 +1083,10 @@ export default function PPDBClient({
                     <div className="relative">
                       <MapPin size={18} className="absolute left-3.5 top-3.5 text-slate-400" />
                       <textarea 
-                        required 
                         name="address" 
                         rows={2} 
+                        value={formDataState.address}
+                        onChange={handleInputChange}
                         placeholder="Nama jalan, RT/RW, kelurahan, kecamatan, kota/kabupaten"
                         className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium outline-none transition-all resize-none ${
                           isDarkMode 
@@ -1042,7 +1110,7 @@ export default function PPDBClient({
                     </button>
                     <button
                       type="button"
-                      onClick={() => setCurrentStep(3)}
+                      onClick={handleStep2Next}
                       className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold rounded-xl flex items-center gap-2 cursor-pointer shadow-md transition-all duration-150"
                     >
                       <span>Lanjut: Pilih Jurusan</span>
@@ -1051,13 +1119,11 @@ export default function PPDBClient({
                   </div>
                 )}
               </section>
-            )}
 
             {/* ===================================================================
                 SECTION 03: PILIHAN JURUSAN (3D HOLOGRAPHIC CARDS)
                 =================================================================== */}
-            {(theme !== 'stepper' || currentStep === 3) && (
-              <section className="space-y-6 animate-fade-in">
+            <section className={`space-y-6 animate-fade-in ${theme === 'stepper' && currentStep !== 3 ? 'hidden' : 'block'}`}>
                 <div className="flex items-center gap-3.5">
                   <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-sm shadow-md shadow-blue-500/30 ring-4 ring-blue-500/20 shrink-0">
                     03
@@ -1178,13 +1244,11 @@ export default function PPDBClient({
                   </div>
                 )}
               </section>
-            )}
 
             {/* ===================================================================
                 SECTION 04: PERSYARATAN BERKAS & KONFIRMASI
                 =================================================================== */}
-            {(theme !== 'stepper' || currentStep === 4) && (
-              <section className="space-y-6 animate-fade-in">
+            <section className={`space-y-6 animate-fade-in ${theme === 'stepper' && currentStep !== 4 ? 'hidden' : 'block'}`}>
                 
                 {/* Syarat Khusus Jalur Afirmasi (KIP / SKTM) */}
                 {jalur === 'afirmasi' && (
@@ -1402,7 +1466,6 @@ export default function PPDBClient({
                 </div>
 
               </section>
-            )}
 
           </form>
 
