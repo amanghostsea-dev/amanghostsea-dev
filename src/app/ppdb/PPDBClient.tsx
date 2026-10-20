@@ -361,8 +361,8 @@ export default function PPDBClient({
           ? 'border-white/10 bg-slate-950/60' 
           : 'border-slate-200/80 bg-white/70 shadow-xs'
       }`}>
-        <Link 
-          href="/" 
+        <a 
+          href="https://smkgama.sch.id/" 
           className={`group inline-flex items-center gap-2 text-xs sm:text-sm font-semibold transition-colors py-1.5 px-3 rounded-xl border ${
             isDarkMode 
               ? 'text-slate-300 hover:text-white border-white/10 hover:border-white/25 bg-white/5' 
@@ -371,7 +371,7 @@ export default function PPDBClient({
         >
           <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-1" />
           <span>Kembali ke Beranda</span>
-        </Link>
+        </a>
 
         <div className="flex items-center gap-3">
           <Link 
