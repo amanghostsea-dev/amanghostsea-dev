@@ -1,0 +1,160 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url = env("POSTGRES_PRISMA_DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  username  String   @unique
+  password  String
+  role      String   @default("Siswa") // Super Admin, Panitia PPDB, Guru, Siswa
+  status    String   @default("Aktif") // Aktif, Nonaktif
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Berita {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  imageUrl  String?
+  category  String
+  authorId  String
+  status    String   @default("Draft")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Jurusan {
+  id          String   @id @default(cuid())
+  name        String
+  code        String
+  kuota       Int
+  description String
+  icon        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Portofolio {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  imageUrl    String
+  authorName  String
+  category    String
+  createdAt   DateTime @default(now())
+}
+
+model Setting {
+  id          String  @id @default(cuid())
+  key         String  @unique
+  value       String
+  description String?
+}
+
+model PpdbApplicant {
+  id             String @id @default(cuid())
+  jalur          String // normal, afirmasi, beasiswa
+  fullName       String
+  nisn           String @unique
+  birthInfo      String
+  gender         String
+  address        String
+  phone          String
+  previousSchool String
+  major          String
+
+  // Dokumen / Input Khusus
+  afirmasiNumber   String?
+  kipNumber        String?
+  prestasiType     String?
+  documentKk       String?
+  documentAfirmasi String?
+  documentKip      String?
+  documentPrestasi String?
+
+  // Status Pembayaran & Pendaftaran
+  paymentStatus String    @default("UNPAID") // UNPAID, PENDING_TRANSFER, PENDING_CASH, PAID, REJECTED
+  paymentMethod String?   // TRANSFER, CASH
+  paymentProof  String?   // URL Bukti Transfer Struk/M-Banking
+  paymentAmount Int?      @default(150000)
+  paymentDate   DateTime? // Tanggal Bayar / Tanggal Verifikasi
+  verifiedBy    String?   // Petugas / Verifikator yang menyetujui
+  paymentNotes  String?   // Catatan kasir / no kwitansi fisik
+  status        String    @default("PENDING") // PENDING, APPROVED, REJECTED
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Alumni {
+  id             String  @id @default(cuid())
+  nisn           String  @unique
+  fullName       String
+  graduationYear Int
+  major          String
+  phone          String?
+  email          String?
+
+  tracerStudy TracerStudy?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TracerStudy {
+  id       String @id @default(cuid())
+  alumniId String @unique
+  alumni   Alumni @relation(fields: [alumniId], references: [id], onDelete: Cascade)
+
+  status String // BEKERJA, KULIAH, WIRAUSAHA, MENCARI_KERJA
+
+  // Jika Bekerja / Wirausaha
+  companyName String?
+  jobTitle    String?
+  salary      String?
+
+  // Jika Kuliah
+  university String?
+  faculty    String?
+
+  // Feedback
+  relevance   String? // Sangat Erat, Erat, Cukup, Kurang, Tidak Sama Sekali
+  suggestions String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model JobListing {
+  id          String  @id @default(cuid())
+  title       String
+  company     String
+  location    String
+  salary      String?
+  type        String // Full-time, Part-time, Kontrak, Magang
+  description String
+  tags        String // comma separated tags
+  isHot       Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UploadedFile {
+  id        String   @id @default(cuid())
+  fileName  String
+  fileType  String
+  fileSize  Int
+  fileData  String   @db.Text
+  createdAt DateTime @default(now())
+}

@@ -1,0 +1,171 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+:root {
+  --background: #ffffff;
+  --foreground: #0f172a;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --secondary: #f1f5f9;
+  --accent: #f59e0b;
+}
+
+html {
+  scroll-behavior: smooth;
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+body {
+  color: var(--foreground);
+  background-color: #ffffff;
+  background-image: radial-gradient(var(--secondary) 1px, transparent 1px);
+  background-size: 24px 24px;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Ensure all input/textarea placeholders are clearly visible */
+::placeholder {
+  color: #9ca3af !important;
+  opacity: 1 !important;
+}
+
+/* Prevent white-on-white text in light containers */
+.bg-white input:not([class*="dark:text-"]):not([class*="text-"]),
+.bg-white textarea:not([class*="dark:text-"]):not([class*="text-"]),
+.bg-white select:not([class*="dark:text-"]):not([class*="text-"]) {
+  color: #111827;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-dark {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Org Chart Tree Styles */
+.org-tree ul {
+  padding-top: 20px; 
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+.org-tree li {
+  text-align: center;
+  list-style-type: none;
+  position: relative;
+  padding: 20px 10px 0 10px;
+}
+/* Connector lines */
+.org-tree li::before, .org-tree li::after {
+  content: '';
+  position: absolute; top: 0; right: 50%;
+  border-top: 2px solid #93c5fd;
+  width: 50%; height: 20px;
+  z-index: 1;
+}
+.org-tree li::after {
+  right: auto; left: 50%;
+  border-left: 2px solid #93c5fd;
+}
+/* Remove left-right connectors from elements without any siblings */
+.org-tree li:only-child::after, .org-tree li:only-child::before {
+  display: none;
+}
+/* Remove space from the top of single children */
+.org-tree li:only-child { padding-top: 0; }
+/* Remove left connector from first child and right connector from last child */
+.org-tree li:first-child::before, .org-tree li:last-child::after {
+  border: 0 none;
+}
+/* Adding back the vertical connector to the last nodes */
+.org-tree li:last-child::before {
+  border-right: 2px solid #93c5fd;
+  border-radius: 0 8px 0 0;
+}
+.org-tree li:first-child::after {
+  border-radius: 8px 0 0 0;
+}
+/* Downward connectors from parents */
+.org-tree ul ul::before {
+  content: '';
+  position: absolute; top: 0; left: 50%;
+  border-left: 2px solid #93c5fd;
+  width: 0; height: 20px;
+  transform: translateX(-50%);
+}
+
+/* =========================================
+   Lightweight Custom Animations (No JS Needed)
+   ========================================= */
+
+/* Keyframes */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideRight {
+  from { opacity: 0; transform: translateX(-30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes zoomIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+/* Utility Classes */
+.animate-fade-in {
+  animation: fadeIn 0.8s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.8s ease-out forwards;
+}
+
+.animate-slide-right {
+  animation: slideRight 0.8s ease-out forwards;
+}
+
+.animate-zoom-in {
+  animation: zoomIn 0.8s ease-out forwards;
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+/* Delays for staggered animations */
+.delay-100 { animation-delay: 100ms; opacity: 0; }
+.delay-200 { animation-delay: 200ms; opacity: 0; }
+.delay-300 { animation-delay: 300ms; opacity: 0; }
+.delay-400 { animation-delay: 400ms; opacity: 0; }
+.delay-500 { animation-delay: 500ms; opacity: 0; }
