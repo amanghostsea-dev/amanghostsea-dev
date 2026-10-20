@@ -285,58 +285,6 @@ export default function PPDBClient({
     }`}>
 
       {/* =========================================================================
-          FLOATING ADMIN / LIVE THEME SWITCHER TOOLBAR
-          ========================================================================= */}
-      <aside aria-label="PPDB Theme Selector" className="fixed top-4 right-4 z-50 flex items-center gap-1.5 p-1.5 rounded-2xl backdrop-blur-xl bg-slate-950/85 border border-white/20 shadow-2xl text-xs text-white">
-        <span className="text-[11px] font-mono font-bold text-slate-400 px-2 flex items-center gap-1.5 hidden sm:flex">
-          <Sparkles size={13} className="text-amber-400 animate-spin-slow" />
-          <span>TEMA PPDB:</span>
-        </span>
-
-        <button
-          type="button"
-          onClick={() => setTheme('cyber-cards')}
-          className={`py-1.5 px-3 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-            theme === 'cyber-cards'
-              ? 'bg-blue-600 text-white shadow-md shadow-blue-500/40'
-              : 'text-slate-400 hover:text-white hover:bg-white/10'
-          }`}
-          title="Kartu Jurusan 3D dengan Logo Transparan & Aura Dinamis"
-        >
-          <Layers size={13} />
-          <span>1. 3D Cards</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setTheme('stepper')}
-          className={`py-1.5 px-3 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-            theme === 'stepper'
-              ? 'bg-purple-600 text-white shadow-md shadow-purple-500/40'
-              : 'text-slate-400 hover:text-white hover:bg-white/10'
-          }`}
-          title="Formulir Bertahap 4 Langkah dengan Progress Bar Neon"
-        >
-          <Cpu size={13} />
-          <span>2. Stepper</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setTheme('dark-glass')}
-          className={`py-1.5 px-3 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-            theme === 'dark-glass'
-              ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/30'
-              : 'text-slate-400 hover:text-white hover:bg-white/10'
-          }`}
-          title="Tema Gelap Cyberpunk Senada dengan Halaman Login"
-        >
-          <Radio size={13} />
-          <span>3. Dark Glass</span>
-        </button>
-      </aside>
-
-      {/* =========================================================================
           BACKGROUND LAYER: Dynamic Grid & Giant Floating Transparent Watermark
           ========================================================================= */}
       <div 
