@@ -216,8 +216,8 @@ export default function PPDBClient({
     setCurrentStep(3);
   };
 
-  // Payment State (QRIS vs Transfer vs Cash)
-  const [payMethod, setPayMethod] = useState<'QRIS' | 'TRANSFER' | 'CASH'>('QRIS');
+  // Payment State (Transfer vs QRIS vs Cash)
+  const [payMethod, setPayMethod] = useState<'TRANSFER' | 'QRIS' | 'CASH'>('TRANSFER');
   const [transferProofUrl, setTransferProofUrl] = useState<string>('');
   const [transferNotes, setTransferNotes] = useState<string>('');
   const [copiedBank, setCopiedBank] = useState<string | null>(null);
@@ -1472,29 +1472,90 @@ export default function PPDBClient({
           {/* ===================================================================
               MODAL PEMBAYARAN FORMULIR (JALUR REGULER)
               =================================================================== */}
+          {/* ===================================================================
+              MODAL PEMBAYARAN FORMULIR (TRANSFER, QRIS, & TUNAI)
+              =================================================================== */}
           {showPayment && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-fade-in overflow-y-auto">
-              <div className="bg-slate-900 text-white rounded-3xl border border-white/20 w-full max-w-lg overflow-hidden shadow-2xl my-8 animate-zoom-in">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-3 sm:p-5 animate-fade-in overflow-y-auto">
+              <div className="bg-slate-900 text-white rounded-3xl border border-white/20 w-full max-w-lg shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-zoom-in my-auto">
                 
-                {/* Header Modal */}
-                <div className="p-6 border-b border-white/10 bg-slate-950 flex items-center justify-between">
+                {/* Header Modal - PINNED AT TOP */}
+                <div className="p-4 sm:p-5 border-b border-white/10 bg-slate-950/95 backdrop-blur shrink-0 flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/30 uppercase">
-                      Langkah 2: Biaya Pendaftaran
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/30 uppercase font-bold">
+                      Langkah 2: Selesaikan Pembayaran
                     </span>
-                    <h3 className="text-lg font-black text-white mt-1">Metode Pembayaran PPDB</h3>
-                    <p className="text-xs text-slate-400">{applicantData?.fullName} • NISN: {applicantData?.nisn}</p>
+                    <h3 className="text-base sm:text-lg font-black text-white mt-1">Pilih Metode Pembayaran</h3>
+                    <p className="text-xs text-slate-400 truncate max-w-[260px] sm:max-w-none">
+                      {applicantData?.fullName} • NISN: {applicantData?.nisn}
+                    </p>
                   </div>
                   <button 
+                    type="button"
                     onClick={() => setShowPayment(false)}
-                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-sm"
+                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-sm cursor-pointer transition-colors"
                   >
                     ✕
                   </button>
                 </div>
 
+                {/* 3 OPSI METODE PEMBAYARAN - PINNED DI ATAS AGAR SELALU TERLIHAT */}
+                <div className="px-4 py-3 sm:px-5 bg-slate-950/80 border-b border-white/10 shrink-0">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      PILIH METODE PEMBAYARAN:
+                    </span>
+                    <span className="text-[11px] font-bold text-cyan-400">
+                      {payMethod === 'TRANSFER' && '💳 Transfer Rekening'}
+                      {payMethod === 'QRIS' && '📱 Scan QRIS E-Wallet'}
+                      {payMethod === 'CASH' && '💵 Bayar Tunai di Loket'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPayMethod('TRANSFER')}
+                      className={`p-2.5 sm:p-3 rounded-xl border text-[11px] sm:text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
+                        payMethod === 'TRANSFER'
+                          ? 'bg-blue-600 text-white border-blue-400 shadow-md shadow-blue-500/30 ring-2 ring-blue-500/30'
+                          : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 hover:text-white'
+                      }`}
+                    >
+                      <CreditCard size={16} className={payMethod === 'TRANSFER' ? 'text-white' : 'text-blue-400'} />
+                      <span>Transfer Bank</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPayMethod('QRIS')}
+                      className={`p-2.5 sm:p-3 rounded-xl border text-[11px] sm:text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
+                        payMethod === 'QRIS'
+                          ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-purple-400 shadow-md shadow-purple-500/30 ring-2 ring-purple-500/30'
+                          : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 hover:text-white'
+                      }`}
+                    >
+                      <QrCode size={16} className={payMethod === 'QRIS' ? 'text-white' : 'text-purple-400'} />
+                      <span>Scan QRIS</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPayMethod('CASH')}
+                      className={`p-2.5 sm:p-3 rounded-xl border text-[11px] sm:text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
+                        payMethod === 'CASH'
+                          ? 'bg-emerald-600 text-white border-emerald-400 shadow-md shadow-emerald-500/30 ring-2 ring-emerald-500/30'
+                          : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 hover:text-white'
+                      }`}
+                    >
+                      <Banknote size={16} className={payMethod === 'CASH' ? 'text-white' : 'text-emerald-400'} />
+                      <span>Bayar Tunai</span>
+                    </button>
+                  </div>
+                </div>
+
                 {!paymentSuccess ? (
-                  <div className="p-6 space-y-6">
+                  <div className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1 overscroll-contain">
                     {(() => {
                       const activeTrackConfig = getTrackConfig(paymentConfig, jalur);
                       const trackBadgeLabel = jalur === 'afirmasi' ? 'Jalur Afirmasi' : jalur === 'beasiswa' ? 'Jalur Prestasi' : 'Jalur Reguler';
@@ -1557,47 +1618,80 @@ export default function PPDBClient({
                       );
                     })()}
 
-                    {/* Pilihan Metode */}
-                    <div className="grid grid-cols-3 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setPayMethod('QRIS')}
-                        className={`p-2.5 sm:p-3 rounded-xl border text-[11px] sm:text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
-                          payMethod === 'QRIS'
-                            ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-purple-500 shadow-md ring-2 ring-purple-500/20'
-                            : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        <QrCode size={16} className={payMethod === 'QRIS' ? 'text-white' : 'text-purple-400'} />
-                        <span>Scan QRIS</span>
-                      </button>
+                    {/* Mode Transfer Bank */}
+                    {payMethod === 'TRANSFER' && (
+                      <div className="space-y-4">
+                        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-blue-950/60 via-slate-900 to-indigo-950/50 border-2 border-blue-500/30 text-xs space-y-3.5 shadow-lg shadow-blue-950/50">
+                          <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold">
+                                <CreditCard size={15} />
+                              </div>
+                              <span className="font-black text-sm text-white tracking-wide">
+                                {paymentConfig.bankName || 'Bank BRI'}
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 uppercase">
+                              Rekening Resmi
+                            </span>
+                          </div>
 
-                      <button
-                        type="button"
-                        onClick={() => setPayMethod('TRANSFER')}
-                        className={`p-2.5 sm:p-3 rounded-xl border text-[11px] sm:text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
-                          payMethod === 'TRANSFER'
-                            ? 'bg-blue-600 text-white border-blue-500 shadow-md ring-2 ring-blue-500/20'
-                            : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        <CreditCard size={16} className={payMethod === 'TRANSFER' ? 'text-white' : 'text-blue-400'} />
-                        <span>Transfer Bank</span>
-                      </button>
+                          <div className="space-y-1">
+                            <span className="text-[11px] text-slate-400 block font-medium">Nomor Rekening Tujuan:</span>
+                            <div className="flex items-center justify-between bg-black/50 p-3 rounded-xl border border-white/10">
+                              <span className="font-mono font-black text-base sm:text-lg text-cyan-300 tracking-wider">
+                                {paymentConfig.bankAccount || '0123-01-001234-56-7'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleCopy((paymentConfig.bankAccount || '012301001234567').replace(/[^0-9]/g, ''), 'BANK')}
+                                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                              >
+                                <Copy size={13} />
+                                <span>{copiedBank === 'BANK' ? 'Tersalin!' : 'Salin Rekening'}</span>
+                              </button>
+                            </div>
+                          </div>
 
-                      <button
-                        type="button"
-                        onClick={() => setPayMethod('CASH')}
-                        className={`p-2.5 sm:p-3 rounded-xl border text-[11px] sm:text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
-                          payMethod === 'CASH'
-                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-md ring-2 ring-emerald-500/20'
-                            : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        <Banknote size={16} className={payMethod === 'CASH' ? 'text-white' : 'text-emerald-400'} />
-                        <span>Bayar Tunai</span>
-                      </button>
-                    </div>
+                          <div className="flex items-center justify-between text-xs pt-1">
+                            <span className="text-slate-400">Atas Nama Rekening:</span>
+                            <span className="font-bold text-white uppercase">{paymentConfig.bankHolder || 'SMK GARUDA MAHADHIKA'}</span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-xs pt-1 border-t border-white/10">
+                            <span className="text-slate-400">Nominal Transfer Pas:</span>
+                            <span className="font-mono font-black text-cyan-400 text-sm sm:text-base">
+                              Rp {(getTrackConfig(paymentConfig, jalur).totalAmount || 0).toLocaleString('id-ID')}
+                            </span>
+                          </div>
+
+                          <div className="text-[11px] text-slate-400 bg-white/5 p-2.5 rounded-lg border border-white/5 leading-relaxed">
+                            💡 <em>Setelah transfer berhasil, harap simpan struk atau tangkap layar (screenshot) bukti transfer lalu unggah di bawah ini:</em>
+                          </div>
+                        </div>
+
+                        <div>
+                          <FileUpload
+                            name="paymentProof"
+                            label="Unggah Struk Bukti Transfer (Wajib)"
+                            colorTheme="blue"
+                            helperText="Screenshot m-banking atau foto struk ATM (Maks: 4.5MB)"
+                            required={true}
+                            onChange={(url: string) => setTransferProofUrl(url)}
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handlePayTransfer}
+                          disabled={isSubmitting || !transferProofUrl}
+                          className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-blue-600/30"
+                        >
+                          {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                          <span>Konfirmasi Pembayaran Transfer</span>
+                        </button>
+                      </div>
+                    )}
 
                     {/* Mode QRIS */}
                     {payMethod === 'QRIS' && (
@@ -1625,7 +1719,7 @@ export default function PPDBClient({
                                 <img
                                   src={paymentConfig.qrisImageUrl}
                                   alt="QRIS SMK Garuda Mahadhika"
-                                  className="w-52 h-52 sm:w-60 sm:h-60 object-contain rounded-2xl border-2 border-slate-200 p-2 bg-white shadow-sm"
+                                  className="w-48 h-48 sm:w-56 sm:h-56 object-contain rounded-2xl border-2 border-slate-200 p-2 bg-white shadow-sm"
                                 />
                                 <a
                                   href={paymentConfig.qrisImageUrl}
@@ -1637,8 +1731,8 @@ export default function PPDBClient({
                                 </a>
                               </div>
                             ) : (
-                              <div className="w-52 h-52 sm:w-60 sm:h-60 bg-gradient-to-b from-slate-50 to-slate-100 rounded-2xl border-2 border-dashed border-slate-300 p-4 flex flex-col items-center justify-center relative shadow-inner">
-                                <QrCode size={110} className="text-slate-800" />
+                              <div className="w-48 h-48 sm:w-56 sm:h-56 bg-gradient-to-b from-slate-50 to-slate-100 rounded-2xl border-2 border-dashed border-slate-300 p-4 flex flex-col items-center justify-center relative shadow-inner">
+                                <QrCode size={100} className="text-slate-800" />
                                 <div className="mt-2 text-center">
                                   <div className="text-[11px] font-black text-slate-900 uppercase tracking-tight">
                                     {paymentConfig.qrisMerchantName || 'SMK GARUDA MAHADHIKA'}
@@ -1694,59 +1788,36 @@ export default function PPDBClient({
                       </div>
                     )}
 
-                    {/* Mode Transfer */}
-                    {payMethod === 'TRANSFER' && (
-                      <div className="space-y-4">
-                        <div className="p-4 rounded-2xl bg-black/40 border border-white/10 space-y-2 text-xs">
-                          <div className="flex items-center justify-between">
-                            <span className="text-slate-400">{paymentConfig.bankName || 'Bank BRI'}:</span>
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono font-bold text-white">
-                                {paymentConfig.bankAccount || '0123-01-001234-56-7'}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleCopy((paymentConfig.bankAccount || '012301001234567').replace(/[^0-9]/g, ''), 'BANK')}
-                                className="text-cyan-400 hover:underline flex items-center gap-1 cursor-pointer"
-                              >
-                                <Copy size={12} /> {copiedBank === 'BANK' ? 'Tersalin!' : 'Salin'}
-                              </button>
-                            </div>
-                          </div>
-                          <div className="text-[11px] text-slate-400">A.N. {paymentConfig.bankHolder || 'SMK GARUDA MAHADHIKA'}</div>
-                        </div>
-
-                        <div>
-                          <FileUpload
-                            name="paymentProof"
-                            label="Unggah Struk Bukti Transfer (Wajib)"
-                            colorTheme="blue"
-                            helperText="Screenshot m-banking atau foto struk ATM (Maks: 4.5MB)"
-                            required={true}
-                            onChange={(url: string) => setTransferProofUrl(url)}
-                          />
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={handlePayTransfer}
-                          disabled={isSubmitting || !transferProofUrl}
-                          className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
-                        >
-                          {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                          <span>Konfirmasi Pembayaran Transfer</span>
-                        </button>
-                      </div>
-                    )}
-
                     {/* Mode Tunai */}
                     {payMethod === 'CASH' && (
                       <div className="space-y-4">
-                        <div className="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 text-xs space-y-2.5">
-                          <div className="font-bold text-emerald-300">KODE BOOKING LOKET:</div>
-                          <div className="text-xl font-black font-mono text-white">
-                            CASH-{applicantData?.id?.slice(-6).toUpperCase()}
+                        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-emerald-950/60 via-slate-900 to-teal-950/50 border-2 border-emerald-500/30 text-xs space-y-3 shadow-lg shadow-emerald-950/50">
+                          <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold">
+                                <Banknote size={15} />
+                              </div>
+                              <span className="font-black text-sm text-white tracking-wide">
+                                Pembayaran Tunai (Loket Kasir)
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 uppercase">
+                              Loket PPDB
+                            </span>
                           </div>
+
+                          <div className="space-y-1">
+                            <span className="text-[11px] text-slate-400 block font-medium">KODE BOOKING LOKET:</span>
+                            <div className="bg-black/50 p-3 rounded-xl border border-white/10 flex items-center justify-between">
+                              <span className="text-xl sm:text-2xl font-black font-mono text-emerald-400 tracking-wider">
+                                CASH-{applicantData?.id?.slice(-6).toUpperCase()}
+                              </span>
+                              <span className="text-[10px] px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">
+                                Tunjukkan ke Kasir
+                              </span>
+                            </div>
+                          </div>
+
                           <div className="space-y-1 text-slate-300 text-[11px] pt-1.5 border-t border-emerald-500/20">
                             <p><strong>Lokasi:</strong> {paymentConfig.cashLocation || 'Ruang Panitia PPDB / Loket Kasir Gedung Utama SMK GaMa'}</p>
                             <p><strong>Jam Layanan:</strong> {paymentConfig.cashHours || 'Senin s/d Sabtu, pukul 08.00 - 14.00 WIB'}</p>
@@ -1760,7 +1831,7 @@ export default function PPDBClient({
                           type="button"
                           onClick={handlePayCash}
                           disabled={isSubmitting}
-                          className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
+                          className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-600/30"
                         >
                           {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                           <span>Konfirmasi Bayar Tunai di Loket</span>
