@@ -85,6 +85,10 @@ export default function AdminSidebar({ logoUrl, userRole = 'Super Admin', userNa
           </button>
         </form>
       </div>
+      <div className="px-5 py-3 border-t border-slate-800/80 text-[11px] font-mono text-slate-400 flex items-center justify-between bg-slate-950/40">
+        <span className="text-slate-400">Created by</span>
+        <span className="font-bold text-slate-200">Abdul Rahman</span>
+      </div>
     </aside>
   );
 }

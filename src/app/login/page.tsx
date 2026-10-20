@@ -431,10 +431,17 @@ export default function LoginPage() {
       {/* =========================================================================
           BOTTOM FOOTER: School Copyright & Portal Identity
           ========================================================================= */}
-      <footer className="relative z-20 w-full px-6 py-4 border-t border-white/5 backdrop-blur-md bg-slate-950/40 text-center text-xs text-slate-400">
-        <p>
-          &copy; {new Date().getFullYear()} <strong className="text-slate-300 font-semibold">SMK Garuda Mahadhika</strong>. All Rights Reserved.
-        </p>
+      <footer className="relative z-20 w-full px-6 py-4 border-t border-white/5 backdrop-blur-md bg-slate-950/40 text-xs text-slate-400">
+        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2.5 text-center sm:text-left">
+          <p>
+            &copy; {new Date().getFullYear()} <strong className="text-slate-300 font-semibold">SMK Garuda Mahadhika</strong>. All Rights Reserved.
+          </p>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full font-mono text-[11px] border border-white/10 bg-slate-900/80 text-slate-300 shadow-xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+            <span className="text-slate-400">Created by</span>
+            <span className="font-bold text-white tracking-wide">Abdul Rahman</span>
+          </div>
+        </div>
       </footer>
 
     </div>

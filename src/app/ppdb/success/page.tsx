@@ -223,6 +223,13 @@ export default async function PPDBSucceessPage({
           </a>
         </div>
 
+        {/* Creator Signature (Hidden on Print) */}
+        <div className="mt-8 pt-4 border-t border-slate-200/60 text-center print:hidden flex items-center justify-center gap-2 text-xs text-slate-400 font-mono">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Created by</span>
+          <span className="font-bold text-slate-700">Abdul Rahman</span>
+        </div>
+
       </div>
 
     </div>

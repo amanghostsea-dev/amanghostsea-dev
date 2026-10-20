@@ -341,6 +341,16 @@ export default async function Home() {
             </div>
             
           </div>
+
+          {/* Bottom Sub-Footer Bar */}
+          <div className="pt-8 mt-12 border-t border-gray-900 flex flex-col sm:flex-row items-center justify-between text-xs text-gray-400 gap-4">
+            <p>&copy; {new Date().getFullYear()} <strong className="text-white font-semibold">{schoolName}</strong>. All Rights Reserved.</p>
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/90 border border-slate-800 text-slate-300 font-mono text-[11px] shadow-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span className="text-slate-400">Created by</span>
+              <span className="font-bold text-white tracking-wide">Abdul Rahman</span>
+            </div>
+          </div>
         </div>
       </footer>
     </div>

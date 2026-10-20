@@ -1496,14 +1496,27 @@ export default function PPDBClient({
       {/* =========================================================================
           FOOTER
           ========================================================================= */}
-      <footer className={`relative z-20 w-full px-6 py-6 border-t text-center text-xs transition-colors ${
+      <footer className={`relative z-20 w-full px-6 py-6 border-t text-xs transition-colors ${
         isDarkMode 
           ? 'border-white/10 bg-slate-950/60 text-slate-400' 
           : 'border-slate-200 bg-white/70 text-slate-500'
       }`}>
-        <p>
-          &copy; {new Date().getFullYear()} <strong className={isDarkMode ? 'text-white' : 'text-slate-800'}>SMK Garuda Mahadhika</strong>. Panitia Penerimaan Peserta Didik Baru (PPDB).
-        </p>
+        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+          <p>
+            &copy; {new Date().getFullYear()} <strong className={isDarkMode ? 'text-white' : 'text-slate-800'}>SMK Garuda Mahadhika</strong>. Panitia Penerimaan Peserta Didik Baru (PPDB).
+          </p>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full font-mono text-[11px] border backdrop-blur-md shadow-xs transition-all"
+               style={{
+                 borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.1)',
+                 backgroundColor: isDarkMode ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.85)',
+               }}>
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+            <span className="opacity-75">Created by</span>
+            <span className={`font-bold tracking-wide ${isDarkMode ? 'text-cyan-300' : 'text-slate-900'}`}>
+              Abdul Rahman
+            </span>
+          </div>
+        </div>
       </footer>
 
     </div>
