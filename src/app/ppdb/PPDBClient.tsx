@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   User, 
   CreditCard, 
@@ -132,6 +133,11 @@ export default function PPDBClient({
   const [showcaseMajor, setShowcaseMajor] = useState<'TJKT' | 'DKV' | 'MPLB'>('TJKT');
   const [isPausedShowcase, setIsPausedShowcase] = useState(false);
   const [showcaseTimerKey, setShowcaseTimerKey] = useState(0);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Auto-rotate every 10 seconds (10,000ms)
   useEffect(() => {
@@ -1475,25 +1481,37 @@ export default function PPDBClient({
           {/* ===================================================================
               MODAL PEMBAYARAN FORMULIR (TRANSFER, QRIS, & TUNAI)
               =================================================================== */}
-          {showPayment && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-3 sm:p-5 animate-fade-in overflow-y-auto">
-              <div className="bg-slate-900 text-white rounded-3xl border border-white/20 w-full max-w-lg shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-zoom-in my-auto">
+          {/* ===================================================================
+              MODAL PEMBAYARAN FORMULIR (PORTAL MOUNT: TRANSFER, QRIS, & TUNAI)
+              =================================================================== */}
+          {showPayment && isMounted && createPortal(
+            <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-slate-950/85 backdrop-blur-2xl p-3 sm:p-6 animate-fade-in overflow-y-auto">
+              <div className="relative w-full max-w-xl max-h-[90vh] flex flex-col bg-slate-900 text-white rounded-3xl border border-cyan-500/30 shadow-[0_0_80px_rgba(6,182,212,0.25)] overflow-hidden animate-zoom-in my-auto ring-1 ring-white/10">
                 
+                {/* Top Glowing Neon Accent Line */}
+                <div className="h-1.5 w-full bg-gradient-to-r from-blue-600 via-cyan-400 to-purple-600 shrink-0" />
+
                 {/* Header Modal - PINNED AT TOP */}
-                <div className="p-4 sm:p-5 border-b border-white/10 bg-slate-950/95 backdrop-blur shrink-0 flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/30 uppercase font-bold">
-                      Langkah 2: Selesaikan Pembayaran
-                    </span>
-                    <h3 className="text-base sm:text-lg font-black text-white mt-1">Pilih Metode Pembayaran</h3>
-                    <p className="text-xs text-slate-400 truncate max-w-[260px] sm:max-w-none">
-                      {applicantData?.fullName} • NISN: {applicantData?.nisn}
+                <div className="p-4 sm:p-5 border-b border-white/10 bg-slate-950/95 backdrop-blur shrink-0 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 uppercase font-black tracking-wider flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                        LANGKAH 2: KONFIRMASI PEMBAYARAN
+                      </span>
+                    </div>
+                    <h3 className="text-base sm:text-xl font-black text-white tracking-tight flex items-center gap-2">
+                      Metode Pembayaran PPDB
+                    </h3>
+                    <p className="text-xs text-slate-300 truncate mt-0.5">
+                      Calon Siswa: <strong className="text-white">{applicantData?.fullName || 'Pendaftar'}</strong> • NISN: <span className="font-mono text-cyan-300">{applicantData?.nisn || '-'}</span>
                     </p>
                   </div>
                   <button 
                     type="button"
                     onClick={() => setShowPayment(false)}
-                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-sm cursor-pointer transition-colors"
+                    aria-label="Tutup"
+                    className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-slate-300 hover:text-white flex items-center justify-center text-base cursor-pointer transition-all border border-white/10 shrink-0"
                   >
                     ✕
                   </button>
@@ -1502,11 +1520,11 @@ export default function PPDBClient({
                 {/* 3 OPSI METODE PEMBAYARAN - PINNED DI ATAS AGAR SELALU TERLIHAT */}
                 <div className="px-4 py-3 sm:px-5 bg-slate-950/80 border-b border-white/10 shrink-0">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
                       PILIH METODE PEMBAYARAN:
                     </span>
-                    <span className="text-[11px] font-bold text-cyan-400">
-                      {payMethod === 'TRANSFER' && '💳 Transfer Rekening'}
+                    <span className="text-[11px] font-bold text-cyan-300">
+                      {payMethod === 'TRANSFER' && '💳 Transfer Rekening Bank'}
                       {payMethod === 'QRIS' && '📱 Scan QRIS E-Wallet'}
                       {payMethod === 'CASH' && '💵 Bayar Tunai di Loket'}
                     </span>
@@ -1518,7 +1536,7 @@ export default function PPDBClient({
                       onClick={() => setPayMethod('TRANSFER')}
                       className={`p-2.5 sm:p-3 rounded-xl border text-[11px] sm:text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
                         payMethod === 'TRANSFER'
-                          ? 'bg-blue-600 text-white border-blue-400 shadow-md shadow-blue-500/30 ring-2 ring-blue-500/30'
+                          ? 'bg-blue-600 text-white border-blue-400 shadow-md shadow-blue-500/40 ring-2 ring-blue-500/30'
                           : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 hover:text-white'
                       }`}
                     >
@@ -1531,7 +1549,7 @@ export default function PPDBClient({
                       onClick={() => setPayMethod('QRIS')}
                       className={`p-2.5 sm:p-3 rounded-xl border text-[11px] sm:text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
                         payMethod === 'QRIS'
-                          ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-purple-400 shadow-md shadow-purple-500/30 ring-2 ring-purple-500/30'
+                          ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-purple-400 shadow-md shadow-purple-500/40 ring-2 ring-purple-500/30'
                           : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 hover:text-white'
                       }`}
                     >
@@ -1544,7 +1562,7 @@ export default function PPDBClient({
                       onClick={() => setPayMethod('CASH')}
                       className={`p-2.5 sm:p-3 rounded-xl border text-[11px] sm:text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
                         payMethod === 'CASH'
-                          ? 'bg-emerald-600 text-white border-emerald-400 shadow-md shadow-emerald-500/30 ring-2 ring-emerald-500/30'
+                          ? 'bg-emerald-600 text-white border-emerald-400 shadow-md shadow-emerald-500/40 ring-2 ring-emerald-500/30'
                           : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 hover:text-white'
                       }`}
                     >
@@ -1555,7 +1573,7 @@ export default function PPDBClient({
                 </div>
 
                 {!paymentSuccess ? (
-                  <div className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1 overscroll-contain">
+                  <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
                     {(() => {
                       const activeTrackConfig = getTrackConfig(paymentConfig, jalur);
                       const trackBadgeLabel = jalur === 'afirmasi' ? 'Jalur Afirmasi' : jalur === 'beasiswa' ? 'Jalur Prestasi' : 'Jalur Reguler';
@@ -1585,7 +1603,7 @@ export default function PPDBClient({
                           {activeTrackConfig.feeItems && activeTrackConfig.feeItems.length > 0 && (
                             <div className="space-y-1.5 text-xs">
                               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                                Rincian Pembayaran ({trackBadgeLabel}):
+                                Rincian Tagihan ({trackBadgeLabel}):
                               </span>
                               <div className="bg-black/30 rounded-xl p-3 space-y-1.5 border border-white/5">
                                 {activeTrackConfig.feeItems.map((item, idx) => (
@@ -1685,7 +1703,7 @@ export default function PPDBClient({
                           type="button"
                           onClick={handlePayTransfer}
                           disabled={isSubmitting || !transferProofUrl}
-                          className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-blue-600/30"
+                          className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-blue-600/30 active:scale-[0.99]"
                         >
                           {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                           <span>Konfirmasi Pembayaran Transfer</span>
@@ -1780,7 +1798,7 @@ export default function PPDBClient({
                           type="button"
                           onClick={handlePayQRIS}
                           disabled={isSubmitting || !transferProofUrl}
-                          className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-purple-600/25"
+                          className="w-full py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-purple-600/25 active:scale-[0.99]"
                         >
                           {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                           <span>Konfirmasi Pembayaran QRIS</span>
@@ -1831,7 +1849,7 @@ export default function PPDBClient({
                           type="button"
                           onClick={handlePayCash}
                           disabled={isSubmitting}
-                          className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-600/30"
+                          className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-600/30 active:scale-[0.99]"
                         >
                           {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                           <span>Konfirmasi Bayar Tunai di Loket</span>
@@ -1853,7 +1871,8 @@ export default function PPDBClient({
                 )}
 
               </div>
-            </div>
+            </div>,
+            document.body
           )}
 
         </div>
