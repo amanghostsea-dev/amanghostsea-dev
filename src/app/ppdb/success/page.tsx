@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CheckCircle2, Clock, AlertTriangle, Building, Banknote, CreditCard, ArrowLeft, Download, Printer, Search, Phone } from "lucide-react";
 import PrintButton from "./PrintButton";
 import { getPPDBPaymentConfig } from "@/app/admin/settings/actions";
+import { getTrackConfig } from "@/app/admin/settings/types";
 
 export const dynamic = "force-dynamic";
 
@@ -30,10 +31,14 @@ export default async function PPDBSucceessPage({
   const major = applicant?.major || '-';
   const jalur = applicant?.jalur || 'normal';
   const paymentStatus = applicant?.paymentStatus || 'PENDING';
-  const paymentMethod = applicant?.paymentMethod || (jalur === 'normal' ? 'TRANSFER' : 'BEASISWA/GRATIS');
+  const trackConfig = getTrackConfig(paymentConfig, jalur);
+  const totalAmount = applicant?.paymentAmount !== null && applicant?.paymentAmount !== undefined 
+    ? applicant.paymentAmount 
+    : (trackConfig.totalAmount || 0);
+
+  const paymentMethod = applicant?.paymentMethod || (totalAmount > 0 ? 'TRANSFER' : 'BEASISWA / BEBAS BIAYA');
   const regId = id ? `PPDB-${id.slice(-6).toUpperCase()}` : 'PPDB-XXXXXX';
   const cashCode = id ? `CASH-${id.slice(-6).toUpperCase()}` : 'CASH-XXXXXX';
-  const totalAmount = applicant?.paymentAmount || paymentConfig.totalAmount || 150000;
 
   return (
     <div className="min-h-screen bg-slate-100/90 font-sans py-10 px-4 sm:px-6 relative text-slate-800">
@@ -142,13 +147,13 @@ export default async function PPDBSucceessPage({
             )}
           </div>
 
-          {/* Rincian Komponen Biaya Pendaftaran (Jalur Reguler) */}
-          {jalur === 'normal' && (
+          {/* Rincian Komponen Biaya Pendaftaran */}
+          {totalAmount > 0 && (
             <div className="border border-slate-200 rounded-2xl p-5 mb-6 text-sm bg-slate-50/50">
               <div className="flex items-center justify-between border-b border-slate-200 pb-2.5 mb-3">
                 <h5 className="font-bold text-slate-900 flex items-center gap-2">
                   <Banknote size={16} className="text-blue-600" />
-                  Rincian Biaya Pembayaran Pendaftaran:
+                  Rincian Biaya ({trackConfig.title}):
                 </h5>
                 <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
                   paymentStatus === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
@@ -157,8 +162,8 @@ export default async function PPDBSucceessPage({
                 </span>
               </div>
               <div className="space-y-2 text-xs">
-                {paymentConfig.feeItems && paymentConfig.feeItems.length > 0 ? (
-                  paymentConfig.feeItems.map((item, idx) => (
+                {trackConfig.feeItems && trackConfig.feeItems.length > 0 ? (
+                  trackConfig.feeItems.map((item, idx) => (
                     <div key={item.id || idx} className="flex items-center justify-between py-1 border-b border-slate-200/60 last:border-none">
                       <span className="text-slate-600">{item.name}</span>
                       <span className="font-mono font-bold text-slate-900">
@@ -168,7 +173,7 @@ export default async function PPDBSucceessPage({
                   ))
                 ) : (
                   <div className="flex items-center justify-between py-1">
-                    <span className="text-slate-600">Biaya Formulir & Seleksi PPDB</span>
+                    <span className="text-slate-600">Biaya Administrasi & Seleksi</span>
                     <span className="font-mono font-bold text-slate-900">
                       Rp {totalAmount.toLocaleString('id-ID')}
                     </span>

@@ -20,7 +20,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 
-import { PPDBPaymentConfig } from '@/app/admin/settings/types';
+import { PPDBPaymentConfig, getTrackConfig } from '@/app/admin/settings/types';
 
 interface ApplicantData {
   id: string;
@@ -140,6 +140,13 @@ export default function StatusClient({ schoolName, contactPhone = '082246464677'
       return dateStr;
     }
   };
+
+  const trackConfig = applicant ? getTrackConfig(paymentConfig, applicant.jalur) : undefined;
+  const expectedAmount = applicant
+    ? (applicant.paymentAmount !== null && applicant.paymentAmount !== undefined
+        ? applicant.paymentAmount
+        : (trackConfig?.totalAmount || 0))
+    : 0;
 
   return (
     <div className="min-h-screen bg-slate-100/90 font-sans py-10 sm:py-16 relative overflow-hidden text-slate-800">
@@ -331,108 +338,110 @@ export default function StatusClient({ schoolName, contactPhone = '082246464677'
 
             {/* 2. PAYMENT & FILE VERIFICATION STATUS */}
             <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-md">
-              <div className="flex items-center gap-2 mb-4">
-                <ShieldCheck size={20} className="text-blue-600" />
-                <h3 className="font-extrabold text-slate-900 text-lg">Status Pembayaran & Verifikasi Berkas</h3>
-              </div>
-
-              {applicant.paymentStatus === 'PAID' ? (
-                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-start gap-3.5">
-                  <div className="p-2 bg-emerald-600 text-white rounded-xl flex-shrink-0">
-                    <CheckCircle2 size={22} />
-                  </div>
-                  <div>
-                    <h4 className="font-extrabold text-emerald-950 text-base">Pembayaran Lunas & Terverifikasi Sah (PAID)</h4>
-                    <p className="text-xs text-emerald-800 mt-0.5">
-                      {applicant.jalur === 'normal' 
-                        ? 'Biaya pendaftaran dan administrasi formulir telah diterima dan disahkan panitia bendahara.'
-                        : 'Pendaftaran jalur Beasiswa/Afirmasi telah diverifikasi dan bebas biaya pendaftaran.'}
-                    </p>
-                    {applicant.verifiedBy && (
-                      <p className="text-[11px] font-semibold text-emerald-900 mt-2">
-                        Diverifikasi oleh: <span className="underline">{applicant.verifiedBy}</span>
-                      </p>
-                    )}
-                    {applicant.paymentNotes && (
-                      <div className="mt-2 text-xs bg-white/80 p-2.5 rounded-xl border border-emerald-200 text-emerald-900">
-                        <strong>Catatan Panitia:</strong> {applicant.paymentNotes}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : applicant.paymentStatus === 'PENDING_TRANSFER' ? (
-                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-3.5">
-                  <div className="p-2 bg-amber-500 text-white rounded-xl flex-shrink-0">
-                    <Clock size={22} />
-                  </div>
-                  <div>
-                    <h4 className="font-extrabold text-amber-950 text-base">Menunggu Verifikasi Bukti Transfer</h4>
-                    <p className="text-xs text-amber-800 mt-0.5">
-                      Bukti transfer yang Anda kirimkan telah masuk ke antrean pengecekan panitia keuangan. Verifikasi berlangsung maksimal 1x24 jam kerja.
-                    </p>
-                    {applicant.paymentProof && (
-                      <div className="mt-2.5">
-                        <a 
-                          href={applicant.paymentProof} 
-                          target="_blank" 
-                          rel="noreferrer" 
-                          className="text-xs text-blue-600 font-bold underline hover:text-blue-800 inline-flex items-center gap-1"
-                        >
-                          Lihat Bukti Transfer yang Diunggah &rarr;
-                        </a>
-                      </div>
-                    )}
-                    {applicant.paymentNotes && (
-                      <div className="mt-2 text-xs bg-white/80 p-2.5 rounded-xl border border-amber-200 text-amber-900">
-                        <strong>Catatan Panitia:</strong> {applicant.paymentNotes}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : applicant.paymentStatus === 'PENDING_CASH' ? (
-                <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50 to-white border-2 border-dashed border-emerald-300">
-                  <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs uppercase tracking-wider mb-2">
-                    <Banknote size={18} /> Menunggu Pembayaran Tunai di Loket PPDB
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 my-2">
-                    <div>
-                      <span className="text-[11px] text-slate-500 block">Kode Booking Pembayaran Tunai:</span>
-                      <span className="text-2xl font-black font-mono text-emerald-950 tracking-wider">
-                        {applicant.cashCode}
-                      </span>
-                    </div>
-                    <div className="text-left sm:text-right">
-                      <span className="text-[11px] text-slate-500 block">Nominal Tunai Pas:</span>
-                      <span className="text-xl font-black text-emerald-800">
-                        Rp {(applicant.paymentAmount || paymentConfig?.totalAmount || 150000).toLocaleString('id-ID')}
-                      </span>
-                    </div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <ShieldCheck size={20} className="text-blue-600" />
+                    <h3 className="font-extrabold text-slate-900 text-lg">Status Pembayaran & Verifikasi Berkas</h3>
                   </div>
 
-                  {paymentConfig?.feeItems && paymentConfig.feeItems.length > 0 && (
-                    <div className="bg-white/90 p-3 rounded-xl border border-emerald-200/80 my-2 text-xs space-y-1">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Rincian Komponen Biaya:</span>
-                      {paymentConfig.feeItems.map((item, idx) => (
-                        <div key={item.id || idx} className="flex items-center justify-between py-0.5 text-slate-700">
-                          <span>{item.name}</span>
-                          <span className="font-mono font-semibold">Rp {Number(item.amount || 0).toLocaleString('id-ID')}</span>
+                  {applicant.paymentStatus === 'PAID' ? (
+                    <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-start gap-3.5">
+                      <div className="p-2 bg-emerald-600 text-white rounded-xl flex-shrink-0">
+                        <CheckCircle2 size={22} />
+                      </div>
+                      <div>
+                        <h4 className="font-extrabold text-emerald-950 text-base">Pembayaran Lunas & Terverifikasi Sah (PAID)</h4>
+                        <p className="text-xs text-emerald-800 mt-0.5">
+                          {expectedAmount > 0
+                            ? `Biaya pendaftaran (${trackConfig?.title || 'Formulir PPDB'}) telah diterima dan disahkan panitia bendahara.`
+                            : 'Pendaftaran telah diverifikasi dan bebas biaya administrasi formulir.'}
+                        </p>
+                        {applicant.verifiedBy && (
+                          <p className="text-[11px] font-semibold text-emerald-900 mt-2">
+                            Diverifikasi oleh: <span className="underline">{applicant.verifiedBy}</span>
+                          </p>
+                        )}
+                        {applicant.paymentNotes && (
+                          <div className="mt-2 text-xs bg-white/80 p-2.5 rounded-xl border border-emerald-200 text-emerald-900">
+                            <strong>Catatan Panitia:</strong> {applicant.paymentNotes}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : applicant.paymentStatus === 'PENDING_TRANSFER' ? (
+                    <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-3.5">
+                      <div className="p-2 bg-amber-500 text-white rounded-xl flex-shrink-0">
+                        <Clock size={22} />
+                      </div>
+                      <div>
+                        <h4 className="font-extrabold text-amber-950 text-base">Menunggu Verifikasi Bukti Transfer</h4>
+                        <p className="text-xs text-amber-800 mt-0.5">
+                          Bukti transfer yang Anda kirimkan telah masuk ke antrean pengecekan panitia keuangan. Verifikasi berlangsung maksimal 1x24 jam kerja.
+                        </p>
+                        {applicant.paymentProof && (
+                          <div className="mt-2.5">
+                            <a 
+                              href={applicant.paymentProof} 
+                              target="_blank" 
+                              rel="noreferrer" 
+                              className="text-xs text-blue-600 font-bold underline hover:text-blue-800 inline-flex items-center gap-1"
+                            >
+                              Lihat Bukti Transfer yang Diunggah &rarr;
+                            </a>
+                          </div>
+                        )}
+                        {applicant.paymentNotes && (
+                          <div className="mt-2 text-xs bg-white/80 p-2.5 rounded-xl border border-amber-200 text-amber-900">
+                            <strong>Catatan Panitia:</strong> {applicant.paymentNotes}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : applicant.paymentStatus === 'PENDING_CASH' ? (
+                    <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50 to-white border-2 border-dashed border-emerald-300">
+                      <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs uppercase tracking-wider mb-2">
+                        <Banknote size={18} /> Menunggu Pembayaran Tunai di Loket PPDB ({trackConfig?.title || 'Jalur Pendaftaran'})
+                      </div>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 my-2">
+                        <div>
+                          <span className="text-[11px] text-slate-500 block">Kode Booking Pembayaran Tunai:</span>
+                          <span className="text-2xl font-black font-mono text-emerald-950 tracking-wider">
+                            {applicant.cashCode}
+                          </span>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        <div className="text-left sm:text-right">
+                          <span className="text-[11px] text-slate-500 block">Nominal Tunai Pas:</span>
+                          <span className="text-xl font-black text-emerald-800">
+                            Rp {expectedAmount.toLocaleString('id-ID')}
+                          </span>
+                        </div>
+                      </div>
 
-                  <div className="text-xs text-slate-600 bg-white/80 p-3 rounded-xl border border-emerald-200 mt-2 space-y-1">
-                    <p><strong>Lokasi:</strong> {paymentConfig?.cashLocation || 'Ruang Panitia PPDB / Loket Kasir Gedung Utama SMK GaMa'}</p>
-                    <p><strong>Jam Layanan:</strong> {paymentConfig?.cashHours || 'Senin s/d Sabtu, pukul 08.00 - 14.00 WIB'}</p>
-                    <p>Tunjukkan kode booking ini kepada petugas kasir untuk mendapatkan kwitansi fisik bertanda tangan & cap resmi.</p>
-                  </div>
-                  {applicant.paymentNotes && (
-                    <div className="mt-2 text-xs bg-emerald-100/50 p-2.5 rounded-xl border border-emerald-200 text-emerald-900">
-                      <strong>Catatan Petugas:</strong> {applicant.paymentNotes}
+                      {trackConfig?.feeItems && trackConfig.feeItems.length > 0 && (
+                        <div className="bg-white/90 p-3 rounded-xl border border-emerald-200/80 my-2 text-xs space-y-1">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                            Rincian Komponen Biaya ({trackConfig.title}):
+                          </span>
+                          {trackConfig.feeItems.map((item, idx) => (
+                            <div key={item.id || idx} className="flex items-center justify-between py-0.5 text-slate-700">
+                              <span>{item.name}</span>
+                              <span className="font-mono font-semibold">Rp {Number(item.amount || 0).toLocaleString('id-ID')}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="text-xs text-slate-600 bg-white/80 p-3 rounded-xl border border-emerald-200 mt-2 space-y-1">
+                        <p><strong>Lokasi:</strong> {paymentConfig?.cashLocation || 'Ruang Panitia PPDB / Loket Kasir Gedung Utama SMK GaMa'}</p>
+                        <p><strong>Jam Layanan:</strong> {paymentConfig?.cashHours || 'Senin s/d Sabtu, pukul 08.00 - 14.00 WIB'}</p>
+                        <p>Tunjukkan kode booking ini kepada petugas kasir untuk mendapatkan kwitansi fisik bertanda tangan & cap resmi.</p>
+                      </div>
+                      {applicant.paymentNotes && (
+                        <div className="mt-2 text-xs bg-emerald-100/50 p-2.5 rounded-xl border border-emerald-200 text-emerald-900">
+                          <strong>Catatan Petugas:</strong> {applicant.paymentNotes}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              ) : applicant.paymentStatus === 'REJECTED' ? (
+                  ) : applicant.paymentStatus === 'REJECTED' ? (
                 <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-3.5">
                   <div className="p-2 bg-rose-600 text-white rounded-xl flex-shrink-0">
                     <XCircle size={22} />

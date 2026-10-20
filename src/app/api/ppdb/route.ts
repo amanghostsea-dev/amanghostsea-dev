@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getPPDBPaymentConfig } from '@/app/admin/settings/actions';
+import { getTrackConfig } from '@/app/admin/settings/types';
 
 export async function POST(request: Request) {
   try {
@@ -20,8 +21,9 @@ export async function POST(request: Request) {
     }
 
     const paymentConfig = await getPPDBPaymentConfig();
-    const nominal = (jalur === 'normal' && paymentConfig.enabled) ? (paymentConfig.totalAmount || 150000) : 0;
-    const initialPaymentStatus = (jalur === 'normal' && paymentConfig.enabled && nominal > 0) ? 'UNPAID' : 'PAID';
+    const trackConfig = getTrackConfig(paymentConfig, jalur);
+    const nominal = (paymentConfig.enabled && trackConfig.enabled) ? (trackConfig.totalAmount || 0) : 0;
+    const initialPaymentStatus = (paymentConfig.enabled && trackConfig.enabled && nominal > 0) ? 'UNPAID' : 'PAID';
 
     const applicant = await prisma.ppdbApplicant.create({
       data: {

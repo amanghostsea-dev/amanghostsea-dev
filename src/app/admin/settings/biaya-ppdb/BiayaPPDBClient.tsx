@@ -10,67 +10,131 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Building2, 
-  Clock, 
   Receipt, 
   ArrowLeft, 
-  Sparkles,
-  HelpCircle,
-  Eye,
-  ShieldCheck,
-  RefreshCw
+  Sparkles, 
+  HelpCircle, 
+  Eye, 
+  ShieldCheck, 
+  RefreshCw,
+  Award,
+  Users,
+  HeartHandshake
 } from 'lucide-react';
 import Link from 'next/link';
-import { PPDBPaymentConfig, PPDBFeeItem } from '../types';
+import { 
+  PPDBPaymentConfig, 
+  PPDBFeeItem, 
+  PPDBTrackFeeConfig,
+  DEFAULT_TRACK_REGULER,
+  DEFAULT_TRACK_AFIRMASI,
+  DEFAULT_TRACK_PRESTASI
+} from '../types';
 import { savePPDBPaymentConfig } from '../actions';
 
 interface BiayaPPDBClientProps {
   initialConfig: PPDBPaymentConfig;
 }
 
+type ActiveTrackKey = 'reguler' | 'afirmasi' | 'prestasi';
+
 export default function BiayaPPDBClient({ initialConfig }: BiayaPPDBClientProps) {
-  const [config, setConfig] = useState<PPDBPaymentConfig>(initialConfig);
+  // Ensure all 3 tracks are initialized
+  const [config, setConfig] = useState<PPDBPaymentConfig>(() => ({
+    ...initialConfig,
+    reguler: initialConfig.reguler || DEFAULT_TRACK_REGULER,
+    afirmasi: initialConfig.afirmasi || DEFAULT_TRACK_AFIRMASI,
+    prestasi: initialConfig.prestasi || DEFAULT_TRACK_PRESTASI,
+  }));
+
+  const [activeTrack, setActiveTrack] = useState<ActiveTrackKey>('reguler');
+  const [previewTrack, setPreviewTrack] = useState<ActiveTrackKey>('reguler');
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Perhitungan ranah total secara real-time
-  const computedTotal = useMemo(() => {
-    return (config.feeItems || []).reduce((acc, item) => {
-      const num = Number(item.amount) || 0;
-      return acc + (num > 0 ? num : 0);
-    }, 0);
-  }, [config.feeItems]);
+  // Perhitungan total per jalur
+  const regulerTotal = useMemo(() => {
+    return (config.reguler?.feeItems || []).reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
+  }, [config.reguler?.feeItems]);
 
-  // Tambah item rincian baru
+  const afirmasiTotal = useMemo(() => {
+    return (config.afirmasi?.feeItems || []).reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
+  }, [config.afirmasi?.feeItems]);
+
+  const prestasiTotal = useMemo(() => {
+    return (config.prestasi?.feeItems || []).reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
+  }, [config.prestasi?.feeItems]);
+
+  // Current active track config & total
+  const currentTrackConfig: PPDBTrackFeeConfig = config[activeTrack] || {
+    enabled: true,
+    title: '',
+    notes: '',
+    feeItems: [],
+    totalAmount: 0,
+  };
+
+  const currentTrackTotal = activeTrack === 'reguler' ? regulerTotal : activeTrack === 'afirmasi' ? afirmasiTotal : prestasiTotal;
+
+  // Preset rekomendasi per jalur
+  const trackPresets: Record<ActiveTrackKey, { name: string; amount: number }[]> = {
+    reguler: [
+      { name: 'Biaya Formulir Pendaftaran Online', amount: 100000 },
+      { name: 'Tes Minat Bakat & Wawancara', amount: 50000 },
+      { name: 'Tes Kesehatan & Bebas Narkoba/Buta Warna', amount: 35000 },
+      { name: 'Paket Atribut & Kartu Pelajar Digital', amount: 65000 },
+      { name: 'Uang Pangkal / Registrasi Ulang', amount: 250000 },
+    ],
+    afirmasi: [
+      { name: 'Biaya Administrasi Berkas KIP/SKTM', amount: 25000 },
+      { name: 'Tes Minat Bakat Bersubsidi (Afirmasi)', amount: 25000 },
+      { name: 'Biaya Verifikasi Lapangan & Survei Rumah', amount: 30000 },
+      { name: 'Penyusunan Berkas Bantuan Pendidikan', amount: 20000 },
+      { name: 'Bebaskan Biaya (Rp 0)', amount: 0 },
+    ],
+    prestasi: [
+      { name: 'Biaya Formulir & Uji Portofolio Prestasi', amount: 50000 },
+      { name: 'Tes Wawancara & Uji Bakat Jalur Prestasi', amount: 25000 },
+      { name: 'Verifikasi Keabsahan Piagam / Sertifikat Juara', amount: 25000 },
+      { name: 'Subsidi Seleksi Prestasi Unggulan', amount: 50000 },
+    ],
+  };
+
+  // Helper untuk update track aktif
+  const updateActiveTrack = (updater: (prevTrack: PPDBTrackFeeConfig) => PPDBTrackFeeConfig) => {
+    setConfig(prev => ({
+      ...prev,
+      [activeTrack]: updater(prev[activeTrack] || DEFAULT_TRACK_REGULER),
+    }));
+  };
+
+  // Tambah item rincian pada track aktif
   const handleAddItem = (defaultName = '', defaultAmount = 0) => {
     const newItem: PPDBFeeItem = {
-      id: `fee-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      id: `fee-${activeTrack}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       name: defaultName || 'Komponen Biaya Baru',
       amount: defaultAmount,
     };
-    setConfig(prev => ({
+    updateActiveTrack(prev => ({
       ...prev,
-      feeItems: [...prev.feeItems, newItem],
+      feeItems: [...(prev.feeItems || []), newItem],
     }));
   };
 
   // Hapus item rincian
   const handleRemoveItem = (id: string) => {
-    if (config.feeItems.length <= 1) {
-      alert('Minimal harus ada 1 komponen rincian biaya pendaftaran.');
-      return;
-    }
-    setConfig(prev => ({
+    updateActiveTrack(prev => ({
       ...prev,
-      feeItems: prev.feeItems.filter(item => item.id !== id),
+      feeItems: (prev.feeItems || []).filter(item => item.id !== id),
     }));
   };
 
-  // Update item rincian
+  // Update field pada item
   const handleUpdateItem = (id: string, field: 'name' | 'amount', value: any) => {
-    setConfig(prev => ({
+    updateActiveTrack(prev => ({
       ...prev,
-      feeItems: prev.feeItems.map(item => {
+      feeItems: (prev.feeItems || []).map(item => {
         if (item.id === id) {
           if (field === 'amount') {
             const parsed = parseInt(String(value).replace(/[^0-9]/g, ''), 10);
@@ -83,7 +147,7 @@ export default function BiayaPPDBClient({ initialConfig }: BiayaPPDBClientProps)
     }));
   };
 
-  // Simpan konfigurasi ke server
+  // Simpan seluruh konfigurasi ke server
   const handleSave = async () => {
     setIsSaving(true);
     setErrorMsg(null);
@@ -92,8 +156,25 @@ export default function BiayaPPDBClient({ initialConfig }: BiayaPPDBClientProps)
     try {
       const payload: PPDBPaymentConfig = {
         ...config,
-        totalAmount: computedTotal,
+        reguler: {
+          ...config.reguler,
+          totalAmount: regulerTotal,
+        },
+        afirmasi: {
+          ...config.afirmasi,
+          totalAmount: afirmasiTotal,
+        },
+        prestasi: {
+          ...config.prestasi,
+          totalAmount: prestasiTotal,
+        },
+        // Backward-compat fallback
+        title: config.reguler?.title || DEFAULT_TRACK_REGULER.title,
+        notes: config.reguler?.notes || DEFAULT_TRACK_REGULER.notes,
+        feeItems: config.reguler?.feeItems || DEFAULT_TRACK_REGULER.feeItems,
+        totalAmount: regulerTotal,
       };
+
       const res = await savePPDBPaymentConfig(payload);
 
       if (res && res.error) {
@@ -103,19 +184,15 @@ export default function BiayaPPDBClient({ initialConfig }: BiayaPPDBClientProps)
         setTimeout(() => setSavedSuccess(false), 3500);
       }
     } catch (err: any) {
-      setErrorMsg(err?.message || 'Gagal menyimpan konfigurasi rincian biaya.');
+      setErrorMsg(err?.message || 'Gagal menyimpan konfigurasi rincian biaya PPDB.');
     } finally {
       setIsSaving(false);
     }
   };
 
-  const commonPresets = [
-    { name: 'Biaya Formulir Pendaftaran Online', amount: 100000 },
-    { name: 'Tes Minat Bakat & Wawancara', amount: 50000 },
-    { name: 'Tes Kesehatan & Buta Warna', amount: 35000 },
-    { name: 'Paket Atribut & Kartu Pelajar Digital', amount: 65000 },
-    { name: 'Uang Pangkal / Registrasi Ulang', amount: 250000 },
-  ];
+  // Data preview yang sedang disorot
+  const previewConfig = config[previewTrack] || DEFAULT_TRACK_REGULER;
+  const previewTotal = previewTrack === 'reguler' ? regulerTotal : previewTrack === 'afirmasi' ? afirmasiTotal : prestasiTotal;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8 font-sans text-slate-800">
@@ -128,20 +205,20 @@ export default function BiayaPPDBClient({ initialConfig }: BiayaPPDBClientProps)
             <span>/</span>
             <Link href="/admin/settings" className="hover:underline text-slate-500">Pengaturan</Link>
             <span>/</span>
-            <span>Rincian Biaya PPDB</span>
+            <span>Rincian Biaya PPDB Multi-Jalur</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 flex items-center gap-3">
-            <span className="p-2.5 rounded-2xl bg-blue-600 text-white shadow-md shadow-blue-500/20">
+            <span className="p-2.5 rounded-2xl bg-gradient-to-tr from-blue-700 to-indigo-600 text-white shadow-md shadow-blue-500/20">
               <Banknote size={26} />
             </span>
-            Rincian Biaya PPDB & Rekening
+            Rincian Biaya PPDB & Rekening Pembayaran
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Kelola rincian nominal pembayaran pendaftaran secara mendalam hingga ke ranah total otomatis untuk siswa baru.
+            Kelola rincian nominal pembayaran pendaftaran untuk semua jalur seleksi (<strong>Reguler</strong>, <strong>Afirmasi/KIP</strong>, dan <strong>Prestasi/Beasiswa</strong>) sesuai kebijakan sekolah hingga ke ranah total otomatis.
           </p>
         </div>
 
-        {/* Action Button */}
+        {/* Action Buttons */}
         <div className="flex items-center gap-3">
           <Link
             href="/admin/ppdb"
@@ -177,8 +254,8 @@ export default function BiayaPPDBClient({ initialConfig }: BiayaPPDBClientProps)
           <div className="flex items-center gap-3">
             <CheckCircle2 size={20} className="text-emerald-600 flex-shrink-0" />
             <div>
-              <p className="font-bold text-sm">Pengaturan Biaya Berhasil Disimpan!</p>
-              <p className="text-xs text-emerald-700">Rincian nominal dan total biaya kini langsung aktif di formulir pendaftaran calon siswa dan struk registrasi.</p>
+              <p className="font-bold text-sm">Pengaturan Biaya Multi-Jalur Berhasil Disimpan!</p>
+              <p className="text-xs text-emerald-700">Rincian biaya untuk Jalur Reguler, Afirmasi, dan Prestasi kini aktif secara real-time pada formulir pendaftaran, struk registrasi, dan portal status siswa.</p>
             </div>
           </div>
           <button onClick={() => setSavedSuccess(false)} className="text-xs text-emerald-700 hover:underline">Tutup</button>
@@ -195,109 +272,233 @@ export default function BiayaPPDBClient({ initialConfig }: BiayaPPDBClientProps)
         </div>
       )}
 
-      {/* Top Metric Cards */}
+      {/* 4 Summary Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
-        {/* Metric 1: Total Ranah Nominal */}
-        <div className="p-5 rounded-2xl bg-gradient-to-br from-blue-900 via-indigo-900 to-slate-900 text-white shadow-xl relative overflow-hidden">
-          <div className="absolute right-0 top-0 translate-x-3 -translate-y-3 opacity-10 pointer-events-none">
-            <Banknote size={110} />
-          </div>
-          <span className="text-[11px] font-bold uppercase tracking-wider text-blue-300 block mb-1">
-            Ranah Total Nominal
-          </span>
-          <div className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-white">
-            Rp {computedTotal.toLocaleString('id-ID')}
-          </div>
-          <p className="text-[11px] text-blue-200/80 mt-1.5 flex items-center gap-1">
-            <Sparkles size={12} className="text-yellow-400" />
-            Terhitung otomatis dari {config.feeItems.length} item rincian
-          </p>
-        </div>
-
-        {/* Metric 2: Status Sistem */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Status Biaya PPDB</span>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-              config.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+        {/* Metric 1: Jalur Reguler */}
+        <div 
+          onClick={() => { setActiveTrack('reguler'); setPreviewTrack('reguler'); }}
+          className={`p-5 rounded-2xl border transition-all cursor-pointer relative overflow-hidden ${
+            activeTrack === 'reguler' 
+              ? 'bg-gradient-to-br from-blue-900 via-indigo-900 to-slate-900 text-white shadow-xl ring-2 ring-blue-500' 
+              : 'bg-white hover:bg-slate-50 border-slate-200 shadow-sm text-slate-800'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-1.5">
+            <span className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+              activeTrack === 'reguler' ? 'text-blue-300' : 'text-blue-600'
             }`}>
-              {config.enabled ? 'AKTIF' : 'NONAKTIF'}
+              <Users size={14} /> Jalur Reguler
+            </span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300">
+              {config.reguler?.feeItems?.length || 0} Item
             </span>
           </div>
-          <div className="mt-3">
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={config.enabled}
-                onChange={(e) => setConfig({ ...config, enabled: e.target.checked })}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-              <span className="ml-3 text-xs font-bold text-slate-700">
-                {config.enabled ? 'Wajibkan Pembayaran (Reguler)' : 'Bebaskan Seluruh Biaya'}
-              </span>
-            </label>
+          <div className={`text-2xl font-black font-mono tracking-tight ${activeTrack === 'reguler' ? 'text-white' : 'text-slate-900'}`}>
+            Rp {regulerTotal.toLocaleString('id-ID')}
           </div>
-        </div>
-
-        {/* Metric 3: Metode Tersedia */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">
-            Metode Pembayaran
-          </span>
-          <div className="flex items-center gap-2 mt-2">
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-bold border border-blue-200">
-              <CreditCard size={13} /> {config.bankName || 'Transfer Bank'}
-            </span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
-              <Building2 size={13} /> Loket Kasir
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-2">Calon siswa bebas memilih metode saat pendaftaran.</p>
-        </div>
-
-        {/* Metric 4: Proteksi Afirmasi */}
-        <div className="p-5 rounded-2xl bg-emerald-50/60 border border-emerald-200 shadow-sm">
-          <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs uppercase tracking-wider mb-1">
-            <ShieldCheck size={16} className="text-emerald-600" /> Jalur Afirmasi & KIP
-          </div>
-          <div className="text-xl font-black text-emerald-900 font-mono">
-            Rp 0 (100% Gratis)
-          </div>
-          <p className="text-[11px] text-emerald-700/90 mt-1">
-            Sistem otomatis membebaskan biaya bagi pendaftar pemegang Kartu KIP & SKTM.
+          <p className={`text-[11px] mt-1.5 flex items-center gap-1 ${activeTrack === 'reguler' ? 'text-blue-200/80' : 'text-slate-500'}`}>
+            <Sparkles size={12} className="text-yellow-400" />
+            {config.reguler?.enabled !== false ? 'Wajib Dibayar' : 'Bebas Biaya'}
           </p>
         </div>
 
+        {/* Metric 2: Jalur Afirmasi (KIP / SKTM) */}
+        <div 
+          onClick={() => { setActiveTrack('afirmasi'); setPreviewTrack('afirmasi'); }}
+          className={`p-5 rounded-2xl border transition-all cursor-pointer relative overflow-hidden ${
+            activeTrack === 'afirmasi' 
+              ? 'bg-gradient-to-br from-teal-900 via-emerald-950 to-slate-900 text-white shadow-xl ring-2 ring-teal-500' 
+              : 'bg-white hover:bg-slate-50 border-slate-200 shadow-sm text-slate-800'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-1.5">
+            <span className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+              activeTrack === 'afirmasi' ? 'text-teal-300' : 'text-teal-600'
+            }`}>
+              <ShieldCheck size={14} /> Jalur Afirmasi (KIP)
+            </span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300">
+              {config.afirmasi?.feeItems?.length || 0} Item
+            </span>
+          </div>
+          <div className={`text-2xl font-black font-mono tracking-tight ${activeTrack === 'afirmasi' ? 'text-white' : 'text-slate-900'}`}>
+            Rp {afirmasiTotal.toLocaleString('id-ID')}
+          </div>
+          <p className={`text-[11px] mt-1.5 flex items-center gap-1 ${activeTrack === 'afirmasi' ? 'text-teal-200/80' : 'text-slate-500'}`}>
+            <HeartHandshake size={12} className="text-teal-400" />
+            Tarif khusus kebijakan sekolah
+          </p>
+        </div>
+
+        {/* Metric 3: Jalur Prestasi / Beasiswa */}
+        <div 
+          onClick={() => { setActiveTrack('prestasi'); setPreviewTrack('prestasi'); }}
+          className={`p-5 rounded-2xl border transition-all cursor-pointer relative overflow-hidden ${
+            activeTrack === 'prestasi' 
+              ? 'bg-gradient-to-br from-amber-900 via-purple-950 to-slate-900 text-white shadow-xl ring-2 ring-amber-500' 
+              : 'bg-white hover:bg-slate-50 border-slate-200 shadow-sm text-slate-800'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-1.5">
+            <span className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+              activeTrack === 'prestasi' ? 'text-amber-300' : 'text-amber-600'
+            }`}>
+              <Award size={14} /> Jalur Prestasi
+            </span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300">
+              {config.prestasi?.feeItems?.length || 0} Item
+            </span>
+          </div>
+          <div className={`text-2xl font-black font-mono tracking-tight ${activeTrack === 'prestasi' ? 'text-white' : 'text-slate-900'}`}>
+            Rp {prestasiTotal.toLocaleString('id-ID')}
+          </div>
+          <p className={`text-[11px] mt-1.5 flex items-center gap-1 ${activeTrack === 'prestasi' ? 'text-amber-200/80' : 'text-slate-500'}`}>
+            <Sparkles size={12} className="text-amber-400" />
+            Tarif uji bakat & portofolio
+          </p>
+        </div>
+
+        {/* Metric 4: Rekening & Loket */}
+        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+              Pusat Penerimaan Kas
+            </span>
+            <div className="text-sm font-bold text-slate-800 mt-1">
+              {config.bankName || 'Bank BRI'} &amp; Kasir Loket
+            </div>
+          </div>
+          <div className="pt-2 text-[11px] text-slate-500 border-t border-slate-100 flex items-center justify-between">
+            <span>Status Sistem:</span>
+            <span className={`font-bold ${config.enabled ? 'text-emerald-600' : 'text-slate-400'}`}>
+              {config.enabled ? 'Pembayaran ON' : 'Pembayaran OFF'}
+            </span>
+          </div>
+        </div>
+
+      </div>
+
+      {/* Track Selection Tabs */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-1.5 bg-slate-200/70 rounded-2xl">
+        <div className="flex items-center gap-1.5 overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => { setActiveTrack('reguler'); setPreviewTrack('reguler'); }}
+            className={`px-5 py-3 rounded-xl font-extrabold text-xs flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              activeTrack === 'reguler'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                : 'bg-white/80 hover:bg-white text-slate-700'
+            }`}
+          >
+            <Users size={16} />
+            <span>Jalur Reguler</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+              activeTrack === 'reguler' ? 'bg-blue-800 text-blue-200' : 'bg-slate-200 text-slate-700'
+            }`}>
+              Rp {regulerTotal.toLocaleString('id-ID')}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setActiveTrack('afirmasi'); setPreviewTrack('afirmasi'); }}
+            className={`px-5 py-3 rounded-xl font-extrabold text-xs flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              activeTrack === 'afirmasi'
+                ? 'bg-teal-700 text-white shadow-md shadow-teal-600/20'
+                : 'bg-white/80 hover:bg-white text-slate-700'
+            }`}
+          >
+            <ShieldCheck size={16} />
+            <span>Jalur Afirmasi (KIP / SKTM)</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+              activeTrack === 'afirmasi' ? 'bg-teal-900 text-teal-200' : 'bg-slate-200 text-slate-700'
+            }`}>
+              Rp {afirmasiTotal.toLocaleString('id-ID')}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setActiveTrack('prestasi'); setPreviewTrack('prestasi'); }}
+            className={`px-5 py-3 rounded-xl font-extrabold text-xs flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              activeTrack === 'prestasi'
+                ? 'bg-amber-600 text-white shadow-md shadow-amber-500/20'
+                : 'bg-white/80 hover:bg-white text-slate-700'
+            }`}
+          >
+            <Award size={16} />
+            <span>Jalur Prestasi / Beasiswa</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+              activeTrack === 'prestasi' ? 'bg-amber-800 text-amber-200' : 'bg-slate-200 text-slate-700'
+            }`}>
+              Rp {prestasiTotal.toLocaleString('id-ID')}
+            </span>
+          </button>
+        </div>
+
+        <div className="px-3 text-right">
+          <span className="text-[11px] font-bold text-slate-500">
+            Sedang Mengedit: <strong className="text-slate-900 uppercase">{activeTrack}</strong>
+          </span>
+        </div>
       </div>
 
       {/* Main Grid: Builder Rincian Biaya & Live Preview */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* Left Column: Form & Item Breakdown Builder (8 cols) */}
+        {/* Left Column: Form & Item Breakdown Builder (7 cols) */}
         <div className="lg:col-span-7 space-y-6">
           
-          {/* Section: Title & Label */}
+          {/* Section: Track Identity & Status */}
           <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
-            <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
-              <Receipt size={18} className="text-blue-600" />
-              Identitas & Judul Pembayaran PPDB
-            </h2>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                <Receipt size={18} className="text-blue-600" />
+                Identitas Pembayaran &amp; Kebijakan {activeTrack === 'reguler' ? 'Jalur Reguler' : activeTrack === 'afirmasi' ? 'Jalur Afirmasi' : 'Jalur Prestasi'}
+              </h2>
+              
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={currentTrackConfig.enabled !== false}
+                  onChange={(e) => updateActiveTrack(prev => ({ ...prev, enabled: e.target.checked }))}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                <span className="ml-2 text-xs font-bold text-slate-700">
+                  {currentTrackConfig.enabled !== false ? 'Wajib Bayar' : 'Bebas Biaya (Rp 0)'}
+                </span>
+              </label>
+            </div>
+
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Judul Tagihan / Label Pembayaran
+                Judul Tagihan / Label Pembayaran ({activeTrack.toUpperCase()})
               </label>
               <input
                 type="text"
-                value={config.title}
-                onChange={(e) => setConfig({ ...config, title: e.target.value })}
-                placeholder="Contoh: Biaya Pendaftaran & Seleksi Masuk (Jalur Reguler)"
+                value={currentTrackConfig.title}
+                onChange={(e) => updateActiveTrack(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Contoh: Biaya Pendaftaran & Seleksi Masuk"
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
               />
               <span className="text-[11px] text-slate-400 mt-1 block">
-                Judul ini akan tampil di bagian atas formulir pembayaran dan kop tanda bukti siswa.
+                Judul ini akan tampil di bagian atas formulir pembayaran dan tanda bukti pendaftar jalur ini.
               </span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Keterangan / Kebijakan Khusus Jalur Ini
+              </label>
+              <textarea
+                value={currentTrackConfig.notes || ''}
+                onChange={(e) => updateActiveTrack(prev => ({ ...prev, notes: e.target.value }))}
+                rows={2}
+                placeholder="Contoh: Biaya pendaftaran disubsidi sekolah khusus pemegang kartu KIP/SKTM."
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+              />
             </div>
           </div>
 
@@ -307,7 +508,7 @@ export default function BiayaPPDBClient({ initialConfig }: BiayaPPDBClientProps)
               <div>
                 <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
                   <Banknote size={18} className="text-blue-600" />
-                  Rincian Item Pembayaran
+                  Rincian Komponen Biaya ({activeTrack.toUpperCase()})
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
                   Tulis nama rincian dan nominalnya. Total keseluruhan akan terkalkulasi otomatis.
@@ -322,13 +523,13 @@ export default function BiayaPPDBClient({ initialConfig }: BiayaPPDBClientProps)
               </button>
             </div>
 
-            {/* Preset Buttons */}
+            {/* Preset Buttons for Active Track */}
             <div>
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-                Pilih Cepat Komponen Umum:
+                Pilih Cepat Rekomendasi Jalur {activeTrack.toUpperCase()}:
               </span>
               <div className="flex flex-wrap gap-2">
-                {commonPresets.map((preset, idx) => (
+                {trackPresets[activeTrack].map((preset, idx) => (
                   <button
                     key={idx}
                     type="button"
@@ -343,7 +544,7 @@ export default function BiayaPPDBClient({ initialConfig }: BiayaPPDBClientProps)
 
             {/* Item Rows */}
             <div className="space-y-3">
-              {config.feeItems.map((item, index) => (
+              {currentTrackConfig.feeItems.map((item, index) => (
                 <div
                   key={item.id}
                   className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 hover:border-blue-300 transition-all flex flex-col sm:flex-row items-stretch sm:items-center gap-3 group"
@@ -389,26 +590,26 @@ export default function BiayaPPDBClient({ initialConfig }: BiayaPPDBClientProps)
             <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-900 to-blue-950 text-white flex items-center justify-between shadow-md">
               <div>
                 <span className="text-xs font-bold text-blue-300 uppercase tracking-wider block">
-                  Total Tagihan Pembayaran:
+                  Total Tagihan {activeTrack.toUpperCase()}:
                 </span>
                 <span className="text-xs text-slate-400">
-                  (Dihitung otomatis dari akumulasi {config.feeItems.length} rincian di atas)
+                  (Dihitung otomatis dari akumulasi {currentTrackConfig.feeItems.length} rincian di atas)
                 </span>
               </div>
               <div className="text-right">
                 <span className="text-2xl sm:text-3xl font-black font-mono text-cyan-400">
-                  Rp {computedTotal.toLocaleString('id-ID')}
+                  Rp {currentTrackTotal.toLocaleString('id-ID')}
                 </span>
               </div>
             </div>
 
           </div>
 
-          {/* Section: Rekening Bank & Kasir Loket */}
+          {/* Section: Rekening Bank & Kasir Loket (Berlaku Global untuk semua jalur) */}
           <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-6">
             <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
               <CreditCard size={18} className="text-blue-600" />
-              Pengaturan Transfer Bank & Kasir Loket
+              Rekening Bank &amp; Kasir Loket (Penerimaan Global)
             </h2>
 
             {/* Transfer Bank */}
@@ -478,21 +679,6 @@ export default function BiayaPPDBClient({ initialConfig }: BiayaPPDBClientProps)
                 </div>
               </div>
             </div>
-
-            {/* Catatan / Keterangan */}
-            <div className="pt-2 border-t border-slate-100">
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Catatan Tambahan untuk Pendaftar (Tampil di Nota / Modal Pembayaran)
-              </label>
-              <textarea
-                value={config.notes}
-                onChange={(e) => setConfig({ ...config, notes: e.target.value })}
-                rows={2}
-                placeholder="Contoh: Biaya berlaku khusus pendaftar Jalur Reguler. Jalur Afirmasi 100% Bebas Biaya Formulir."
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-blue-500 outline-none"
-              />
-            </div>
-
           </div>
 
         </div>
@@ -502,7 +688,7 @@ export default function BiayaPPDBClient({ initialConfig }: BiayaPPDBClientProps)
           
           <div className="sticky top-6 space-y-6">
             
-            {/* Live Preview Header */}
+            {/* Live Preview Container */}
             <div className="bg-slate-900 rounded-3xl p-6 text-white shadow-xl space-y-4">
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                 <div className="flex items-center gap-2">
@@ -513,8 +699,40 @@ export default function BiayaPPDBClient({ initialConfig }: BiayaPPDBClientProps)
                   REAL-TIME SYNC
                 </span>
               </div>
+
+              {/* Preview Track Switcher */}
+              <div className="flex items-center gap-1.5 p-1 bg-white/10 rounded-xl text-xs">
+                <button
+                  type="button"
+                  onClick={() => setPreviewTrack('reguler')}
+                  className={`flex-1 py-1.5 rounded-lg font-bold text-[11px] transition-colors cursor-pointer ${
+                    previewTrack === 'reguler' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  Reguler
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewTrack('afirmasi')}
+                  className={`flex-1 py-1.5 rounded-lg font-bold text-[11px] transition-colors cursor-pointer ${
+                    previewTrack === 'afirmasi' ? 'bg-teal-600 text-white' : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  Afirmasi
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewTrack('prestasi')}
+                  className={`flex-1 py-1.5 rounded-lg font-bold text-[11px] transition-colors cursor-pointer ${
+                    previewTrack === 'prestasi' ? 'bg-amber-600 text-white' : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  Prestasi
+                </button>
+              </div>
+
               <p className="text-xs text-slate-400 leading-relaxed">
-                Beginilah tampilan rincian biaya yang akan dilihat oleh calon pendaftar di modal pembayaran pendaftaran & kartu bukti cetak.
+                Tampilan modal tagihan saat pendaftar <strong>Jalur {previewTrack.toUpperCase()}</strong> menekan tombol &ldquo;Lanjutkan Pembayaran&rdquo;.
               </p>
 
               {/* Preview Card Body: Mirip Modal PPDB Siswa */}
@@ -522,13 +740,22 @@ export default function BiayaPPDBClient({ initialConfig }: BiayaPPDBClientProps)
                 
                 {/* Header Preview */}
                 <div className="border-b border-white/10 pb-3">
-                  <span className="text-[10px] font-mono text-cyan-400 uppercase tracking-wider block">
-                    {config.title || 'Rincian Biaya Pendaftaran'}
-                  </span>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] font-mono text-cyan-400 uppercase tracking-wider block">
+                      {previewConfig.title || `Tagihan Jalur ${previewTrack.toUpperCase()}`}
+                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      previewTrack === 'reguler' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                      previewTrack === 'afirmasi' ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30' :
+                      'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                    }`}>
+                      JALUR {previewTrack.toUpperCase()}
+                    </span>
+                  </div>
                   <div className="flex items-center justify-between mt-1">
-                    <span className="text-sm font-black text-white">Total Tagihan Siswa</span>
+                    <span className="text-sm font-black text-white">Total Tagihan Masuk</span>
                     <span className="text-xl font-black font-mono text-cyan-400">
-                      Rp {computedTotal.toLocaleString('id-ID')}
+                      Rp {previewTotal.toLocaleString('id-ID')}
                     </span>
                   </div>
                 </div>
@@ -536,10 +763,10 @@ export default function BiayaPPDBClient({ initialConfig }: BiayaPPDBClientProps)
                 {/* Table of fee items */}
                 <div className="space-y-1.5 bg-white/5 p-3 rounded-xl border border-white/5">
                   <div className="text-[10px] uppercase font-bold text-slate-400 mb-1 flex justify-between">
-                    <span>Komponen Biaya</span>
+                    <span>Komponen Rincian</span>
                     <span>Nominal</span>
                   </div>
-                  {config.feeItems.map((item, idx) => (
+                  {previewConfig.feeItems.map((item, idx) => (
                     <div key={item.id || idx} className="flex items-center justify-between text-xs py-1 border-b border-white/5 last:border-none">
                       <span className="text-slate-300 truncate max-w-[200px]">{item.name}</span>
                       <span className="font-mono font-bold text-white">
@@ -548,8 +775,8 @@ export default function BiayaPPDBClient({ initialConfig }: BiayaPPDBClientProps)
                     </div>
                   ))}
                   <div className="pt-2 mt-1 border-t border-white/10 flex items-center justify-between font-bold text-xs text-cyan-300">
-                    <span>Total Nominal</span>
-                    <span className="font-mono text-sm">Rp {computedTotal.toLocaleString('id-ID')}</span>
+                    <span>Total Nominal Tagihan</span>
+                    <span className="font-mono text-sm">Rp {previewTotal.toLocaleString('id-ID')}</span>
                   </div>
                 </div>
 
@@ -570,9 +797,9 @@ export default function BiayaPPDBClient({ initialConfig }: BiayaPPDBClientProps)
                 </div>
 
                 {/* Notes Preview */}
-                {config.notes && (
+                {previewConfig.notes && (
                   <div className="text-[11px] text-slate-400 italic bg-white/5 p-2.5 rounded-lg border border-white/5">
-                    &ldquo;{config.notes}&rdquo;
+                    &ldquo;{previewConfig.notes}&rdquo;
                   </div>
                 )}
 
@@ -581,7 +808,7 @@ export default function BiayaPPDBClient({ initialConfig }: BiayaPPDBClientProps)
               {/* Bottom Info */}
               <div className="flex items-center gap-2 text-xs text-slate-400 pt-2">
                 <HelpCircle size={14} className="text-blue-400 flex-shrink-0" />
-                <span>Admin dapat mengubah rincian biaya kapan saja tanpa memengaruhi pendaftar yang sudah lunas sebelumnya.</span>
+                <span>Admin dapat mengubah rincian biaya kapan saja tanpa memengaruhi pendaftar yang sudah diverifikasi lunas sebelumnya.</span>
               </div>
 
             </div>
@@ -589,8 +816,8 @@ export default function BiayaPPDBClient({ initialConfig }: BiayaPPDBClientProps)
             {/* Quick Save Card */}
             <div className="p-5 bg-blue-50 rounded-3xl border border-blue-200 flex items-center justify-between">
               <div>
-                <span className="text-xs font-bold text-blue-900 block">Siap Menerapkan?</span>
-                <span className="text-xs text-blue-700">Perubahan langsung aktif seketika setelah disimpan.</span>
+                <span className="text-xs font-bold text-blue-900 block">Siap Menerapkan Kebijakan?</span>
+                <span className="text-xs text-blue-700">Perubahan tarif ketiga jalur langsung aktif seketika setelah disimpan.</span>
               </div>
               <button
                 onClick={handleSave}
