@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { 
@@ -17,10 +18,17 @@ import {
   Banknote, 
   RefreshCw,
   Phone,
-  ExternalLink
+  ExternalLink,
+  CreditCard,
+  QrCode,
+  Copy,
+  Download,
+  Loader2,
+  X
 } from 'lucide-react';
 
 import { PPDBPaymentConfig, getTrackConfig } from '@/app/admin/settings/types';
+import FileUpload from '@/components/FileUpload';
 
 interface ApplicantData {
   id: string;
@@ -78,6 +86,66 @@ export default function StatusClient({ schoolName, contactPhone = '082246464677'
   const [loading, setLoading] = useState(false);
   const [applicant, setApplicant] = useState<ApplicantData | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Payment Modal State
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [payMethod, setPayMethod] = useState<'TRANSFER' | 'QRIS' | 'CASH'>('TRANSFER');
+  const [transferProofUrl, setTransferProofUrl] = useState('');
+  const [isSubmittingPay, setIsSubmittingPay] = useState(false);
+  const [copiedBank, setCopiedBank] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const handleCopy = (text: string, bank: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedBank(bank);
+    setTimeout(() => setCopiedBank(null), 2500);
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!applicant) return;
+
+    if ((payMethod === 'TRANSFER' || payMethod === 'QRIS') && !transferProofUrl) {
+      alert(`Silakan unggah foto struk / tangkapan layar (screenshot) bukti pembayaran ${payMethod === 'QRIS' ? 'QRIS' : 'transfer bank'} terlebih dahulu.`);
+      return;
+    }
+
+    setIsSubmittingPay(true);
+    try {
+      const res = await fetch('/api/ppdb/pay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: applicant.id,
+          paymentMethod: payMethod,
+          paymentProof: transferProofUrl || null,
+          paymentNotes: payMethod === 'CASH'
+            ? 'Pembayaran tunai di loket kasir PPDB sekolah (diperbarui melalui cek status)'
+            : payMethod === 'QRIS'
+            ? 'Pembayaran via QRIS (diperbarui melalui cek status)'
+            : 'Pembayaran transfer bank (diperbarui melalui cek status)',
+        }),
+      });
+
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Gagal memperbarui status pembayaran');
+
+      alert('Berhasil! Bukti pembayaran pendaftaran Anda telah berhasil dikirim dan tersimpan di sistem.');
+      setShowPaymentModal(false);
+      setTransferProofUrl('');
+      // Refetch applicant status in realtime
+      if (searchQuery) {
+        await fetchStatus(searchQuery);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Terjadi kesalahan saat memproses pembayaran');
+    } finally {
+      setIsSubmittingPay(false);
+    }
+  };
 
   const fetchStatus = async (query: string) => {
     if (!query.trim()) {
@@ -368,11 +436,11 @@ export default function StatusClient({ schoolName, contactPhone = '082246464677'
                       </div>
                     </div>
                   ) : applicant.paymentStatus === 'PENDING_TRANSFER' ? (
-                    <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-3.5">
+                    <div className="p-5 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-3.5">
                       <div className="p-2 bg-amber-500 text-white rounded-xl flex-shrink-0">
                         <Clock size={22} />
                       </div>
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <h4 className="font-extrabold text-amber-950 text-base">
                           {applicant.paymentMethod === 'QRIS' ? 'Menunggu Verifikasi Bukti QRIS' : 'Menunggu Verifikasi Bukti Transfer'}
                         </h4>
@@ -396,6 +464,19 @@ export default function StatusClient({ schoolName, contactPhone = '082246464677'
                             <strong>Catatan Panitia:</strong> {applicant.paymentNotes}
                           </div>
                         )}
+                        <div className="mt-3.5 pt-3 border-t border-amber-200/80 flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPayMethod(applicant.paymentMethod === 'QRIS' ? 'QRIS' : 'TRANSFER');
+                              setShowPaymentModal(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-sm transition active:scale-95"
+                          >
+                            <RefreshCw size={13} />
+                            <span>Unggah Ulang Bukti / Ganti Metode Pembayaran</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ) : applicant.paymentStatus === 'PENDING_CASH' ? (
@@ -442,40 +523,82 @@ export default function StatusClient({ schoolName, contactPhone = '082246464677'
                           <strong>Catatan Petugas:</strong> {applicant.paymentNotes}
                         </div>
                       )}
+                      <div className="mt-3.5 pt-3 border-t border-emerald-200 flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-xs text-emerald-900 font-medium">
+                          Ingin bayar online (Transfer / QRIS) tanpa harus datang ke sekolah?
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPayMethod('TRANSFER');
+                            setShowPaymentModal(true);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white shadow-sm transition active:scale-95"
+                        >
+                          <CreditCard size={14} />
+                          <span>Ganti ke Transfer / QRIS Online</span>
+                        </button>
+                      </div>
                     </div>
                   ) : applicant.paymentStatus === 'REJECTED' ? (
-                <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-3.5">
-                  <div className="p-2 bg-rose-600 text-white rounded-xl flex-shrink-0">
-                    <XCircle size={22} />
-                  </div>
-                  <div>
-                    <h4 className="font-extrabold text-rose-950 text-base">Verifikasi Pembayaran Ditolak</h4>
-                    <p className="text-xs text-rose-800 mt-0.5">
-                      Bukti pembayaran atau transfer yang diunggah tidak valid atau tidak terbaca oleh panitia.
-                    </p>
-                    {applicant.paymentNotes && (
-                      <div className="mt-2 text-xs bg-white/90 p-2.5 rounded-xl border border-rose-200 text-rose-900">
-                        <strong>Catatan Panitia:</strong> {applicant.paymentNotes}
+                    <div className="p-5 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-3.5">
+                      <div className="p-2 bg-rose-600 text-white rounded-xl flex-shrink-0">
+                        <XCircle size={22} />
                       </div>
-                    )}
-                    <p className="text-xs text-slate-600 mt-2">
-                      Silakan hubungi panitia PPDB untuk melakukan konfirmasi ulang atau pembayaran ulang di loket.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-start gap-3.5">
-                  <div className="p-2 bg-slate-500 text-white rounded-xl flex-shrink-0">
-                    <AlertCircle size={22} />
-                  </div>
-                  <div>
-                    <h4 className="font-extrabold text-slate-900 text-base">Belum Menyelesaikan Pembayaran Formulir</h4>
-                    <p className="text-xs text-slate-600 mt-0.5">
-                      Silakan selesaikan pembayaran biaya formulir pendaftaran agar berkas Anda dapat diproses ke seleksi PPDB.
-                    </p>
-                  </div>
-                </div>
-              )}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-extrabold text-rose-950 text-base">Verifikasi Pembayaran Ditolak</h4>
+                        <p className="text-xs text-rose-800 mt-0.5">
+                          Bukti pembayaran atau transfer yang diunggah sebelumnya tidak valid atau tidak terbaca oleh panitia keuangan.
+                        </p>
+                        {applicant.paymentNotes && (
+                          <div className="mt-2 text-xs bg-white/90 p-2.5 rounded-xl border border-rose-200 text-rose-900">
+                            <strong>Catatan Panitia:</strong> {applicant.paymentNotes}
+                          </div>
+                        )}
+                        <p className="text-xs text-slate-600 mt-2">
+                          Silakan klik tombol di bawah untuk mengunggah ulang bukti transfer yang benar atau ganti metode pembayaran.
+                        </p>
+                        <div className="mt-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPayMethod('TRANSFER');
+                              setShowPaymentModal(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-sm transition active:scale-95"
+                          >
+                            <RefreshCw size={14} />
+                            <span>Selesaikan Pembayaran Ulang Sekarang</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-start gap-3.5">
+                        <div className="p-2 bg-amber-500 text-white rounded-xl flex-shrink-0">
+                          <AlertCircle size={22} />
+                        </div>
+                        <div>
+                          <h4 className="font-extrabold text-slate-900 text-base">Belum Menyelesaikan Pembayaran Formulir</h4>
+                          <p className="text-xs text-slate-600 mt-0.5">
+                            Biaya pendaftaran: <strong className="text-slate-900">Rp {expectedAmount.toLocaleString('id-ID')}</strong> ({trackConfig?.title || 'Jalur Reguler'}). Anda dapat melanjutkan pembayaran online atau tunai.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPayMethod('TRANSFER');
+                          setShowPaymentModal(true);
+                        }}
+                        className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-extrabold bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 transition active:scale-95 flex-shrink-0"
+                      >
+                        <CreditCard size={15} />
+                        <span>Lanjutkan Pembayaran Sekarang</span>
+                      </button>
+                    </div>
+                  )}
             </div>
 
             {/* 3. DETAILED APPLICANT DATA (BIODATA CARD) */}
@@ -673,6 +796,298 @@ export default function StatusClient({ schoolName, contactPhone = '082246464677'
         </div>
 
       </div>
+
+      {/* ======================================================== */}
+      {/* PAYMENT MODAL (PORTAL) FOR PAY LATER / RE-PAYMENT       */}
+      {/* ======================================================== */}
+      {isMounted && showPaymentModal && applicant && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto"
+          onClick={() => !isSubmittingPay && setShowPaymentModal(false)}
+        >
+          <div 
+            className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[92vh] flex flex-col animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-5 sm:p-6 bg-slate-900 text-white flex items-start justify-between gap-4">
+              <div>
+                <span className="text-[11px] font-bold text-blue-400 uppercase tracking-wider block">
+                  Pelunasan / Pembaruan Pembayaran
+                </span>
+                <h3 className="font-extrabold text-lg sm:text-xl text-white mt-0.5">
+                  Pembayaran Biaya Formulir PPDB
+                </h3>
+                <p className="text-xs text-slate-300 mt-1">
+                  {applicant.fullName} &bull; NISN: <span className="font-mono font-bold text-white">{applicant.nisn}</span> &bull; {trackConfig?.title || applicant.jalur}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPaymentModal(false)}
+                disabled={isSubmittingPay}
+                className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition"
+                aria-label="Tutup"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="overflow-y-auto p-5 sm:p-6 space-y-5 flex-1">
+              {/* Nominal Card */}
+              <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200/80 flex items-center justify-between">
+                <div>
+                  <span className="text-[11px] text-blue-700 block font-semibold">Total Tagihan ({trackConfig?.title || 'Jalur Pendaftaran'}):</span>
+                  <span className="text-2xl font-black text-blue-950">
+                    Rp {expectedAmount.toLocaleString('id-ID')}
+                  </span>
+                </div>
+                <span className="text-[11px] font-bold bg-blue-200/70 text-blue-800 px-3 py-1 rounded-full">
+                  {applicant.paymentStatus === 'PAID' ? 'Sudah Lunas' : 'Wajib Diselesaikan'}
+                </span>
+              </div>
+
+              {/* Method Selector Tabs */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-2">
+                  Pilih Metode Pembayaran:
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPayMethod('TRANSFER')}
+                    className={`p-3 rounded-2xl border text-center transition flex flex-col items-center gap-1.5 ${
+                      payMethod === 'TRANSFER'
+                        ? 'border-blue-600 bg-blue-50/80 text-blue-900 font-extrabold ring-2 ring-blue-500/20 shadow-sm'
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-medium'
+                    }`}
+                  >
+                    <CreditCard size={18} className={payMethod === 'TRANSFER' ? 'text-blue-600' : 'text-slate-400'} />
+                    <span className="text-xs">Transfer Bank</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPayMethod('QRIS')}
+                    className={`p-3 rounded-2xl border text-center transition flex flex-col items-center gap-1.5 ${
+                      payMethod === 'QRIS'
+                        ? 'border-purple-600 bg-purple-50/80 text-purple-900 font-extrabold ring-2 ring-purple-500/20 shadow-sm'
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-medium'
+                    }`}
+                  >
+                    <QrCode size={18} className={payMethod === 'QRIS' ? 'text-purple-600' : 'text-slate-400'} />
+                    <span className="text-xs">Scan QRIS</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPayMethod('CASH')}
+                    className={`p-3 rounded-2xl border text-center transition flex flex-col items-center gap-1.5 ${
+                      payMethod === 'CASH'
+                        ? 'border-emerald-600 bg-emerald-50/80 text-emerald-900 font-extrabold ring-2 ring-emerald-500/20 shadow-sm'
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-medium'
+                    }`}
+                  >
+                    <Banknote size={18} className={payMethod === 'CASH' ? 'text-emerald-600' : 'text-slate-400'} />
+                    <span className="text-xs">Tunai di Loket</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* TRANSFER TAB */}
+              {payMethod === 'TRANSFER' && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <div className="space-y-2">
+                    <span className="text-xs font-bold text-slate-700 block">
+                      Rekening Tujuan Transfer Resmi Sekolah:
+                    </span>
+                    <div className="space-y-2">
+                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800">
+                            {paymentConfig?.bankName || 'BANK RAKYAT INDONESIA (BRI)'}
+                          </span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 uppercase">
+                            Rekening Resmi Sekolah
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200">
+                          <div>
+                            <span className="text-[10px] text-slate-400 block font-semibold">Nomor Rekening:</span>
+                            <span className="font-mono font-black text-slate-900 text-base sm:text-lg tracking-wider">
+                              {paymentConfig?.bankAccount || '0123-01-001234-56-7'}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy((paymentConfig?.bankAccount || '012301001234567').replace(/[^0-9]/g, ''), 'BANK')}
+                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all shadow-sm"
+                          >
+                            <Copy size={13} />
+                            <span>{copiedBank === 'BANK' ? 'Tersalin!' : 'Salin Rekening'}</span>
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-slate-600 pt-1">
+                          <span>Atas Nama Rekening:</span>
+                          <strong className="text-slate-900 uppercase">{paymentConfig?.bankHolder || 'SMK GARUDA MAHADHIKA'}</strong>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-900 space-y-1">
+                    <p className="font-bold">⚠️ Catatan Transfer Penting:</p>
+                    <p>Pastikan jumlah transfer tepat <strong>Rp {expectedAmount.toLocaleString('id-ID')}</strong> agar proses verifikasi panitia berjalan lancar.</p>
+                  </div>
+
+                  <div>
+                    <FileUpload
+                      name="paymentProofTransfer"
+                      label="Unggah Struk / Screenshot Bukti Transfer (Wajib)"
+                      colorTheme="blue"
+                      helperText="Foto bukti transfer dari m-Banking atau struk ATM (JPG, PNG, PDF maks 4.5MB)"
+                      required={true}
+                      onChange={(url: string) => setTransferProofUrl(url)}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* QRIS TAB */}
+              {payMethod === 'QRIS' && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <div className="p-4 rounded-2xl bg-purple-50 border border-purple-200 text-center space-y-3">
+                    <div className="inline-block p-3 bg-white rounded-2xl border border-purple-200 shadow-sm">
+                      <img
+                        src={paymentConfig?.qrisImageUrl || '/images/qris-dummy.png'}
+                        alt="QRIS PPDB SMK GaMa"
+                        className="w-48 h-48 object-contain mx-auto"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-xs font-extrabold text-purple-950 block">
+                        Merchant: {paymentConfig?.qrisMerchantName || 'PPDB SMK GAMA OFFICIAL'}
+                      </span>
+                      {paymentConfig?.qrisNmid && (
+                        <span className="text-[11px] font-mono font-semibold text-purple-800 block">
+                          NMID: {paymentConfig.qrisNmid}
+                        </span>
+                      )}
+                      <span className="text-[11px] text-purple-700 block mt-0.5">
+                        Mendukung seluruh m-Banking & E-Wallet (BCA, Mandiri, BRI, BNI, GoPay, OVO, Dana, ShopeePay)
+                      </span>
+                    </div>
+                    <a
+                      href={paymentConfig?.qrisImageUrl || '/images/qris-dummy.png'}
+                      download="QRIS-PPDB-SMK-GaMa.png"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-white hover:bg-purple-100 text-purple-900 border border-purple-200 shadow-sm transition"
+                    >
+                      <Download size={13} />
+                      <span>Unduh Gambar QRIS</span>
+                    </a>
+                  </div>
+
+                  <div className="p-3 bg-purple-50/60 rounded-2xl border border-purple-200 text-xs text-purple-900 space-y-1">
+                    <p className="font-bold">📱 Panduan Bayar via QRIS:</p>
+                    <ol className="list-decimal pl-4 space-y-0.5">
+                      <li>Buka aplikasi m-Banking atau E-Wallet pilihan Anda.</li>
+                      <li>Pilih menu <strong>Scan QR / QRIS</strong> dan arahkan ke kode QR di atas.</li>
+                      <li>Ketikkan nominal pas sebesar: <strong>Rp {expectedAmount.toLocaleString('id-ID')}</strong>.</li>
+                      <li>Selesaikan transaksi, simpan tangkapan layar (screenshot) bukti berhasil, lalu unggah di bawah ini.</li>
+                    </ol>
+                  </div>
+
+                  <div>
+                    <FileUpload
+                      name="paymentProofQris"
+                      label="Unggah Tangkapan Layar (Screenshot) Bukti QRIS (Wajib)"
+                      colorTheme="purple"
+                      helperText="Screenshot status transaksi berhasil dari aplikasi e-wallet / m-banking (Maks: 4.5MB)"
+                      required={true}
+                      onChange={(url: string) => setTransferProofUrl(url)}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* CASH TAB */}
+              {payMethod === 'CASH' && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-2">
+                    <span className="text-xs font-bold text-emerald-900 block">
+                      Kode Booking Pembayaran Tunai Anda:
+                    </span>
+                    <div className="p-3 bg-white rounded-xl border border-emerald-300 text-center">
+                      <span className="text-2xl font-black font-mono text-emerald-950 tracking-wider">
+                        {applicant.cashCode}
+                      </span>
+                    </div>
+                    <p className="text-xs text-emerald-800">
+                      Bawalah kode booking di atas dan uang tunai pas sebesar <strong>Rp {expectedAmount.toLocaleString('id-ID')}</strong> ke loket PPDB sekolah.
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-700 space-y-1.5">
+                    <p><strong>Lokasi Loket:</strong> {paymentConfig?.cashLocation || 'Ruang Panitia PPDB / Loket Kasir Gedung Utama SMK GaMa'}</p>
+                    <p><strong>Jam Layanan:</strong> {paymentConfig?.cashHours || 'Senin s/d Sabtu, pukul 08.00 - 14.00 WIB'}</p>
+                    <p className="text-slate-500">
+                      Petugas kasir akan memverifikasi kode booking Anda dan mencetak kwitansi pembayaran resmi.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 sm:p-5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setShowPaymentModal(false)}
+                disabled={isSubmittingPay}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs transition"
+              >
+                Batal / Tutup
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmPayment}
+                disabled={isSubmittingPay || ((payMethod === 'TRANSFER' || payMethod === 'QRIS') && !transferProofUrl)}
+                className={`px-6 py-2.5 rounded-xl text-xs font-extrabold text-white shadow-md transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                  payMethod === 'QRIS'
+                    ? 'bg-purple-600 hover:bg-purple-700'
+                    : payMethod === 'CASH'
+                    ? 'bg-emerald-600 hover:bg-emerald-700'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                {isSubmittingPay ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" />
+                    <span>Menyimpan Pembayaran...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={15} />
+                    <span>
+                      {payMethod === 'CASH'
+                        ? 'Konfirmasi Bayar di Loket'
+                        : payMethod === 'QRIS'
+                        ? 'Kirim Bukti QRIS'
+                        : 'Kirim Bukti Transfer'}
+                    </span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
     </div>
   );
 }
