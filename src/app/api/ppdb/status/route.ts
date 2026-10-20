@@ -1,8 +1,20 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { getClientIp, checkRateLimit } from '@/lib/security';
 
 export async function GET(request: Request) {
   try {
+    const clientIp = getClientIp(request);
+
+    // Rate Limiter: Maksimal 30 pencarian status per IP per menit (Anti-Bruteforce NISN)
+    const rateCheck = checkRateLimit(`ppdb_status:${clientIp}`, 30, 60 * 1000);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: `Terlalu banyak permintaan pengecekan status. Silakan tunggu ${rateCheck.retryAfterSeconds} detik lagi.` },
+        { status: 429, headers: { 'Retry-After': String(rateCheck.retryAfterSeconds) } }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('nisn') || searchParams.get('query') || searchParams.get('id');
 

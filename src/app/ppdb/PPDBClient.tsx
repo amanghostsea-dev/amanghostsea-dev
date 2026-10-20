@@ -190,6 +190,28 @@ export default function PPDBClient({
     if (!data.major) {
       data.major = selectedMajor;
     }
+
+    // Validasi Keamanan & Format Ketat
+    const rawFullName = String(data.fullName || '').trim();
+    if (rawFullName.length < 3) {
+      alert('Nama lengkap calon siswa wajib diisi minimal 3 karakter.');
+      setIsSubmitting(false);
+      return;
+    }
+
+    const rawNisn = String(data.nisn || '').trim();
+    if (!/^\d{10}$/.test(rawNisn)) {
+      alert('Format NISN tidak valid! NISN harus terdiri dari tepat 10 digit angka (contoh: 0071234567).');
+      setIsSubmitting(false);
+      return;
+    }
+
+    const rawPhone = String(data.phone || '').replace(/[\s-]/g, '').trim();
+    if (!/^(08|\+62|62)\d{8,12}$/.test(rawPhone)) {
+      alert('Format nomor WhatsApp / HP tidak valid! Harap masukkan nomor aktif yang diawali 08... (10 - 14 digit angka).');
+      setIsSubmitting(false);
+      return;
+    }
     
     // Validasi Dokumen Wajib per Jalur Khusus
     if (jalur === 'afirmasi') {
@@ -659,6 +681,14 @@ export default function PPDBClient({
           />
 
           <form onSubmit={handleSubmit} className="p-6 sm:p-10 space-y-10">
+            {/* Honeypot Anti-Spam Bot Trap (Invisible to humans, traps automated spam bots) */}
+            <div style={{ display: 'none', position: 'absolute', left: '-9999px', opacity: 0, pointerEvents: 'none' }} aria-hidden="true">
+              <label htmlFor="_hp_website">Website</label>
+              <input type="text" id="_hp_website" name="_hp_website" tabIndex={-1} autoComplete="off" defaultValue="" />
+              <label htmlFor="_hp_company">Company</label>
+              <input type="text" id="_hp_company" name="_hp_company" tabIndex={-1} autoComplete="off" defaultValue="" />
+            </div>
+
             <input type="hidden" name="jalur" value={jalur} />
             <input type="hidden" name="jalurPendaftaran" value={jalur} />
             <input type="hidden" name="major" value={selectedMajor} />

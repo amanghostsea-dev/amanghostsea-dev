@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getPPDBPaymentConfig, getWebSettings } from '@/app/admin/settings/actions';
+import { getClientIp, checkRateLimit } from '@/lib/security';
 
 interface ChatActionLink {
   label: string;
@@ -17,6 +18,22 @@ interface ChatResponsePayload {
 
 export async function POST(req: Request) {
   try {
+    const clientIp = getClientIp(req);
+
+    // Rate Limiter: Maksimal 25 pesan chat per IP dalam 1 menit
+    const rateCheck = checkRateLimit(`ai_chat:${clientIp}`, 25, 60 * 1000);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        {
+          reply: `Anda mengirim pesan terlalu cepat. Silakan tunggu ${rateCheck.retryAfterSeconds} detik lagi sebelum bertanya kembali demi kenyamanan bersama.`,
+          suggestions: ['Cara daftar PPDB online', 'Berapa biaya PPDB?'],
+          actionLinks: [{ label: 'Buka Halaman PPDB', url: '/ppdb', icon: 'form' }],
+          source: 'knowledge-engine'
+        } as ChatResponsePayload,
+        { status: 429, headers: { 'Retry-After': String(rateCheck.retryAfterSeconds) } }
+      );
+    }
+
     const body = await req.json();
     const message: string = (body.message || '').trim();
     const history: Array<{ sender: 'user' | 'bot'; text: string }> = body.history || [];

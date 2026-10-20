@@ -1,10 +1,22 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { getClientIp, checkRateLimit } from '@/lib/security';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
+    const clientIp = getClientIp(request);
+
+    // Rate Limiter: Maksimal 15 upload per IP dalam 5 menit
+    const rateCheck = checkRateLimit(`upload:${clientIp}`, 15, 5 * 60 * 1000);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: `Terlalu banyak permintaan unggah berkas. Silakan tunggu ${rateCheck.retryAfterSeconds} detik lagi.` },
+        { status: 429, headers: { 'Retry-After': String(rateCheck.retryAfterSeconds) } }
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
 
