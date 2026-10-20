@@ -187,3 +187,132 @@ export function validateFullName(name: unknown): { valid: boolean; cleanName: st
   }
   return { valid: true, cleanName: clean };
 }
+
+import crypto from 'crypto';
+
+/**
+ * Deep Binary Magic Bytes Inspector (Anti-Malware, Anti-APK & Anti-Spoofing)
+ * Inspects real binary signatures to block disguised APKs, EXEs, Scripts, and HTML
+ */
+export function validateFileMagicBytes(buffer: Buffer): {
+  valid: boolean;
+  detectedMime: string;
+  isExecutableOrMalware: boolean;
+  error?: string;
+} {
+  if (!buffer || buffer.length < 8) {
+    return {
+      valid: false,
+      detectedMime: 'unknown',
+      isExecutableOrMalware: false,
+      error: 'Berkas rusak atau kosong (ukuran file tidak valid).',
+    };
+  }
+
+  // 1. Check for dangerous executables and script signatures:
+  // Windows DOS/PE/EXE/DLL/SCR (starts with MZ: 0x4D 0x5A)
+  if (buffer[0] === 0x4d && buffer[1] === 0x5a) {
+    return {
+      valid: false,
+      detectedMime: 'application/x-dosexec',
+      isExecutableOrMalware: true,
+      error: 'Berkas terdeteksi sebagai file eksekutabel (EXE/DLL/SCR) yang berbahaya dan dilarang!',
+    };
+  }
+
+  // Linux ELF binary (starts with 0x7F 0x45 0x4C 0x46)
+  if (buffer[0] === 0x7f && buffer[1] === 0x45 && buffer[2] === 0x4c && buffer[3] === 0x46) {
+    return {
+      valid: false,
+      detectedMime: 'application/x-executable',
+      isExecutableOrMalware: true,
+      error: 'Berkas terdeteksi sebagai binary program Linux yang dilarang!',
+    };
+  }
+
+  // ZIP / APK / Android Package (starts with PK..: 0x50 0x4B 0x03 0x04)
+  // APK files are ZIP archives! A fake receipt named receipt.png.apk or disguised as png will hit this:
+  if (buffer[0] === 0x50 && buffer[1] === 0x4b && buffer[2] === 0x03 && buffer[3] === 0x04) {
+    return {
+      valid: false,
+      detectedMime: 'application/vnd.android.package-archive',
+      isExecutableOrMalware: true,
+      error: 'Berkas terdeteksi sebagai arsip ZIP atau aplikasi Android (APK) yang berbahaya dan dilarang!',
+    };
+  }
+
+  // Script or HTML injection (starts with <?php, <script, <html, or #!/bin)
+  const headerText = buffer.subarray(0, 48).toString('utf-8').toLowerCase();
+  if (
+    headerText.includes('<?php') ||
+    headerText.includes('<script') ||
+    headerText.includes('<html') ||
+    headerText.startsWith('#!')
+  ) {
+    return {
+      valid: false,
+      detectedMime: 'text/html-script',
+      isExecutableOrMalware: true,
+      error: 'Berkas berisi kode skrip/HTML berbahaya dan dilarang diunggah!',
+    };
+  }
+
+  // 2. Validate legitimate image & PDF signatures:
+  // JPEG / JPG: 0xFF 0xD8 0xFF
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return { valid: true, detectedMime: 'image/jpeg', isExecutableOrMalware: false };
+  }
+
+  // PNG: 0x89 0x50 0x4E 0x47 0x0D 0x0A 0x1A 0x0A
+  if (
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47 &&
+    buffer[4] === 0x0d &&
+    buffer[5] === 0x0a &&
+    buffer[6] === 0x1a &&
+    buffer[7] === 0x0a
+  ) {
+    return { valid: true, detectedMime: 'image/png', isExecutableOrMalware: false };
+  }
+
+  // WEBP: starts with "RIFF" (0x52 0x49 0x46 0x46) and bytes 8..11 is "WEBP" (0x57 0x45 0x42 0x50)
+  if (
+    buffer.length >= 12 &&
+    buffer[0] === 0x52 &&
+    buffer[1] === 0x49 &&
+    buffer[2] === 0x46 &&
+    buffer[3] === 0x46 &&
+    buffer[8] === 0x57 &&
+    buffer[9] === 0x45 &&
+    buffer[10] === 0x42 &&
+    buffer[11] === 0x50
+  ) {
+    return { valid: true, detectedMime: 'image/webp', isExecutableOrMalware: false };
+  }
+
+  // PDF: 0x25 0x50 0x44 0x46 (%PDF-)
+  if (
+    buffer[0] === 0x25 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x44 &&
+    buffer[3] === 0x46
+  ) {
+    return { valid: true, detectedMime: 'application/pdf', isExecutableOrMalware: false };
+  }
+
+  return {
+    valid: false,
+    detectedMime: 'unrecognized',
+    isExecutableOrMalware: false,
+    error: 'Format biner berkas tidak dikenal atau bukan citra digital sah (Hanya JPG, PNG, WEBP, atau PDF yang diizinkan).',
+  };
+}
+
+/**
+ * Computes a secure SHA-256 hash of a file buffer
+ */
+export function computeFileHash(buffer: Buffer): string {
+  return crypto.createHash('sha256').update(buffer).digest('hex');
+}

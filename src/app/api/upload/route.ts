@@ -49,16 +49,44 @@ export async function POST(request: Request) {
       );
     }
 
+    // 1. Anti-Malware & Anti-APK Extension Filter
+    const dangerousExtensions = [
+      '.apk', '.exe', '.bat', '.cmd', '.sh', '.php', '.phtml', '.js', 
+      '.vbs', '.scr', '.msi', '.html', '.htm', '.svg', '.bin', '.dll',
+      '.jar', '.vbe', '.wsf', '.hta', '.ps1'
+    ];
+    const lowerFileName = file.name.toLowerCase();
+    for (const ext of dangerousExtensions) {
+      if (lowerFileName.endsWith(ext) || lowerFileName.includes(ext + '.')) {
+        return NextResponse.json(
+          { error: `Peringatan Keamanan: Ekstensi berkas '${ext}' dilarang keras demi keamanan sistem. Harap unggah screenshot m-banking asli berformat JPG, PNG, atau WEBP.` },
+          { status: 400 }
+        );
+      }
+    }
+
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+
+    // 2. Deep Binary Magic Bytes Inspection (Mendeteksi file APK / executable bertopeng .png)
+    const { validateFileMagicBytes, computeFileHash } = await import('@/lib/security');
+    const magicCheck = validateFileMagicBytes(buffer);
+    if (!magicCheck.valid) {
+      return NextResponse.json(
+        { error: magicCheck.error || 'Berkas tidak valid atau terdeteksi biner berbahaya.' },
+        { status: 400 }
+      );
+    }
+
+    const fileHash = computeFileHash(buffer);
     const base64Data = buffer.toString('base64');
 
     // Simpan data berkas langsung ke database PostgreSQL (Tabel UploadedFile)
-    // Ini menjamin 100% kompatibel dan persisten di Vercel Serverless tanpa error read-only filesystem
+    // Gunakan MIME type yang diverifikasi secara biner (magicCheck.detectedMime) untuk mencegah spoofing
     const uploaded = await prisma.uploadedFile.create({
       data: {
         fileName: file.name,
-        fileType: file.type,
+        fileType: magicCheck.detectedMime,
         fileSize: file.size,
         fileData: base64Data,
       },

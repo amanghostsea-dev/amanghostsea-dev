@@ -15,6 +15,8 @@ import {
   Check, 
   Loader2, 
   ShieldCheck, 
+  ShieldAlert,
+  Copy,
   ExternalLink, 
   Download,
   QrCode
@@ -46,6 +48,15 @@ export default function PPDBClient({ initialSubmissions }: { initialSubmissions:
   const [selectedPaymentApplicant, setSelectedPaymentApplicant] = useState<PpdbApplicant | null>(null);
   const [verifyingNotes, setVerifyingNotes] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const handleCopy = (text: string, key: string) => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(null), 2000);
+    }
+  };
 
   // Modal Pratinjau Dokumen Berkas (Document Preview Modal)
   const [previewDocument, setPreviewDocument] = useState<{
@@ -603,11 +614,64 @@ export default function PPDBClient({ initialSubmissions }: { initialSubmissions:
                 {/* Bagian Khusus TRANSFER atau QRIS: Preview Bukti */}
                 {(selectedPaymentApplicant.paymentMethod === 'TRANSFER' || selectedPaymentApplicant.paymentMethod === 'QRIS' || !selectedPaymentApplicant.paymentMethod) && (
                   <div className="space-y-3">
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                      {selectedPaymentApplicant.paymentMethod === 'QRIS'
-                        ? 'Lampiran Screenshot Transaksi QRIS:'
-                        : 'Lampiran Struk Bukti Transfer:'}
-                    </label>
+                    <div className="flex flex-wrap items-center justify-between gap-1.5">
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                        {selectedPaymentApplicant.paymentMethod === 'QRIS'
+                          ? 'Lampiran Screenshot Transaksi QRIS:'
+                          : 'Lampiran Struk Bukti Transfer:'}
+                      </label>
+                      <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold border border-emerald-300/40">
+                        <ShieldCheck size={12} className="text-emerald-600" />
+                        <span>Biner Berkas Sandboxed (Aman dari APK/Malware)</span>
+                      </div>
+                    </div>
+
+                    {/* Anti-Fraud Notice & Quick Cross-Check Helper */}
+                    <div className="p-3.5 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 border border-amber-200 dark:border-amber-800/60 rounded-xl space-y-2.5 text-xs">
+                      <div className="flex items-start gap-2">
+                        <ShieldAlert size={16} className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <p className="font-bold text-amber-900 dark:text-amber-200 text-xs">
+                            SOP Anti-Penipuan Verifikator (Wajib Re-Check Mutasi Resmi)
+                          </p>
+                          <p className="text-[11px] text-amber-800 dark:text-amber-300/90 leading-relaxed">
+                            Jangan hanya percaya pada gambar screenshot (rawan diedit aplikasi generator struk/Canva). Pastikan Anda membuka <strong>Dashboard Merchant QRIS</strong> atau <strong>Mutasi Rekening Bank Sekolah</strong> dan mencocokkan nominal serta jam transaksi.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Quick Copy Buttons for Bank Mutation Search */}
+                      <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-amber-200/60 dark:border-amber-800/40 text-[11px]">
+                        <span className="text-amber-700 dark:text-amber-400 font-semibold">Salin data untuk cek mutasi:</span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(selectedPaymentApplicant.fullName, 'name')}
+                          className="px-2 py-0.5 bg-white dark:bg-gray-800 text-slate-700 dark:text-slate-200 rounded-md border border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-gray-700 flex items-center gap-1 font-mono transition-colors cursor-pointer text-[11px]"
+                          title="Salin Nama Siswa"
+                        >
+                          <Copy size={10} />
+                          {copiedKey === 'name' ? '✓ Tersalin!' : selectedPaymentApplicant.fullName.split(' ')[0]}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(selectedPaymentApplicant.nisn, 'nisn')}
+                          className="px-2 py-0.5 bg-white dark:bg-gray-800 text-slate-700 dark:text-slate-200 rounded-md border border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-gray-700 flex items-center gap-1 font-mono transition-colors cursor-pointer text-[11px]"
+                          title="Salin NISN"
+                        >
+                          <Copy size={10} />
+                          {copiedKey === 'nisn' ? '✓ Tersalin!' : selectedPaymentApplicant.nisn}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(String(selectedPaymentApplicant.paymentAmount || 150000), 'nominal')}
+                          className="px-2 py-0.5 bg-white dark:bg-gray-800 text-slate-700 dark:text-slate-200 rounded-md border border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-gray-700 flex items-center gap-1 font-mono transition-colors cursor-pointer text-[11px]"
+                          title="Salin Nominal Pembayaran"
+                        >
+                          <Copy size={10} />
+                          {copiedKey === 'nominal' ? '✓ Tersalin!' : `Rp ${(selectedPaymentApplicant.paymentAmount || 150000).toLocaleString('id-ID')}`}
+                        </button>
+                      </div>
+                    </div>
 
                     {selectedPaymentApplicant.paymentProof ? (
                       <div className="border border-slate-200 dark:border-gray-700 rounded-2xl overflow-hidden bg-slate-100 dark:bg-gray-800 relative group">
@@ -740,9 +804,12 @@ export default function PPDBClient({ initialSubmissions }: { initialSubmissions:
                     <FileText size={22} />
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/30 text-blue-200 uppercase tracking-wider">
                         Pratinjau Berkas Dokumen
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                        <ShieldCheck size={11} /> Sandbox Safe (Bukan APK/Malware)
                       </span>
                       <span className="text-xs text-slate-300 font-mono">
                         NISN: {previewDocument.nisn}
