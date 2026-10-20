@@ -329,25 +329,25 @@ export default function PPDBClient({
 
       {/* Ambient Radial Aura matching Active 10s Showcase */}
       <div 
-        className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] sm:w-[900px] sm:h-[900px] rounded-full blur-[150px] pointer-events-none transition-all duration-1000 animate-pulse-glow"
+        className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] sm:w-[850px] sm:h-[850px] rounded-full blur-[50px] sm:blur-[140px] pointer-events-none transition-all duration-700 animate-pulse-glow gpu-accelerated"
         style={{
           background: `radial-gradient(circle, ${activeShowcaseData.glow} 0%, rgba(0,0,0,0) 70%)`
         }}
       />
 
       {/* Giant Transparent Watermark of the Active 10s Showcase Crest */}
-      <div className="fixed inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0">
-        <div className="absolute w-[500px] h-[500px] sm:w-[700px] sm:h-[700px] rounded-full border border-white/5 animate-spin-slow" />
+      <div className="fixed inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0 select-none">
+        <div className="hidden sm:block absolute w-[500px] h-[500px] sm:w-[700px] sm:h-[700px] rounded-full border border-white/5 animate-spin-slow" />
         <div 
-          className="relative w-[340px] h-[340px] sm:w-[580px] sm:h-[580px] lg:w-[720px] lg:h-[720px] transition-all duration-1000 transform animate-float"
-          style={{ opacity: isDarkMode ? 0.12 : 0.07 }}
+          className="relative w-[300px] h-[300px] sm:w-[580px] sm:h-[580px] lg:w-[720px] lg:h-[720px] transition-opacity duration-700 gpu-accelerated"
+          style={{ opacity: isDarkMode ? 0.10 : 0.06 }}
         >
           <Image
             src={activeShowcaseData.image}
             alt={activeShowcaseData.title}
             fill
-            sizes="(max-width: 768px) 340px, (max-width: 1200px) 580px, 720px"
-            className="object-contain filter drop-shadow-[0_0_60px_rgba(255,255,255,0.2)]"
+            sizes="(max-width: 768px) 300px, (max-width: 1200px) 580px, 720px"
+            className="object-contain"
             priority
           />
         </div>
@@ -401,18 +401,26 @@ export default function PPDBClient({
         
         {/* Holographic Interactive Stage with 10s Auto-Timer */}
         <div 
-          className="relative max-w-2xl mx-auto mb-6 p-5 sm:p-6 rounded-3xl transition-all duration-700 backdrop-blur-xl border shadow-2xl group"
+          className="relative max-w-2xl mx-auto mb-6 p-5 sm:p-6 rounded-3xl transition-all duration-500 backdrop-blur-xl border shadow-2xl group gpu-accelerated"
           style={{
             backgroundColor: isDarkMode ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.85)',
             borderColor: `${activeShowcaseData.accent}44`,
             boxShadow: `0 14px 45px -10px ${activeShowcaseData.glow}`
           }}
-          onMouseEnter={() => setIsPausedShowcase(true)}
-          onMouseLeave={() => setIsPausedShowcase(false)}
+          onMouseEnter={() => {
+            if (typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches) {
+              setIsPausedShowcase(true);
+            }
+          }}
+          onMouseLeave={() => {
+            if (typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches) {
+              setIsPausedShowcase(false);
+            }
+          }}
         >
           {/* Spotlight Pedestal Top Laser Beam */}
           <div 
-            className="absolute top-0 left-1/4 right-1/4 h-1 rounded-full blur-[2px] transition-all duration-700"
+            className="absolute top-0 left-1/4 right-1/4 h-1 rounded-full blur-[2px] transition-all duration-500"
             style={{ background: activeShowcaseData.accent }}
           />
 
@@ -427,7 +435,7 @@ export default function PPDBClient({
                   key={code}
                   type="button"
                   onClick={() => handleShowcaseClick(code)}
-                  className={`group/btn relative flex flex-col items-center transition-all duration-500 cursor-pointer p-2 rounded-2xl ${
+                  className={`group/btn relative flex flex-col items-center transition-all duration-200 active:scale-95 cursor-pointer p-2 rounded-2xl select-none ${
                     isActive 
                       ? 'scale-115 -translate-y-2 z-10' 
                       : 'opacity-50 hover:opacity-90 hover:scale-105 z-0'
@@ -577,7 +585,7 @@ export default function PPDBClient({
                   key={st.s}
                   type="button"
                   onClick={() => setCurrentStep(st.s)}
-                  className={`py-1.5 px-2 rounded-xl font-bold transition-all ${
+                  className={`py-1.5 px-2 rounded-xl font-bold transition-all duration-150 active:scale-95 cursor-pointer select-none ${
                     currentStep === st.s
                       ? 'bg-purple-600 text-white shadow-md'
                       : currentStep > st.s
@@ -644,7 +652,7 @@ export default function PPDBClient({
                   <button 
                     type="button"
                     onClick={() => setJalur('normal')}
-                    className={`p-5 rounded-2xl border-2 text-left transition-all duration-300 cursor-pointer relative group ${
+                    className={`p-5 rounded-2xl border-2 text-left transition-all duration-150 active:scale-[0.98] select-none cursor-pointer relative group ${
                       jalur === 'normal' 
                         ? (isDarkMode 
                             ? 'border-blue-500 bg-blue-950/40 text-white shadow-[0_0_30px_rgba(37,99,235,0.3)] ring-2 ring-blue-500/20 -translate-y-1'
@@ -678,7 +686,7 @@ export default function PPDBClient({
                   <button 
                     type="button"
                     onClick={() => setJalur('afirmasi')}
-                    className={`p-5 rounded-2xl border-2 text-left transition-all duration-300 cursor-pointer relative group ${
+                    className={`p-5 rounded-2xl border-2 text-left transition-all duration-150 active:scale-[0.98] select-none cursor-pointer relative group ${
                       jalur === 'afirmasi' 
                         ? (isDarkMode 
                             ? 'border-emerald-500 bg-emerald-950/40 text-white shadow-[0_0_30px_rgba(16,185,129,0.3)] ring-2 ring-emerald-500/20 -translate-y-1'
@@ -717,7 +725,7 @@ export default function PPDBClient({
                   <button 
                     type="button"
                     onClick={() => setJalur('beasiswa')}
-                    className={`p-5 rounded-2xl border-2 text-left transition-all duration-300 cursor-pointer relative group ${
+                    className={`p-5 rounded-2xl border-2 text-left transition-all duration-150 active:scale-[0.98] select-none cursor-pointer relative group ${
                       jalur === 'beasiswa' 
                         ? (isDarkMode 
                             ? 'border-purple-500 bg-purple-950/40 text-white shadow-[0_0_30px_rgba(168,85,247,0.3)] ring-2 ring-purple-500/20 -translate-y-1'
@@ -758,7 +766,7 @@ export default function PPDBClient({
                     <button
                       type="button"
                       onClick={() => setCurrentStep(2)}
-                      className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center gap-2 cursor-pointer shadow-md"
+                      className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold rounded-xl flex items-center gap-2 cursor-pointer shadow-md transition-all duration-150"
                     >
                       <span>Lanjut: Data Pribadi</span>
                       <ChevronRight size={16} />
@@ -959,7 +967,7 @@ export default function PPDBClient({
                     <button
                       type="button"
                       onClick={() => setCurrentStep(1)}
-                      className="px-5 py-2.5 border border-slate-700 text-slate-300 rounded-xl font-bold flex items-center gap-1.5 cursor-pointer"
+                      className="px-5 py-2.5 border border-slate-700 text-slate-300 active:scale-95 rounded-xl font-bold flex items-center gap-1.5 cursor-pointer transition-all duration-150"
                     >
                       <ChevronLeft size={16} />
                       <span>Kembali</span>
@@ -967,7 +975,7 @@ export default function PPDBClient({
                     <button
                       type="button"
                       onClick={() => setCurrentStep(3)}
-                      className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center gap-2 cursor-pointer shadow-md"
+                      className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold rounded-xl flex items-center gap-2 cursor-pointer shadow-md transition-all duration-150"
                     >
                       <span>Lanjut: Pilih Jurusan</span>
                       <ChevronRight size={16} />
@@ -1006,10 +1014,11 @@ export default function PPDBClient({
                     const isSelected = selectedMajor === code;
 
                     return (
-                      <div
+                      <button
                         key={code}
+                        type="button"
                         onClick={() => setSelectedMajor(code)}
-                        className={`p-6 rounded-3xl border-2 transition-all duration-300 cursor-pointer relative group flex flex-col justify-between ${
+                        className={`w-full p-6 rounded-3xl border-2 transition-all duration-150 active:scale-[0.98] select-none cursor-pointer relative group flex flex-col justify-between text-left gpu-accelerated ${
                           isSelected
                             ? (isDarkMode 
                                 ? `${j.borderActive} bg-slate-900/90 shadow-[0_0_40px_${j.glow}] -translate-y-1.5` 
@@ -1040,13 +1049,13 @@ export default function PPDBClient({
                         <div className="relative w-28 h-28 mx-auto my-2 flex items-center justify-center">
                           {/* Glow backdrop on select */}
                           <div 
-                            className={`absolute inset-0 rounded-full blur-xl transition-all duration-500 ${
+                            className={`absolute inset-0 rounded-full blur-xl transition-all duration-300 ${
                               isSelected ? 'opacity-80 animate-pulse-glow' : 'opacity-0 group-hover:opacity-40'
                             }`}
                             style={{ background: j.accent }}
                           />
 
-                          <div className="relative w-24 h-24 transform group-hover:scale-105 transition-transform duration-300 filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.35)]">
+                          <div className="relative w-24 h-24 transform group-hover:scale-105 transition-transform duration-200 filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.35)]">
                             <Image
                               src={j.image}
                               alt={j.title}
@@ -1075,7 +1084,7 @@ export default function PPDBClient({
                         }`}>
                           {isSelected ? '✓ Jurusan Terpilih' : 'Klik untuk Memilih'}
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -1085,7 +1094,7 @@ export default function PPDBClient({
                     <button
                       type="button"
                       onClick={() => setCurrentStep(2)}
-                      className="px-5 py-2.5 border border-slate-700 text-slate-300 rounded-xl font-bold flex items-center gap-1.5 cursor-pointer"
+                      className="px-5 py-2.5 border border-slate-700 text-slate-300 active:scale-95 rounded-xl font-bold flex items-center gap-1.5 cursor-pointer transition-all duration-150"
                     >
                       <ChevronLeft size={16} />
                       <span>Kembali</span>
@@ -1093,7 +1102,7 @@ export default function PPDBClient({
                     <button
                       type="button"
                       onClick={() => setCurrentStep(4)}
-                      className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center gap-2 cursor-pointer shadow-md"
+                      className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold rounded-xl flex items-center gap-2 cursor-pointer shadow-md transition-all duration-150"
                     >
                       <span>Lanjut: Berkas & Konfirmasi</span>
                       <ChevronRight size={16} />
@@ -1129,7 +1138,7 @@ export default function PPDBClient({
                       <button
                         type="button"
                         onClick={() => setAfirmasiType('kip')}
-                        className={`p-3 rounded-xl border text-left font-bold text-xs transition-all cursor-pointer flex items-center gap-2.5 ${
+                        className={`p-3 rounded-xl border text-left font-bold text-xs transition-all duration-150 active:scale-[0.98] select-none cursor-pointer flex items-center gap-2.5 ${
                           afirmasiType === 'kip' 
                             ? 'bg-emerald-600 text-white border-emerald-500 shadow-md' 
                             : 'bg-white/10 border-white/10 text-slate-400 hover:text-white'
@@ -1142,7 +1151,7 @@ export default function PPDBClient({
                       <button
                         type="button"
                         onClick={() => setAfirmasiType('sktm')}
-                        className={`p-3 rounded-xl border text-left font-bold text-xs transition-all cursor-pointer flex items-center gap-2.5 ${
+                        className={`p-3 rounded-xl border text-left font-bold text-xs transition-all duration-150 active:scale-[0.98] select-none cursor-pointer flex items-center gap-2.5 ${
                           afirmasiType === 'sktm' 
                             ? 'bg-emerald-600 text-white border-emerald-500 shadow-md' 
                             : 'bg-white/10 border-white/10 text-slate-400 hover:text-white'
@@ -1155,7 +1164,7 @@ export default function PPDBClient({
                       <button
                         type="button"
                         onClick={() => setAfirmasiType('both')}
-                        className={`p-3 rounded-xl border text-left font-bold text-xs transition-all cursor-pointer flex items-center gap-2.5 ${
+                        className={`p-3 rounded-xl border text-left font-bold text-xs transition-all duration-150 active:scale-[0.98] select-none cursor-pointer flex items-center gap-2.5 ${
                           afirmasiType === 'both' 
                             ? 'bg-emerald-600 text-white border-emerald-500 shadow-md' 
                             : 'bg-white/10 border-white/10 text-slate-400 hover:text-white'
@@ -1296,7 +1305,7 @@ export default function PPDBClient({
                       <button
                         type="button"
                         onClick={() => setCurrentStep(3)}
-                        className="px-5 py-3 border border-slate-700 text-slate-300 rounded-2xl font-bold flex items-center gap-1.5 cursor-pointer text-sm"
+                        className="px-5 py-3 border border-slate-700 text-slate-300 active:scale-95 rounded-2xl font-bold flex items-center gap-1.5 cursor-pointer text-sm transition-all duration-150"
                       >
                         <ChevronLeft size={16} />
                         <span>Kembali</span>

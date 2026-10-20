@@ -330,11 +330,14 @@ export default function FileUpload({
           {/* Add more button or initial Dropzone */}
           {fileList.length === 0 && !isUploading ? (
             <div
+              role="button"
+              tabIndex={0}
               onClick={() => fileInputRef.current?.click()}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className={`w-full p-4 sm:p-5 border-2 border-dashed rounded-2xl cursor-pointer transition-all duration-200 flex flex-col items-center justify-center text-center group shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] hover:shadow-md hover:-translate-y-0.5 ${
+              className={`w-full p-4 sm:p-5 border-2 border-dashed rounded-2xl cursor-pointer transition-all duration-150 active:scale-[0.98] select-none flex flex-col items-center justify-center text-center group shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] hover:shadow-md hover:-translate-y-0.5 ${
                 isDragging
                   ? themeColors.borderActive
                   : `border-slate-300/80 bg-slate-50/60 hover:bg-white ${themeColors.borderHover}`
@@ -352,7 +355,7 @@ export default function FileUpload({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className={`w-full py-2.5 px-4 rounded-xl border border-dashed ${themeColors.addBtn} text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm`}
+              className={`w-full py-2.5 px-4 rounded-xl border border-dashed ${themeColors.addBtn} text-xs sm:text-sm font-bold transition-all duration-150 active:scale-[0.98] select-none flex items-center justify-center gap-2 cursor-pointer shadow-sm`}
             >
               <Plus size={16} />
               <span>+ Tambah Berkas / Sertifikat Prestasi Lainnya ({fileList.length}/{maxFiles})</span>
@@ -365,11 +368,14 @@ export default function FileUpload({
           {/* File Upload Box */}
           {!fileUrl && !isUploading && (
             <div
+              role="button"
+              tabIndex={0}
               onClick={() => fileInputRef.current?.click()}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className={`w-full p-4 sm:p-5 border-2 border-dashed rounded-2xl cursor-pointer transition-all duration-200 flex flex-col items-center justify-center text-center group shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] hover:shadow-md hover:-translate-y-0.5 ${
+              className={`w-full p-4 sm:p-5 border-2 border-dashed rounded-2xl cursor-pointer transition-all duration-150 active:scale-[0.98] select-none flex flex-col items-center justify-center text-center group shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] hover:shadow-md hover:-translate-y-0.5 ${
                 isDragging
                   ? themeColors.borderActive
                   : `border-slate-300/80 bg-slate-50/60 hover:bg-white ${themeColors.borderHover}`

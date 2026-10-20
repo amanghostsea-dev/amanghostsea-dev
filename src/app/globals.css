@@ -20,6 +20,8 @@ html {
   scroll-behavior: smooth;
   background-color: #ffffff;
   color: #0f172a;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -31,6 +33,20 @@ body {
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Eliminate 300ms mobile tap delay and ensure instant response on all interactive elements */
+button, a, input, select, textarea, [role="button"], label, .cursor-pointer {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Instant tactile click feedback across all devices */
+button:active:not(:disabled),
+[role="button"]:active {
+  transform: scale(0.98);
 }
 
 /* Ensure all input/textarea placeholders are clearly visible */
@@ -205,4 +221,18 @@ body {
 .delay-300 { animation-delay: 300ms; opacity: 0; }
 .delay-400 { animation-delay: 400ms; opacity: 0; }
 .delay-500 { animation-delay: 500ms; opacity: 0; }
+
+/* Mobile performance tuning */
+@media (max-width: 640px) {
+  .backdrop-blur-3xl, .backdrop-blur-2xl, .backdrop-blur-xl {
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+  }
+}
+
+.gpu-accelerated {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
 

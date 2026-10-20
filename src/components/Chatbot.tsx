@@ -33,8 +33,9 @@ export default function Chatbot() {
     <>
       {/* Floating Button */}
       <button 
+        type="button"
         onClick={() => setIsOpen(true)}
-        className={`fixed bottom-6 right-6 p-4 bg-blue-600 text-white rounded-full shadow-2xl hover:bg-blue-700 transition-all hover:scale-110 z-50 ${isOpen ? 'hidden' : 'flex'}`}
+        className={`fixed bottom-6 right-6 p-4 bg-blue-600 text-white rounded-full shadow-2xl hover:bg-blue-700 transition-all duration-150 active:scale-95 cursor-pointer z-50 ${isOpen ? 'hidden' : 'flex'}`}
       >
         <MessageSquare size={24} />
       </button>
