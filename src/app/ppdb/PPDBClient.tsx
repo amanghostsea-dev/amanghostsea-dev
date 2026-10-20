@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   User, 
   CreditCard, 
@@ -104,6 +104,8 @@ const JURUSAN_EMBLEMS: Record<string, JurusanEmblemInfo> = {
   },
 };
 
+const SHOWCASE_ROTATION: ('TJKT' | 'DKV' | 'MPLB')[] = ['TJKT', 'DKV', 'MPLB'];
+
 export default function PPDBClient({ 
   schoolName = "SMK GaMa",
   jurusanList = [],
@@ -115,11 +117,37 @@ export default function PPDBClient({
 }) {
   const router = useRouter();
 
-  // Active Theme State (Switchable by admin / user preview)
+  // Active Theme State
   const [theme, setTheme] = useState<PPDBTheme>(defaultTheme || 'cyber-cards');
 
-  // Selected Jurusan for Dynamic Emblems & Watermark
+  // Selected Jurusan for FORM REGISTRATION (100% independent from showcase)
   const [selectedMajor, setSelectedMajor] = useState<string>('TJKT');
+
+  // 10-Second Auto-Rotating Showcase for Header Logos (Visual only, does not affect form registration!)
+  const [showcaseMajor, setShowcaseMajor] = useState<'TJKT' | 'DKV' | 'MPLB'>('TJKT');
+  const [isPausedShowcase, setIsPausedShowcase] = useState(false);
+  const [showcaseTimerKey, setShowcaseTimerKey] = useState(0);
+
+  // Auto-rotate every 10 seconds (10,000ms)
+  useEffect(() => {
+    if (isPausedShowcase) return;
+
+    const interval = setInterval(() => {
+      setShowcaseMajor((prev) => {
+        const nextIdx = (SHOWCASE_ROTATION.indexOf(prev) + 1) % SHOWCASE_ROTATION.length;
+        return SHOWCASE_ROTATION[nextIdx];
+      });
+      setShowcaseTimerKey((k) => k + 1);
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [isPausedShowcase]);
+
+  // Click handler for showcase preview (Visual change only, does NOT change form choice!)
+  const handleShowcaseClick = (code: 'TJKT' | 'DKV' | 'MPLB') => {
+    setShowcaseMajor(code);
+    setShowcaseTimerKey((k) => k + 1);
+  };
 
   // Stepper Current Step (for Theme 2: Stepper)
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -276,6 +304,8 @@ export default function PPDBClient({
   };
 
   const isDarkMode = theme === 'dark-glass';
+  const activeShowcaseData = JURUSAN_EMBLEMS[showcaseMajor] || JURUSAN_EMBLEMS.TJKT;
+  const activeRegistrationData = JURUSAN_EMBLEMS[selectedMajor] || JURUSAN_EMBLEMS.TJKT;
 
   return (
     <div className={`min-h-screen font-sans relative overflow-hidden transition-colors duration-700 ${
@@ -297,15 +327,15 @@ export default function PPDBClient({
         }}
       />
 
-      {/* Ambient Radial Aura matching Selected Jurusan */}
+      {/* Ambient Radial Aura matching Active 10s Showcase */}
       <div 
         className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] sm:w-[900px] sm:h-[900px] rounded-full blur-[150px] pointer-events-none transition-all duration-1000 animate-pulse-glow"
         style={{
-          background: `radial-gradient(circle, ${activeMajorData.glow} 0%, rgba(0,0,0,0) 70%)`
+          background: `radial-gradient(circle, ${activeShowcaseData.glow} 0%, rgba(0,0,0,0) 70%)`
         }}
       />
 
-      {/* Giant Transparent Watermark of the Chosen Garuda Mahadhika Crest */}
+      {/* Giant Transparent Watermark of the Active 10s Showcase Crest */}
       <div className="fixed inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0">
         <div className="absolute w-[500px] h-[500px] sm:w-[700px] sm:h-[700px] rounded-full border border-white/5 animate-spin-slow" />
         <div 
@@ -313,8 +343,8 @@ export default function PPDBClient({
           style={{ opacity: isDarkMode ? 0.12 : 0.07 }}
         >
           <Image
-            src={activeMajorData.image}
-            alt={activeMajorData.title}
+            src={activeShowcaseData.image}
+            alt={activeShowcaseData.title}
             fill
             sizes="(max-width: 768px) 340px, (max-width: 1200px) 580px, 720px"
             className="object-contain filter drop-shadow-[0_0_60px_rgba(255,255,255,0.2)]"
@@ -365,63 +395,139 @@ export default function PPDBClient({
       </header>
 
       {/* =========================================================================
-          HERO BANNER: The 3 Garuda Mahadhika Emblems in Glowing Spotlight
+          HERO BANNER: 10-Second Auto-Rotating Holographic Showcase
           ========================================================================= */}
       <section className="relative z-10 pt-8 pb-6 px-4 text-center max-w-5xl mx-auto">
         
-        {/* Spotlight Crest Showcase */}
-        <div className="flex items-center justify-center gap-3 sm:gap-6 mb-6">
-          {(['TJKT', 'DKV', 'MPLB'] as const).map((code) => {
-            const item = JURUSAN_EMBLEMS[code];
-            const isChosen = selectedMajor === code;
-            return (
-              <button
-                key={code}
-                type="button"
-                onClick={() => setSelectedMajor(code)}
-                className={`group relative flex flex-col items-center transition-all duration-500 cursor-pointer p-2 rounded-2xl ${
-                  isChosen ? 'scale-110 -translate-y-1' : 'opacity-70 hover:opacity-100 hover:scale-105'
-                }`}
-              >
-                {/* Spotlight Aura */}
-                <div 
-                  className={`absolute inset-0 rounded-full blur-xl transition-all duration-700 ${
-                    isChosen ? 'opacity-80 animate-pulse-glow' : 'opacity-0 group-hover:opacity-40'
+        {/* Holographic Interactive Stage with 10s Auto-Timer */}
+        <div 
+          className="relative max-w-2xl mx-auto mb-6 p-5 sm:p-6 rounded-3xl transition-all duration-700 backdrop-blur-xl border shadow-2xl group"
+          style={{
+            backgroundColor: isDarkMode ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.85)',
+            borderColor: `${activeShowcaseData.accent}44`,
+            boxShadow: `0 14px 45px -10px ${activeShowcaseData.glow}`
+          }}
+          onMouseEnter={() => setIsPausedShowcase(true)}
+          onMouseLeave={() => setIsPausedShowcase(false)}
+        >
+          {/* Spotlight Pedestal Top Laser Beam */}
+          <div 
+            className="absolute top-0 left-1/4 right-1/4 h-1 rounded-full blur-[2px] transition-all duration-700"
+            style={{ background: activeShowcaseData.accent }}
+          />
+
+          {/* The 3 Emblems Showcase Row */}
+          <div className="flex items-center justify-center gap-4 sm:gap-8 pt-2 pb-4">
+            {(['TJKT', 'DKV', 'MPLB'] as const).map((code) => {
+              const item = JURUSAN_EMBLEMS[code];
+              const isActive = showcaseMajor === code;
+
+              return (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => handleShowcaseClick(code)}
+                  className={`group/btn relative flex flex-col items-center transition-all duration-500 cursor-pointer p-2 rounded-2xl ${
+                    isActive 
+                      ? 'scale-115 -translate-y-2 z-10' 
+                      : 'opacity-50 hover:opacity-90 hover:scale-105 z-0'
                   }`}
-                  style={{ background: item.accent }}
-                />
-
-                {/* Floating Transparent Emblem */}
-                <div className="relative w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.4)]">
-                  <Image
-                    src={item.image}
-                    alt={item.title}
-                    fill
-                    sizes="96px"
-                    className="object-contain"
-                    priority
+                  title={`Klik untuk preview kejuruan ${item.code} (Hanya visual)`}
+                >
+                  {/* Glowing Spotlight Ring for Active Emblem */}
+                  <div 
+                    className={`absolute inset-0 rounded-full blur-xl transition-all duration-700 ${
+                      isActive ? 'opacity-90 animate-pulse-glow' : 'opacity-0'
+                    }`}
+                    style={{ background: item.accent }}
                   />
-                </div>
 
-                {/* Micro Label */}
-                <span className={`text-[11px] sm:text-xs font-black tracking-wider uppercase mt-2 px-2.5 py-0.5 rounded-full transition-all ${
-                  isChosen 
-                    ? 'bg-slate-900 text-white border border-white/20 shadow-md' 
-                    : 'text-slate-500 dark:text-slate-400'
-                }`}>
-                  {item.code}
-                </span>
-              </button>
-            );
-          })}
+                  {/* Holographic Pedestal Disc for Active Emblem */}
+                  {isActive && (
+                    <div 
+                      className="absolute -bottom-2 w-16 h-3 rounded-full blur-xs opacity-75"
+                      style={{ background: item.accent }}
+                    />
+                  )}
+
+                  {/* Floating Transparent Emblem */}
+                  <div className={`relative w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 filter drop-shadow-[0_10px_20px_rgba(0,0,0,0.45)] transition-transform duration-500 ${
+                    isActive ? 'animate-float' : ''
+                  }`}>
+                    <Image
+                      src={item.image}
+                      alt={item.title}
+                      fill
+                      sizes="96px"
+                      className="object-contain"
+                      priority
+                    />
+                  </div>
+
+                  {/* Micro Code Badge */}
+                  <span className={`text-[10px] sm:text-xs font-black tracking-wider uppercase mt-2.5 px-3 py-0.5 rounded-full transition-all border ${
+                    isActive 
+                      ? 'bg-slate-950 text-white shadow-lg' 
+                      : 'bg-transparent text-slate-500 border-transparent'
+                  }`}
+                  style={{
+                    borderColor: isActive ? item.accent : 'transparent',
+                    boxShadow: isActive ? `0 0 15px ${item.glow}` : 'none'
+                  }}>
+                    {item.code}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Active Major Teaser Info Box */}
+          <div className="pt-3 border-t border-white/10 text-center animate-fade-in" key={showcaseMajor}>
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <span className="w-2 h-2 rounded-full animate-ping" style={{ background: activeShowcaseData.accent }} />
+              <h3 className="font-black text-sm sm:text-base tracking-wide" style={{ color: isDarkMode ? '#ffffff' : activeShowcaseData.accent }}>
+                {activeShowcaseData.title}
+              </h3>
+            </div>
+            <p className={`text-xs max-w-lg mx-auto font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+              {activeShowcaseData.tagline}
+            </p>
+          </div>
+
+          {/* 10-Second Countdown Neon Progress Bar */}
+          <div className="mt-4 pt-3 border-t border-white/5 flex flex-col gap-1.5">
+            <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-400">
+              <span className="flex items-center gap-1.5">
+                <Radio size={11} className="text-cyan-400 animate-pulse" />
+                <span>ROTASI OTOMATIS // 10 DETIK</span>
+                {isPausedShowcase && <span className="text-amber-400">(DIJEDA)</span>}
+              </span>
+              <span className="uppercase tracking-wider font-semibold" style={{ color: activeShowcaseData.accent }}>
+                PREVIEW KEJURUAN
+              </span>
+            </div>
+
+            {/* The Animated 10s Timer Line */}
+            <div className="w-full h-1 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div 
+                key={showcaseTimerKey}
+                className="h-full rounded-full animate-timer-10s"
+                style={{
+                  background: `linear-gradient(90deg, #06b6d4, ${activeShowcaseData.accent}, #ec4899)`,
+                  animationPlayState: isPausedShowcase ? 'paused' : 'running'
+                }}
+              />
+            </div>
+          </div>
+
         </div>
 
         {/* Title & Badge */}
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold tracking-wider uppercase mb-3 border backdrop-blur-md shadow-sm transition-all"
              style={{
-               backgroundColor: `${activeMajorData.accent}15`,
-               borderColor: `${activeMajorData.accent}55`,
-               color: isDarkMode ? '#f8fafc' : activeMajorData.accent
+               backgroundColor: `${activeShowcaseData.accent}15`,
+               borderColor: `${activeShowcaseData.accent}55`,
+               color: isDarkMode ? '#f8fafc' : activeShowcaseData.accent
              }}>
           <Sparkles size={14} className="animate-spin-slow" />
           <span>GARUDA MAHADHIKA • PPDB TAHUN AJARAN 2026/2027</span>
