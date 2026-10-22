@@ -3,8 +3,9 @@ import { ArrowRight, BookOpen, Calendar, GraduationCap, LayoutDashboard, Users, 
 import Link from "next/link";
 import SchoolLogo from "@/components/SchoolLogo";
 import Navbar from "@/components/Navbar";
-import { getWebSettings } from "@/app/admin/settings/actions";
+import { getWebSettings } from "@/lib/settings";
 import prisma from '@/lib/prisma';
+import ModernHeroSection from "@/components/home/ModernHeroSection";
 
 export const dynamic = 'force-dynamic';
 
@@ -22,66 +23,33 @@ export default async function Home() {
     console.warn("Could not fetch jurusans from DB, using empty fallback");
   }
 
+  // Fetch Hot Jobs untuk Hero BKK live ticker
+  let hotJobs: any[] = [];
+  try {
+    hotJobs = await prisma.jobListing.findMany({
+      take: 4,
+      orderBy: [
+        { isHot: 'desc' },
+        { createdAt: 'desc' }
+      ]
+    });
+  } catch (e) {
+    console.warn("Could not fetch hot jobs for hero ticker, using fallback");
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
+    <div className="min-h-screen bg-slate-50 dark:bg-gray-950 font-sans">
       {/* Dynamic Navbar */}
       <Navbar />
 
       <main>
-        {/* Hero Section */}
-        <section className="relative pt-40 pb-16 lg:pt-48 lg:pb-24 overflow-hidden">
-          <div className="absolute inset-0 z-0">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-50/80 to-indigo-100/60 opacity-90"></div>
-            {/* Decorative blobs */}
-            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-400/20 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2 animate-float"></div>
-            <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-indigo-400/20 rounded-full blur-3xl transform -translate-x-1/2 translate-y-1/2 animate-float delay-500"></div>
-          </div>
-          
-          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h1 className="text-5xl md:text-7xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-8 animate-slide-up">
-              Membangun Generasi <br/>
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400">
-                Siap Kerja & Berprestasi
-              </span>
-            </h1>
-            <p className="mt-4 text-xl md:text-2xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-10 leading-relaxed animate-slide-up delay-100">
-              Selamat datang di website resmi {schoolName}. Menjadi pusat keunggulan pendidikan kejuruan yang menghasilkan lulusan kompeten, inovatif, dan berkarakter.
-            </p>
-            <div className="flex flex-col sm:flex-row justify-center gap-4 animate-slide-up delay-200">
-              <Link href="/portofolio" className="px-8 py-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-full font-semibold border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2">
-                Lihat Karya Siswa
-              </Link>
-              <Link href="/ppdb" className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-semibold shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all flex items-center justify-center gap-2">
-                Informasi PPDB <ArrowRight size={20} />
-              </Link>
-            </div>
-            {/* Statistik Section (Modern Glassmorphism) */}
-            <div className="relative z-20 mt-16 lg:mt-24 mx-auto max-w-5xl text-left animate-zoom-in delay-300">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 rounded-3xl blur-xl opacity-30 dark:opacity-50 animate-pulse"></div>
-              <div className="relative py-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-2xl border border-white/50 dark:border-gray-800/50 rounded-3xl shadow-2xl">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-4 text-center divide-x-0 md:divide-x divide-gray-200 dark:divide-gray-800">
-                  <div className="px-4 py-2 group cursor-default">
-                    <div className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 mb-2 group-hover:scale-110 transition-transform duration-300">1,500+</div>
-                    <div className="text-gray-600 dark:text-gray-400 font-bold text-xs md:text-sm tracking-widest uppercase">Siswa Aktif</div>
-                  </div>
-                  <div className="px-4 py-2 group cursor-default">
-                    <div className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 mb-2 group-hover:scale-110 transition-transform duration-300">5</div>
-                    <div className="text-gray-600 dark:text-gray-400 font-bold text-xs md:text-sm tracking-widest uppercase">Program Keahlian</div>
-                  </div>
-                  <div className="px-4 py-2 group cursor-default">
-                    <div className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 mb-2 group-hover:scale-110 transition-transform duration-300">50+</div>
-                    <div className="text-gray-600 dark:text-gray-400 font-bold text-xs md:text-sm tracking-widest uppercase">Mitra Industri</div>
-                  </div>
-                  <div className="px-4 py-2 group cursor-default">
-                    <div className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 mb-2 group-hover:scale-110 transition-transform duration-300">98%</div>
-                    <div className="text-gray-600 dark:text-gray-400 font-bold text-xs md:text-sm tracking-widest uppercase">Keterserapan Kerja</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* Futuristic Interactive Hero Section */}
+        <ModernHeroSection 
+          schoolName={schoolName} 
+          jurusans={jurusans} 
+          hotJobs={hotJobs} 
+        />
+
 
         {/* Feature Cards Section */}
         <section className="py-24 bg-white dark:bg-gray-900">
