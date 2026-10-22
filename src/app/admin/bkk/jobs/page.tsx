@@ -4,18 +4,41 @@ import JobsDashboard from './JobsDashboard';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminBKKJobsPage() {
-  const jobs = await prisma.jobListing.findMany({
-    orderBy: { createdAt: 'desc' }
-  });
+  const [jobs, applications] = await Promise.all([
+    prisma.jobListing.findMany({
+      include: {
+        _count: {
+          select: { applications: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    }),
+    prisma.jobApplication.findMany({
+      include: {
+        job: {
+          select: {
+            id: true,
+            title: true,
+            company: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+  ]);
 
   return (
     <div className="p-6">
-      <h1 className="text-3xl font-bold mb-6 text-gray-800 dark:text-white">Kelola Lowongan BKK</h1>
-      <p className="text-gray-600 dark:text-gray-400 mb-8">
-        Tambahkan atau perbarui data lowongan pekerjaan untuk ditampilkan di portal BKK.
-      </p>
+      <div className="mb-8">
+        <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white mb-2">
+          Pusat Karir & Bursa Kerja Khusus (BKK)
+        </h1>
+        <p className="text-gray-600 dark:text-gray-400">
+          Kelola lowongan pekerjaan mitra industri terverifikasi, tinjau berkas lamaran masuk siswa & alumni, serta panggil kandidat via WhatsApp.
+        </p>
+      </div>
       
-      <JobsDashboard initialJobs={jobs} />
+      <JobsDashboard initialJobs={jobs} initialApplications={applications} />
     </div>
   );
 }

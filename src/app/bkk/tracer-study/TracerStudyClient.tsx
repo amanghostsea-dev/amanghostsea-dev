@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { 
   GraduationCap, Briefcase, ChevronRight, ChevronLeft, 
   CheckCircle, Building2, BookOpen, UserCircle, Rocket,
-  Search, Lock, AlertCircle, Loader2
+  Search, Lock, AlertCircle, Loader2, UserPlus, X, User, Phone, Mail, Sparkles
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -12,8 +12,20 @@ export default function TracerStudyClient() {
   const [step, setStep] = useState(1);
   const [isSearching, setIsSearching] = useState(false);
   const [dataFound, setDataFound] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [searchError, setSearchError] = useState('');
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [regError, setRegError] = useState('');
+  const [regForm, setRegForm] = useState({
+    nisn: '',
+    fullName: '',
+    graduationYear: '2024',
+    major: 'Rekayasa Perangkat Lunak',
+    phone: '',
+    email: ''
+  });
   const [formData, setFormData] = useState({
     alumniId: '',
     // Step 1: Search & Verifikasi
@@ -78,14 +90,10 @@ export default function TracerStudyClient() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSearchNISN = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (formData.nisn.length < 5) {
-      setSearchError('NISN tidak valid. Minimal 5 digit.');
-      return;
-    }
-    if (!formData.nama) {
-      setSearchError('Nama lengkap harus diisi untuk verifikasi.');
+  const handleSearchNISN = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!formData.nisn || formData.nisn.trim().length < 5) {
+      setSearchError('NISN tidak valid. Masukkan minimal 5 digit.');
       return;
     }
     
@@ -96,14 +104,14 @@ export default function TracerStudyClient() {
       const res = await fetch('/api/tracer-study/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nisn: formData.nisn, fullName: formData.nama })
+        body: JSON.stringify({ nisn: formData.nisn.trim(), fullName: formData.nama.trim() })
       });
       const data = await res.json();
       
       setIsSearching(false);
       
       if (!res.ok) {
-        setSearchError(data.error || 'Terjadi kesalahan');
+        setSearchError(data.error || 'Data alumni tidak ditemukan.');
         return;
       }
       
@@ -111,13 +119,57 @@ export default function TracerStudyClient() {
       setFormData(prev => ({
         ...prev,
         alumniId: data.alumni.id,
+        nisn: data.alumni.nisn,
         nama: data.alumni.fullName,
         tahunLulus: data.alumni.graduationYear.toString(),
         jurusan: data.alumni.major
       }));
     } catch (err) {
       setIsSearching(false);
-      setSearchError('Gagal menghubungi server.');
+      setSearchError('Gagal menghubungi server database alumni.');
+    }
+  };
+
+  const handleRegisterAlumni = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!regForm.nisn || !regForm.fullName) {
+      setRegError('Mohon lengkapi NISN dan Nama Lengkap.');
+      return;
+    }
+
+    setIsRegistering(true);
+    setRegError('');
+
+    try {
+      const res = await fetch('/api/tracer-study/register-alumni', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(regForm)
+      });
+      const data = await res.json();
+      setIsRegistering(false);
+
+      if (!res.ok) {
+        setRegError(data.error || 'Gagal mendaftarkan data alumni.');
+        return;
+      }
+
+      // Auto link to tracer form
+      setDataFound(true);
+      setFormData(prev => ({
+        ...prev,
+        alumniId: data.alumni.id,
+        nisn: data.alumni.nisn,
+        nama: data.alumni.fullName,
+        tahunLulus: data.alumni.graduationYear.toString(),
+        jurusan: data.alumni.major
+      }));
+
+      setShowRegisterModal(false);
+      setSearchError('');
+    } catch (err: any) {
+      setIsRegistering(false);
+      setRegError(err?.message || 'Terjadi kesalahan pada server saat registrasi.');
     }
   };
 
@@ -141,6 +193,8 @@ export default function TracerStudyClient() {
     }
 
     if (step === 3) {
+      setIsSubmitting(true);
+      setSubmitError('');
       try {
         const res = await fetch('/api/tracer-study/submit', {
           method: 'POST',
@@ -148,16 +202,22 @@ export default function TracerStudyClient() {
           body: JSON.stringify(formData)
         });
         const data = await res.json();
+        setIsSubmitting(false);
+
         if (res.ok) {
           setStep(4); // Pindah ke halaman sukses
         } else {
+          setSubmitError(data.error || 'Gagal mengirim data Tracer Study.');
           alert(data.error || 'Gagal mengirim data Tracer Study');
         }
       } catch(err) {
-        alert('Gagal mengirim data');
+        setIsSubmitting(false);
+        setSubmitError('Gagal mengirim data. Silakan periksa koneksi internet Anda.');
+        alert('Gagal mengirim data ke server.');
       }
     }
   };
+
 
   return (
       <main className="pt-24 pb-16 px-4 max-w-4xl mx-auto">
@@ -219,29 +279,98 @@ export default function TracerStudyClient() {
                 </div>
                 
                 {!dataFound ? (
-                  <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-2xl border border-gray-200 dark:border-gray-700">
-                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">Nomor Induk Siswa Nasional (NISN)</label>
-                    <div className="flex gap-3">
-                      <input 
-                        type="text" name="nisn" value={formData.nisn} onChange={handleChange} required
-                        className="flex-1 px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono text-lg tracking-wider"
-                        placeholder="Contoh: 0012345678"
-                      />
+                  <div className="bg-gray-50 dark:bg-gray-800/50 p-6 md:p-8 rounded-3xl border border-gray-200 dark:border-gray-700 space-y-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2 uppercase tracking-wider">
+                          Nomor Induk Siswa Nasional (NISN) *
+                        </label>
+                        <input 
+                          type="text" 
+                          name="nisn" 
+                          value={formData.nisn} 
+                          onChange={handleChange} 
+                          required
+                          className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono text-base tracking-wider"
+                          placeholder="Contoh: 0012345678"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2 uppercase tracking-wider">
+                          Nama Lengkap Sesuai Ijazah
+                        </label>
+                        <input 
+                          type="text" 
+                          name="nama" 
+                          value={formData.nama} 
+                          onChange={handleChange} 
+                          className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all text-base"
+                          placeholder="Contoh: Ahmad Fauzi"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-gray-200 dark:border-gray-700">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                        <Lock size={13} className="text-emerald-500" /> Data terlindungi aman dalam sistem sekolah
+                      </p>
                       <button 
                         type="button"
                         onClick={handleSearchNISN}
                         disabled={isSearching}
-                        className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all disabled:opacity-70 flex items-center gap-2"
+                        className="w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl font-bold transition-all disabled:opacity-70 flex items-center justify-center gap-2 shadow-md shadow-blue-500/20"
                       >
-                        {isSearching ? <Loader2 size={20} className="animate-spin" /> : 'Cek Data'}
+                        {isSearching ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />}
+                        Cek & Verifikasi Data
                       </button>
                     </div>
+
                     {searchError && (
-                      <p className="text-red-500 text-sm mt-2 flex items-center gap-1"><AlertCircle size={16}/> {searchError}</p>
+                      <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl text-xs space-y-3 animate-in fade-in">
+                        <p className="text-amber-800 dark:text-amber-300 flex items-start gap-2 font-medium">
+                          <AlertCircle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                          <span>{searchError}</span>
+                        </p>
+                        <div className="pt-2 border-t border-amber-200/80 dark:border-amber-800/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                          <span className="text-amber-700 dark:text-amber-400 font-semibold">
+                            Data Anda belum tercatat di database alumni?
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRegForm(prev => ({
+                                ...prev,
+                                nisn: formData.nisn || '',
+                                fullName: formData.nama || ''
+                              }));
+                              setShowRegisterModal(true);
+                            }}
+                            className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg shadow-sm flex items-center gap-1.5 whitespace-nowrap"
+                          >
+                            <UserPlus size={14} /> Daftar Alumni Baru
+                          </button>
+                        </div>
+                      </div>
                     )}
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-4 flex items-center gap-1">
-                      <Lock size={12} /> Data dijamin aman dan terenkripsi
-                    </p>
+
+                    {!searchError && (
+                      <div className="text-center pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRegForm(prev => ({
+                              ...prev,
+                              nisn: formData.nisn || '',
+                              fullName: formData.nama || ''
+                            }));
+                            setShowRegisterModal(true);
+                          }}
+                          className="text-xs text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1 font-semibold"
+                        >
+                          <UserPlus size={13} /> Belum terdaftar di database alumni? Daftarkan diri Anda di sini
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-6">
@@ -528,15 +657,178 @@ export default function TracerStudyClient() {
                 ) : (
                   <button
                     type="submit"
-                    className="flex items-center px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg shadow-green-500/30"
+                    disabled={isSubmitting}
+                    className="flex items-center px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg shadow-green-500/30 disabled:opacity-60"
                   >
-                    Kirim Data <CheckCircle size={20} className="ml-2" />
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 size={20} className="animate-spin mr-2" />
+                        Menyimpan Data...
+                      </>
+                    ) : (
+                      <>
+                        Kirim Data <CheckCircle size={20} className="ml-2" />
+                      </>
+                    )}
                   </button>
                 )}
               </div>
             )}
           </form>
         </div>
+
+        {/* REGISTRATION MODAL FOR NEW ALUMNI */}
+        {showRegisterModal && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in">
+            <div className="bg-white dark:bg-gray-900 rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8">
+              <div className="flex items-start justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/40 text-blue-600 rounded-2xl flex items-center justify-center flex-shrink-0">
+                    <UserPlus size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-extrabold text-gray-900 dark:text-white">
+                      Daftar Identitas Alumni
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Masukkan data diri Anda untuk membuka formulir Tracer Study.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowRegisterModal(false)}
+                  className="p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded-xl"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {regError && (
+                <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
+                  <AlertCircle size={16} className="flex-shrink-0" />
+                  <span>{regError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleRegisterAlumni} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5 uppercase">
+                    Nomor Induk Siswa Nasional (NISN) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={regForm.nisn}
+                    onChange={(e) => setRegForm({ ...regForm, nisn: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-mono text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Contoh: 0012345678"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5 uppercase">
+                    Nama Lengkap Sesuai Ijazah *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={regForm.fullName}
+                    onChange={(e) => setRegForm({ ...regForm, fullName: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Nama Lengkap Anda"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5 uppercase">
+                      Tahun Kelulusan *
+                    </label>
+                    <select
+                      value={regForm.graduationYear}
+                      onChange={(e) => setRegForm({ ...regForm, graduationYear: e.target.value })}
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {[2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018].map((yr) => (
+                        <option key={yr} value={yr}>
+                          Tahun {yr}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5 uppercase">
+                      Jurusan / Konsentrasi *
+                    </label>
+                    <select
+                      value={regForm.major}
+                      onChange={(e) => setRegForm({ ...regForm, major: e.target.value })}
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="Rekayasa Perangkat Lunak">Rekayasa Perangkat Lunak</option>
+                      <option value="Teknik Komputer dan Jaringan">Teknik Komputer & Jaringan</option>
+                      <option value="Desain Komunikasi Visual">Desain Komunikasi Visual / MM</option>
+                      <option value="Teknik Kendaraan Ringan">Teknik Kendaraan Ringan</option>
+                      <option value="Teknik Bisnis Sepeda Motor">Teknik Bisnis Sepeda Motor</option>
+                      <option value="Teknik Pemesinan">Teknik Pemesinan</option>
+                      <option value="Akuntansi dan Keuangan Lembaga">Akuntansi & Keuangan</option>
+                      <option value="Otomatisasi Tata Kelola Perkantoran">OTKP / Perkantoran</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5 uppercase">
+                      No. WhatsApp / HP
+                    </label>
+                    <input
+                      type="tel"
+                      value={regForm.phone}
+                      onChange={(e) => setRegForm({ ...regForm, phone: e.target.value })}
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="08xxxxxxxxxx"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5 uppercase">
+                      Email Aktif
+                    </label>
+                    <input
+                      type="email"
+                      value={regForm.email}
+                      onChange={(e) => setRegForm({ ...regForm, email: e.target.value })}
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="alumni@gmail.com"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 dark:border-gray-800">
+                  <button
+                    type="button"
+                    onClick={() => setShowRegisterModal(false)}
+                    className="px-5 py-2.5 text-xs font-bold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-xl hover:bg-gray-200 transition-colors"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isRegistering}
+                    className="px-6 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-md flex items-center gap-2 disabled:opacity-60"
+                  >
+                    {isRegistering ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
+                    Daftar & Mulai Survei
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </main>
   );
 }
+

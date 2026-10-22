@@ -6,14 +6,22 @@ import Navbar from "@/components/Navbar";
 import { getWebSettings } from "@/app/admin/settings/actions";
 import prisma from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 export default async function Home() {
   const settings = await getWebSettings();
   const schoolName = settings?.schoolName || 'SMK GaMa';
   
   // Fetch Program Keahlian (Jurusan) dari database
-  const jurusans = await prisma.jurusan.findMany({
-    orderBy: { createdAt: 'asc' }
-  });
+  let jurusans: any[] = [];
+  try {
+    jurusans = await prisma.jurusan.findMany({
+      orderBy: { createdAt: 'asc' }
+    });
+  } catch (e) {
+    console.warn("Could not fetch jurusans from DB, using empty fallback");
+  }
+
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">

@@ -136,15 +136,41 @@ model TracerStudy {
 }
 
 model JobListing {
-  id          String  @id @default(cuid())
-  title       String
-  company     String
-  location    String
-  salary      String?
-  type        String // Full-time, Part-time, Kontrak, Magang
-  description String
-  tags        String // comma separated tags
-  isHot       Boolean @default(false)
+  id           String           @id @default(cuid())
+  title        String
+  company      String
+  location     String
+  salary       String?
+  type         String // Full-time, Part-time, Kontrak, Magang
+  description  String
+  requirements String?          @db.Text
+  tags         String // comma separated tags
+  department   String?          @default("Semua Jurusan")
+  contactEmail String?
+  contactWa    String?
+  deadline     DateTime?
+  isHot        Boolean          @default(false)
+  applications JobApplication[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model JobApplication {
+  id             String      @id @default(cuid())
+  jobId          String
+  job            JobListing  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  fullName       String
+  email          String
+  phone          String
+  nisn           String?
+  lastEducation  String?
+  graduationYear Int?
+  resumeUrl      String?
+  portfolioUrl   String?
+  coverLetter    String?     @db.Text
+  status         String      @default("PENDING") // PENDING, REVIEWED, INTERVIEW, ACCEPTED, REJECTED
+  adminNotes     String?     @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
