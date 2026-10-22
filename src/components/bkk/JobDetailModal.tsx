@@ -272,12 +272,12 @@ export default function JobDetailModal({
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Keahlian Terkait</h4>
                 <div className="flex flex-wrap gap-2">
-                  {job.tags.split(',').map((tag, idx) => (
+                  {(job.tags || '').split(',').map(t => t.trim()).filter(Boolean).map((tag, idx) => (
                     <span 
                       key={idx} 
                       className="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-xs font-bold"
                     >
-                      {tag.trim()}
+                      {tag}
                     </span>
                   ))}
                 </div>

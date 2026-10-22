@@ -150,7 +150,7 @@ Analisis kecocokan profil calon pelamar dengan lowongan di atas. Kembalikan arra
                 salary: j.salary,
                 type: j.type,
                 department: j.department,
-                tags: j.tags.split(',').map(t => t.trim()).filter(Boolean),
+                tags: (j.tags || '').split(',').map(t => t.trim()).filter(Boolean),
                 matchPercentage: match?.matchPercentage ?? 60,
                 matchedSkills: match?.matchedSkills && match.matchedSkills.length > 0 ? match.matchedSkills : ['Kualifikasi umum vokasi'],
                 missingSkills: match?.missingSkills || [],
@@ -176,8 +176,8 @@ Analisis kecocokan profil calon pelamar dengan lowongan di atas. Kembalikan arra
 
     // High-performance intelligent algorithmic matcher fallback
     const scoredJobs: MatchedJobResult[] = jobs.map(job => {
-      const jobTags = job.tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
-      const jobFullText = `${job.title} ${job.company} ${job.description} ${job.requirements || ''} ${job.tags} ${job.department || ''}`.toLowerCase();
+      const jobTags = (job.tags || '').split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+      const jobFullText = `${job.title} ${job.company} ${job.description} ${job.requirements || ''} ${job.tags || ''} ${job.department || ''}`.toLowerCase();
 
       const matched: string[] = [];
       const missing: string[] = [];
@@ -243,7 +243,7 @@ Analisis kecocokan profil calon pelamar dengan lowongan di atas. Kembalikan arra
         salary: job.salary,
         type: job.type,
         department: job.department,
-        tags: job.tags.split(',').map(t => t.trim()).filter(Boolean),
+        tags: (job.tags || '').split(',').map(t => t.trim()).filter(Boolean),
         matchPercentage: finalPercentage,
         matchedSkills: matched.length > 0 ? matched : ['Kualifikasi Dasar'],
         missingSkills: missing.length > 0 ? missing.slice(0, 3) : ['Pengalaman spesifik industri'],

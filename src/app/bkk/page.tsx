@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
-import { getWebSettings } from "@/app/admin/settings/actions";
+import { getWebSettings } from "@/lib/settings";
 import BKKLandingClient from "./BKKLandingClient";
+
 
 export const dynamic = "force-dynamic";
 

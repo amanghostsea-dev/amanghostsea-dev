@@ -61,19 +61,20 @@ export default function JobsListClient({ initialJobs }: { initialJobs: JobListin
   // Filtering
   const filteredJobs = initialJobs.filter(job => {
     const matchSearch = 
-      job.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      job.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      job.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      job.tags.toLowerCase().includes(searchTerm.toLowerCase());
+      (job.title || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+      (job.company || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (job.location || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (job.tags || '').toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchType = selectedType === 'Semua' || job.type.toLowerCase() === selectedType.toLowerCase();
+    const matchType = selectedType === 'Semua' || (job.type || '').toLowerCase() === selectedType.toLowerCase();
     
     const matchDept = selectedDepartment === 'Semua' || 
       (job.department && (
         job.department.toLowerCase().includes(selectedDepartment.toLowerCase()) ||
         job.department.toLowerCase().includes('semua')
       )) ||
-      job.tags.toLowerCase().includes(selectedDepartment.toLowerCase());
+      (job.tags || '').toLowerCase().includes(selectedDepartment.toLowerCase());
+
 
     const matchHot = !onlyHot || job.isHot;
     const matchBookmark = !onlyBookmarked || bookmarkedIds.includes(job.id);
@@ -257,12 +258,12 @@ export default function JobsListClient({ initialJobs }: { initialJobs: JobListin
               </div>
 
               <div className="flex flex-wrap gap-1.5 mb-6">
-                {job.tags.split(',').slice(0, 3).map((tag, idx) => (
+                {(job.tags || '').split(',').map(t => t.trim()).filter(Boolean).slice(0, 3).map((tag, idx) => (
                   <span 
                     key={idx} 
                     className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg text-[11px] font-bold"
                   >
-                    {tag.trim()}
+                    {tag}
                   </span>
                 ))}
               </div>

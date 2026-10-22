@@ -227,7 +227,7 @@ export default function BKKLandingClient({
 
                   <div className="flex gap-5 items-start">
                     <div className="w-14 h-14 bg-gradient-to-tr from-blue-600 to-indigo-600 text-white rounded-2xl flex items-center justify-center font-black text-lg shadow-sm flex-shrink-0">
-                      {job.company.charAt(0)}
+                      {(job.company || 'P').charAt(0)}
                     </div>
                     <div>
                       <div className="flex items-center gap-3 mb-1">
@@ -253,12 +253,12 @@ export default function BKKLandingClient({
 
                   <div className="flex flex-col sm:flex-row items-center gap-3">
                     <div className="flex flex-wrap gap-1.5 w-full sm:w-auto">
-                      {job.tags.split(',').slice(0, 3).map((tag, idx) => (
+                      {(job.tags || '').split(',').map(t => t.trim()).filter(Boolean).slice(0, 3).map((tag, idx) => (
                         <span 
                           key={idx} 
                           className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg text-xs font-semibold"
                         >
-                          {tag.trim()}
+                          {tag}
                         </span>
                       ))}
                     </div>
