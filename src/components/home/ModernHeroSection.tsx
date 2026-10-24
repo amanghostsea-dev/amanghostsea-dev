@@ -251,7 +251,7 @@ export default function ModernHeroSection({
   const currentMajor = displayJurusans[selectedMajorIndex] || displayJurusans[0];
 
   return (
-    <section className="relative pt-20 pb-12 sm:pt-22 sm:pb-16 lg:pt-24 lg:pb-20 overflow-hidden bg-gradient-to-b from-slate-50 via-blue-50/40 to-white dark:from-gray-950 dark:via-blue-950/20 dark:to-gray-950">
+    <section className="relative pt-16 pb-8 sm:pt-18 sm:pb-10 lg:pt-20 lg:pb-12 overflow-hidden bg-gradient-to-b from-slate-50 via-blue-50/40 to-white dark:from-gray-950 dark:via-blue-950/20 dark:to-gray-950">
       {/* 1. Cyber Ambient Atmosphere & Grid Background */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <div 
@@ -275,7 +275,7 @@ export default function ModernHeroSection({
         {/* ========================================================================= */}
         {/* 🌟 2-COLUMN SPLIT HERO (THE UNIFIED BENTO PHOTO SHOWCASE)                 */}
         {/* ========================================================================= */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-8 items-center mb-10 sm:mb-14">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center mb-8 sm:mb-10">
           
           {/* SISI KIRI: Headline, Value Proposition, Action Buttons */}
           <div className="lg:col-span-6 text-left">
@@ -386,34 +386,37 @@ export default function ModernHeroSection({
 
           </div>
 
-          {/* SISI KANAN: PANGGUNG BENTO FOTO INTERAKTIF (3-in-1 Showcase) */}
+          {/* SISI KANAN: PANGGUNG BENTO FOTO INTERAKTIF (Compact & Elegant Lab Showcase) */}
           <div 
-            className="lg:col-span-6 relative"
+            className="lg:col-span-6 relative max-w-xl mx-auto lg:max-w-[540px] xl:max-w-[560px] w-full"
             onMouseEnter={() => setIsAutoPlay(false)}
             onMouseLeave={() => setIsAutoPlay(true)}
           >
             {/* Dynamic Ambient Glow Behind Active Image */}
-            <div className={`absolute -inset-2 bg-gradient-to-tr ${currentMajor.glowClass} rounded-[36px] blur-2xl opacity-60 dark:opacity-40 transition-all duration-700 pointer-events-none`}></div>
+            <div className={`absolute -inset-2 bg-gradient-to-tr ${currentMajor.glowClass} rounded-[28px] blur-xl opacity-50 dark:opacity-30 transition-all duration-700 pointer-events-none`}></div>
 
             {/* Bento Glass Frame */}
-            <div className="relative bg-white/90 dark:bg-gray-900/90 backdrop-blur-2xl rounded-[32px] p-3 sm:p-4 border border-gray-200/80 dark:border-gray-800 shadow-2xl overflow-hidden">
+            <div className="relative bg-white/95 dark:bg-gray-900/90 backdrop-blur-2xl rounded-[24px] sm:rounded-[28px] p-2.5 sm:p-3 border border-gray-200/90 dark:border-white/10 shadow-[0_16px_40px_-10px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] overflow-hidden">
               
               {/* Header Bar: Live Indicator & Major Title */}
-              <div className="flex items-center justify-between px-2 py-1.5 mb-2.5">
+              <div className="flex items-center justify-between px-1.5 py-1 mb-2">
                 <div className="flex items-center gap-2">
                   <span className="flex h-2 w-2 relative">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                   </span>
-                  <span className="text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-gray-500 dark:text-gray-400">
                     Live Lab Showcase
+                  </span>
+                  <span className="hidden sm:inline-flex text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-800/60">
+                    {currentMajor.code}
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500">
+                  <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500">
                     {isAutoPlay ? 'Auto-Slide' : 'Dijeda (Hover)'}
                   </span>
-                  <div className="w-12 h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                  <div className="w-10 h-1 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
                     <div 
                       key={selectedMajorIndex}
                       className="h-full bg-blue-600 rounded-full animate-timer-10s"
@@ -423,83 +426,76 @@ export default function ModernHeroSection({
                 </div>
               </div>
 
-              {/* Main Photo Visual Stage (With Floating Glass Badges) */}
-              <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-inner group">
+              {/* Main Photo Visual Stage (Compact 16:10 / 16:9 ratio, Elegant Glass Badges) */}
+              <div className="relative aspect-[16/10] sm:aspect-[16/9] lg:aspect-[16/10] max-h-[250px] sm:max-h-[280px] lg:max-h-[300px] rounded-xl sm:rounded-2xl overflow-hidden shadow-inner group">
                 <Image
                   key={currentMajor.image}
                   src={currentMajor.image}
                   alt={currentMajor.name}
                   fill
                   priority
-                  sizes="(max-width: 768px) 100vw, 600px"
+                  sizes="(max-width: 768px) 100vw, 550px"
                   className="object-cover transition-transform duration-700 group-hover:scale-105 animate-fade-in"
                 />
 
                 {/* Subtle Cinematic Vignette Gradient Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-gray-950/90 via-gray-950/20 to-transparent pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-t from-gray-950/95 via-gray-950/30 to-transparent pointer-events-none" />
 
                 {/* FLOATING GLASS BADGE 1: Top-Left (Prestasi & Akreditasi) */}
-                <div className="absolute top-3.5 left-3.5 animate-float pointer-events-none">
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/85 dark:bg-gray-900/85 backdrop-blur-md border border-white/40 dark:border-gray-700/60 shadow-lg text-xs font-bold text-gray-900 dark:text-white">
-                    <div className="w-5 h-5 rounded-md bg-emerald-500 text-white flex items-center justify-center text-[10px]">
-                      <Check size={12} strokeWidth={3} />
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-gray-500 dark:text-gray-400 leading-none">Standar Industri</div>
-                      <div className="text-xs font-black">Akreditasi A Unggul</div>
-                    </div>
+                <div className="absolute top-2.5 left-2.5 pointer-events-none">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-950/70 backdrop-blur-md border border-white/20 shadow-md text-white">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    <span className="text-[10px] font-black text-emerald-300">Akreditasi A Unggul</span>
                   </div>
                 </div>
 
                 {/* FLOATING GLASS BADGE 2: Top-Right (Kemitraan Industri) */}
-                <div className="absolute top-3.5 right-3.5 animate-float pointer-events-none" style={{ animationDelay: '1.5s' }}>
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gray-950/80 backdrop-blur-md border border-white/20 shadow-lg text-xs font-bold text-white">
-                    <Trophy size={14} className="text-amber-400" />
-                    <span className="text-[11px] font-extrabold text-amber-300">
+                <div className="absolute top-2.5 right-2.5 pointer-events-none">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-950/70 backdrop-blur-md border border-white/20 shadow-md text-white">
+                    <Trophy size={11} className="text-amber-400" />
+                    <span className="text-[10px] font-black text-amber-300">
                       98% Lulusan Terserap
                     </span>
                   </div>
                 </div>
 
-                {/* BOTTOM OVERLAY INFO: Nama Jurusan, Lab Tag & CTA */}
-                <div className="absolute bottom-0 inset-x-0 p-4 sm:p-5 flex flex-col justify-end text-white z-10">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-white text-[11px] font-extrabold mb-1.5 w-fit">
-                    <Sparkles size={12} className="text-yellow-300" />
-                    <span>{currentMajor.tag}</span>
+                {/* BOTTOM OVERLAY INFO: Nama Jurusan, Lab Tag & CTA (Sleek, Non-intrusive) */}
+                <div className="absolute bottom-0 inset-x-0 p-3 sm:p-4 flex flex-col justify-end text-white z-10">
+                  <div className="flex items-center gap-1.5 mb-1 w-fit">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/30 backdrop-blur-md border border-blue-400/40 text-blue-200 text-[10px] font-extrabold">
+                      <Sparkles size={10} className="text-cyan-300" />
+                      <span>{currentMajor.tag}</span>
+                    </span>
                   </div>
 
-                  <h3 className="text-lg sm:text-2xl font-black text-white drop-shadow-md mb-1">
+                  <h3 className="text-base sm:text-lg font-black text-white drop-shadow-md mb-1 tracking-tight">
                     {currentMajor.name}
                   </h3>
 
-                  <p className="text-xs text-gray-200 line-clamp-2 leading-relaxed mb-3 max-w-lg hidden sm:block">
-                    {currentMajor.description}
-                  </p>
-
-                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-white/20 text-xs">
-                    <div className="text-gray-300 text-[11px]">
-                      Mitra Kerja: <strong className="text-white font-bold">{currentMajor.partnerCompany}</strong>
+                  <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-white/15 text-xs">
+                    <div className="text-gray-300 text-[10px] sm:text-[11px] truncate max-w-[230px] sm:max-w-[280px]">
+                      Mitra: <strong className="text-white font-bold">{currentMajor.partnerCompany}</strong>
                     </div>
 
                     <Link
                       href="/ppdb"
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md transition-all hover:scale-105"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-[11px] sm:text-xs shadow-md transition-all hover:scale-105 shrink-0"
                     >
-                      <span>Pilih Jurusan Ini</span>
-                      <ArrowRight size={13} />
+                      <span>Pilih Jurusan</span>
+                      <ArrowRight size={12} />
                     </Link>
                   </div>
                 </div>
               </div>
 
-              {/* DYNAMIC MAJOR SELECTOR TABS (5 Jurusan Interaktif) */}
-              <div className="mt-3.5 pt-3 border-t border-gray-100 dark:border-gray-800">
-                <div className="text-[11px] font-extrabold text-gray-400 uppercase tracking-wider mb-2 px-1 flex items-center justify-between">
-                  <span>Pilih Jurusan Untuk Pratinjau Lab:</span>
-                  <span className="text-blue-600 dark:text-blue-400 lowercase font-medium">klik untuk ganti foto</span>
+              {/* DYNAMIC MAJOR SELECTOR TABS (5 Jurusan Interaktif - Compact Segmented Control) */}
+              <div className="mt-2.5 pt-2 border-t border-gray-100 dark:border-gray-800">
+                <div className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5 px-0.5 flex items-center justify-between">
+                  <span>Pilih Lab Untuk Pratinjau:</span>
+                  <span className="text-blue-600 dark:text-blue-400 lowercase font-medium">klik untuk beralih</span>
                 </div>
 
-                <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+                <div className="grid grid-cols-5 gap-1 sm:gap-1.5">
                   {displayJurusans.map((j, idx) => {
                     const isSelected = selectedMajorIndex === idx;
                     return (
@@ -510,16 +506,16 @@ export default function ModernHeroSection({
                           setSelectedMajorIndex(idx);
                           setIsAutoPlay(false);
                         }}
-                        className={`p-2 sm:p-2.5 rounded-xl text-center transition-all cursor-pointer border flex flex-col items-center justify-center gap-1 ${
+                        className={`py-1 px-1 sm:py-1.5 sm:px-1.5 rounded-lg sm:rounded-xl text-center transition-all cursor-pointer border flex flex-col items-center justify-center gap-0.5 ${
                           isSelected
-                            ? `${j.activeBorderClass} border-2 shadow-md`
-                            : 'bg-gray-50 dark:bg-gray-800/60 border-gray-200/60 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                            ? `${j.activeBorderClass} border-2 shadow-sm font-black`
+                            : 'bg-gray-50/80 dark:bg-gray-800/50 border-gray-200/60 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
                         }`}
                       >
-                        <div className={`text-xs sm:text-sm font-black ${isSelected ? 'scale-110' : ''} transition-transform`}>
+                        <div className={`text-xs sm:text-sm font-black ${isSelected ? 'scale-105' : ''} transition-transform`}>
                           {j.code}
                         </div>
-                        <div className="text-[9px] font-semibold truncate max-w-full hidden sm:block">
+                        <div className="text-[8px] sm:text-[9px] font-medium truncate max-w-full hidden sm:block opacity-80">
                           {j.code === 'RPL' ? 'Software' : 
                            j.code === 'TKJ' ? 'Jaringan' : 
                            j.code === 'TKR' ? 'Otomotif' : 
