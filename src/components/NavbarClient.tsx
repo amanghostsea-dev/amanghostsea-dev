@@ -39,11 +39,11 @@ export default function NavbarClient(props: { settings?: any }) {
   return (
     <nav className={`fixed w-full z-50 transition-all duration-300 border-b ${
       isScrolled 
-        ? 'bg-white/95 dark:bg-gray-950/95 backdrop-blur-md border-gray-200 dark:border-gray-800 shadow-sm py-2' 
-        : 'bg-transparent border-transparent py-4'
+        ? 'bg-white/95 dark:bg-gray-950/95 backdrop-blur-md border-gray-200 dark:border-gray-800 shadow-sm py-1.5 sm:py-2' 
+        : 'bg-transparent border-transparent py-2 sm:py-3'
     }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16 items-center">
+        <div className="flex justify-between h-14 sm:h-16 items-center">
           <Link href="/" className="flex items-center gap-3 group cursor-pointer">
             <SchoolLogo logoUrl={settings?.logoUrl} />
             <span className="font-extrabold text-2xl tracking-tight text-gray-900 dark:text-white flex items-center">

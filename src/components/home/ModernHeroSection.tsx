@@ -251,7 +251,7 @@ export default function ModernHeroSection({
   const currentMajor = displayJurusans[selectedMajorIndex] || displayJurusans[0];
 
   return (
-    <section className="relative pt-28 pb-20 lg:pt-36 lg:pb-28 overflow-hidden bg-gradient-to-b from-slate-50 via-blue-50/40 to-white dark:from-gray-950 dark:via-blue-950/20 dark:to-gray-950">
+    <section className="relative pt-20 pb-12 sm:pt-22 sm:pb-16 lg:pt-24 lg:pb-20 overflow-hidden bg-gradient-to-b from-slate-50 via-blue-50/40 to-white dark:from-gray-950 dark:via-blue-950/20 dark:to-gray-950">
       {/* 1. Cyber Ambient Atmosphere & Grid Background */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <div 
@@ -275,16 +275,16 @@ export default function ModernHeroSection({
         {/* ========================================================================= */}
         {/* 🌟 2-COLUMN SPLIT HERO (THE UNIFIED BENTO PHOTO SHOWCASE)                 */}
         {/* ========================================================================= */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center mb-16">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-8 items-center mb-10 sm:mb-14">
           
           {/* SISI KIRI: Headline, Value Proposition, Action Buttons */}
           <div className="lg:col-span-6 text-left">
             
             {/* Top Interactive Announcement Pill */}
-            <div className="inline-flex items-center gap-2 mb-6">
+            <div className="inline-flex items-center gap-2 mb-3 sm:mb-4">
               <Link
                 href="/ppdb"
-                className="group relative inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-blue-200/80 dark:border-blue-800/80 shadow-md shadow-blue-500/5 hover:shadow-blue-500/15 hover:border-blue-400 transition-all text-xs font-semibold text-gray-800 dark:text-gray-200 hover:scale-[1.01]"
+                className="group relative inline-flex items-center gap-2.5 px-4 py-1.5 sm:py-2 rounded-full bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-blue-200/80 dark:border-blue-800/80 shadow-md shadow-blue-500/5 hover:shadow-blue-500/15 hover:border-blue-400 transition-all text-xs font-semibold text-gray-800 dark:text-gray-200 hover:scale-[1.01]"
               >
                 <span className="flex h-2.5 w-2.5 relative">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -302,7 +302,7 @@ export default function ModernHeroSection({
             </div>
 
             {/* Main Punchy Headline */}
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-gray-950 dark:text-white tracking-tight leading-[1.12] mb-6">
+            <h1 className="text-3xl sm:text-5xl lg:text-5xl xl:text-6xl font-black text-gray-950 dark:text-white tracking-tight leading-[1.15] mb-4 sm:mb-5">
               Membangun Generasi Vokasi <br />
               <span className="relative inline-block mt-1">
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 dark:from-blue-400 dark:via-indigo-300 dark:to-purple-400">
@@ -314,16 +314,16 @@ export default function ModernHeroSection({
             </h1>
 
             {/* Subtitle */}
-            <p className="text-base sm:text-lg text-gray-600 dark:text-gray-300 leading-relaxed mb-8 max-w-xl">
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 leading-relaxed mb-6 sm:mb-7 max-w-xl">
               Selamat datang di ekosistem vokasi modern <strong className="font-bold text-gray-900 dark:text-white">{schoolName}</strong>. 
               Mengintegrasikan kurikulum industri masa depan, pembelajaran AI cerdas, fasilitas lab berspesifikasi tinggi, dan jaminan kemitraan karir nyata.
             </p>
 
             {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 mb-10">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6 sm:mb-8">
               <Link 
                 href="/ppdb" 
-                className="relative group overflow-hidden bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white px-7 py-4 rounded-2xl font-black text-sm sm:text-base shadow-xl shadow-blue-500/25 hover:shadow-blue-500/45 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-3 text-center"
+                className="relative group overflow-hidden bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white px-7 py-3.5 sm:py-4 rounded-2xl font-black text-sm sm:text-base shadow-xl shadow-blue-500/25 hover:shadow-blue-500/45 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-3 text-center"
               >
                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
                 <Sparkles size={18} className="animate-spin-slow" />
@@ -336,7 +336,7 @@ export default function ModernHeroSection({
 
               <Link 
                 href="/bkk" 
-                className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white px-6 py-4 rounded-2xl font-bold text-sm sm:text-base shadow-sm hover:shadow-lg hover:border-blue-500 dark:hover:border-blue-400 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2.5 text-center group"
+                className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white px-6 py-3.5 sm:py-4 rounded-2xl font-bold text-sm sm:text-base shadow-sm hover:shadow-lg hover:border-blue-500 dark:hover:border-blue-400 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2.5 text-center group"
               >
                 <Briefcase size={18} className="text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform" />
                 <span>Portal Karir BKK</span>
@@ -347,7 +347,7 @@ export default function ModernHeroSection({
             </div>
 
             {/* Trust Badges Indicator */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-bold text-gray-700 dark:text-gray-300 pt-6 border-t border-gray-200/70 dark:border-gray-800">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-bold text-gray-700 dark:text-gray-300 pt-4 sm:pt-5 border-t border-gray-200/70 dark:border-gray-800">
               <div className="flex items-center gap-1.5">
                 <ShieldCheck size={16} className="text-emerald-500 shrink-0" /> 
                 <span>Akreditasi A</span>
@@ -367,7 +367,7 @@ export default function ModernHeroSection({
             </div>
 
             {/* Social Proof Students Count */}
-            <div className="flex items-center gap-3 mt-6">
+            <div className="flex items-center gap-3 mt-4 sm:mt-5">
               <div className="flex -space-x-2">
                 <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-black text-[11px] flex items-center justify-center border-2 border-white dark:border-gray-900 shadow-sm">
                   98%
