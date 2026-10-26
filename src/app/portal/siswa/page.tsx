@@ -39,12 +39,12 @@ export default function PortalSiswa() {
           <a href="#" className="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl font-medium transition-colors">
             <GraduationCap size={20} /> Transkrip Nilai
           </a>
-          <a href="#" className="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl font-medium transition-colors">
-            <FileText size={20} /> E-Learning
-          </a>
-          <a href="#" className="flex items-center gap-3 px-4 py-3 text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 rounded-xl font-medium transition-colors">
+          <Link href="/portal/siswa/tugas" className="flex items-center gap-3 px-4 py-3 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20 hover:bg-blue-100 rounded-xl font-medium transition-colors">
+            <FileText size={20} /> Tugas Siswa
+          </Link>
+          <Link href="/portal/siswa/cbt" className="flex items-center gap-3 px-4 py-3 text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 rounded-xl font-medium transition-colors">
             <MonitorPlay size={20} /> Smart CBT (Ujian)
-          </a>
+          </Link>
           <a href="#" className="flex items-center gap-3 px-4 py-3 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 rounded-xl font-medium transition-colors">
             <QrCode size={20} /> Absensi QR Code
           </a>
@@ -89,11 +89,14 @@ export default function PortalSiswa() {
           <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 rounded-2xl text-white flex items-center justify-between shadow-lg shadow-purple-500/30">
             <div>
               <h3 className="font-bold text-lg flex items-center gap-2 mb-1"><MonitorPlay size={20} /> Ujian Berlangsung (CBT)</h3>
-              <p className="text-purple-100 text-sm">Ujian Tengah Semester - Basis Data. Waktu tersisa: 45 Menit.</p>
+              <p className="text-purple-100 text-sm">Lihat daftar jadwal ujian online dan mulai mengerjakan.</p>
             </div>
-            <button className="px-4 py-2 bg-white text-purple-600 rounded-lg font-bold text-sm hover:scale-105 transition-transform shadow-sm">
-              Lanjutkan
-            </button>
+            <Link
+              href="/portal/siswa/cbt"
+              className="px-4 py-2 bg-white text-purple-600 rounded-lg font-bold text-sm hover:scale-105 transition-transform shadow-sm"
+            >
+              Buka CBT
+            </Link>
           </div>
           
           <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6 rounded-2xl text-white flex items-center justify-between shadow-lg shadow-green-500/30">

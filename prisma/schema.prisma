@@ -184,3 +184,83 @@ model UploadedFile {
   fileData  String   @db.Text
   createdAt DateTime @default(now())
 }
+
+model Exam {
+  id               String         @id @default(cuid())
+  title            String
+  subject          String
+  classTarget      String         @default("Semua Kelas")
+  duration         Int            @default(60) // dalam menit
+  token            String?        // Token masuk ujian, misal "SMK2026"
+  description      String?        @db.Text
+  status           String         @default("PUBLISHED") // DRAFT, PUBLISHED, ARCHIVED
+  shuffleQuestions Boolean        @default(true)
+  authorName       String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  questions        ExamQuestion[]
+  attempts         ExamAttempt[]
+}
+
+model ExamQuestion {
+  id            String   @id @default(cuid())
+  examId        String
+  exam          Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  questionText  String   @db.Text
+  options       String   @db.Text // JSON string: ["Pilihan A", "Pilihan B", "Pilihan C", "Pilihan D"]
+  correctAnswer String   // Index opsi yang benar: "0", "1", "2", "3"
+  points        Int      @default(10)
+  order         Int      @default(0)
+  createdAt     DateTime @default(now())
+}
+
+model ExamAttempt {
+  id             String    @id @default(cuid())
+  examId         String
+  exam           Exam      @relation(fields: [examId], references: [id], onDelete: Cascade)
+  studentName    String
+  studentNis     String?
+  studentClass   String?
+  answers        String    @default("{}") @db.Text // JSON string: { "questionId": "0" }
+  score          Float     @default(0)
+  totalQuestions Int       @default(0)
+  totalCorrect   Int       @default(0)
+  status         String    @default("IN_PROGRESS") // IN_PROGRESS, SUBMITTED
+  tabSwitchCount Int       @default(0) // Anti-curang hitung buka tab lain
+  startedAt      DateTime  @default(now())
+  submittedAt    DateTime?
+}
+
+model Assignment {
+  id          String                 @id @default(cuid())
+  title       String
+  subject     String
+  classTarget String                 @default("Semua Kelas")
+  description String                 @db.Text
+  deadline    DateTime
+  fileUrl     String?                // Dokumen/lampiran instruksi tugas
+  status      String                 @default("ACTIVE") // ACTIVE, CLOSED
+  authorName  String?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  submissions AssignmentSubmission[]
+}
+
+model AssignmentSubmission {
+  id           String     @id @default(cuid())
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentName  String
+  studentNis   String?
+  studentClass String?
+  notes        String?    @db.Text
+  fileUrl      String?    @db.Text // Link / file upload hasil tugas
+  fileName     String?
+  submittedAt  DateTime   @default(now())
+  grade        Float?
+  feedback     String?    @db.Text
+  status       String     @default("SUBMITTED") // SUBMITTED, GRADED, LATE
+}
+

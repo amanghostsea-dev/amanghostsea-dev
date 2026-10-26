@@ -1,4 +1,4 @@
-import { Calendar, Users, FileText, CheckSquare, Clock, BookOpen, LogOut } from "lucide-react";
+import { Calendar, Users, FileText, CheckSquare, Clock, BookOpen, LogOut, MonitorPlay } from "lucide-react";
 import Link from "next/link";
 
 export default function PortalGuru() {
@@ -25,11 +25,14 @@ export default function PortalGuru() {
           <Link href="/portal/guru" className="flex items-center gap-3 px-4 py-3 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-xl font-medium">
             <Calendar size={20} /> Jadwal Mengajar
           </Link>
+          <Link href="/admin/cbt" className="flex items-center gap-3 px-4 py-3 text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 rounded-xl font-medium transition-colors">
+            <MonitorPlay size={20} /> Smart CBT (Ujian)
+          </Link>
+          <Link href="/admin/tugas" className="flex items-center gap-3 px-4 py-3 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 rounded-xl font-medium transition-colors">
+            <FileText size={20} /> Tugas Siswa
+          </Link>
           <a href="#" className="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl font-medium transition-colors">
             <Users size={20} /> Kelas & Siswa
-          </a>
-          <a href="#" className="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl font-medium transition-colors">
-            <FileText size={20} /> Input Nilai e-Rapor
           </a>
           <a href="#" className="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl font-medium transition-colors">
             <CheckSquare size={20} /> Presensi Siswa

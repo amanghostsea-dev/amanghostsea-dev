@@ -1,5 +1,5 @@
 'use client';
-import { Users, Settings, Database, Activity, LogOut, BookOpen, Network, LayoutDashboard, TrendingUp, Briefcase, ExternalLink, CheckSquare, Banknote } from 'lucide-react';
+import { Users, Settings, Database, Activity, LogOut, BookOpen, Network, LayoutDashboard, TrendingUp, Briefcase, ExternalLink, CheckSquare, Banknote, MonitorPlay, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import SchoolLogo from '@/components/SchoolLogo';
@@ -23,6 +23,8 @@ export default function AdminSidebar({ logoUrl, userRole = 'Super Admin', userNa
 
   const superAdminMenuItems = [
     { name: 'Dashboard Utama', path: '/admin', icon: <Activity size={20} /> },
+    { name: 'Ujian Online (CBT)', path: '/admin/cbt', icon: <MonitorPlay size={20} /> },
+    { name: 'Tugas Siswa', path: '/admin/tugas', icon: <FileText size={20} /> },
     { name: 'Modul PPDB', path: '/admin/ppdb', icon: <Database size={20} /> },
     { name: 'Rincian Biaya PPDB', path: '/admin/settings/biaya-ppdb', icon: <Banknote size={20} /> },
     { name: 'BKK Lowongan', path: '/admin/bkk/jobs', icon: <Briefcase size={20} /> },
