@@ -251,7 +251,7 @@ export default function ModernHeroSection({
   const currentMajor = displayJurusans[selectedMajorIndex] || displayJurusans[0];
 
   return (
-    <section className="relative pt-16 pb-8 sm:pt-18 sm:pb-10 lg:pt-20 lg:pb-12 overflow-hidden bg-gradient-to-b from-slate-50 via-blue-50/40 to-white dark:from-gray-950 dark:via-blue-950/20 dark:to-gray-950">
+    <section className="relative pt-24 pb-8 sm:pt-28 sm:pb-10 lg:pt-32 lg:pb-12 overflow-hidden bg-gradient-to-b from-slate-50 via-blue-50/40 to-white dark:from-gray-950 dark:via-blue-950/20 dark:to-gray-950">
       {/* 1. Cyber Ambient Atmosphere & Grid Background */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <div 

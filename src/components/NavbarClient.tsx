@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { ChevronDown, Menu, X, Briefcase, Sparkles, GraduationCap, Building2, MonitorPlay } from 'lucide-react';
 import SchoolLogo from '@/components/SchoolLogo';
-import ExamAlertBanner from './ExamAlertBanner';
 
 export default function NavbarClient(props: { settings?: any }) {
   const settings = props.settings || { schoolName: 'SMK GaMa', logoUrl: null };
@@ -38,15 +37,7 @@ export default function NavbarClient(props: { settings?: any }) {
   }, []);
 
   return (
-    <header className="fixed w-full z-50 top-0 pointer-events-none">
-      <div className="pointer-events-auto">
-        <ExamAlertBanner />
-      </div>
-      <nav className={`pointer-events-auto w-full transition-all duration-300 border-b ${
-        isScrolled 
-          ? 'bg-white/95 dark:bg-gray-950/95 backdrop-blur-md border-gray-200 dark:border-gray-800 shadow-sm py-1.5 sm:py-2' 
-          : 'bg-transparent border-transparent py-2 sm:py-3'
-      }`}>
+    <nav className="fixed w-full z-50 top-0 transition-all duration-300 bg-white/95 dark:bg-gray-950/95 backdrop-blur-md border-b border-gray-200/80 dark:border-gray-800/80 shadow-xs py-2 sm:py-2.5">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-14 sm:h-16 items-center">
           <Link href="/" className="flex items-center gap-3 group cursor-pointer">
@@ -201,25 +192,10 @@ export default function NavbarClient(props: { settings?: any }) {
             </div>
 
             <Link href="/portofolio" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors whitespace-nowrap">Karya Siswa</Link>
-            <Link href="/ppdb" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors whitespace-nowrap">PPDB</Link>
             <Link href="/login" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors whitespace-nowrap">Login Portal</Link>
           </div>
 
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            {/* Tombol Ujian CBT - Selalu Akses Cepat */}
-            <Link 
-              href="/ujian" 
-              className="relative inline-flex items-center gap-1.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-700 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-bold text-xs sm:text-sm transition-all shadow-md shadow-purple-500/25 hover:shadow-purple-500/40 hover:-translate-y-0.5 active:scale-95 border border-purple-400/30"
-              title="Masuk Ruang Ujian Siswa (Smart CBT)"
-            >
-              <MonitorPlay size={15} className="shrink-0" />
-              <span>CBT Ujian</span>
-              <span className="flex h-2 w-2 relative shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
-              </span>
-            </Link>
-
+          <div className="flex items-center gap-3">
             <Link href="/ppdb" className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-full font-bold text-sm transition-all shadow-md hover:shadow-lg hidden sm:flex items-center gap-2 hover:-translate-y-0.5">
               Daftar PPDB
             </Link>
@@ -335,7 +311,6 @@ export default function NavbarClient(props: { settings?: any }) {
         </div>
       )}
     </nav>
-    </header>
   );
 }
 
