@@ -48,7 +48,7 @@ export default function NavbarClient(props: { settings?: any }) {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex space-x-5 lg:space-x-7 items-center">
+          <div className="hidden md:flex space-x-3.5 lg:space-x-5 xl:space-x-6 items-center text-[13px] lg:text-sm">
             <Link href="/" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors whitespace-nowrap">Beranda</Link>
             
             {/* Dropdown Profil */}
@@ -192,6 +192,19 @@ export default function NavbarClient(props: { settings?: any }) {
             </div>
 
             <Link href="/portofolio" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors whitespace-nowrap">Karya Siswa</Link>
+
+            {/* Fitur Menu Ujian CBT */}
+            <Link 
+              href="/ujian" 
+              className="flex items-center gap-1.5 text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 font-medium transition-colors whitespace-nowrap py-2 group cursor-pointer"
+            >
+              <MonitorPlay size={15} className="text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform" />
+              <span>Ujian CBT</span>
+              <span className="bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full uppercase tracking-wider border border-purple-200/50 dark:border-purple-800/50">
+                Online
+              </span>
+            </Link>
+
             <Link href="/login" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors whitespace-nowrap">Login Portal</Link>
           </div>
 
@@ -292,6 +305,16 @@ export default function NavbarClient(props: { settings?: any }) {
               className="block px-3 py-2 text-sm text-gray-800 dark:text-gray-200"
             >
               Karya & Portofolio Siswa
+            </Link>
+            <Link 
+              href="/ujian" 
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center justify-between px-3 py-2 text-sm text-purple-600 dark:text-purple-400 font-bold hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-xl"
+            >
+              <span>Ujian Online (Smart CBT)</span>
+              <span className="text-[10px] bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 font-extrabold px-2 py-0.5 rounded-full">
+                CBT
+              </span>
             </Link>
             <Link 
               href="/ppdb" 
