@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { ArrowRight, BookOpen, Calendar, GraduationCap, LayoutDashboard, Users, Trophy, Newspaper, Code, Monitor, Camera, Briefcase, MapPin, Phone, Mail, Globe, MessageCircle, Video, CheckCircle } from "lucide-react";
+import { ArrowRight, BookOpen, Calendar, GraduationCap, LayoutDashboard, Users, Trophy, Newspaper, Code, Monitor, Camera, Briefcase, MapPin, Phone, Mail, Globe, MessageCircle, Video, CheckCircle, MonitorPlay } from "lucide-react";
 import Link from "next/link";
 import SchoolLogo from "@/components/SchoolLogo";
 import Navbar from "@/components/Navbar";
@@ -59,60 +59,87 @@ export default async function Home() {
               <div className="w-20 h-1 bg-blue-600 mx-auto rounded-full"></div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {/* PPDB Card */}
-              <div className="group p-8 rounded-3xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-blue-500 hover:shadow-2xl transition-all duration-300 cursor-pointer animate-slide-up delay-100">
-                <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                  <GraduationCap size={32} />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+              {/* CBT Exam Card (NEW) */}
+              <div className="group p-7 rounded-3xl bg-gradient-to-b from-purple-50/50 to-white dark:from-purple-950/20 dark:to-gray-800 border-2 border-purple-200 dark:border-purple-800/60 hover:border-purple-500 hover:shadow-2xl transition-all duration-300 cursor-pointer animate-slide-up relative overflow-hidden flex flex-col justify-between">
+                <div className="absolute top-4 right-4 bg-purple-600 text-white text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full tracking-wider shadow-sm animate-pulse">
+                  CBT Aktif
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">PPDB Online</h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6 line-clamp-3">
-                  Sistem pendaftaran peserta didik baru terpadu. Proses mudah, transparan, dan dapat diakses dari mana saja.
-                </p>
-                <Link href="/ppdb" className="flex items-center text-blue-600 dark:text-blue-400 font-semibold group-hover:translate-x-2 transition-transform">
-                  Buka Portal <ArrowRight size={18} className="ml-2" />
+                <div>
+                  <div className="w-14 h-14 bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition-transform shadow-sm">
+                    <MonitorPlay size={28} />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Smart CBT Ujian</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6 text-xs leading-relaxed">
+                    Ruang ujian digital responsif dengan token cepat, timer otomatis, pencegahan kecurangan, dan auto-save jawaban.
+                  </p>
+                </div>
+                <Link href="/ujian" className="flex items-center text-purple-600 dark:text-purple-400 font-bold text-sm group-hover:translate-x-2 transition-transform mt-auto">
+                  Masuk Ujian <ArrowRight size={16} className="ml-1.5" />
+                </Link>
+              </div>
+
+              {/* PPDB Card */}
+              <div className="group p-7 rounded-3xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-blue-500 hover:shadow-2xl transition-all duration-300 cursor-pointer animate-slide-up delay-100 flex flex-col justify-between">
+                <div>
+                  <div className="w-14 h-14 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
+                    <GraduationCap size={28} />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">PPDB Online</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6 text-xs leading-relaxed">
+                    Sistem pendaftaran peserta didik baru terpadu. Proses mudah, transparan, dan dapat diakses dari mana saja.
+                  </p>
+                </div>
+                <Link href="/ppdb" className="flex items-center text-blue-600 dark:text-blue-400 font-bold text-sm group-hover:translate-x-2 transition-transform mt-auto">
+                  Buka Portal <ArrowRight size={16} className="ml-1.5" />
                 </Link>
               </div>
 
               {/* Portal Siswa & Guru */}
-              <div className="group p-8 rounded-3xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-indigo-500 hover:shadow-2xl transition-all duration-300 cursor-pointer animate-slide-up delay-200">
-                <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                  <LayoutDashboard size={32} />
+              <div className="group p-7 rounded-3xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-indigo-500 hover:shadow-2xl transition-all duration-300 cursor-pointer animate-slide-up delay-200 flex flex-col justify-between">
+                <div>
+                  <div className="w-14 h-14 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
+                    <LayoutDashboard size={28} />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Portal Akademik</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6 text-xs leading-relaxed">
+                    Akses jadwal pelajaran, transkrip nilai, e-learning, tugas siswa, dan absensi khusus siswa dan guru.
+                  </p>
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">Portal Akademik</h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6 line-clamp-3">
-                  Akses jadwal pelajaran, transkrip nilai, e-learning, dan absensi khusus untuk siswa dan guru.
-                </p>
-                <Link href="/login" className="flex items-center text-indigo-600 dark:text-indigo-400 font-semibold group-hover:translate-x-2 transition-transform">
-                  Login Sistem <ArrowRight size={18} className="ml-2" />
+                <Link href="/login" className="flex items-center text-indigo-600 dark:text-indigo-400 font-bold text-sm group-hover:translate-x-2 transition-transform mt-auto">
+                  Login Sistem <ArrowRight size={16} className="ml-1.5" />
                 </Link>
               </div>
 
               {/* Berita */}
-              <div className="group p-8 rounded-3xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-amber-500 hover:shadow-2xl transition-all duration-300 cursor-pointer animate-slide-up delay-300">
-                <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                  <Newspaper size={32} />
+              <div className="group p-7 rounded-3xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-amber-500 hover:shadow-2xl transition-all duration-300 cursor-pointer animate-slide-up delay-300 flex flex-col justify-between">
+                <div>
+                  <div className="w-14 h-14 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
+                    <Newspaper size={28} />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Berita & Info</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6 text-xs leading-relaxed">
+                    Pengumuman resmi, kegiatan ekstrakurikuler, dan update agenda terkini dari lingkungan sekolah.
+                  </p>
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">Berita & Informasi</h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6 line-clamp-3">
-                  Pengumuman resmi, kegiatan ekstrakurikuler, dan update berita terkini dari lingkungan sekolah.
-                </p>
-                <Link href="/berita" className="flex items-center text-amber-600 dark:text-amber-400 font-semibold group-hover:translate-x-2 transition-transform">
-                  Baca Berita <ArrowRight size={18} className="ml-2" />
+                <Link href="/berita" className="flex items-center text-amber-600 dark:text-amber-400 font-bold text-sm group-hover:translate-x-2 transition-transform mt-auto">
+                  Baca Berita <ArrowRight size={16} className="ml-1.5" />
                 </Link>
               </div>
 
               {/* Prestasi & Galeri */}
-              <div className="group p-8 rounded-3xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-emerald-500 hover:shadow-2xl transition-all duration-300 cursor-pointer animate-slide-up delay-400">
-                <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                  <Trophy size={32} />
+              <div className="group p-7 rounded-3xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-emerald-500 hover:shadow-2xl transition-all duration-300 cursor-pointer animate-slide-up delay-400 flex flex-col justify-between">
+                <div>
+                  <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
+                    <Trophy size={28} />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Galeri Prestasi</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6 text-xs leading-relaxed">
+                    Dokumentasi kegiatan siswa, fasilitas lab kejuruan, dan capaian prestasi tingkat nasional & industri.
+                  </p>
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">Galeri Prestasi</h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6 line-clamp-3">
-                  Dokumentasi kegiatan siswa, fasilitas sekolah, dan capaian prestasi tingkat nasional maupun internasional.
-                </p>
-                <Link href="/berita" className="flex items-center text-emerald-600 dark:text-emerald-400 font-semibold group-hover:translate-x-2 transition-transform">
-                  Lihat Galeri <ArrowRight size={18} className="ml-2" />
+                <Link href="/berita" className="flex items-center text-emerald-600 dark:text-emerald-400 font-bold text-sm group-hover:translate-x-2 transition-transform mt-auto">
+                  Lihat Galeri <ArrowRight size={16} className="ml-1.5" />
                 </Link>
               </div>
             </div>
