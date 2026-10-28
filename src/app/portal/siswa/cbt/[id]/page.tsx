@@ -8,7 +8,26 @@ export const dynamic = 'force-dynamic';
 export default async function SiswaExamRoomPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const cookieStore = await cookies();
-  const studentName = cookieStore.get('auth_name')?.value || 'Budi Santoso';
+  const authName = cookieStore.get('auth_name')?.value;
+  const authUser = cookieStore.get('auth_user')?.value;
+
+  let studentName = authName;
+  if (!studentName && authUser) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { username: authUser },
+      });
+      if (user) {
+        studentName = user.name;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  if (!studentName) {
+    studentName = 'Siswa SMK';
+  }
 
   const exam = await prisma.exam.findUnique({
     where: { id },

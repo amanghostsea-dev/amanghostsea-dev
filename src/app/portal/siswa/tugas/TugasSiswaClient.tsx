@@ -95,6 +95,13 @@ export default function TugasSiswaClient({
     setLoading(false);
   };
 
+  const initials = studentName
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase())
+    .join('') || 'S';
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans p-6 md:p-10">
       <div className="max-w-6xl mx-auto space-y-8">
@@ -119,7 +126,7 @@ export default function TugasSiswaClient({
           </div>
           <div className="flex items-center gap-3 bg-white dark:bg-slate-900 px-4 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
             <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-bold flex items-center justify-center text-xs">
-              BS
+              {initials}
             </div>
             <div>
               <div className="text-xs font-bold text-slate-900 dark:text-white">{studentName}</div>

@@ -46,5 +46,6 @@ export async function logoutAction() {
   const cookieStore = await cookies();
   cookieStore.delete('auth_token');
   cookieStore.delete('auth_user');
+  cookieStore.delete('auth_name');
   redirect('/login');
 }

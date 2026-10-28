@@ -17,7 +17,24 @@ export const dynamic = 'force-dynamic';
 
 export default async function SiswaCbtListPage() {
   const cookieStore = await cookies();
-  const studentName = cookieStore.get('auth_name')?.value || 'Budi Santoso';
+  const authName = cookieStore.get('auth_name')?.value;
+  const authUser = cookieStore.get('auth_user')?.value;
+
+  let studentName = authName;
+  if (!studentName && authUser) {
+    try {
+      const user = await prisma.user.findUnique({ where: { username: authUser } });
+      if (user) studentName = user.name;
+    } catch {}
+  }
+  if (!studentName) studentName = 'Siswa SMK';
+
+  const initials = studentName
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase())
+    .join('') || 'SW';
 
   const exams = await prisma.exam.findMany({
     where: {
@@ -62,7 +79,7 @@ export default async function SiswaCbtListPage() {
           </div>
           <div className="flex items-center gap-3 bg-white dark:bg-slate-900 px-4 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
             <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 font-bold flex items-center justify-center text-xs">
-              BS
+              {initials}
             </div>
             <div>
               <div className="text-xs font-bold text-slate-900 dark:text-white">{studentName}</div>

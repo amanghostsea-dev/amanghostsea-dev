@@ -1,7 +1,25 @@
 import { Calendar, Users, FileText, CheckSquare, Clock, BookOpen, LogOut, MonitorPlay } from "lucide-react";
 import Link from "next/link";
+import { cookies } from "next/headers";
+import prisma from "@/lib/prisma";
+import { logoutAction } from "@/app/login/actions";
 
-export default function PortalGuru() {
+export const dynamic = 'force-dynamic';
+
+export default async function PortalGuru() {
+  const cookieStore = await cookies();
+  const authName = cookieStore.get('auth_name')?.value;
+  const authUser = cookieStore.get('auth_user')?.value;
+
+  let teacherName = authName;
+  if (authUser) {
+    try {
+      const user = await prisma.user.findUnique({ where: { username: authUser } });
+      if (user) teacherName = user.name;
+    } catch {}
+  }
+  if (!teacherName) teacherName = 'Bpk. Ahmad ST';
+
   const classes = [
     { name: 'XI RPL 1', subject: 'Pemrograman Web', students: 32, status: 'Sedang Berlangsung' },
     { name: 'XI RPL 2', subject: 'Pemrograman Web', students: 34, status: 'Menunggu (10:15)' },
@@ -39,9 +57,11 @@ export default function PortalGuru() {
           </a>
         </div>
         <div className="p-4 border-t border-gray-200 dark:border-gray-800">
-          <Link href="/" className="flex items-center gap-3 px-4 py-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl font-medium transition-colors">
-            <LogOut size={20} /> Keluar
-          </Link>
+          <form action={logoutAction}>
+            <button type="submit" className="w-full flex items-center gap-3 px-4 py-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl font-medium transition-colors">
+              <LogOut size={20} /> Keluar
+            </button>
+          </form>
         </div>
       </aside>
 
@@ -50,7 +70,7 @@ export default function PortalGuru() {
         
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Selamat Pagi, Bpk. Ahmad ST!</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Selamat Datang, {teacherName}! 👋</h1>
             <p className="text-gray-500 dark:text-gray-400">Guru Produktif Rekayasa Perangkat Lunak</p>
           </div>
           <div className="bg-amber-100 text-amber-700 px-4 py-2 rounded-full font-semibold text-sm border border-amber-200">

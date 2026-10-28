@@ -1,7 +1,43 @@
 import { BookOpen, Calendar, Clock, GraduationCap, LayoutDashboard, FileText, Bell, LogOut, User, MapPin, MonitorPlay, QrCode } from "lucide-react";
 import Link from "next/link";
+import { cookies } from "next/headers";
+import prisma from "@/lib/prisma";
+import { logoutAction } from "@/app/login/actions";
 
-export default function PortalSiswa() {
+export const dynamic = 'force-dynamic';
+
+export default async function PortalSiswa() {
+  const cookieStore = await cookies();
+  const authName = cookieStore.get('auth_name')?.value;
+  const authUser = cookieStore.get('auth_user')?.value;
+
+  let studentName = authName;
+  let studentNis = authUser || '10293847';
+
+  if (authUser) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { username: authUser },
+      });
+      if (user) {
+        studentName = user.name;
+        studentNis = user.username;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  if (!studentName) {
+    studentName = 'Siswa SMK';
+  }
+
+  const initials = studentName
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase())
+    .join('') || 'S';
   const schedule = [
     { day: 'Senin', subject: 'Pemrograman Web', time: '07:30 - 10:00', teacher: 'Bpk. Ahmad ST', room: 'Lab Komputer 1' },
     { day: 'Senin', subject: 'Matematika', time: '10:15 - 12:30', teacher: 'Ibu Siti S.Pd', room: 'Ruang 12A' },
@@ -23,8 +59,8 @@ export default function PortalSiswa() {
       <aside className="w-full md:w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col hidden md:flex h-screen sticky top-0">
         <div className="p-6 border-b border-gray-200 dark:border-gray-800">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
-              S
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xs">
+              {initials}
             </div>
             <span className="font-bold text-xl text-gray-900 dark:text-white">Portal Siswa</span>
           </div>
@@ -50,9 +86,11 @@ export default function PortalSiswa() {
           </a>
         </div>
         <div className="p-4 border-t border-gray-200 dark:border-gray-800">
-          <Link href="/" className="flex items-center gap-3 px-4 py-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl font-medium transition-colors">
-            <LogOut size={20} /> Keluar
-          </Link>
+          <form action={logoutAction}>
+            <button type="submit" className="w-full flex items-center gap-3 px-4 py-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl font-medium transition-colors">
+              <LogOut size={20} /> Keluar
+            </button>
+          </form>
         </div>
       </aside>
 
@@ -62,12 +100,14 @@ export default function PortalSiswa() {
         {/* Top Navbar Mobile */}
         <div className="md:hidden flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm mb-6 border border-gray-100">
           <div className="font-bold text-lg">Portal Siswa</div>
-          <Link href="/"><LogOut size={20} className="text-red-500" /></Link>
+          <form action={logoutAction}>
+            <button type="submit" title="Keluar"><LogOut size={20} className="text-red-500" /></button>
+          </form>
         </div>
 
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Halo, Budi Santoso! 👋</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Halo, {studentName}! 👋</h1>
             <p className="text-gray-500 dark:text-gray-400">Kelas XI - Rekayasa Perangkat Lunak 1 (XI-RPL 1)</p>
           </div>
           <div className="flex items-center gap-4">
@@ -76,10 +116,10 @@ export default function PortalSiswa() {
               <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-900"></span>
             </button>
             <div className="flex items-center gap-3 bg-white dark:bg-gray-900 p-2 pr-4 rounded-full border border-gray-200 dark:border-gray-800 shadow-sm">
-              <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
-                <User size={18} />
+              <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-xs">
+                {initials}
               </div>
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">NIS: 10293847</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">NIS / Akun: {studentNis}</span>
             </div>
           </div>
         </div>
