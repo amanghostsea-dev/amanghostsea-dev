@@ -17,6 +17,7 @@ model User {
   password  String
   role      String   @default("Siswa") // Super Admin, Panitia PPDB, Guru, Siswa
   status    String   @default("Aktif") // Aktif, Nonaktif
+  nisn      String?  @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

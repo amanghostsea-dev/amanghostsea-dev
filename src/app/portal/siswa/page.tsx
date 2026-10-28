@@ -16,12 +16,17 @@ export default async function PortalSiswa() {
 
   if (authUser) {
     try {
-      const user = await prisma.user.findUnique({
-        where: { username: authUser },
+      const user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { username: authUser },
+            { nisn: authUser }
+          ]
+        },
       });
       if (user) {
         studentName = user.name;
-        studentNis = user.username;
+        studentNis = user.nisn || user.username;
       }
     } catch (e) {
       console.error(e);

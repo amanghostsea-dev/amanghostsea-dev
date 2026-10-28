@@ -14,8 +14,13 @@ export default async function SiswaExamRoomPage({ params }: { params: Promise<{ 
   let studentName = authName;
   if (!studentName && authUser) {
     try {
-      const user = await prisma.user.findUnique({
-        where: { username: authUser },
+      const user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { username: authUser },
+            { nisn: authUser }
+          ]
+        }
       });
       if (user) {
         studentName = user.name;
