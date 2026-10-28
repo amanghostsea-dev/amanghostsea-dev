@@ -3,6 +3,33 @@
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
+export async function toggleExamSession(id: string, openSession: boolean, customToken?: string) {
+  try {
+    let token = customToken?.trim().toUpperCase();
+    if (openSession && !token) {
+      const current = await prisma.exam.findUnique({ where: { id } });
+      token = current?.token || 'CBT' + Math.floor(100 + Math.random() * 900);
+    }
+
+    const updated = await prisma.exam.update({
+      where: { id },
+      data: {
+        status: openSession ? 'ACTIVE' : 'PUBLISHED',
+        ...(token ? { token } : {}),
+      },
+    });
+
+    revalidatePath('/admin/cbt');
+    revalidatePath(`/admin/cbt/${id}`);
+    revalidatePath('/portal/siswa/cbt');
+    revalidatePath(`/portal/siswa/cbt/${id}`);
+    revalidatePath('/ujian');
+    return { success: true, data: updated };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
 export async function createExam(data: {
   title: string;
   subject: string;

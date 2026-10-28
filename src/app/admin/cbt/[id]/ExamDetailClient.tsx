@@ -14,10 +14,17 @@ import {
   Clock, 
   Key, 
   HelpCircle,
-  ExternalLink
+  ExternalLink,
+  Copy,
+  Check,
+  Radio,
+  Play,
+  Square,
+  Wifi,
+  RefreshCw
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
-import { createQuestion, deleteQuestion, deleteAttempt } from '../actions';
+import { createQuestion, deleteQuestion, deleteAttempt, toggleExamSession } from '../actions';
 
 interface QuestionItem {
   id: string;
@@ -64,6 +71,31 @@ export default function ExamDetailClient({ exam }: ExamDetailProps) {
   const [activeTab, setActiveTab] = useState<'questions' | 'results'>('questions');
   const [questions, setQuestions] = useState(exam.questions);
   const [attempts, setAttempts] = useState(exam.attempts);
+
+  // Session Dual-Key state
+  const [examStatus, setExamStatus] = useState(exam.status || 'PUBLISHED');
+  const [examToken, setExamToken] = useState(exam.token || '');
+  const [togglingSession, setTogglingSession] = useState(false);
+  const [copiedToken, setCopiedToken] = useState(false);
+
+  const handleToggleSession = async (open: boolean) => {
+    setTogglingSession(true);
+    const res = await toggleExamSession(exam.id, open, examToken);
+    if (res.success && res.data) {
+      setExamStatus(res.data.status);
+      if (res.data.token) setExamToken(res.data.token);
+    } else {
+      alert(res.error || 'Gagal mengubah status sesi ujian.');
+    }
+    setTogglingSession(false);
+  };
+
+  const handleCopyToken = () => {
+    if (!examToken) return;
+    navigator.clipboard.writeText(examToken);
+    setCopiedToken(true);
+    setTimeout(() => setCopiedToken(false), 2000);
+  };
 
   // Modal Create Question
   const [isAddQuestionModal, setIsAddQuestionModal] = useState(false);
@@ -181,6 +213,110 @@ export default function ExamDetailClient({ exam }: ExamDetailProps) {
             >
               <ExternalLink size={16} /> Buka Ruang Ujian
             </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* 🌟 PROCTOR SESSION CONTROL CONSOLE (DUAL-KEY EXAM RELEASE) */}
+      <div className={`p-6 rounded-3xl border transition-all shadow-sm ${
+        examStatus === 'ACTIVE'
+          ? 'bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-emerald-500/5 border-emerald-500/30 dark:border-emerald-500/20'
+          : 'bg-amber-500/10 border-amber-500/30 dark:border-amber-500/20'
+      }`}>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="flex h-3 w-3 relative">
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                  examStatus === 'ACTIVE' ? 'bg-emerald-400' : 'bg-amber-400'
+                }`}></span>
+                <span className={`relative inline-flex rounded-full h-3 w-3 ${
+                  examStatus === 'ACTIVE' ? 'bg-emerald-500' : 'bg-amber-500'
+                }`}></span>
+              </span>
+              <span className={`text-xs font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
+                examStatus === 'ACTIVE'
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-amber-500/20 text-amber-800 dark:text-amber-200 border border-amber-500/30'
+              }`}>
+                {examStatus === 'ACTIVE' ? 'Sesi Ujian Aktif (Live)' : 'Ruang Tunggu Siswa (Standby)'}
+              </span>
+              <span className="text-xs text-slate-500">
+                • Target: <strong>{exam.classTarget}</strong>
+              </span>
+            </div>
+
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+              {examStatus === 'ACTIVE'
+                ? 'Sesi Ujian Sedang Berlangsung di Kelas'
+                : 'Sesi Ujian Masih Ditutup (Siswa Berada di Ruang Tunggu)'}
+            </h3>
+            
+            <p className="text-xs text-slate-600 dark:text-slate-400 max-w-2xl leading-relaxed">
+              {examStatus === 'ACTIVE'
+                ? 'Siswa di dalam kelas dapat memasukkan token di samping ini untuk mulai mengerjakan soal. Siswa di luar kelas atau di rumah tidak akan bisa mengerjakan jika tidak mengetahui token fisik ini.'
+                : 'Siswa yang mengakses ujian saat ini berada di Ruang Tunggu dan belum bisa mengakses soal atau memasukkan token. Buka sesi ketika jam ujian dimulai di kelas.'}
+            </p>
+          </div>
+
+          {/* Right Action / Token Display */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+            {examStatus === 'ACTIVE' ? (
+              <>
+                {/* Big Whiteboard Token Card */}
+                <div className="bg-white dark:bg-slate-900 border-2 border-emerald-500 rounded-2xl p-3 px-5 text-center shadow-md">
+                  <div className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">
+                    Token Papan Tulis Kelas
+                  </div>
+                  <div className="flex items-center justify-center gap-2 mt-1">
+                    <span className="text-2xl font-black font-mono tracking-widest text-slate-900 dark:text-white">
+                      {examToken || 'RPL2026'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopyToken}
+                      title="Salin Token"
+                      className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-500 hover:text-emerald-600 transition cursor-pointer"
+                    >
+                      {copiedToken ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleToggleSession(false)}
+                  disabled={togglingSession}
+                  className="px-5 py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <Square size={14} className="fill-white" />
+                  <span>{togglingSession ? 'Menutup...' : 'Tutup Sesi Ujian'}</span>
+                </button>
+              </>
+            ) : (
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="relative">
+                  <Key size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Token Ujian (Opsional)"
+                    value={examToken}
+                    onChange={(e) => setExamToken(e.target.value.toUpperCase())}
+                    className="w-full sm:w-44 pl-8 pr-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono font-bold uppercase tracking-wider text-center"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleToggleSession(true)}
+                  disabled={togglingSession}
+                  className="px-5 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs shadow-md shadow-emerald-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <Play size={14} className="fill-white" />
+                  <span>{togglingSession ? 'Membuka Sesi...' : 'Buka Sesi Ujian & Tampilkan Token'}</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

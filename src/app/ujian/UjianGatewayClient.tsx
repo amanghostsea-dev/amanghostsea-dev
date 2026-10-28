@@ -27,6 +27,7 @@ interface ExamItem {
   duration: number;
   token: string | null;
   description: string | null;
+  status?: string;
   _count: {
     questions: number;
   };
@@ -218,13 +219,13 @@ export default function UjianGatewayClient({
                       <span className="text-[11px] font-extrabold uppercase px-2.5 py-0.5 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20">
                         {exam.subject}
                       </span>
-                      {exam.token ? (
-                        <span className="text-[10px] text-amber-400 flex items-center gap-1 font-mono">
-                          <Key size={11} /> Token Diperlukan
+                      {exam.status === 'ACTIVE' ? (
+                        <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-semibold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Sesi Dibuka
                         </span>
                       ) : (
-                        <span className="text-[10px] text-emerald-400">
-                          Bebas Token
+                        <span className="text-[10px] text-amber-400 flex items-center gap-1 font-semibold">
+                          <Clock size={11} /> Ruang Tunggu
                         </span>
                       )}
                     </div>

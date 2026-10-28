@@ -3,6 +3,27 @@
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
+export async function getExamSessionStatus(examId: string) {
+  try {
+    const exam = await prisma.exam.findUnique({
+      where: { id: examId },
+      select: {
+        id: true,
+        status: true,
+        title: true,
+        token: true,
+      },
+    });
+    return {
+      status: exam?.status || 'UNKNOWN',
+      isSessionOpen: exam?.status === 'ACTIVE',
+      hasToken: Boolean(exam?.token),
+    };
+  } catch (error) {
+    return { status: 'ERROR', isSessionOpen: false, hasToken: false };
+  }
+}
+
 export async function startOrResumeAttempt(data: {
   examId: string;
   studentName: string;
@@ -24,8 +45,18 @@ export async function startOrResumeAttempt(data: {
       return { error: 'Ujian tidak ditemukan.' };
     }
 
-    if (exam.status !== 'PUBLISHED') {
-      return { error: 'Ujian belum aktif atau sudah ditutup oleh guru.' };
+    if (exam.status === 'DRAFT') {
+      return { error: 'Paket ujian masih dalam tahap penyusunan oleh guru.' };
+    }
+
+    if (exam.status === 'CLOSED' || exam.status === 'ARCHIVED') {
+      return { error: 'Sesi ujian telah resmi ditutup oleh guru pengawas.' };
+    }
+
+    if (exam.status !== 'ACTIVE') {
+      return { 
+        error: 'Sesi ujian kelas ini belum dibuka oleh pengawas di kelas. Harap tunggu di Ruang Tunggu.' 
+      };
     }
 
     // Verify token if required

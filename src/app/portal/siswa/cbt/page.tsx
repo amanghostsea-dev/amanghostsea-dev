@@ -21,7 +21,7 @@ export default async function SiswaCbtListPage() {
 
   const exams = await prisma.exam.findMany({
     where: {
-      status: 'PUBLISHED',
+      status: { in: ['PUBLISHED', 'ACTIVE'] },
     },
     include: {
       _count: {
@@ -104,9 +104,13 @@ export default async function SiswaCbtListPage() {
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 animate-pulse">
                           Sedang Berjalan
                         </span>
+                      ) : exam.status === 'ACTIVE' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Sesi Dibuka
+                        </span>
                       ) : (
-                        <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                          Belum Dikerjakan
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                          <Clock size={11} /> Ruang Tunggu
                         </span>
                       )}
                     </div>
@@ -162,9 +166,17 @@ export default async function SiswaCbtListPage() {
                     ) : (
                       <Link
                         href={`/portal/siswa/cbt/${exam.id}`}
-                        className="w-full block text-center py-2.5 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs shadow-md shadow-purple-500/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                        className={`w-full block text-center py-2.5 px-4 rounded-xl font-bold text-xs transition-all hover:scale-[1.02] active:scale-[0.98] ${
+                          exam.status === 'ACTIVE'
+                            ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md shadow-emerald-500/25'
+                            : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md shadow-purple-500/25'
+                        }`}
                       >
-                        {isInProgress ? 'Lanjutkan Pengerjaan Ujian' : 'Mulai Masuk Ujian'}
+                        {isInProgress
+                          ? 'Lanjutkan Pengerjaan Ujian'
+                          : exam.status === 'ACTIVE'
+                          ? 'Masuk Ujian (Sesi Aktif) →'
+                          : 'Masuk Ruang Tunggu Standby →'}
                       </Link>
                     )}
                   </div>

@@ -13,12 +13,12 @@ export default async function UjianPage() {
   const cookieStore = await cookies();
   const currentStudentName = cookieStore.get('auth_name')?.value || '';
 
-  // Ambil daftar ujian aktif berstatus PUBLISHED
+  // Ambil daftar ujian aktif berstatus PUBLISHED atau ACTIVE
   let activeExams: any[] = [];
   try {
     activeExams = await prisma.exam.findMany({
       where: {
-        status: 'PUBLISHED',
+        status: { in: ['PUBLISHED', 'ACTIVE'] },
       },
       include: {
         _count: {

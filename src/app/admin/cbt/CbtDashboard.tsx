@@ -247,7 +247,7 @@ export default function CbtDashboard({ exams: initialExams }: { exams: ExamItem[
           />
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          {['ALL', 'PUBLISHED', 'DRAFT'].map((st) => (
+          {['ALL', 'ACTIVE', 'PUBLISHED', 'DRAFT'].map((st) => (
             <button
               key={st}
               onClick={() => setStatusFilter(st)}
@@ -257,7 +257,13 @@ export default function CbtDashboard({ exams: initialExams }: { exams: ExamItem[
                   : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
               }`}
             >
-              {st === 'ALL' ? 'Semua Status' : st === 'PUBLISHED' ? 'Aktif (Published)' : 'Draft'}
+              {st === 'ALL'
+                ? 'Semua Status'
+                : st === 'ACTIVE'
+                ? 'Sesi Aktif (Live)'
+                : st === 'PUBLISHED'
+                ? 'Ruang Tunggu'
+                : 'Draft'}
             </button>
           ))}
         </div>
@@ -289,12 +295,18 @@ export default function CbtDashboard({ exams: initialExams }: { exams: ExamItem[
                   </span>
                   <span
                     className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
-                      exam.status === 'PUBLISHED'
-                        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                      exam.status === 'ACTIVE'
+                        ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 font-bold'
+                        : exam.status === 'PUBLISHED'
+                        ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 font-semibold'
                         : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                     }`}
                   >
-                    {exam.status === 'PUBLISHED' ? 'Aktif' : 'Draft'}
+                    {exam.status === 'ACTIVE'
+                      ? '🟢 Sesi Aktif'
+                      : exam.status === 'PUBLISHED'
+                      ? '⏳ Ruang Tunggu'
+                      : 'Draft'}
                   </span>
                 </div>
 

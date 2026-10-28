@@ -20,7 +20,7 @@ export async function quickJoinExamAction(formData: FormData) {
   if (token) {
     const exam = await prisma.exam.findFirst({
       where: {
-        status: 'PUBLISHED',
+        status: { in: ['PUBLISHED', 'ACTIVE'] },
         token: {
           equals: token,
           mode: 'insensitive',

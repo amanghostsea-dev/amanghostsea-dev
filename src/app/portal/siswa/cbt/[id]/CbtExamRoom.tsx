@@ -16,10 +16,14 @@ import {
   Award,
   BookOpen,
   Key,
-  Check
+  Check,
+  RefreshCw,
+  Lock,
+  Unlock,
+  Wifi
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
-import { startOrResumeAttempt, saveProgress, submitExam } from '../actions';
+import { startOrResumeAttempt, saveProgress, submitExam, getExamSessionStatus } from '../actions';
 
 interface QuestionItem {
   id: string;
@@ -56,6 +60,7 @@ interface CbtExamRoomProps {
     duration: number; // in minutes
     token: string | null;
     description: string | null;
+    status?: string;
     shuffleQuestions: boolean;
     questions: QuestionItem[];
   };
@@ -73,6 +78,29 @@ export default function CbtExamRoom({
   const [tokenInput, setTokenInput] = useState('');
   const [startLoading, setStartLoading] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+
+  // Dual-Key Session State (Waiting Room vs Active)
+  const [sessionStatus, setSessionStatus] = useState<string>(exam.status || 'PUBLISHED');
+  const [checkingStatus, setCheckingStatus] = useState(false);
+
+  const refreshSessionStatus = useCallback(async () => {
+    setCheckingStatus(true);
+    try {
+      const res = await getExamSessionStatus(exam.id);
+      if (res && res.status) {
+        setSessionStatus(res.status);
+      }
+    } catch {}
+    setCheckingStatus(false);
+  }, [exam.id]);
+
+  useEffect(() => {
+    if (attempt || sessionStatus === 'ACTIVE') return;
+    const interval = setInterval(() => {
+      refreshSessionStatus();
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [attempt, sessionStatus, refreshSessionStatus]);
 
   // Exam engine state
   const [questions, setQuestions] = useState<QuestionItem[]>(exam.questions);
@@ -452,34 +480,97 @@ export default function CbtExamRoom({
             </div>
           )}
 
-          <form onSubmit={handleStartExam} className="space-y-4">
-            {exam.token && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Masukkan Token Ujian dari Pengawas:
-                </label>
-                <div className="relative">
-                  <Key className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input
-                    type="text"
-                    required
-                    placeholder="Contoh: RPL2026"
-                    value={tokenInput}
-                    onChange={(e) => setTokenInput(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-bold uppercase tracking-widest focus:ring-2 focus:ring-purple-500"
-                  />
+          {/* DUAL-KEY GATEWAY: WAITING ROOM vs ACTIVE WITH TOKEN */}
+          {sessionStatus !== 'ACTIVE' ? (
+            <div className="space-y-4">
+              <div className="p-5 rounded-2xl bg-amber-500/10 border-2 border-dashed border-amber-500/40 text-amber-800 dark:text-amber-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2 font-bold text-sm">
+                    <span className="flex h-3 w-3 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                    </span>
+                    Ruang Tunggu Ujian (Waiting Room)
+                  </span>
+                  <span className="text-[10px] bg-amber-500/20 text-amber-800 dark:text-amber-200 font-mono px-2 py-0.5 rounded-full font-bold uppercase border border-amber-500/30">
+                    Standby
+                  </span>
+                </div>
+
+                <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
+                  Sesi ujian untuk kelas ini <strong>belum dibuka oleh guru pengawas</strong>. Silakan duduk dengan tertib. Layar ini akan <strong>otomatis terbuka</strong> begitu pengawas mengaktifkan sesi dan menuliskan token di papan tulis kelas.
+                </p>
+
+                <div className="flex items-center justify-between pt-1 border-t border-amber-500/20">
+                  <span className="text-[11px] text-slate-500 flex items-center gap-1.5">
+                    <Wifi size={13} className="text-emerald-500" />
+                    Mengecek sinyal pengawas...
+                  </span>
+                  <button
+                    type="button"
+                    onClick={refreshSessionStatus}
+                    disabled={checkingStatus}
+                    className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw size={12} className={checkingStatus ? 'animate-spin' : ''} />
+                    <span>{checkingStatus ? 'Memeriksa...' : 'Cek Status Sekarang'}</span>
+                  </button>
                 </div>
               </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={startLoading}
-              className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-purple-500/25 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
-            >
-              {startLoading ? 'Menyiapkan Lembar Ujian...' : 'Mulai Kerjakan Ujian Sekarang'}
-            </button>
-          </form>
+              {/* Locked Token Placeholder */}
+              <div className="p-4 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center space-y-1.5 opacity-60">
+                <Lock className="mx-auto text-slate-400" size={20} />
+                <div className="text-xs font-semibold text-slate-500">
+                  Kolom token terkunci hingga pengawas mengaktifkan sesi di kelas
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-200 space-y-1.5">
+                <div className="flex items-center gap-2 font-bold text-sm">
+                  <span className="flex h-2.5 w-2.5 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                  </span>
+                  Sesi Ujian Telah Dibuka Pengawas!
+                </div>
+                <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                  Pengawas telah membuka sesi ujian kelas ini. Silakan lihat <strong>kode token di papan tulis ruangan</strong> dan masukkan di bawah ini:
+                </p>
+              </div>
+
+              <form onSubmit={handleStartExam} className="space-y-4">
+                {exam.token && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                      <Key size={14} className="text-amber-500" /> Masukkan Token dari Papan Tulis Kelas:
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        required
+                        autoFocus
+                        placeholder="Contoh: RPL2026"
+                        value={tokenInput}
+                        onChange={(e) => setTokenInput(e.target.value.toUpperCase())}
+                        className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-base font-bold uppercase tracking-widest text-center focus:ring-2 focus:ring-purple-500 font-mono shadow-inner"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={startLoading}
+                  className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-500/25 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {startLoading ? 'Menyiapkan Lembar Ujian...' : 'Mulai Kerjakan Ujian Sekarang →'}
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       </div>
     );
