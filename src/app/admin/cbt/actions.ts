@@ -4,7 +4,7 @@ import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
 // Helper: Generate clean 6-character alphanumeric token without confusing symbols (0, O, 1, I)
-export function generateRandomCbtToken(): string {
+function generateRandomCbtToken(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let res = '';
   for (let i = 0; i < 6; i++) {
