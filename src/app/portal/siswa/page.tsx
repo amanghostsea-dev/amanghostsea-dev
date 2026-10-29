@@ -3,6 +3,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
 import { logoutAction } from "@/app/login/actions";
+import { formatExamScheduleRange, getExamScheduleState } from "@/lib/cbt-schedule";
 
 export const dynamic = 'force-dynamic';
 
@@ -43,6 +44,30 @@ export default async function PortalSiswa() {
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase())
     .join('') || 'S';
+
+  const upcomingExams = await prisma.exam.findMany({
+    where: {
+      status: { in: ['PUBLISHED', 'ACTIVE'] },
+    },
+    include: {
+      _count: {
+        select: {
+          questions: true,
+        },
+      },
+      attempts: {
+        where: {
+          studentName,
+        },
+      },
+    },
+    orderBy: [
+      { startTime: 'asc' },
+      { createdAt: 'desc' },
+    ],
+    take: 3,
+  });
+
   const schedule = [
     { day: 'Senin', subject: 'Pemrograman Web', time: '07:30 - 10:00', teacher: 'Bpk. Ahmad ST', room: 'Lab Komputer 1' },
     { day: 'Senin', subject: 'Matematika', time: '10:15 - 12:30', teacher: 'Ibu Siti S.Pd', room: 'Ruang 12A' },
@@ -153,6 +178,83 @@ export default async function PortalSiswa() {
               Hadir Sekarang
             </button>
           </div>
+        </div>
+
+        {/* 📅 JADWAL UJIAN CBT MENDATANG & AKTIF */}
+        <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-6 shadow-sm mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 pb-4 border-b border-gray-100 dark:border-gray-800">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <span className="p-2 rounded-xl bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400">
+                  <MonitorPlay size={18} />
+                </span>
+                Jadwal Ujian CBT Sekolah (Smart CBT Timetable)
+              </h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                Jadwal resmi pelaksanaan ujian yang telah diatur oleh dewan guru untuk kelas Anda.
+              </p>
+            </div>
+            <Link
+              href="/portal/siswa/cbt"
+              className="text-xs font-bold text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1"
+            >
+              Buka Semua Ruang Ujian →
+            </Link>
+          </div>
+
+          {upcomingExams.length === 0 ? (
+            <div className="py-6 text-center text-xs text-gray-400">
+              Tidak ada jadwal ujian aktif atau mendatang untuk saat ini.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {upcomingExams.map((exam) => {
+                const sched = getExamScheduleState(exam.startTime, exam.endTime, exam.status);
+                const isSubmitted = exam.attempts[0]?.status === 'SUBMITTED';
+
+                return (
+                  <div
+                    key={exam.id}
+                    className="p-4 rounded-2xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30 flex flex-col justify-between hover:border-purple-200 transition-all"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-1 mb-2">
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
+                          {exam.subject}
+                        </span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${sched.badgeClass}`}>
+                          {isSubmitted ? 'Selesai' : sched.label}
+                        </span>
+                      </div>
+                      <h4 className="font-bold text-sm text-gray-900 dark:text-white line-clamp-1 mb-1">
+                        {exam.title}
+                      </h4>
+                      <div className="text-xs text-purple-700 dark:text-purple-300 font-medium flex items-center gap-1.5 mb-2">
+                        <Calendar size={13} className="text-purple-500 flex-shrink-0" />
+                        <span className="line-clamp-1">{formatExamScheduleRange(exam.startTime, exam.endTime)}</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-gray-200/60 dark:border-gray-700/60 flex items-center justify-between text-xs">
+                      <span className="text-[11px] text-gray-500 font-medium">{sched.countdown}</span>
+                      <Link
+                        href={`/portal/siswa/cbt/${exam.id}`}
+                        className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all ${
+                          isSubmitted
+                            ? 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200'
+                            : sched.state === 'ONGOING' || exam.status === 'ACTIVE'
+                            ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-700'
+                            : 'bg-purple-600 text-white shadow-sm hover:bg-purple-700'
+                        }`}
+                      >
+                        {isSubmitted ? 'Hasil' : sched.state === 'ONGOING' || exam.status === 'ACTIVE' ? 'Masuk' : 'Lihat'}
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Stats */}

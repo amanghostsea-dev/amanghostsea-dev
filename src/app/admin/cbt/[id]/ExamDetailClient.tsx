@@ -35,10 +35,12 @@ import {
   Sliders,
   FileUp,
   Layers,
-  Info
+  Info,
+  Calendar
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import { createQuestion, deleteQuestion, deleteAttempt, toggleExamSession, createBatchQuestions, updateQuestion, rotateExamToken } from '../actions';
+import { formatExamScheduleRange, getExamScheduleState } from '@/lib/cbt-schedule';
 
 interface ParsedQuestion {
   questionText: string;
@@ -314,6 +316,8 @@ interface ExamDetailProps {
     description: string | null;
     status: string;
     shuffleQuestions: boolean;
+    startTime?: Date | string | null;
+    endTime?: Date | string | null;
     updatedAt?: Date | string;
     questions: QuestionItem[];
     attempts: AttemptItem[];
@@ -945,12 +949,16 @@ Poin: 10
         </Link>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
               <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
                 {exam.subject}
               </span>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
                 Kelas: {exam.classTarget}
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60 flex items-center gap-1.5">
+                <Calendar size={13} />
+                <span>Jadwal: {formatExamScheduleRange(exam.startTime, exam.endTime)}</span>
               </span>
               {exam.token && (
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">

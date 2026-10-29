@@ -20,10 +20,12 @@ import {
   RefreshCw,
   Lock,
   Unlock,
-  Wifi
+  Wifi,
+  Calendar
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import { startOrResumeAttempt, saveProgress, submitExam, getExamSessionStatus } from '../actions';
+import { formatExamScheduleRange, getExamScheduleState } from '@/lib/cbt-schedule';
 
 interface QuestionItem {
   id: string;
@@ -62,6 +64,8 @@ interface CbtExamRoomProps {
     description: string | null;
     status?: string;
     shuffleQuestions: boolean;
+    startTime?: Date | string | null;
+    endTime?: Date | string | null;
     questions: QuestionItem[];
   };
   studentName: string;
@@ -461,6 +465,24 @@ export default function CbtExamRoom({
                 <ShieldAlert size={14} /> Anti-Curang Aktif
               </strong>
             </div>
+          </div>
+
+          {/* 📅 EXAM SCHEDULE TIMETABLE BANNER */}
+          <div className="p-4 rounded-2xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800/60 space-y-1.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
+                <Calendar size={15} className="text-purple-600 dark:text-purple-400" />
+                <span>Jadwal Ujian: {formatExamScheduleRange(exam.startTime, exam.endTime)}</span>
+              </span>
+            </div>
+            {exam.startTime && (
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-1 border-t border-purple-100 dark:border-purple-900/40">
+                <span>Status Waktu Resmi:</span>
+                <span className="font-semibold text-purple-700 dark:text-purple-300">
+                  {getExamScheduleState(exam.startTime, exam.endTime, sessionStatus).countdown}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 text-xs text-amber-800 dark:text-amber-200 space-y-1">

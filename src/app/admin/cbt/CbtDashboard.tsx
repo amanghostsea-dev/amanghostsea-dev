@@ -82,6 +82,14 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
 
   const teacherName = currentUser?.name || 'Bpk. Ahmad ST';
 
+  // Filter States
+  const [scheduleFilter, setScheduleFilter] = useState<'ALL' | 'TODAY' | 'UPCOMING' | 'ONGOING' | 'ENDED'>('ALL');
+
+  // Conflict Checking State
+  const [conflicts, setConflicts] = useState<ScheduleConflictExam[]>([]);
+  const [conflictWarning, setConflictWarning] = useState<string | null>(null);
+  const [checkingConflict, setCheckingConflict] = useState(false);
+
   // Form State
   const [formData, setFormData] = useState({
     title: '',
@@ -93,6 +101,10 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
     status: 'PUBLISHED',
     shuffleQuestions: true,
     authorName: teacherName,
+    startTime: '',
+    endTime: '',
+    enableSchedule: true,
+    allowConflict: false,
   });
 
   const subjectPresets = [
@@ -125,9 +137,38 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
     'XI MPLB 1',
   ];
 
+  const runConflictCheck = async (startTime: string, endTime: string, classTarget: string) => {
+    if (!startTime || !endTime) {
+      setConflicts([]);
+      setConflictWarning(null);
+      return;
+    }
+    setCheckingConflict(true);
+    try {
+      const res = await checkExamScheduleConflict({
+        examId: editingExam?.id,
+        classTarget,
+        startTime,
+        endTime,
+      });
+      if (res.hasConflict && res.conflicts && res.conflicts.length > 0) {
+        setConflicts(res.conflicts);
+        setConflictWarning(res.message || 'Jadwal bertabrakan!');
+      } else {
+        setConflicts([]);
+        setConflictWarning(null);
+      }
+    } catch {}
+    setCheckingConflict(false);
+  };
+
   const handleOpenCreate = () => {
     setEditingExam(null);
     const randomToken = 'CBT' + Math.floor(100 + Math.random() * 900);
+    const now = new Date();
+    const startStr = toDateTimeLocalInput(now);
+    const endStr = toDateTimeLocalInput(new Date(now.getTime() + 60 * 60000));
+
     setFormData({
       title: '',
       subject: 'Pemrograman Web',
@@ -138,12 +179,21 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
       status: 'PUBLISHED',
       shuffleQuestions: true,
       authorName: teacherName,
+      startTime: startStr,
+      endTime: endStr,
+      enableSchedule: true,
+      allowConflict: false,
     });
+    setConflicts([]);
+    setConflictWarning(null);
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (exam: ExamItem) => {
     setEditingExam(exam);
+    const startStr = toDateTimeLocalInput(exam.startTime);
+    const endStr = toDateTimeLocalInput(exam.endTime);
+
     setFormData({
       title: exam.title,
       subject: exam.subject,
@@ -154,7 +204,13 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
       status: exam.status,
       shuffleQuestions: exam.shuffleQuestions,
       authorName: exam.authorName || teacherName,
+      startTime: startStr,
+      endTime: endStr,
+      enableSchedule: Boolean(exam.startTime || exam.endTime),
+      allowConflict: false,
     });
+    setConflicts([]);
+    setConflictWarning(null);
     setIsModalOpen(true);
   };
 
@@ -176,19 +232,42 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
     e.preventDefault();
     setLoading(true);
 
+    if (formData.enableSchedule && formData.startTime && formData.endTime) {
+      if (new Date(formData.startTime) >= new Date(formData.endTime)) {
+        alert('Jadwal Mulai harus lebih awal daripada Jadwal Selesai.');
+        setLoading(false);
+        return;
+      }
+    }
+
+    const payload = {
+      title: formData.title,
+      subject: formData.subject,
+      classTarget: formData.classTarget,
+      duration: Number(formData.duration),
+      token: formData.token,
+      description: formData.description,
+      status: formData.status,
+      shuffleQuestions: formData.shuffleQuestions,
+      authorName: formData.authorName || teacherName,
+      startTime: formData.enableSchedule && formData.startTime ? formData.startTime : null,
+      endTime: formData.enableSchedule && formData.endTime ? formData.endTime : null,
+      allowConflict: formData.allowConflict,
+    };
+
     if (editingExam) {
-      const res = await updateExam(editingExam.id, formData);
+      const res = await updateExam(editingExam.id, payload);
       if (res.success && res.data) {
         setExams(exams.map((ex) => (ex.id === editingExam.id ? { ...ex, ...res.data } : ex)));
         setIsModalOpen(false);
+      } else if ((res as any).conflict) {
+        setConflicts((res as any).conflicts || []);
+        alert(res.error || 'Terdeteksi bentrok jadwal ujian! Silakan sesuaikan jam atau centang bypass.');
       } else {
         alert(res.error || 'Gagal mengubah ujian');
       }
     } else {
-      const res = await createExam({
-        ...formData,
-        authorName: formData.authorName || teacherName,
-      });
+      const res = await createExam(payload);
       if (res.success && res.data) {
         setExams([
           {
@@ -199,6 +278,9 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
           ...exams,
         ]);
         setIsModalOpen(false);
+      } else if ((res as any).conflict) {
+        setConflicts((res as any).conflicts || []);
+        alert(res.error || 'Terdeteksi bentrok jadwal ujian! Silakan sesuaikan jam atau centang bypass.');
       } else {
         alert(res.error || 'Gagal membuat ujian');
       }
@@ -228,7 +310,16 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
       (exam.authorName && exam.authorName.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = statusFilter === 'ALL' || exam.status === statusFilter;
     const matchesMine = !mineOnlyFilter || (exam.authorName && exam.authorName.toLowerCase() === teacherName.toLowerCase());
-    return matchesSearch && matchesStatus && matchesMine;
+    
+    const schedState = getExamScheduleState(exam.startTime, exam.endTime, exam.status);
+    const matchesSchedule =
+      scheduleFilter === 'ALL' ||
+      (scheduleFilter === 'TODAY' && schedState.isOngoingToday) ||
+      (scheduleFilter === 'ONGOING' && schedState.state === 'ONGOING') ||
+      (scheduleFilter === 'UPCOMING' && schedState.state === 'UPCOMING') ||
+      (scheduleFilter === 'ENDED' && schedState.state === 'ENDED');
+
+    return matchesSearch && matchesStatus && matchesMine && matchesSchedule;
   });
 
   // Calculate stats
@@ -341,6 +432,29 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
             <UserCheck size={14} /> Ujian Saya
           </button>
 
+          {/* Schedule Status Filter */}
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+            {[
+              { id: 'ALL', label: 'Semua Jadwal' },
+              { id: 'TODAY', label: '📅 Hari Ini' },
+              { id: 'UPCOMING', label: '⏳ Akan Datang' },
+              { id: 'ONGOING', label: '🟢 Berlangsung' },
+              { id: 'ENDED', label: '🏁 Selesai' },
+            ].map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setScheduleFilter(s.id as any)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  scheduleFilter === s.id
+                    ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-sm font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+
           {['ALL', 'ACTIVE', 'PUBLISHED', 'DRAFT'].map((st) => (
             <button
               key={st}
@@ -352,7 +466,7 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
               }`}
             >
               {st === 'ALL'
-                ? 'Semua Status'
+                ? 'Semua Ruang'
                 : st === 'ACTIVE'
                 ? '🟢 Sesi Aktif'
                 : st === 'PUBLISHED'
@@ -380,6 +494,7 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
           filteredExams.map((exam) => {
             const isLive = exam.status === 'ACTIVE';
             const isSessionLoading = sessionLoadingId === exam.id;
+            const schedState = getExamScheduleState(exam.startTime, exam.endTime, exam.status);
 
             return (
               <div
@@ -413,6 +528,25 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
                   <div className="text-[11px] text-slate-500 mb-3 flex items-center gap-1.5">
                     <span>Guru Pengampu:</span>
                     <strong className="text-slate-700 dark:text-slate-300 font-semibold">{exam.authorName || 'Bpk. Ahmad ST'}</strong>
+                  </div>
+
+                  {/* 📅 Exam Schedule Badge */}
+                  <div className="p-2.5 rounded-2xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/40 mb-3 space-y-1">
+                    <div className="flex items-center justify-between gap-1 text-xs">
+                      <span className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
+                        <Calendar size={13} className="text-purple-600 dark:text-purple-400 flex-shrink-0" />
+                        <span className="line-clamp-1">{formatExamScheduleRange(exam.startTime, exam.endTime)}</span>
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border flex-shrink-0 ${schedState.badgeClass}`}>
+                        {schedState.label}
+                      </span>
+                    </div>
+                    {schedState.countdown && (
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-0.5">
+                        <span>Waktu Pengerjaan:</span>
+                        <span className="font-semibold text-purple-700 dark:text-purple-300">{schedState.countdown}</span>
+                      </div>
+                    )}
                   </div>
 
                   <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mb-4">
@@ -619,6 +753,179 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-mono font-bold focus:ring-2 focus:ring-purple-500 outline-none uppercase"
                   />
                 </div>
+              </div>
+
+              {/* 📅 PENGATURAN JADWAL UJIAN & ANTI-BENTROK */}
+              <div className="p-4 rounded-2xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200/70 dark:border-purple-900/50 space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-sm">
+                      <Calendar size={16} />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-white">Jadwal Pelaksanaan Ujian (CBT)</div>
+                      <div className="text-[11px] text-slate-500">Atur tanggal & waktu ujian agar tidak bertabrakan</div>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.enableSchedule}
+                      onChange={(e) => setFormData({ ...formData, enableSchedule: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                  </label>
+                </div>
+
+                {formData.enableSchedule && (
+                  <div className="space-y-3 pt-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Waktu Mulai Ujian (WIB) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="datetime-local"
+                          required={formData.enableSchedule}
+                          value={formData.startTime}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setFormData((prev) => {
+                              const updated = { ...prev, startTime: val };
+                              if (val && prev.duration) {
+                                const end = new Date(new Date(val).getTime() + prev.duration * 60000);
+                                updated.endTime = toDateTimeLocalInput(end);
+                              }
+                              return updated;
+                            });
+                            if (val) {
+                              const end = new Date(new Date(val).getTime() + formData.duration * 60000);
+                              runConflictCheck(val, toDateTimeLocalInput(end), formData.classTarget);
+                            }
+                          }}
+                          className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Waktu Selesai / Tutup (WIB) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="datetime-local"
+                          required={formData.enableSchedule}
+                          value={formData.endTime}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setFormData({ ...formData, endTime: val });
+                            runConflictCheck(formData.startTime, val, formData.classTarget);
+                          }}
+                          className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Preset Shortcuts */}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                      <span className="text-[10px] font-semibold text-slate-400">Pilihan Cepat:</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!formData.startTime) {
+                            const now = new Date();
+                            const startStr = toDateTimeLocalInput(now);
+                            const endStr = toDateTimeLocalInput(new Date(now.getTime() + formData.duration * 60000));
+                            setFormData({ ...formData, startTime: startStr, endTime: endStr });
+                            runConflictCheck(startStr, endStr, formData.classTarget);
+                          } else {
+                            const end = new Date(new Date(formData.startTime).getTime() + formData.duration * 60000);
+                            const endStr = toDateTimeLocalInput(end);
+                            setFormData({ ...formData, endTime: endStr });
+                            runConflictCheck(formData.startTime, endStr, formData.classTarget);
+                          }
+                        }}
+                        className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[10px] font-semibold text-purple-600 dark:text-purple-400 hover:bg-purple-50"
+                      >
+                        + {formData.duration} Menit (Durasi)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const today = new Date();
+                          today.setHours(8, 0, 0, 0);
+                          const startStr = toDateTimeLocalInput(today);
+                          today.setHours(10, 0, 0, 0);
+                          const endStr = toDateTimeLocalInput(today);
+                          setFormData({ ...formData, startTime: startStr, endTime: endStr });
+                          runConflictCheck(startStr, endStr, formData.classTarget);
+                        }}
+                        className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[10px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50"
+                      >
+                        Hari Ini 08:00 - 10:00
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const tomorrow = new Date();
+                          tomorrow.setDate(tomorrow.getDate() + 1);
+                          tomorrow.setHours(8, 0, 0, 0);
+                          const startStr = toDateTimeLocalInput(tomorrow);
+                          tomorrow.setHours(10, 0, 0, 0);
+                          const endStr = toDateTimeLocalInput(tomorrow);
+                          setFormData({ ...formData, startTime: startStr, endTime: endStr });
+                          runConflictCheck(startStr, endStr, formData.classTarget);
+                        }}
+                        className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[10px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50"
+                      >
+                        Besok 08:00 - 10:00
+                      </button>
+                    </div>
+
+                    {/* Conflict Indicator */}
+                    {checkingConflict && (
+                      <div className="text-[11px] text-slate-500 flex items-center gap-1.5 animate-pulse pt-1">
+                        <RefreshCw size={12} className="animate-spin text-purple-600" />
+                        <span>Memeriksa tabrakan jadwal kelas {formData.classTarget}...</span>
+                      </div>
+                    )}
+
+                    {conflicts.length > 0 && (
+                      <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/60 text-amber-900 dark:text-amber-200 space-y-2">
+                        <div className="flex items-center gap-2 font-bold text-xs text-amber-800 dark:text-amber-300">
+                          <AlertTriangle size={15} className="text-amber-600 dark:text-amber-400" />
+                          <span>Peringatan: Jadwal Bentrok Terdeteksi! ({conflicts.length} Ujian)</span>
+                        </div>
+                        <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
+                          Target kelas <strong>{formData.classTarget}</strong> telah memiliki jadwal ujian lain pada rentang waktu ini:
+                        </p>
+                        <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                          {conflicts.map((c) => (
+                            <div key={c.id} className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-900 text-[11px]">
+                              <div className="font-bold text-slate-900 dark:text-white">{c.title}</div>
+                              <div className="text-slate-500 flex items-center gap-2 mt-0.5 text-[10px]">
+                                <span>Mapel: <strong>{c.subject}</strong></span>
+                                <span>•</span>
+                                <span>Kelas: <strong>{c.classTarget}</strong></span>
+                                <span>•</span>
+                                <span>{formatExamScheduleRange(c.startTime, c.endTime)}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <label className="flex items-center gap-2 pt-1 cursor-pointer text-[11px] font-semibold text-amber-800 dark:text-amber-300">
+                          <input
+                            type="checkbox"
+                            checked={formData.allowConflict}
+                            onChange={(e) => setFormData({ ...formData, allowConflict: e.target.checked })}
+                            className="w-4 h-4 text-amber-600 rounded"
+                          />
+                          <span>Tetap jadwalkan bersamaan (Bypass peringatan bentrok)</span>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>
