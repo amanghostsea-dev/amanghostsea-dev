@@ -12,18 +12,19 @@ export default async function PortalGuru() {
   const authUser = cookieStore.get('auth_user')?.value;
 
   let teacherName = authName;
-  if (!teacherName && authUser) {
+  let dbUser: any = null;
+  if (authUser || authName) {
     try {
-      const user = await prisma.user.findFirst({ 
+      dbUser = await prisma.user.findFirst({ 
         where: { 
           OR: [
-            { username: authUser },
-            { nisn: authUser }
+            ...(authUser ? [{ username: authUser }] : []),
+            ...(authName ? [{ name: authName }] : []),
           ]
         },
-        select: { name: true }
+        select: { id: true, name: true }
       });
-      if (user) teacherName = user.name;
+      if (dbUser && dbUser.name) teacherName = dbUser.name;
     } catch {}
   }
   if (!teacherName) teacherName = 'Bpk. Ahmad ST';
@@ -56,8 +57,9 @@ export default async function PortalGuru() {
         where: {
           status: 'ACTIVE',
           OR: [
-            { teacherName: { contains: teacherName, mode: 'insensitive' } },
-            { teacherName: null },
+            ...(dbUser?.id ? [{ teacherId: dbUser.id }] : []),
+            ...(teacherName ? [{ teacherName: { equals: teacherName, mode: 'insensitive' as const } }] : []),
+            ...(teacherName ? [{ teacherName: { contains: teacherName, mode: 'insensitive' as const } }] : []),
           ],
         },
         include: {
@@ -71,17 +73,6 @@ export default async function PortalGuru() {
     totalAttempts = attemptsCount;
     unreviewedSubmissions = unreviewedCount;
     teacherSubjects = subjectsList;
-
-    if (teacherSubjects.length === 0) {
-      teacherSubjects = await prisma.subject.findMany({
-        where: { status: 'ACTIVE' },
-        take: 4,
-        include: {
-          _count: { select: { grades: true } },
-        },
-        orderBy: [{ day: 'asc' }, { time: 'asc' }],
-      });
-    }
   } catch (err) {
     console.error('Error fetching guru stats:', err);
   }
@@ -248,30 +239,46 @@ export default async function PortalGuru() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {classes.map((cls, i) => (
-                  <tr key={i} className="hover:bg-gray-50/80 dark:hover:bg-gray-800/50 transition-colors">
-                    <td className="py-4 px-6 font-bold text-gray-900 dark:text-white">{cls.name}</td>
-                    <td className="py-4 px-6 text-gray-900 dark:text-white font-bold">{cls.subject}</td>
-                    <td className="py-4 px-6 text-gray-600 dark:text-gray-300">{cls.students} Siswa</td>
-                    <td className="py-4 px-6 text-xs text-gray-500">
-                      <span className="font-semibold text-gray-800 dark:text-gray-200 block">{cls.dayTime}</span>
-                      <span>{cls.room}</span>
-                    </td>
-                    <td className="py-4 px-6 text-right">
-                      <div className="flex items-center justify-end gap-3">
-                        <Link
-                          href={`/portal/guru/nilai?subjectId=${cls.id}`}
-                          className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition-colors"
-                        >
-                          <Award size={13} /> Input Nilai
-                        </Link>
-                        <Link href="/admin/cbt" className="text-purple-600 dark:text-purple-400 hover:underline font-bold text-xs inline-flex items-center gap-1">
-                          CBT <ArrowRight size={12} />
-                        </Link>
+                {classes.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-10 text-center text-gray-400 text-xs">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <BookOpen size={28} className="text-gray-300 dark:text-gray-600" />
+                        <span className="font-semibold text-gray-600 dark:text-gray-300">
+                          Belum ada mata pelajaran yang di-plotting untuk Anda
+                        </span>
+                        <span className="text-[11px] text-gray-400">
+                          Super Admin belum menetapkan jadwal mengajar untuk akun Anda di menu Plotting & Mapel.
+                        </span>
                       </div>
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  classes.map((cls, i) => (
+                    <tr key={i} className="hover:bg-gray-50/80 dark:hover:bg-gray-800/50 transition-colors">
+                      <td className="py-4 px-6 font-bold text-gray-900 dark:text-white">{cls.name}</td>
+                      <td className="py-4 px-6 text-gray-900 dark:text-white font-bold">{cls.subject}</td>
+                      <td className="py-4 px-6 text-gray-600 dark:text-gray-300">{cls.students} Siswa</td>
+                      <td className="py-4 px-6 text-xs text-gray-500">
+                        <span className="font-semibold text-gray-800 dark:text-gray-200 block">{cls.dayTime}</span>
+                        <span>{cls.room}</span>
+                      </td>
+                      <td className="py-4 px-6 text-right">
+                        <div className="flex items-center justify-end gap-3">
+                          <Link
+                            href={`/portal/guru/nilai?subjectId=${cls.id}`}
+                            className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition-colors"
+                          >
+                            <Award size={13} /> Input Nilai
+                          </Link>
+                          <Link href="/admin/cbt" className="text-purple-600 dark:text-purple-400 hover:underline font-bold text-xs inline-flex items-center gap-1">
+                            CBT <ArrowRight size={12} />
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

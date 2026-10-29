@@ -14,16 +14,26 @@ interface StudentItem {
   createdAt: Date | string;
 }
 
-export default function KelasClient({ students, teacherName }: { students: StudentItem[]; teacherName: string }) {
+export default function KelasClient({
+  students,
+  teacherName,
+  classTargets = ['Semua Kelas', 'X RPL 1', 'XI RPL 1', 'XII RPL 1', 'X TJKT 1', 'XI TJKT 1', 'XII TJKT 1', 'X DKV 1', 'XI DKV 1', 'XII DKV 1', 'X MPLB 1', 'XI MPLB 1', 'XII MPLB 1'],
+}: {
+  students: StudentItem[];
+  teacherName: string;
+  classTargets?: string[];
+}) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState('ALL');
 
   const classOptions = [
     { id: 'ALL', label: 'Semua Kelas' },
-    { id: 'XI RPL 1', label: 'XI RPL 1 (Wali Kelas)' },
-    { id: 'XI RPL 2', label: 'XI RPL 2' },
-    { id: 'XII TKJ 1', label: 'XII TKJ 1' },
-    { id: 'X DKV 1', label: 'X DKV 1' },
+    ...classTargets
+      .filter((c) => c !== 'Semua Kelas')
+      .map((c) => ({
+        id: c,
+        label: c.includes('XI RPL 1') ? `${c} (Wali Kelas)` : c,
+      })),
   ];
 
   const filteredStudents = students.filter((s) => {

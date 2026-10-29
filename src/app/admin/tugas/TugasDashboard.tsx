@@ -46,7 +46,13 @@ interface AssignmentItem {
   }[];
 }
 
-export default function TugasDashboard({ assignments: initialAssignments }: { assignments: AssignmentItem[] }) {
+export default function TugasDashboard({
+  assignments: initialAssignments,
+  dynamicClassPresets = ['Semua Kelas', 'X RPL 1', 'XI RPL 1', 'XII RPL 1', 'X TJKT 1', 'XI TJKT 1', 'XII TJKT 1', 'X DKV 1', 'XI DKV 1', 'XII DKV 1', 'X MPLB 1', 'XI MPLB 1', 'XII MPLB 1'],
+}: {
+  assignments: AssignmentItem[];
+  dynamicClassPresets?: string[];
+}) {
   const [assignments, setAssignments] = useState(initialAssignments);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -506,11 +512,17 @@ export default function TugasDashboard({ assignments: initialAssignments }: { as
                   </label>
                   <input
                     type="text"
+                    list="tugas-class-presets"
                     placeholder="Contoh: XI RPL 1 atau Semua Kelas"
                     value={formData.classTarget}
                     onChange={(e) => setFormData({ ...formData, classTarget: e.target.value })}
                     className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs focus:ring-2 focus:ring-blue-500"
                   />
+                  <datalist id="tugas-class-presets">
+                    {dynamicClassPresets.map((c, idx) => (
+                      <option key={idx} value={c} />
+                    ))}
+                  </datalist>
                 </div>
               </div>
 

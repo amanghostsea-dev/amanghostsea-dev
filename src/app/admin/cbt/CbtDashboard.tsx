@@ -87,12 +87,14 @@ interface CbtDashboardProps {
     role: string;
   };
   initialTab?: 'exams' | 'schedule';
+  dynamicClassPresets?: string[];
 }
 
 export default function CbtDashboard({
   exams: initialExams,
   currentUser,
   initialTab = 'exams',
+  dynamicClassPresets,
 }: CbtDashboardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -208,20 +210,21 @@ export default function CbtDashboard({
     'Pendidikan Agama',
   ];
 
-  const classPresets = [
+  const classPresets = dynamicClassPresets && dynamicClassPresets.length > 0 ? dynamicClassPresets : [
     'Semua Kelas',
     'X RPL 1',
     'XI RPL 1',
     'XI RPL 2',
     'XII RPL 1',
-    'X TKJ 1',
-    'XI TKJ 1',
-    'XII TKJ 1',
+    'X TJKT 1',
+    'XI TJKT 1',
+    'XII TJKT 1',
     'X DKV 1',
     'XI DKV 1',
     'XII DKV 1',
     'X MPLB 1',
     'XI MPLB 1',
+    'XII MPLB 1',
   ];
 
   const runConflictCheck = async (startTime: string, endTime: string, classTarget: string) => {

@@ -8,48 +8,73 @@ import { computeFinalScore, computeGradePredicate, ensureDefaultSubjectsAndGrade
 export async function getTeacherGradingData(selectedSubjectId?: string) {
   const cookieStore = await cookies();
   const authName = cookieStore.get('auth_name')?.value;
+  const authUser = cookieStore.get('auth_user')?.value;
   const authRole = cookieStore.get('auth_token')?.value;
 
   await ensureDefaultSubjectsAndGrades();
 
   const isSuperAdmin = authRole === 'Super Admin';
 
-  // 1. Ambil semua subject
-  const allSubjects = await prisma.subject.findMany({
-    where: { status: 'ACTIVE' },
-    orderBy: [{ classTarget: 'asc' }, { name: 'asc' }],
-  });
-
-  // Filter subject yang diampu guru ini (atau semua jika Super Admin)
-  let teacherSubjects = allSubjects;
-  if (!isSuperAdmin && authName) {
-    const filtered = allSubjects.filter(
-      (s) => s.teacherName?.toLowerCase().includes(authName.toLowerCase())
-    );
-    if (filtered.length > 0) {
-      teacherSubjects = filtered;
-    }
+  // Cari user record jika ada
+  let dbUser = null;
+  if (authUser || authName) {
+    dbUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          ...(authUser ? [{ username: authUser }] : []),
+          ...(authName ? [{ name: authName }] : []),
+        ],
+      },
+      select: { id: true, name: true, role: true },
+    });
   }
 
-  // Tentukan subject aktif
-  let activeSubject = allSubjects[0];
-  if (selectedSubjectId) {
-    const found = allSubjects.find((s) => s.id === selectedSubjectId);
-    if (found) activeSubject = found;
-  } else if (teacherSubjects.length > 0) {
-    activeSubject = teacherSubjects[0];
+  const userId = dbUser?.id;
+  const teacherName = dbUser?.name || authName || 'Guru Pengampu';
+
+  // 1. Ambil HANYA mata pelajaran yang di-plotting ke guru ini (Kecuali SuperAdmin)
+  let teacherSubjects: any[] = [];
+
+  if (isSuperAdmin) {
+    teacherSubjects = await prisma.subject.findMany({
+      where: { status: 'ACTIVE' },
+      orderBy: [{ classTarget: 'asc' }, { name: 'asc' }],
+    });
+  } else {
+    teacherSubjects = await prisma.subject.findMany({
+      where: {
+        status: 'ACTIVE',
+        OR: [
+          ...(userId ? [{ teacherId: userId }] : []),
+          ...(teacherName ? [{ teacherName: { equals: teacherName, mode: 'insensitive' as const } }] : []),
+          ...(teacherName ? [{ teacherName: { contains: teacherName, mode: 'insensitive' as const } }] : []),
+        ],
+      },
+      orderBy: [{ classTarget: 'asc' }, { name: 'asc' }],
+    });
   }
 
-  if (!activeSubject) {
+  // Jika guru belum diplotting ke mapel apapun, kembalikan state kosong
+  if (teacherSubjects.length === 0) {
     return {
       subjects: [],
       activeSubject: null,
       grades: [],
-      teacherName: authName || 'Guru',
+      teacherName,
+      isSuperAdmin,
     };
   }
 
-  // 2. Pastikan semua siswa memiliki record nilai untuk subject aktif
+  // 2. Tentukan subject aktif (HANYA dari daftar yang diizinkan untuk guru ini)
+  let activeSubject = teacherSubjects[0];
+  if (selectedSubjectId) {
+    const found = teacherSubjects.find((s) => s.id === selectedSubjectId);
+    if (found) {
+      activeSubject = found;
+    }
+  }
+
+  // 3. Pastikan semua siswa kelas tersebut memiliki record nilai
   const dbStudents = await prisma.user.findMany({
     where: { role: 'Siswa' },
     select: { name: true, nisn: true, username: true },
@@ -75,22 +100,23 @@ export async function getTeacherGradingData(selectedSubjectId?: string) {
         finalExam: 85,
         finalGrade: 'A',
         notes: 'Kemajuan belajar baik.',
-        updatedBy: authName || activeSubject.teacherName || 'Guru Pengampu',
+        updatedBy: teacherName,
       },
     });
   }
 
-  // 3. Ambil data nilai
+  // 4. Ambil data nilai HANYA untuk subject aktif milik guru ini
   const grades = await prisma.studentGrade.findMany({
     where: { subjectId: activeSubject.id },
     orderBy: { studentName: 'asc' },
   });
 
   return {
-    subjects: allSubjects,
+    subjects: teacherSubjects, // HANYA MAPEL MILIK GURU INI
     activeSubject,
     grades,
-    teacherName: authName || 'Guru Pengampu',
+    teacherName,
+    isSuperAdmin,
   };
 }
 
@@ -174,4 +200,3 @@ export async function batchSaveGrades(
     return { error: 'Gagal menyimpan nilai secara massal' };
   }
 }
-

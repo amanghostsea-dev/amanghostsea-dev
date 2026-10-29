@@ -4,12 +4,14 @@ import prisma from '@/lib/prisma';
 import { requireSuperAdmin } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import { ensureDefaultSubjectsAndGrades } from '@/lib/subject-seed';
+import { getDynamicClassTargets } from '@/lib/jurusan-service';
 
 export async function getSubjects() {
   await requireSuperAdmin();
 
   // Pastikan data awal tersedia
   await ensureDefaultSubjectsAndGrades();
+  const classTargets = await getDynamicClassTargets();
 
   const [subjects, teachers, students] = await Promise.all([
     prisma.subject.findMany({
@@ -47,7 +49,7 @@ export async function getSubjects() {
     }),
   ]);
 
-  return { subjects, teachers, students };
+  return { subjects, teachers, students, classTargets };
 }
 
 export async function saveSubject(data: {

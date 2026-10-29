@@ -14,6 +14,10 @@ export async function createJurusan(data: any) {
       },
     });
     revalidatePath('/admin/jurusan');
+    revalidatePath('/admin/mapel');
+    revalidatePath('/admin/cbt');
+    revalidatePath('/admin/tugas');
+    revalidatePath('/portal/guru/kelas');
     revalidatePath('/ppdb');
     revalidatePath('/');
     return { success: true, data: newJurusan };
@@ -34,6 +38,10 @@ export async function updateJurusan(id: string, data: any) {
       },
     });
     revalidatePath('/admin/jurusan');
+    revalidatePath('/admin/mapel');
+    revalidatePath('/admin/cbt');
+    revalidatePath('/admin/tugas');
+    revalidatePath('/portal/guru/kelas');
     revalidatePath('/ppdb');
     revalidatePath('/');
     return { success: true, data: updated };
@@ -48,6 +56,10 @@ export async function deleteJurusan(id: string) {
       where: { id },
     });
     revalidatePath('/admin/jurusan');
+    revalidatePath('/admin/mapel');
+    revalidatePath('/admin/cbt');
+    revalidatePath('/admin/tugas');
+    revalidatePath('/portal/guru/kelas');
     revalidatePath('/ppdb');
     revalidatePath('/');
     return { success: true };

@@ -62,12 +62,14 @@ interface MapelClientProps {
   initialSubjects: SubjectItem[];
   teachers: TeacherItem[];
   students: StudentItem[];
+  classTargets?: string[];
 }
 
 export default function MapelClient({
   initialSubjects,
   teachers,
   students,
+  classTargets = ['Semua Kelas', 'X RPL 1', 'XI RPL 1', 'XII RPL 1', 'X TJKT 1', 'XI TJKT 1', 'XII TJKT 1', 'X DKV 1', 'XI DKV 1', 'XII DKV 1', 'X MPLB 1', 'XI MPLB 1', 'XII MPLB 1'],
 }: MapelClientProps) {
   const [subjects, setSubjects] = useState<SubjectItem[]>(initialSubjects);
   const [search, setSearch] = useState('');
@@ -402,10 +404,9 @@ export default function MapelClient({
             className="px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="ALL">Semua Kelas</option>
-            <option value="XI RPL 1">XI RPL 1 (RPL)</option>
-            <option value="XI RPL 2">XI RPL 2</option>
-            <option value="XII TKJ 1">XII TKJ 1</option>
-            <option value="X DKV 1">X DKV 1</option>
+            {classTargets.filter((c) => c !== 'Semua Kelas').map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
           </select>
 
           {/* Category Filter */}
@@ -772,10 +773,9 @@ export default function MapelClient({
                     onChange={(e) => setFormClassTarget(e.target.value)}
                     className="w-full px-3.5 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-semibold text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="XI RPL 1">XI RPL 1</option>
-                    <option value="XI RPL 2">XI RPL 2</option>
-                    <option value="XII TKJ 1">XII TKJ 1</option>
-                    <option value="X DKV 1">X DKV 1</option>
+                    {classTargets.filter((c) => c !== 'Semua Kelas').map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
                   </select>
                 </div>
 

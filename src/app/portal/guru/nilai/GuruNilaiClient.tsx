@@ -189,6 +189,35 @@ export default function GuruNilaiClient({
 
   const passRate = totalStudents > 0 ? Math.round((passedCount / totalStudents) * 100) : 100;
 
+  if (subjects.length === 0 || !currentSubject) {
+    return (
+      <div className="space-y-6 max-w-4xl mx-auto py-10 font-sans">
+        <div className="p-10 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm text-center space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto shadow-inner">
+            <Award size={32} />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+            Belum Ada Mata Pelajaran yang Di-Plotting
+          </h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+            Akun Guru <strong className="text-slate-900 dark:text-white">{teacherName}</strong> belum ditetapkan ke mata pelajaran atau kelas mengajar apapun oleh Super Admin.
+          </p>
+          <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60 max-w-lg mx-auto text-xs text-slate-600 dark:text-slate-300 text-left space-y-2.5">
+            <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Sparkles size={15} className="text-amber-500" />
+              Langkah Untuk Mengaktifkan:
+            </div>
+            <ul className="list-disc pl-4 space-y-1.5 text-slate-600 dark:text-slate-300">
+              <li>Hubungi Super Admin / Bagian Kurikulum sekolah.</li>
+              <li>Minta Super Admin membuka menu <strong>Plotting & Mapel</strong> di dashboard admin.</li>
+              <li>Pilih mata pelajaran & target kelas, lalu plot nama Anda sebagai Guru Pengampu.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 font-sans">
       {/* Top Banner Alert / Notification */}
