@@ -47,38 +47,154 @@ interface ParsedQuestion {
   points: number;
 }
 
+function splitCsvLine(line: string, delimiter: string = ';'): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === delimiter && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
 function parseBulkQuestions(rawText: string, defaultPoints: number = 10): ParsedQuestion[] {
   const trimmed = rawText.trim();
   if (!trimmed) return [];
 
-  const lines = trimmed.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  const isDelimited = lines.some(l => (l.split(';').length >= 6 || l.split('\t').length >= 6 || (l.split(',').length >= 6 && l.includes('"'))));
+  const rawLines = trimmed.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  // Filter out Excel delimiter hints like "sep=;"
+  const lines = rawLines.filter((l) => !l.toLowerCase().startsWith('sep='));
+
+  // Detect if content is Delimited (CSV or Tab-Separated from Excel copy-paste)
+  const isDelimited = lines.some((l) => {
+    if (l.startsWith('#')) return false;
+    return l.split(';').length >= 5 || l.split('\t').length >= 5 || (l.split(',').length >= 5 && l.includes('"'));
+  });
 
   if (isDelimited) {
     const results: ParsedQuestion[] = [];
-    for (const line of lines) {
-      if (line.startsWith('#') || line.toLowerCase().startsWith('soal') || line.toLowerCase().startsWith('pertanyaan')) continue;
-      const delimiter = line.includes(';') ? ';' : line.includes('\t') ? '\t' : ',';
-      const parts = line.split(delimiter).map(p => p.trim().replace(/^["']|["']$/g, ''));
-      if (parts.length >= 6) {
-        const qText = parts[0].replace(/^\d+[\.\)]\s*/, '');
-        const opts = [parts[1], parts[2], parts[3], parts[4]];
-        const keyRaw = (parts[5] || 'A').toUpperCase().trim();
-        let keyIdx = 0;
-        if (keyRaw === 'B' || keyRaw === '1') keyIdx = 1;
-        else if (keyRaw === 'C' || keyRaw === '2') keyIdx = 2;
-        else if (keyRaw === 'D' || keyRaw === '3') keyIdx = 3;
-        else if (keyRaw === 'E' || keyRaw === '4') keyIdx = 4;
-        const pt = parts[6] ? parseInt(parts[6], 10) || defaultPoints : defaultPoints;
+    let detectedDelimiter = ';';
+    const sampleLine = lines.find((l) => !l.startsWith('#')) || '';
+    if (sampleLine.split('\t').length >= 5) detectedDelimiter = '\t';
+    else if (sampleLine.split(';').length >= 5) detectedDelimiter = ';';
+    else if (sampleLine.split(',').length >= 5) detectedDelimiter = ',';
 
-        results.push({
-          questionText: qText,
-          options: opts,
-          correctAnswer: String(keyIdx),
-          points: pt,
+    // Header column mapping
+    let colQ = -1;
+    let colA = -1;
+    let colB = -1;
+    let colC = -1;
+    let colD = -1;
+    let colE = -1;
+    let colKey = -1;
+    let colPoints = -1;
+    let hasHeader = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.startsWith('#')) continue;
+
+      const parts = splitCsvLine(line, detectedDelimiter).map((p) => p.replace(/^["']|["']$/g, '').trim());
+      if (parts.length < 5) continue;
+
+      // Check if this line is header row
+      const lower = parts.map((p) => p.toLowerCase());
+      const looksLikeHeader = lower.some(
+        (p) => p.includes('soal') || p.includes('tanya') || p.includes('kunci') || p.includes('pilihan')
+      );
+
+      if (!hasHeader && looksLikeHeader) {
+        hasHeader = true;
+        parts.forEach((p, idx) => {
+          const s = p.toLowerCase();
+          if (s.includes('soal') || s.includes('tanya') || s.includes('pertanyaan')) colQ = idx;
+          else if (s === 'a' || s.includes('pilihan a') || s.includes('opsi a')) colA = idx;
+          else if (s === 'b' || s.includes('pilihan b') || s.includes('opsi b')) colB = idx;
+          else if (s === 'c' || s.includes('pilihan c') || s.includes('opsi c')) colC = idx;
+          else if (s === 'd' || s.includes('pilihan d') || s.includes('opsi d')) colD = idx;
+          else if (s === 'e' || s.includes('pilihan e') || s.includes('opsi e')) colE = idx;
+          else if (s.includes('kunci') || s.includes('jawaban') || s.includes('ans') || s.includes('key')) colKey = idx;
+          else if (s.includes('poin') || s.includes('nilai') || s.includes('bobot') || s.includes('skor')) colPoints = idx;
         });
+        continue;
       }
+
+      let qText = '';
+      let optA = '';
+      let optB = '';
+      let optC = '';
+      let optD = '';
+      let optE = '';
+      let keyRaw = 'A';
+      let pt = defaultPoints;
+
+      if (hasHeader && colQ !== -1 && colA !== -1) {
+        qText = parts[colQ] || '';
+        optA = parts[colA] || '';
+        optB = parts[colB] || '';
+        optC = parts[colC] || '';
+        optD = parts[colD] || '';
+        optE = colE !== -1 ? parts[colE] || '' : '';
+        keyRaw = colKey !== -1 ? parts[colKey] || 'A' : 'A';
+        pt = colPoints !== -1 && parts[colPoints] ? parseInt(parts[colPoints], 10) || defaultPoints : defaultPoints;
+      } else {
+        const isFirstColNumber = /^\d+$/.test(parts[0]);
+        const offset = isFirstColNumber ? 1 : 0;
+        qText = parts[offset] || '';
+        optA = parts[offset + 1] || '';
+        optB = parts[offset + 2] || '';
+        optC = parts[offset + 3] || '';
+        optD = parts[offset + 4] || '';
+
+        if (parts.length >= offset + 7 && !['A', 'B', 'C', 'D', 'E', '0', '1', '2', '3', '4'].includes(parts[offset + 5].toUpperCase())) {
+          optE = parts[offset + 5];
+          keyRaw = parts[offset + 6] || 'A';
+          pt = parts[offset + 7] ? parseInt(parts[offset + 7], 10) || defaultPoints : defaultPoints;
+        } else {
+          keyRaw = parts[offset + 5] || 'A';
+          pt = parts[offset + 6] ? parseInt(parts[offset + 6], 10) || defaultPoints : defaultPoints;
+        }
+      }
+
+      qText = qText.replace(/^(?:Soal\s*)?\d+[\.\:\)]\s*/i, '').trim();
+      if (!qText) continue;
+
+      const opts = [optA, optB, optC, optD].filter(Boolean);
+      if (optE) opts.push(optE);
+      while (opts.length < 4) {
+        opts.push(`Pilihan ${String.fromCharCode(65 + opts.length)}`);
+      }
+
+      const k = keyRaw.toUpperCase().trim();
+      let kIdx = 0;
+      if (k === 'B' || k === '1') kIdx = 1;
+      else if (k === 'C' || k === '2') kIdx = 2;
+      else if (k === 'D' || k === '3') kIdx = 3;
+      else if (k === 'E' || k === '4') kIdx = 4;
+
+      results.push({
+        questionText: qText,
+        options: opts,
+        correctAnswer: String(kIdx),
+        points: pt,
+      });
     }
+
     if (results.length > 0) return results;
   }
 
@@ -86,13 +202,13 @@ function parseBulkQuestions(rawText: string, defaultPoints: number = 10): Parsed
   const normalized = trimmed.replace(/\r\n/g, '\n');
   const rawBlocks = normalized
     .split(/\n\s*\n+|(?<=\n)(?=(?:Soal\s*)?\d+[\.\)]\s+)/i)
-    .map(b => b.trim())
+    .map((b) => b.trim())
     .filter(Boolean);
 
   const parsedResults: ParsedQuestion[] = [];
 
   for (const block of rawBlocks) {
-    const bLines = block.split('\n').map(l => l.trim()).filter(Boolean);
+    const bLines = block.split('\n').map((l) => l.trim()).filter(Boolean);
     if (bLines.length === 0) continue;
 
     let qTextParts: string[] = [];
@@ -445,19 +561,167 @@ Poin: 15`;
     setBatchError(null);
   };
 
-  const handleDownloadCsvTemplate = () => {
-    const headers = ['Pertanyaan', 'Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D', 'Kunci (A/B/C/D)', 'Bobot Poin'];
-    const sampleRows = [
-      ['"Apa kepanjangan dari HTML?"', '"Hyper Text Markup Language"', '"High Tech Modern Language"', '"Hyperlink Text Making Link"', '"Home Tool Multi Language"', 'A', '10'],
-      ['"Tag HTML untuk membuat hyperlink adalah..."', '"<link>"', '"<a>"', '"<href>"', '"<url>"', 'B', '10'],
-      ['"Protokol untuk pengiriman web yang aman adalah..."', '"HTTP"', '"FTP"', '"HTTPS"', '"SMTP"', 'C', '15'],
+  const handleDownloadCsvTemplate = (format: 'csv' | 'txt' = 'csv') => {
+    if (format === 'txt') {
+      const txtContent = `PANDUAN PENGISIAN SOAL CBT (FORMAT TEKS / MICROSOFT WORD):
+1. Tuliskan nomor soal (1., 2., dst.) diikuti teks pertanyaan.
+2. Tuliskan pilihan jawaban (A., B., C., D., opsional E.).
+3. Tuliskan "Kunci: [A/B/C/D]" untuk menentukan jawaban yang benar.
+4. Tuliskan "Poin: [angka]" untuk bobot nilai (contoh: Poin: 10).
+5. Setelah selesai, blok semua teks di dokumen (Ctrl+A), salin (Ctrl+C), lalu tempelkan (Ctrl+V) ke form Input Kolektif di aplikasi CBT.
+
+======================================================================
+CONTOH SOAL (${exam.subject}):
+
+1. Apa kepanjangan dari HTML dalam pemrograman web?
+A. Hyper Text Markup Language
+B. High Tech Modern Language
+C. Hyperlink Text Making Link
+D. Home Tool Multi Language
+Kunci: A
+Poin: 10
+
+2. Tag HTML yang digunakan untuk membuat tautan atau hyperlink ke halaman lain adalah...
+A. <link>
+B. <a>
+C. <href>
+D. <url>
+Kunci: B
+Poin: 10
+
+3. Protokol jaringan yang digunakan untuk pengiriman web terenkripsi dan aman adalah...
+A. HTTP
+B. FTP
+C. HTTPS
+D. SMTP
+Kunci: C
+Poin: 15
+
+4. Perangkat jaringan komputer yang berfungsi menghubungkan dua atau lebih subnet/jaringan yang berbeda adalah...
+A. Repeater
+B. Hub
+C. Switch
+D. Router
+Kunci: D
+Poin: 15
+
+5. Bahasa pemrograman web yang dieksekusi di sisi peramban (client-side) untuk membuat animasi dan interaksi adalah...
+A. PHP
+B. Python
+C. JavaScript
+D. Ruby
+Kunci: C
+Poin: 10
+
+======================================================================
+TEMPAT MENULISKAN SOAL BAPAK/IBU GURU DI BAWAH INI (Ganti teks di bawah):
+
+6. Tuliskan pertanyaan soal nomor 6 di sini...
+A. Pilihan jawaban A
+B. Pilihan jawaban B
+C. Pilihan jawaban C
+D. Pilihan jawaban D
+Kunci: A
+Poin: 10
+
+7. Tuliskan pertanyaan soal nomor 7 di sini...
+A. Pilihan jawaban A
+B. Pilihan jawaban B
+C. Pilihan jawaban C
+D. Pilihan jawaban D
+Kunci: B
+Poin: 10
+
+8. Tuliskan pertanyaan soal nomor 8 di sini...
+A. Pilihan jawaban A
+B. Pilihan jawaban B
+C. Pilihan jawaban C
+D. Pilihan jawaban D
+Kunci: C
+Poin: 10
+
+9. Tuliskan pertanyaan soal nomor 9 di sini...
+A. Pilihan jawaban A
+B. Pilihan jawaban B
+C. Pilihan jawaban C
+D. Pilihan jawaban D
+Kunci: D
+Poin: 10
+
+10. Tuliskan pertanyaan soal nomor 10 di sini...
+A. Pilihan jawaban A
+B. Pilihan jawaban B
+C. Pilihan jawaban C
+D. Pilihan jawaban D
+Kunci: A
+Poin: 10
+`;
+      const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Template_Soal_CBT_${exam.subject.replace(/[^a-zA-Z0-9]/g, '_')}_Word.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
+    }
+
+    // Format CSV untuk Microsoft Excel (Dilengkapi UTF-8 BOM dan pemisah ';')
+    const instructions = [
+      '# PETUNJUK PENGISIAN TEMPLATE SOAL CBT (SMK GARUDA MAHADHIKA)',
+      '# 1. Buka file ini menggunakan Microsoft Excel, WPS Office, atau Google Sheets.',
+      '# 2. Kolom "Kunci Jawaban" WAJIB diisi salah satu huruf kapital: A, B, C, D, atau E.',
+      '# 3. Kolom "Bobot Poin" diisi angka nilai (contoh: 10, 15, 20). Total skor siswa dihitung proporsional skala 100.',
+      '# 4. TIPS CEPAT: Setelah selesai mengisi di Excel, Anda bisa langsung blok tabelnya (Ctrl+A), tekan Copy (Ctrl+C), lalu Paste (Ctrl+V) ke kotak teks di web CBT!',
     ];
-    const csvContent = [headers.join(';'), ...sampleRows.map(r => r.join(';'))].join('\n');
+
+    const headers = [
+      'No',
+      'Pertanyaan Soal',
+      'Pilihan A',
+      'Pilihan B',
+      'Pilihan C',
+      'Pilihan D',
+      'Pilihan E (Opsional)',
+      'Kunci Jawaban (A/B/C/D/E)',
+      'Bobot Poin',
+      'Topik / Catatan Guru',
+    ];
+
+    const sampleRows = [
+      ['1', '"Apa kepanjangan dari HTML dalam pemrograman web?"', '"Hyper Text Markup Language"', '"High Tech Modern Language"', '"Hyperlink Text Making Link"', '"Home Tool Multi Language"', '""', 'A', '10', '"Dasar HTML"'],
+      ['2', '"Tag HTML yang digunakan untuk membuat tautan atau hyperlink ke halaman lain adalah..."', '"<link>"', '"<a>"', '"<href>"', '"<url>"', '""', 'B', '10', '"Struktur HTML"'],
+      ['3', '"Protokol jaringan yang digunakan untuk pengiriman web terenkripsi dan aman adalah..."', '"HTTP"', '"FTP"', '"HTTPS"', '"SMTP"', '""', 'C', '15', '"Keamanan Jaringan"'],
+      ['4', '"Perangkat jaringan komputer yang berfungsi menghubungkan dua atau lebih subnet/jaringan yang berbeda adalah..."', '"Repeater"', '"Hub"', '"Switch"', '"Router"', '""', 'D', '15', '"Perangkat Keras"'],
+      ['5', '"Bahasa pemrograman web yang dieksekusi di sisi peramban (client-side) untuk membuat animasi dan interaksi adalah..."', '"PHP"', '"Python"', '"JavaScript"', '"Ruby"', '""', 'C', '10', '"Frontend"'],
+      // 10 Baris kosong siap isi bagi guru:
+      ['6', '"Tuliskan pertanyaan soal nomor 6 di sini..."', '"Pilihan jawaban A"', '"Pilihan jawaban B"', '"Pilihan jawaban C"', '"Pilihan jawaban D"', '""', 'A', '10', '"Materi Ujian"'],
+      ['7', '"Tuliskan pertanyaan soal nomor 7 di sini..."', '"Pilihan jawaban A"', '"Pilihan jawaban B"', '"Pilihan jawaban C"', '"Pilihan jawaban D"', '""', 'B', '10', '"Materi Ujian"'],
+      ['8', '"Tuliskan pertanyaan soal nomor 8 di sini..."', '"Pilihan jawaban A"', '"Pilihan jawaban B"', '"Pilihan jawaban C"', '"Pilihan jawaban D"', '""', 'C', '10', '"Materi Ujian"'],
+      ['9', '"Tuliskan pertanyaan soal nomor 9 di sini..."', '"Pilihan jawaban A"', '"Pilihan jawaban B"', '"Pilihan jawaban C"', '"Pilihan jawaban D"', '""', 'D', '10', '"Materi Ujian"'],
+      ['10', '"Tuliskan pertanyaan soal nomor 10 di sini..."', '"Pilihan jawaban A"', '"Pilihan jawaban B"', '"Pilihan jawaban C"', '"Pilihan jawaban D"', '""', 'A', '10', '"Materi Ujian"'],
+      ['11', '"Tuliskan pertanyaan soal nomor 11 di sini..."', '"Pilihan jawaban A"', '"Pilihan jawaban B"', '"Pilihan jawaban C"', '"Pilihan jawaban D"', '""', 'B', '10', '"Materi Ujian"'],
+      ['12', '"Tuliskan pertanyaan soal nomor 12 di sini..."', '"Pilihan jawaban A"', '"Pilihan jawaban B"', '"Pilihan jawaban C"', '"Pilihan jawaban D"', '""', 'C', '10', '"Materi Ujian"'],
+      ['13', '"Tuliskan pertanyaan soal nomor 13 di sini..."', '"Pilihan jawaban A"', '"Pilihan jawaban B"', '"Pilihan jawaban C"', '"Pilihan jawaban D"', '""', 'D', '10', '"Materi Ujian"'],
+      ['14', '"Tuliskan pertanyaan soal nomor 14 di sini..."', '"Pilihan jawaban A"', '"Pilihan jawaban B"', '"Pilihan jawaban C"', '"Pilihan jawaban D"', '""', 'A', '10', '"Materi Ujian"'],
+      ['15', '"Tuliskan pertanyaan soal nomor 15 di sini..."', '"Pilihan jawaban A"', '"Pilihan jawaban B"', '"Pilihan jawaban C"', '"Pilihan jawaban D"', '""', 'B', '10', '"Materi Ujian"'],
+    ];
+
+    const csvLines = [
+      'sep=;',
+      ...instructions,
+      headers.join(';'),
+      ...sampleRows.map((r) => r.join(';')),
+    ];
+
+    // Karakter \uFEFF adalah UTF-8 BOM agar Microsoft Excel di Windows langsung membaca kolom dengan rapi
+    const csvContent = '\uFEFF' + csvLines.join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Template_Soal_CBT_${exam.subject.replace(/[^a-zA-Z0-9]/g, '_')}.csv`;
+    link.download = `Template_Soal_CBT_${exam.subject.replace(/[^a-zA-Z0-9]/g, '_')}_Excel.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -722,6 +986,15 @@ Poin: 15`;
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
+                onClick={() => handleDownloadCsvTemplate('csv')}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-semibold transition shadow-sm cursor-pointer"
+                title="Unduh Template Excel CSV Resmi dengan Kolom Siap Isi"
+              >
+                <FileSpreadsheet size={16} className="text-emerald-600 dark:text-emerald-400" />
+                <span>Unduh Template CSV</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => {
                   setBatchStep('input');
                   setIsBatchModalOpen(true);
@@ -745,6 +1018,13 @@ Poin: 15`;
               <HelpCircle className="mx-auto text-slate-300 dark:text-slate-600 mb-3" size={48} />
               <p className="text-slate-500 font-medium">Belum ada butir soal dalam paket ujian ini.</p>
               <div className="flex flex-wrap items-center justify-center gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={() => handleDownloadCsvTemplate('csv')}
+                  className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-semibold flex items-center gap-2 shadow-sm cursor-pointer"
+                >
+                  <FileSpreadsheet size={16} className="text-emerald-600 dark:text-emerald-400" /> Unduh Template CSV
+                </button>
                 <button
                   type="button"
                   onClick={() => {
@@ -1190,22 +1470,31 @@ Poin: 15`;
                         type="button"
                         onClick={handleInsertExampleFormat}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition shadow-sm cursor-pointer"
-                        title="Isi textarea dengan contoh format soal"
+                        title="Isi editor dengan contoh format teks soal"
                       >
-                        <FileText size={14} className="text-purple-600 dark:text-purple-400" /> Sisipkan Contoh Format
+                        <Sparkles size={14} className="text-purple-600 dark:text-purple-400" /> Contoh Soal
                       </button>
 
                       <button
                         type="button"
-                        onClick={handleDownloadCsvTemplate}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition shadow-sm cursor-pointer"
-                        title="Unduh format spreadsheet CSV"
+                        onClick={() => handleDownloadCsvTemplate('csv')}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+                        title="Unduh template Excel resmi (.csv) dengan kolom siap isi"
                       >
-                        <FileSpreadsheet size={14} className="text-emerald-600 dark:text-emerald-400" /> Unduh Template CSV
+                        <FileSpreadsheet size={14} className="text-emerald-600 dark:text-emerald-400" /> Unduh Template Excel (.CSV)
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadCsvTemplate('txt')}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-300 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-800 dark:text-blue-200 rounded-xl text-xs font-semibold transition shadow-sm cursor-pointer"
+                        title="Unduh format daftar nomor untuk Word (.txt)"
+                      >
+                        <FileText size={14} className="text-blue-600 dark:text-blue-400" /> Format Word (.TXT)
                       </button>
 
                       <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition shadow-sm cursor-pointer">
-                        <FileUp size={14} className="text-blue-600 dark:text-blue-400" /> Unggah File (.txt/.csv)
+                        <FileUp size={14} className="text-indigo-600 dark:text-indigo-400" /> Unggah File (.csv/.txt)
                         <input
                           type="file"
                           accept=".txt,.csv"
@@ -1220,15 +1509,15 @@ Poin: 15`;
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                        Tempelkan Teks Soal di Bawah Ini:
+                        Tempelkan Teks Soal / Tabel Excel di Bawah Ini:
                       </label>
                       <span className="text-[11px] text-slate-400">
-                        Mendukung format Microsoft Word / Google Docs & CSV Excel
+                        Mendukung format Microsoft Word / Google Docs & CSV / Tabel Excel
                       </span>
                     </div>
 
                     <textarea
-                      rows={13}
+                      rows={12}
                       value={batchRawText}
                       onChange={(e) => setBatchRawText(e.target.value)}
                       placeholder={`1. Pertanyaan soal di sini...
@@ -1251,16 +1540,29 @@ Poin: 15`}
                   </div>
 
                   {/* Format Guidance Hint */}
-                  <div className="p-3 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-900/40 text-emerald-900 dark:text-emerald-200 text-xs space-y-1">
-                    <div className="font-bold flex items-center gap-1.5">
-                      <Sparkles size={14} /> Tips Format Cepat:
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 dark:from-emerald-950/20 dark:via-teal-950/20 dark:to-blue-950/20 border border-emerald-200/80 dark:border-emerald-900/40 text-emerald-900 dark:text-emerald-200 text-xs space-y-2">
+                    <div className="font-bold flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Sparkles size={15} className="text-emerald-600 dark:text-emerald-400" /> Cara Paling Canggih & Praktis untuk Guru:
+                      </span>
+                      <span className="text-[10px] bg-emerald-600 text-white font-bold px-2.5 py-0.5 rounded-full">
+                        Auto-Detect Cerdas
+                      </span>
                     </div>
-                    <ul className="list-disc list-inside space-y-0.5 text-[11px] text-emerald-800 dark:text-emerald-300">
-                      <li>Tiap nomor soal bisa ditulis angka biasa (contoh: <code>1.</code> atau <code>1)</code>).</li>
-                      <li>Pilihan jawaban bisa <code>A.</code>, <code>B.</code>, <code>C.</code>, <code>D.</code> atau huruf kecil.</li>
-                      <li>Kunci jawaban cukup ditulis <code>Kunci: A</code> atau <code>Jawaban: B</code>.</li>
-                      <li>Bobot nilai bisa ditulis <code>Poin: 10</code>. Jika tidak ditulis, otomatis menggunakan <strong>Bobot Nilai Default</strong> di atas.</li>
-                    </ul>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px] text-slate-700 dark:text-slate-300">
+                      <div className="p-3 rounded-xl bg-white/90 dark:bg-slate-900/80 border border-slate-200/60 dark:border-slate-800 shadow-sm space-y-1">
+                        <strong className="text-emerald-700 dark:text-emerald-400 block font-bold text-xs">📊 Metode 1: Dari Microsoft Excel</strong>
+                        <p className="leading-relaxed text-slate-600 dark:text-slate-400">
+                          Unduh Template CSV di atas, buka di Excel. Setelah selesai mengisi, <strong>blok tabelnya di Excel (Ctrl+A), tekan Copy (Ctrl+C), lalu langsung Paste (Ctrl+V) ke kotak teks di atas!</strong> Sistem otomatis mendeteksi kolom Excel tanpa perlu repot menyimpan file.
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-white/90 dark:bg-slate-900/80 border border-slate-200/60 dark:border-slate-800 shadow-sm space-y-1">
+                        <strong className="text-purple-700 dark:text-purple-400 block font-bold text-xs">📄 Metode 2: Dari Dokumen Word / Teks</strong>
+                        <p className="leading-relaxed text-slate-600 dark:text-slate-400">
+                          Ketik naskah soal biasa dengan nomor (<code>1.</code>), opsi (<code>A.</code>, <code>B.</code>, <code>C.</code>, <code>D.</code>), baris <code>Kunci: A</code>, dan <code>Poin: 10</code>. Cukup copy-paste seluruh dokumen ke kotak di atas.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </>
               ) : (
