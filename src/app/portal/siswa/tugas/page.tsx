@@ -10,7 +10,10 @@ export default async function SiswaTugasPage() {
   const authUser = cookieStore.get('auth_user')?.value;
 
   let studentName = authName;
-  if (!studentName && authUser) {
+  let studentNis = '';
+  let studentClass = 'XI RPL 1';
+
+  if (authUser) {
     try {
       const user = await prisma.user.findFirst({
         where: {
@@ -21,7 +24,8 @@ export default async function SiswaTugasPage() {
         }
       });
       if (user) {
-        studentName = user.name;
+        if (!studentName) studentName = user.name;
+        if (user.nisn) studentNis = user.nisn;
       }
     } catch (e) {
       console.error(e);
@@ -31,10 +35,16 @@ export default async function SiswaTugasPage() {
   if (!studentName) {
     studentName = 'Siswa SMK';
   }
+  if (!studentNis) {
+    studentNis = '10293847';
+  }
 
   const assignments = await prisma.assignment.findMany({
     where: {
-      status: 'ACTIVE',
+      OR: [
+        { status: 'ACTIVE' },
+        { submissions: { some: { studentName } } }
+      ]
     },
     include: {
       submissions: {
@@ -50,6 +60,8 @@ export default async function SiswaTugasPage() {
     <TugasSiswaClient
       assignments={assignments}
       studentName={studentName}
+      studentNis={studentNis}
+      studentClass={studentClass}
     />
   );
 }

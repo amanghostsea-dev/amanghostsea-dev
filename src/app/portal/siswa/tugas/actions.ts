@@ -13,6 +13,19 @@ export async function submitStudentAssignment(data: {
   fileName?: string;
 }) {
   try {
+    const assignment = await prisma.assignment.findUnique({
+      where: { id: data.assignmentId },
+      select: { deadline: true, status: true },
+    });
+
+    if (!assignment) {
+      return { error: 'Data tugas tidak ditemukan.' };
+    }
+
+    const now = new Date();
+    const isLate = now.getTime() > new Date(assignment.deadline).getTime();
+    const submissionStatus = isLate ? 'LATE' : 'SUBMITTED';
+
     const existing = await prisma.assignmentSubmission.findFirst({
       where: {
         assignmentId: data.assignmentId,
@@ -22,15 +35,17 @@ export async function submitStudentAssignment(data: {
 
     let result;
     if (existing) {
-      // Update existing submission
+      // Update existing submission (re-submit)
       result = await prisma.assignmentSubmission.update({
         where: { id: existing.id },
         data: {
+          studentNis: data.studentNis || existing.studentNis,
+          studentClass: data.studentClass || existing.studentClass,
           notes: data.notes || null,
           fileUrl: data.fileUrl || null,
           fileName: data.fileName || 'Dokumen Tugas',
-          submittedAt: new Date(),
-          status: 'SUBMITTED',
+          submittedAt: now,
+          status: submissionStatus,
         },
       });
     } else {
@@ -44,13 +59,15 @@ export async function submitStudentAssignment(data: {
           notes: data.notes || null,
           fileUrl: data.fileUrl || null,
           fileName: data.fileName || 'Dokumen Tugas',
-          status: 'SUBMITTED',
+          submittedAt: now,
+          status: submissionStatus,
         },
       });
     }
 
     revalidatePath('/portal/siswa/tugas');
     revalidatePath(`/admin/tugas/${data.assignmentId}`);
+    revalidatePath('/admin/tugas');
 
     return { success: true, data: result };
   } catch (error: any) {
