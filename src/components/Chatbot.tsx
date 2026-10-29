@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { 
   Bot, 
   Sparkles, 
@@ -53,6 +54,10 @@ const INITIAL_SUGGESTIONS = [
 ];
 
 export default function Chatbot() {
+  const pathname = usePathname();
+  // Hanya tampil di halaman beranda depan web ('/'), tidak tampil di halaman user/portal/admin
+  const isHomePage = pathname === '/';
+
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -68,8 +73,17 @@ export default function Chatbot() {
   const inputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
 
+  // Stop speaking if navigated away from home
+  useEffect(() => {
+    if (!isHomePage && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+  }, [isHomePage]);
+
   // Initialize Speech Recognition & Sound & Local Storage
   useEffect(() => {
+    if (!isHomePage) return;
+
     // Load chat history from localStorage
     try {
       const saved = localStorage.getItem('smk_ai_chat_history');
@@ -93,7 +107,7 @@ export default function Chatbot() {
     }, 3500);
 
     return () => clearTimeout(tooltipTimer);
-  }, []);
+  }, [isHomePage]);
 
   const setInitialGreeting = () => {
     const greetingMsg: Message = {
@@ -425,6 +439,10 @@ export default function Chatbot() {
       default: return <ExternalLink size={13} className="text-blue-600 dark:text-blue-400" />;
     }
   };
+
+  if (!isHomePage) {
+    return null;
+  }
 
   return (
     <>
