@@ -28,10 +28,139 @@ import {
   Printer,
   Search,
   Sparkles,
-  MonitorPlay
+  MonitorPlay,
+  UploadCloud,
+  FileSpreadsheet,
+  Edit3,
+  Sliders,
+  FileUp,
+  Layers,
+  Info
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
-import { createQuestion, deleteQuestion, deleteAttempt, toggleExamSession } from '../actions';
+import { createQuestion, deleteQuestion, deleteAttempt, toggleExamSession, createBatchQuestions, updateQuestion } from '../actions';
+
+interface ParsedQuestion {
+  questionText: string;
+  options: string[];
+  correctAnswer: string;
+  points: number;
+}
+
+function parseBulkQuestions(rawText: string, defaultPoints: number = 10): ParsedQuestion[] {
+  const trimmed = rawText.trim();
+  if (!trimmed) return [];
+
+  const lines = trimmed.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const isDelimited = lines.some(l => (l.split(';').length >= 6 || l.split('\t').length >= 6 || (l.split(',').length >= 6 && l.includes('"'))));
+
+  if (isDelimited) {
+    const results: ParsedQuestion[] = [];
+    for (const line of lines) {
+      if (line.startsWith('#') || line.toLowerCase().startsWith('soal') || line.toLowerCase().startsWith('pertanyaan')) continue;
+      const delimiter = line.includes(';') ? ';' : line.includes('\t') ? '\t' : ',';
+      const parts = line.split(delimiter).map(p => p.trim().replace(/^["']|["']$/g, ''));
+      if (parts.length >= 6) {
+        const qText = parts[0].replace(/^\d+[\.\)]\s*/, '');
+        const opts = [parts[1], parts[2], parts[3], parts[4]];
+        const keyRaw = (parts[5] || 'A').toUpperCase().trim();
+        let keyIdx = 0;
+        if (keyRaw === 'B' || keyRaw === '1') keyIdx = 1;
+        else if (keyRaw === 'C' || keyRaw === '2') keyIdx = 2;
+        else if (keyRaw === 'D' || keyRaw === '3') keyIdx = 3;
+        else if (keyRaw === 'E' || keyRaw === '4') keyIdx = 4;
+        const pt = parts[6] ? parseInt(parts[6], 10) || defaultPoints : defaultPoints;
+
+        results.push({
+          questionText: qText,
+          options: opts,
+          correctAnswer: String(keyIdx),
+          points: pt,
+        });
+      }
+    }
+    if (results.length > 0) return results;
+  }
+
+  // Block-based parsing
+  const normalized = trimmed.replace(/\r\n/g, '\n');
+  const rawBlocks = normalized
+    .split(/\n\s*\n+|(?<=\n)(?=(?:Soal\s*)?\d+[\.\)]\s+)/i)
+    .map(b => b.trim())
+    .filter(Boolean);
+
+  const parsedResults: ParsedQuestion[] = [];
+
+  for (const block of rawBlocks) {
+    const bLines = block.split('\n').map(l => l.trim()).filter(Boolean);
+    if (bLines.length === 0) continue;
+
+    let qTextParts: string[] = [];
+    let options: string[] = [];
+    let correctAnswer = '0';
+    let points = defaultPoints;
+
+    const optionRegex = /^(?:(?:\(?([A-Ea-e])[\.\)]|\(([A-Ea-e])\))|\b([A-Ea-e])\.\s+)\s*(.*)/;
+    const keyRegex = /^(?:Kunci|Jawaban|Ans|Key|Kunci\s*Jawaban|Jawaban\s*Benar)[\s\:\=\-]+([A-Ea-e]|\d)\b/i;
+    const pointsRegex = /^(?:Poin|Nilai|Bobot|Score|Points)[\s\:\=\-]+(\d+)\b/i;
+
+    for (const bLine of bLines) {
+      const kMatch = bLine.match(keyRegex);
+      if (kMatch) {
+        const k = kMatch[1].toUpperCase();
+        let kIdx = 0;
+        if (k === 'B' || k === '1') kIdx = 1;
+        else if (k === 'C' || k === '2') kIdx = 2;
+        else if (k === 'D' || k === '3') kIdx = 3;
+        else if (k === 'E' || k === '4') kIdx = 4;
+        correctAnswer = String(kIdx);
+        continue;
+      }
+
+      const pMatch = bLine.match(pointsRegex);
+      if (pMatch) {
+        points = parseInt(pMatch[1], 10) || defaultPoints;
+        continue;
+      }
+
+      const oMatch = bLine.match(optionRegex);
+      if (oMatch) {
+        const optText = oMatch[4] || '';
+        options.push(optText.trim());
+        continue;
+      }
+
+      if (options.length === 0) {
+        qTextParts.push(bLine);
+      } else {
+        const lastIdx = options.length - 1;
+        options[lastIdx] += ' ' + bLine;
+      }
+    }
+
+    if (qTextParts.length > 0) {
+      let rawQ = qTextParts.join('\n').trim();
+      rawQ = rawQ.replace(/^(?:Soal\s*)?\d+[\.\:\)]\s*/i, '').trim();
+
+      if (options.length < 4) {
+        while (options.length < 4) {
+          options.push(`Pilihan ${String.fromCharCode(65 + options.length)}`);
+        }
+      }
+
+      if (rawQ) {
+        parsedResults.push({
+          questionText: rawQ,
+          options,
+          correctAnswer,
+          points,
+        });
+      }
+    }
+  }
+
+  return parsedResults;
+}
 
 interface QuestionItem {
   id: string;
@@ -213,6 +342,193 @@ export default function ExamDetailClient({ exam }: ExamDetailProps) {
   };
 
   const totalPoints = questions.reduce((sum, q) => sum + q.points, 0);
+
+  // Batch Question Modal state
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+  const [batchRawText, setBatchRawText] = useState('');
+  const [batchDefaultPoints, setBatchDefaultPoints] = useState(10);
+  const [batchStep, setBatchStep] = useState<'input' | 'preview'>('input');
+  const [parsedBatch, setParsedBatch] = useState<ParsedQuestion[]>([]);
+  const [batchLoading, setBatchLoading] = useState(false);
+  const [batchError, setBatchError] = useState<string | null>(null);
+
+  const handleParseBatch = () => {
+    setBatchError(null);
+    if (!batchRawText.trim()) {
+      setBatchError('Teks soal masih kosong. Silakan tempel daftar soal terlebih dahulu.');
+      return;
+    }
+    const results = parseBulkQuestions(batchRawText, batchDefaultPoints);
+    if (results.length === 0) {
+      setBatchError('Format soal tidak terdeteksi. Pastikan penomoran soal (1.), pilihan jawaban (A, B, C, D), dan Kunci Jawaban (Kunci: A) sudah sesuai.');
+      return;
+    }
+    setParsedBatch(results);
+    setBatchStep('preview');
+  };
+
+  const handleApplyPointsToAllParsed = (newPoints: number) => {
+    setParsedBatch(parsedBatch.map(q => ({ ...q, points: newPoints })));
+  };
+
+  const handleUpdateParsedItemPoints = (index: number, pointsVal: number) => {
+    const updated = [...parsedBatch];
+    updated[index].points = pointsVal;
+    setParsedBatch(updated);
+  };
+
+  const handleUpdateParsedItemKey = (index: number, keyVal: string) => {
+    const updated = [...parsedBatch];
+    updated[index].correctAnswer = keyVal;
+    setParsedBatch(updated);
+  };
+
+  const handleDeleteParsedItem = (index: number) => {
+    const updated = parsedBatch.filter((_, idx) => idx !== index);
+    setParsedBatch(updated);
+    if (updated.length === 0) {
+      setBatchStep('input');
+    }
+  };
+
+  const handleSaveBatchQuestions = async () => {
+    if (parsedBatch.length === 0) return;
+    setBatchLoading(true);
+    const res = await createBatchQuestions(exam.id, parsedBatch);
+    if (res.success && res.data) {
+      setQuestions([...questions, ...res.data]);
+      setIsBatchModalOpen(false);
+      setBatchRawText('');
+      setParsedBatch([]);
+      setBatchStep('input');
+      alert(`Berhasil menambahkan ${res.count} butir soal ke dalam ujian!`);
+    } else {
+      alert(res.error || 'Gagal menyimpan butir soal kolektif.');
+    }
+    setBatchLoading(false);
+  };
+
+  const handleInsertExampleFormat = () => {
+    const example = `1. Apa kepanjangan dari HTML?
+A. Hyper Text Markup Language
+B. High Tech Modern Language
+C. Hyperlink Text Making Link
+D. Home Tool Multi Language
+Kunci: A
+Poin: 10
+
+2. Tag HTML yang digunakan untuk membuat tautan atau hyperlink halaman web adalah...
+A. <link>
+B. <a>
+C. <href>
+D. <url>
+Kunci: B
+Poin: 10
+
+3. Protokol jaringan yang digunakan untuk pengiriman web terenkripsi dan aman adalah...
+A. HTTP
+B. FTP
+C. HTTPS
+D. SMTP
+Kunci: C
+Poin: 15
+
+4. Perangkat jaringan yang berfungsi membagi jaringan ke beberapa subnet adalah...
+A. Repeater
+B. Hub
+C. Switch
+D. Router
+Kunci: D
+Poin: 15`;
+
+    setBatchRawText(example);
+    setBatchError(null);
+  };
+
+  const handleDownloadCsvTemplate = () => {
+    const headers = ['Pertanyaan', 'Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D', 'Kunci (A/B/C/D)', 'Bobot Poin'];
+    const sampleRows = [
+      ['"Apa kepanjangan dari HTML?"', '"Hyper Text Markup Language"', '"High Tech Modern Language"', '"Hyperlink Text Making Link"', '"Home Tool Multi Language"', 'A', '10'],
+      ['"Tag HTML untuk membuat hyperlink adalah..."', '"<link>"', '"<a>"', '"<href>"', '"<url>"', 'B', '10'],
+      ['"Protokol untuk pengiriman web yang aman adalah..."', '"HTTP"', '"FTP"', '"HTTPS"', '"SMTP"', 'C', '15'],
+    ];
+    const csvContent = [headers.join(';'), ...sampleRows.map(r => r.join(';'))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Template_Soal_CBT_${exam.subject.replace(/[^a-zA-Z0-9]/g, '_')}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        setBatchRawText(content);
+        const parsed = parseBulkQuestions(content, batchDefaultPoints);
+        if (parsed.length > 0) {
+          setParsedBatch(parsed);
+          setBatchStep('preview');
+          setBatchError(null);
+        }
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Edit Question Modal state
+  const [isEditQModal, setIsEditQModal] = useState(false);
+  const [editingQId, setEditingQId] = useState<string | null>(null);
+  const [editQuestionText, setEditQuestionText] = useState('');
+  const [editOptions, setEditOptions] = useState(['', '', '', '']);
+  const [editCorrectAnswer, setEditCorrectAnswer] = useState('0');
+  const [editPoints, setEditPoints] = useState(10);
+
+  const handleOpenEditModal = (q: QuestionItem) => {
+    setEditingQId(q.id);
+    setEditQuestionText(q.questionText);
+    try {
+      const parsed = JSON.parse(q.options);
+      setEditOptions(Array.isArray(parsed) && parsed.length >= 4 ? parsed : ['', '', '', '']);
+    } catch {
+      setEditOptions(['', '', '', '']);
+    }
+    setEditCorrectAnswer(q.correctAnswer || '0');
+    setEditPoints(q.points || 10);
+    setIsEditQModal(true);
+  };
+
+  const handleSaveEditQuestion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingQId) return;
+    if (editOptions.some(opt => !opt.trim())) {
+      alert('Semua pilihan jawaban A, B, C, D harus diisi!');
+      return;
+    }
+
+    setLoading(true);
+    const res = await updateQuestion(editingQId, exam.id, {
+      questionText: editQuestionText,
+      options: editOptions,
+      correctAnswer: editCorrectAnswer,
+      points: editPoints,
+    });
+
+    if (res.success && res.data) {
+      setQuestions(questions.map(q => q.id === editingQId ? res.data : q));
+      setIsEditQModal(false);
+      setEditingQId(null);
+    } else {
+      alert(res.error || 'Gagal memperbarui butir soal.');
+    }
+    setLoading(false);
+  };
 
   return (
     <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-8 font-sans">
@@ -398,29 +714,55 @@ export default function ExamDetailClient({ exam }: ExamDetailProps) {
       {/* TAB 1: BANK SOAL */}
       {activeTab === 'questions' && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">Daftar Butir Soal</h2>
-              <p className="text-xs text-slate-500">Total Nilai Maksimal: {totalPoints} Poin</p>
+              <p className="text-xs text-slate-500">Total Nilai Maksimal: {totalPoints} Poin • {questions.length} Butir Soal</p>
             </div>
-            <button
-              onClick={() => setIsAddQuestionModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-semibold shadow-md shadow-purple-500/25 transition-all"
-            >
-              <Plus size={16} /> Tambah Soal Pilihan Ganda
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setBatchStep('input');
+                  setIsBatchModalOpen(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-500/25 transition-all cursor-pointer"
+              >
+                <UploadCloud size={16} /> Input Kolektif (Batch)
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAddQuestionModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-semibold shadow-md shadow-purple-500/25 transition-all cursor-pointer"
+              >
+                <Plus size={16} /> Tambah Soal Manual
+              </button>
+            </div>
           </div>
 
           {questions.length === 0 ? (
             <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
               <HelpCircle className="mx-auto text-slate-300 dark:text-slate-600 mb-3" size={48} />
               <p className="text-slate-500 font-medium">Belum ada butir soal dalam paket ujian ini.</p>
-              <button
-                onClick={() => setIsAddQuestionModal(true)}
-                className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-semibold"
-              >
-                Buat Soal Pertama
-              </button>
+              <div className="flex flex-wrap items-center justify-center gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBatchStep('input');
+                    setIsBatchModalOpen(true);
+                  }}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-md shadow-emerald-500/25 cursor-pointer"
+                >
+                  <UploadCloud size={16} /> Input Soal Kolektif (Batch)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAddQuestionModal(true)}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-semibold flex items-center gap-2 shadow-md shadow-purple-500/25 cursor-pointer"
+                >
+                  <Plus size={16} /> Tambah Soal Manual
+                </button>
+              </div>
             </div>
           ) : (
             <div className="space-y-4">
@@ -447,16 +789,27 @@ export default function ExamDetailClient({ exam }: ExamDetailProps) {
                           Bobot: {q.points} Poin
                         </span>
                       </div>
-                      <button
-                        onClick={() => {
-                          setDeleteQId(q.id);
-                          setIsDeleteQModal(true);
-                        }}
-                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors"
-                        title="Hapus Soal"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditModal(q)}
+                          className="p-1.5 text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/30 rounded-lg transition-colors cursor-pointer"
+                          title="Edit Soal & Bobot Nilai"
+                        >
+                          <Edit3 size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeleteQId(q.id);
+                            setIsDeleteQModal(true);
+                          }}
+                          className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors cursor-pointer"
+                          title="Hapus Soal"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="mt-4 text-slate-900 dark:text-white font-medium text-base whitespace-pre-wrap">
@@ -738,6 +1091,467 @@ export default function ExamDetailClient({ exam }: ExamDetailProps) {
                   className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-semibold shadow-md shadow-purple-500/30 disabled:opacity-50"
                 >
                   {loading ? 'Menyimpan...' : 'Simpan Butir Soal'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 📥 MODAL INPUT SOAL KOLEKTIF (BULK IMPORT) */}
+      {isBatchModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in font-sans">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800">
+            {/* Header */}
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-950/40">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-600 flex items-center justify-center text-white shadow-md shadow-emerald-500/25">
+                  <UploadCloud size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                    Input Soal Kolektif (Bulk Import)
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Input puluhan soal sekaligus dari Word, Excel (CSV), atau Notepad beserta kunci dan bobot nilainya.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="flex bg-slate-200/80 dark:bg-slate-800 p-1 rounded-xl text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setBatchStep('input')}
+                    className={`px-3 py-1.5 rounded-lg transition-all ${
+                      batchStep === 'input'
+                        ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    1. Editor Teks
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (parsedBatch.length > 0) setBatchStep('preview');
+                      else handleParseBatch();
+                    }}
+                    className={`px-3 py-1.5 rounded-lg transition-all ${
+                      batchStep === 'preview'
+                        ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    2. Pratinjau ({parsedBatch.length})
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsBatchModalOpen(false)}
+                  className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg transition"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto flex-1 space-y-5">
+              {batchError && (
+                <div className="p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-300 text-xs flex items-center gap-2">
+                  <AlertTriangle size={16} className="flex-shrink-0" />
+                  <span>{batchError}</span>
+                </div>
+              )}
+
+              {batchStep === 'input' ? (
+                <>
+                  {/* Action helpers bar */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-2xl">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        Bobot Nilai Default:
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={batchDefaultPoints}
+                        onChange={(e) => setBatchDefaultPoints(Number(e.target.value) || 10)}
+                        className="w-16 px-2.5 py-1 text-center font-bold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-emerald-500"
+                      />
+                      <span className="text-xs text-slate-500">Poin/Soal</span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleInsertExampleFormat}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition shadow-sm cursor-pointer"
+                        title="Isi textarea dengan contoh format soal"
+                      >
+                        <FileText size={14} className="text-purple-600 dark:text-purple-400" /> Sisipkan Contoh Format
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleDownloadCsvTemplate}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition shadow-sm cursor-pointer"
+                        title="Unduh format spreadsheet CSV"
+                      >
+                        <FileSpreadsheet size={14} className="text-emerald-600 dark:text-emerald-400" /> Unduh Template CSV
+                      </button>
+
+                      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition shadow-sm cursor-pointer">
+                        <FileUp size={14} className="text-blue-600 dark:text-blue-400" /> Unggah File (.txt/.csv)
+                        <input
+                          type="file"
+                          accept=".txt,.csv"
+                          onChange={handleFileUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Main Input Textarea */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        Tempelkan Teks Soal di Bawah Ini:
+                      </label>
+                      <span className="text-[11px] text-slate-400">
+                        Mendukung format Microsoft Word / Google Docs & CSV Excel
+                      </span>
+                    </div>
+
+                    <textarea
+                      rows={13}
+                      value={batchRawText}
+                      onChange={(e) => setBatchRawText(e.target.value)}
+                      placeholder={`1. Pertanyaan soal di sini...
+A. Pilihan jawaban A
+B. Pilihan jawaban B
+C. Pilihan jawaban C
+D. Pilihan jawaban D
+Kunci: A
+Poin: 10
+
+2. Pertanyaan kedua...
+A. Pilihan A
+B. Pilihan B
+C. Pilihan C
+D. Pilihan D
+Kunci: B
+Poin: 15`}
+                      className="w-full p-4 font-mono text-xs sm:text-sm rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 leading-relaxed shadow-inner resize-y"
+                    />
+                  </div>
+
+                  {/* Format Guidance Hint */}
+                  <div className="p-3 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-900/40 text-emerald-900 dark:text-emerald-200 text-xs space-y-1">
+                    <div className="font-bold flex items-center gap-1.5">
+                      <Sparkles size={14} /> Tips Format Cepat:
+                    </div>
+                    <ul className="list-disc list-inside space-y-0.5 text-[11px] text-emerald-800 dark:text-emerald-300">
+                      <li>Tiap nomor soal bisa ditulis angka biasa (contoh: <code>1.</code> atau <code>1)</code>).</li>
+                      <li>Pilihan jawaban bisa <code>A.</code>, <code>B.</code>, <code>C.</code>, <code>D.</code> atau huruf kecil.</li>
+                      <li>Kunci jawaban cukup ditulis <code>Kunci: A</code> atau <code>Jawaban: B</code>.</li>
+                      <li>Bobot nilai bisa ditulis <code>Poin: 10</code>. Jika tidak ditulis, otomatis menggunakan <strong>Bobot Nilai Default</strong> di atas.</li>
+                    </ul>
+                  </div>
+                </>
+              ) : (
+                /* Step 2: Live Preview & Inline Point Adjuster */
+                <div className="space-y-4">
+                  {/* Summary Bar */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="p-4 rounded-2xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200/80 dark:border-purple-900/40">
+                      <div className="text-[11px] font-semibold text-purple-700 dark:text-purple-300 uppercase">Total Soal Terdeteksi</div>
+                      <div className="text-2xl font-black text-purple-900 dark:text-purple-100 mt-0.5">
+                        {parsedBatch.length} Butir Soal
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-900/40">
+                      <div className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 uppercase">Total Akumulasi Poin</div>
+                      <div className="text-2xl font-black text-emerald-900 dark:text-emerald-100 mt-0.5">
+                        {parsedBatch.reduce((sum, q) => sum + q.points, 0)} Poin
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/40 flex flex-col justify-between">
+                      <div className="text-[11px] font-semibold text-blue-700 dark:text-blue-300 uppercase">Setel Bobot Seragam</div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <input
+                          type="number"
+                          min="1"
+                          max="100"
+                          defaultValue={batchDefaultPoints}
+                          id="bulkPointInput"
+                          className="w-16 px-2 py-1 text-center font-bold text-xs rounded-lg border border-blue-300 bg-white dark:bg-slate-900 dark:border-blue-800"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const val = Number((document.getElementById('bulkPointInput') as HTMLInputElement)?.value) || 10;
+                            handleApplyPointsToAllParsed(val);
+                          }}
+                          className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold"
+                        >
+                          Terapkan ke Semua
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* List of Parsed Items */}
+                  <div className="space-y-3">
+                    {parsedBatch.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 space-y-3 relative group"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <span className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                              {idx + 1}
+                            </span>
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                              Soal Nomor {idx + 1}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                              <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
+                                Bobot Nilai:
+                              </label>
+                              <input
+                                type="number"
+                                min="1"
+                                max="100"
+                                value={item.points}
+                                onChange={(e) => handleUpdateParsedItemPoints(idx, Number(e.target.value) || 1)}
+                                className="w-14 px-1.5 py-0.5 text-center font-bold text-xs rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 focus:ring-1 focus:ring-emerald-500"
+                              />
+                              <span className="text-[11px] text-slate-500">Poin</span>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteParsedItem(idx)}
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition"
+                              title="Hapus soal ini dari daftar"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="text-sm font-medium text-slate-900 dark:text-white whitespace-pre-wrap pl-9">
+                          {item.questionText}
+                        </div>
+
+                        {/* Options */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-9 pt-1">
+                          {item.options.map((opt, oIdx) => {
+                            const isCorrect = String(oIdx) === item.correctAnswer;
+                            const label = String.fromCharCode(65 + oIdx);
+                            return (
+                              <button
+                                key={oIdx}
+                                type="button"
+                                onClick={() => handleUpdateParsedItemKey(idx, String(oIdx))}
+                                className={`p-2.5 rounded-xl border text-left text-xs flex items-center justify-between transition-all cursor-pointer ${
+                                  isCorrect
+                                    ? 'bg-emerald-500 text-white border-emerald-600 font-bold shadow-sm'
+                                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                                }`}
+                              >
+                                <span className="flex items-center gap-2">
+                                  <span className={`w-5 h-5 rounded flex items-center justify-center text-[11px] font-bold ${
+                                    isCorrect ? 'bg-white text-emerald-700' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                                  }`}>
+                                    {label}
+                                  </span>
+                                  <span>{opt}</span>
+                                </span>
+                                {isCorrect && <Check size={14} className="text-white flex-shrink-0" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer Actions */}
+            <div className="p-5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-950/40">
+              {batchStep === 'input' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setIsBatchModalOpen(false)}
+                    className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium hover:bg-slate-100"
+                  >
+                    Batal
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleParseBatch}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-500/25 transition cursor-pointer"
+                  >
+                    <Search size={16} /> Analisis & Pratinjau Butir Soal →
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setBatchStep('input')}
+                    className="flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium hover:bg-slate-100 cursor-pointer"
+                  >
+                    ← Kembali Edit Teks
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={batchLoading || parsedBatch.length === 0}
+                    onClick={handleSaveBatchQuestions}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-500/25 transition disabled:opacity-50 cursor-pointer"
+                  >
+                    <CheckCircle size={16} />
+                    {batchLoading
+                      ? 'Sedang Menyimpan...'
+                      : `Simpan Semua Soal (${parsedBatch.length} Butir Soal)`}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✏️ MODAL EDIT BUTIR SOAL & BOBOT NILAI */}
+      {isEditQModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+              <h3 className="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                <Edit3 size={18} className="text-purple-600 dark:text-purple-400" />
+                Edit Butir Soal & Bobot Nilai
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsEditQModal(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditQuestion} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Pertanyaan / Isi Soal <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  placeholder="Tuliskan pertanyaan soal ujian di sini..."
+                  value={editQuestionText}
+                  onChange={(e) => setEditQuestionText(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div className="space-y-3">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Pilihan Jawaban (A, B, C, D) & Tentukan Kunci Jawaban Benar <span className="text-red-500">*</span>
+                </label>
+
+                {editOptions.map((opt, idx) => {
+                  const label = String.fromCharCode(65 + idx);
+                  const isChecked = editCorrectAnswer === String(idx);
+
+                  return (
+                    <div
+                      key={idx}
+                      className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
+                        isChecked
+                          ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20'
+                          : 'border-slate-200 dark:border-slate-800'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="editCorrectAnswerOption"
+                        checked={isChecked}
+                        onChange={() => setEditCorrectAnswer(String(idx))}
+                        className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                      />
+                      <span className="font-bold text-sm w-5">{label}.</span>
+                      <input
+                        type="text"
+                        required
+                        placeholder={`Teks pilihan jawaban ${label}...`}
+                        value={opt}
+                        onChange={(e) => {
+                          const updated = [...editOptions];
+                          updated[idx] = e.target.value;
+                          setEditOptions(updated);
+                        }}
+                        className="flex-1 bg-transparent text-sm focus:outline-none"
+                      />
+                      {isChecked && (
+                        <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
+                          <CheckCircle size={14} /> Kunci Jawaban
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 pt-2">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Bobot Nilai / Poin <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    required
+                    value={editPoints}
+                    onChange={(e) => setEditPoints(Number(e.target.value) || 1)}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500 font-bold"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">Nilai yang didapat siswa jika menjawab benar.</p>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsEditQModal(false)}
+                  className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium hover:bg-slate-50 cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-semibold shadow-md shadow-purple-500/30 disabled:opacity-50 cursor-pointer"
+                >
+                  {loading ? 'Menyimpan...' : 'Simpan Perubahan'}
                 </button>
               </div>
             </form>

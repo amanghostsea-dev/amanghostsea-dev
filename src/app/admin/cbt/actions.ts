@@ -137,6 +137,76 @@ export async function createQuestion(data: {
   }
 }
 
+export async function createBatchQuestions(
+  examId: string,
+  questions: Array<{
+    questionText: string;
+    options: string[];
+    correctAnswer: string;
+    points?: number;
+  }>
+) {
+  try {
+    if (!questions || questions.length === 0) {
+      return { error: 'Daftar butir soal tidak boleh kosong.' };
+    }
+
+    const currentCount = await prisma.examQuestion.count({
+      where: { examId },
+    });
+
+    const created = await prisma.$transaction(
+      questions.map((q, idx) =>
+        prisma.examQuestion.create({
+          data: {
+            examId,
+            questionText: q.questionText.trim(),
+            options: JSON.stringify(q.options),
+            correctAnswer: q.correctAnswer,
+            points: Number(q.points) || 10,
+            order: currentCount + idx,
+          },
+        })
+      )
+    );
+
+    revalidatePath(`/admin/cbt/${examId}`);
+    revalidatePath('/admin/cbt');
+    revalidatePath(`/portal/siswa/cbt/${examId}`);
+    return { success: true, count: created.length, data: created };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+export async function updateQuestion(
+  questionId: string,
+  examId: string,
+  data: {
+    questionText?: string;
+    options?: string[];
+    correctAnswer?: string;
+    points?: number;
+  }
+) {
+  try {
+    const updated = await prisma.examQuestion.update({
+      where: { id: questionId },
+      data: {
+        ...(data.questionText !== undefined && { questionText: data.questionText.trim() }),
+        ...(data.options !== undefined && { options: JSON.stringify(data.options) }),
+        ...(data.correctAnswer !== undefined && { correctAnswer: data.correctAnswer }),
+        ...(data.points !== undefined && { points: Number(data.points) }),
+      },
+    });
+
+    revalidatePath(`/admin/cbt/${examId}`);
+    return { success: true, data: updated };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
 export async function deleteQuestion(questionId: string, examId: string) {
   try {
     await prisma.examQuestion.delete({ where: { id: questionId } });
