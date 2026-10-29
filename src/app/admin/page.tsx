@@ -14,6 +14,9 @@ export default async function SuperAdminDashboard() {
   if (role === 'Admin BKK' || role === 'BKK') {
     redirect('/admin/bkk/jobs');
   }
+  if (role === 'Guru') {
+    redirect('/portal/guru');
+  }
   return (
     <main className="p-6 md:p-10">
       <div className="flex justify-between items-center mb-8">
