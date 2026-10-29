@@ -401,10 +401,38 @@ export default function ExamDetailClient({ exam }: ExamDetailProps) {
     setOptions(updated);
   };
 
+  const handleAddOption = () => {
+    if (options.length >= 6) {
+      alert('Maksimal 6 pilihan jawaban (A sampai F).');
+      return;
+    }
+    setOptions([...options, '']);
+  };
+
+  const handleRemoveOption = (indexToRemove: number) => {
+    if (options.length <= 2) {
+      alert('Minimal harus memiliki 2 pilihan jawaban.');
+      return;
+    }
+    const updated = options.filter((_, idx) => idx !== indexToRemove);
+    setOptions(updated);
+
+    const curKey = parseInt(correctAnswer, 10);
+    if (curKey === indexToRemove) {
+      setCorrectAnswer('0');
+    } else if (curKey > indexToRemove) {
+      setCorrectAnswer(String(curKey - 1));
+    }
+  };
+
   const handleAddQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (options.length < 2) {
+      alert('Minimal harus ada 2 pilihan jawaban!');
+      return;
+    }
     if (options.some((opt) => !opt.trim())) {
-      alert('Semua pilihan jawaban A, B, C, D harus diisi!');
+      alert('Semua pilihan jawaban yang aktif harus diisi!');
       return;
     }
 
@@ -423,6 +451,7 @@ export default function ExamDetailClient({ exam }: ExamDetailProps) {
       setQuestionText('');
       setOptions(['', '', '', '']);
       setCorrectAnswer('0');
+      setPoints(10);
     } else {
       alert(res.error || 'Gagal menambahkan soal.');
     }
@@ -499,6 +528,36 @@ export default function ExamDetailClient({ exam }: ExamDetailProps) {
     setParsedBatch(updated);
   };
 
+  const handleAddParsedOption = (qIdx: number) => {
+    const updated = [...parsedBatch];
+    if (updated[qIdx].options.length >= 6) return;
+    const nextChar = String.fromCharCode(65 + updated[qIdx].options.length);
+    updated[qIdx].options = [...updated[qIdx].options, `Pilihan ${nextChar}`];
+    setParsedBatch(updated);
+  };
+
+  const handleRemoveParsedOption = (qIdx: number, optIdx: number) => {
+    const updated = [...parsedBatch];
+    if (updated[qIdx].options.length <= 2) return;
+    updated[qIdx].options = updated[qIdx].options.filter((_, idx) => idx !== optIdx);
+
+    const curKey = parseInt(updated[qIdx].correctAnswer, 10);
+    if (curKey === optIdx) {
+      updated[qIdx].correctAnswer = '0';
+    } else if (curKey > optIdx) {
+      updated[qIdx].correctAnswer = String(curKey - 1);
+    }
+    setParsedBatch(updated);
+  };
+
+  const handleUpdateParsedOptionText = (qIdx: number, optIdx: number, val: string) => {
+    const updated = [...parsedBatch];
+    const newOptions = [...updated[qIdx].options];
+    newOptions[optIdx] = val;
+    updated[qIdx].options = newOptions;
+    setParsedBatch(updated);
+  };
+
   const handleDeleteParsedItem = (index: number) => {
     const updated = parsedBatch.filter((_, idx) => idx !== index);
     setParsedBatch(updated);
@@ -541,19 +600,21 @@ D. <url>
 Kunci: B
 Poin: 10
 
-3. Protokol jaringan yang digunakan untuk pengiriman web terenkripsi dan aman adalah...
+3. Manakah dari protokol berikut yang digunakan untuk komunikasi data terenkripsi dan aman di internet?
 A. HTTP
 B. FTP
 C. HTTPS
 D. SMTP
+E. Telnet
 Kunci: C
 Poin: 15
 
-4. Perangkat jaringan yang berfungsi membagi jaringan ke beberapa subnet adalah...
+4. Perangkat jaringan yang berfungsi membagi jaringan ke beberapa subnet atau rute berbeda adalah...
 A. Repeater
 B. Hub
 C. Switch
 D. Router
+E. Modem
 Kunci: D
 Poin: 15`;
 
@@ -565,8 +626,9 @@ Poin: 15`;
     if (format === 'txt') {
       const txtContent = `PANDUAN PENGISIAN SOAL CBT (FORMAT TEKS / MICROSOFT WORD):
 1. Tuliskan nomor soal (1., 2., dst.) diikuti teks pertanyaan.
-2. Tuliskan pilihan jawaban (A., B., C., D., opsional E.).
-3. Tuliskan "Kunci: [A/B/C/D]" untuk menentukan jawaban yang benar.
+2. Tuliskan pilihan jawaban (A., B., C., D., dan opsional E.).
+   Sistem mendukung 2 hingga 5 pilihan jawaban (A-D atau A-E) secara fleksibel.
+3. Tuliskan "Kunci: [A/B/C/D/E]" untuk menentukan jawaban yang benar.
 4. Tuliskan "Poin: [angka]" untuk bobot nilai (contoh: Poin: 10).
 5. Setelah selesai, blok semua teks di dokumen (Ctrl+A), salin (Ctrl+C), lalu tempelkan (Ctrl+V) ke form Input Kolektif di aplikasi CBT.
 
@@ -581,13 +643,14 @@ D. Home Tool Multi Language
 Kunci: A
 Poin: 10
 
-2. Tag HTML yang digunakan untuk membuat tautan atau hyperlink ke halaman lain adalah...
-A. <link>
-B. <a>
-C. <href>
-D. <url>
-Kunci: B
-Poin: 10
+2. Manakah dari protokol berikut yang digunakan untuk komunikasi data web terenkripsi secara aman?
+A. HTTP
+B. FTP
+C. HTTPS
+D. SMTP
+E. Telnet
+Kunci: C
+Poin: 15
 
 3. Protokol jaringan yang digunakan untuk pengiriman web terenkripsi dan aman adalah...
 A. HTTP
@@ -693,8 +756,8 @@ Poin: 10
       ['1', '"Apa kepanjangan dari HTML dalam pemrograman web?"', '"Hyper Text Markup Language"', '"High Tech Modern Language"', '"Hyperlink Text Making Link"', '"Home Tool Multi Language"', '""', 'A', '10', '"Dasar HTML"'],
       ['2', '"Tag HTML yang digunakan untuk membuat tautan atau hyperlink ke halaman lain adalah..."', '"<link>"', '"<a>"', '"<href>"', '"<url>"', '""', 'B', '10', '"Struktur HTML"'],
       ['3', '"Protokol jaringan yang digunakan untuk pengiriman web terenkripsi dan aman adalah..."', '"HTTP"', '"FTP"', '"HTTPS"', '"SMTP"', '""', 'C', '15', '"Keamanan Jaringan"'],
-      ['4', '"Perangkat jaringan komputer yang berfungsi menghubungkan dua atau lebih subnet/jaringan yang berbeda adalah..."', '"Repeater"', '"Hub"', '"Switch"', '"Router"', '""', 'D', '15', '"Perangkat Keras"'],
-      ['5', '"Bahasa pemrograman web yang dieksekusi di sisi peramban (client-side) untuk membuat animasi dan interaksi adalah..."', '"PHP"', '"Python"', '"JavaScript"', '"Ruby"', '""', 'C', '10', '"Frontend"'],
+      ['4', '"Perangkat jaringan komputer yang berfungsi menghubungkan dua atau lebih subnet/jaringan yang berbeda adalah..."', '"Repeater"', '"Hub"', '"Switch"', '"Router"', '"Modem"', 'D', '15', '"Perangkat Keras (5 Opsi A-E)"'],
+      ['5', '"Bahasa pemrograman web yang dieksekusi di sisi peramban (client-side) untuk membuat animasi dan interaksi adalah..."', '"PHP"', '"Python"', '"JavaScript"', '"Ruby"', '"Bash"', 'C', '10', '"Frontend (5 Opsi A-E)"'],
       // 10 Baris kosong siap isi bagi guru:
       ['6', '"Tuliskan pertanyaan soal nomor 6 di sini..."', '"Pilihan jawaban A"', '"Pilihan jawaban B"', '"Pilihan jawaban C"', '"Pilihan jawaban D"', '""', 'A', '10', '"Materi Ujian"'],
       ['7', '"Tuliskan pertanyaan soal nomor 7 di sini..."', '"Pilihan jawaban A"', '"Pilihan jawaban B"', '"Pilihan jawaban C"', '"Pilihan jawaban D"', '""', 'B', '10', '"Materi Ujian"'],
@@ -759,7 +822,7 @@ Poin: 10
     setEditQuestionText(q.questionText);
     try {
       const parsed = JSON.parse(q.options);
-      setEditOptions(Array.isArray(parsed) && parsed.length >= 4 ? parsed : ['', '', '', '']);
+      setEditOptions(Array.isArray(parsed) && parsed.length >= 2 ? parsed : ['', '', '', '']);
     } catch {
       setEditOptions(['', '', '', '']);
     }
@@ -768,11 +831,39 @@ Poin: 10
     setIsEditQModal(true);
   };
 
+  const handleAddEditOption = () => {
+    if (editOptions.length >= 6) {
+      alert('Maksimal 6 pilihan jawaban (A sampai F).');
+      return;
+    }
+    setEditOptions([...editOptions, '']);
+  };
+
+  const handleRemoveEditOption = (indexToRemove: number) => {
+    if (editOptions.length <= 2) {
+      alert('Minimal harus memiliki 2 pilihan jawaban.');
+      return;
+    }
+    const updated = editOptions.filter((_, idx) => idx !== indexToRemove);
+    setEditOptions(updated);
+
+    const curKey = parseInt(editCorrectAnswer, 10);
+    if (curKey === indexToRemove) {
+      setEditCorrectAnswer('0');
+    } else if (curKey > indexToRemove) {
+      setEditCorrectAnswer(String(curKey - 1));
+    }
+  };
+
   const handleSaveEditQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingQId) return;
+    if (editOptions.length < 2) {
+      alert('Minimal harus ada 2 pilihan jawaban!');
+      return;
+    }
     if (editOptions.some(opt => !opt.trim())) {
-      alert('Semua pilihan jawaban A, B, C, D harus diisi!');
+      alert('Semua pilihan jawaban yang aktif harus diisi!');
       return;
     }
 
@@ -1297,9 +1388,14 @@ Poin: 10
               </div>
 
               <div className="space-y-3">
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Pilihan Jawaban (A, B, C, D) & Tentukan Kunci Jawaban Benar <span className="text-red-500">*</span>
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Pilihan Jawaban (A - {String.fromCharCode(64 + options.length)}) & Tentukan Kunci Jawaban Benar <span className="text-red-500">*</span>
+                  </label>
+                  <span className="text-[11px] text-slate-400 font-medium">
+                    {options.length} Pilihan Aktif
+                  </span>
+                </div>
 
                 {options.map((opt, idx) => {
                   const label = String.fromCharCode(65 + idx);
@@ -1319,7 +1415,8 @@ Poin: 10
                         name="correctAnswerOption"
                         checked={isChecked}
                         onChange={() => setCorrectAnswer(String(idx))}
-                        className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+                        className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                        title={`Pilih ${label} sebagai kunci jawaban benar`}
                       />
                       <span className="font-bold text-sm w-5">{label}.</span>
                       <input
@@ -1335,9 +1432,29 @@ Poin: 10
                           <CheckCircle size={14} /> Kunci Jawaban
                         </span>
                       )}
+                      {options.length > 2 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveOption(idx)}
+                          className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition cursor-pointer"
+                          title={`Hapus pilihan ${label}`}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )}
                     </div>
                   );
                 })}
+
+                {options.length < 6 && (
+                  <button
+                    type="button"
+                    onClick={handleAddOption}
+                    className="w-full py-2.5 border-2 border-dashed border-purple-300 dark:border-purple-800/60 hover:border-purple-500 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/20 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Plus size={15} /> Tambah Pilihan Jawaban ({String.fromCharCode(65 + options.length)})
+                  </button>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4 pt-2">
@@ -1658,33 +1775,71 @@ Poin: 15`}
                         </div>
 
                         {/* Options */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-9 pt-1">
-                          {item.options.map((opt, oIdx) => {
-                            const isCorrect = String(oIdx) === item.correctAnswer;
-                            const label = String.fromCharCode(65 + oIdx);
-                            return (
-                              <button
-                                key={oIdx}
-                                type="button"
-                                onClick={() => handleUpdateParsedItemKey(idx, String(oIdx))}
-                                className={`p-2.5 rounded-xl border text-left text-xs flex items-center justify-between transition-all cursor-pointer ${
-                                  isCorrect
-                                    ? 'bg-emerald-500 text-white border-emerald-600 font-bold shadow-sm'
-                                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
-                                }`}
-                              >
-                                <span className="flex items-center gap-2">
-                                  <span className={`w-5 h-5 rounded flex items-center justify-center text-[11px] font-bold ${
-                                    isCorrect ? 'bg-white text-emerald-700' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                                  }`}>
+                        <div className="space-y-2 pl-9 pt-1">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {item.options.map((opt, oIdx) => {
+                              const isCorrect = String(oIdx) === item.correctAnswer;
+                              const label = String.fromCharCode(65 + oIdx);
+                              return (
+                                <div
+                                  key={oIdx}
+                                  className={`p-2 rounded-xl border text-xs flex items-center gap-2 transition-all ${
+                                    isCorrect
+                                      ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-500 font-semibold text-emerald-900 dark:text-emerald-200 shadow-sm'
+                                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300'
+                                  }`}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateParsedItemKey(idx, String(oIdx))}
+                                    className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold transition flex-shrink-0 cursor-pointer ${
+                                      isCorrect
+                                        ? 'bg-emerald-600 text-white shadow-sm'
+                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                    }`}
+                                    title={`Klik untuk jadikan Opsi ${label} sebagai Kunci Jawaban`}
+                                  >
                                     {label}
-                                  </span>
-                                  <span>{opt}</span>
-                                </span>
-                                {isCorrect && <Check size={14} className="text-white flex-shrink-0" />}
-                              </button>
-                            );
-                          })}
+                                  </button>
+
+                                  <input
+                                    type="text"
+                                    value={opt}
+                                    onChange={(e) => handleUpdateParsedOptionText(idx, oIdx, e.target.value)}
+                                    className="flex-1 bg-transparent text-xs focus:outline-none min-w-0"
+                                    placeholder={`Pilihan ${label}...`}
+                                  />
+
+                                  {isCorrect && (
+                                    <span className="text-[10px] bg-emerald-600 text-white font-bold px-1.5 py-0.5 rounded flex items-center gap-1 flex-shrink-0">
+                                      <Check size={11} /> Kunci
+                                    </span>
+                                  )}
+
+                                  {item.options.length > 2 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveParsedOption(idx, oIdx)}
+                                      className="p-1 text-slate-400 hover:text-red-500 rounded transition flex-shrink-0 cursor-pointer"
+                                      title={`Hapus opsi ${label}`}
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {item.options.length < 6 && (
+                            <button
+                              type="button"
+                              onClick={() => handleAddParsedOption(idx)}
+                              className="text-[11px] font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 flex items-center gap-1 cursor-pointer pt-0.5"
+                            >
+                              <Plus size={13} /> + Tambah Pilihan {String.fromCharCode(65 + item.options.length)} (misal Opsi E)
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -1775,9 +1930,14 @@ Poin: 15`}
               </div>
 
               <div className="space-y-3">
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Pilihan Jawaban (A, B, C, D) & Tentukan Kunci Jawaban Benar <span className="text-red-500">*</span>
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Pilihan Jawaban (A - {String.fromCharCode(64 + editOptions.length)}) & Tentukan Kunci Jawaban Benar <span className="text-red-500">*</span>
+                  </label>
+                  <span className="text-[11px] text-slate-400 font-medium">
+                    {editOptions.length} Pilihan Aktif
+                  </span>
+                </div>
 
                 {editOptions.map((opt, idx) => {
                   const label = String.fromCharCode(65 + idx);
@@ -1798,6 +1958,7 @@ Poin: 15`}
                         checked={isChecked}
                         onChange={() => setEditCorrectAnswer(String(idx))}
                         className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                        title={`Pilih ${label} sebagai kunci jawaban benar`}
                       />
                       <span className="font-bold text-sm w-5">{label}.</span>
                       <input
@@ -1817,9 +1978,29 @@ Poin: 15`}
                           <CheckCircle size={14} /> Kunci Jawaban
                         </span>
                       )}
+                      {editOptions.length > 2 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveEditOption(idx)}
+                          className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition cursor-pointer"
+                          title={`Hapus pilihan ${label}`}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )}
                     </div>
                   );
                 })}
+
+                {editOptions.length < 6 && (
+                  <button
+                    type="button"
+                    onClick={handleAddEditOption}
+                    className="w-full py-2.5 border-2 border-dashed border-purple-300 dark:border-purple-800/60 hover:border-purple-500 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/20 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Plus size={15} /> Tambah Pilihan Jawaban ({String.fromCharCode(65 + editOptions.length)})
+                  </button>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4 pt-2">
