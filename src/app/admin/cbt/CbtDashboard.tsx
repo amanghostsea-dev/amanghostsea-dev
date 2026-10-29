@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   BookOpen, 
   Clock, 
@@ -85,9 +86,17 @@ interface CbtDashboardProps {
     name: string;
     role: string;
   };
+  initialTab?: 'exams' | 'schedule';
 }
 
-export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDashboardProps) {
+export default function CbtDashboard({
+  exams: initialExams,
+  currentUser,
+  initialTab = 'exams',
+}: CbtDashboardProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [exams, setExams] = useState(initialExams);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -104,28 +113,25 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
   const teacherName = currentUser?.name || 'Bpk. Ahmad ST';
 
   // Main View Tab: 'exams' (Paket Soal) | 'schedule' (Matriks Penjadwalan)
-  const [activeMainTab, setActiveMainTab] = useState<'exams' | 'schedule'>('exams');
+  const [activeMainTab, setActiveMainTab] = useState<'exams' | 'schedule'>(initialTab);
   const [selectedClassFilter, setSelectedClassFilter] = useState('ALL');
 
+  // Reactively sync active tab with URL search parameter
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('tab') === 'jadwal') {
-        setActiveMainTab('schedule');
-      }
+    const tabParam = searchParams?.get('tab');
+    if (tabParam === 'jadwal') {
+      setActiveMainTab('schedule');
+    } else if (tabParam === 'ujian' || !tabParam) {
+      setActiveMainTab('exams');
     }
-  }, []);
+  }, [searchParams]);
 
   const handleTabSwitch = (tab: 'exams' | 'schedule') => {
     setActiveMainTab(tab);
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      if (tab === 'schedule') {
-        url.searchParams.set('tab', 'jadwal');
-      } else {
-        url.searchParams.delete('tab');
-      }
-      window.history.replaceState({}, '', url.toString());
+    if (tab === 'schedule') {
+      router.replace('/admin/cbt?tab=jadwal', { scroll: false });
+    } else {
+      router.replace('/admin/cbt', { scroll: false });
     }
   };
 
