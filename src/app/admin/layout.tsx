@@ -9,7 +9,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const userName = cookieStore.get('auth_name')?.value || 'User';
 
   return (
-    <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900">
+    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-slate-900">
       <AdminSidebar logoUrl={settings?.logoUrl} userRole={userRole} userName={userName} />
 
       {/* Main Content Area */}

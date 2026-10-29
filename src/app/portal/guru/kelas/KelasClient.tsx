@@ -185,3 +185,4 @@ export default function KelasClient({ students, teacherName }: { students: Stude
     </div>
   );
 }
+
