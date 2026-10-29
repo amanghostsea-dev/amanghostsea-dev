@@ -1,5 +1,5 @@
 'use client';
-import { Users, Settings, Database, Activity, LogOut, BookOpen, Network, LayoutDashboard, TrendingUp, Briefcase, ExternalLink, CheckSquare, Banknote, MonitorPlay, FileText } from 'lucide-react';
+import { Users, Settings, Database, Activity, LogOut, BookOpen, Network, LayoutDashboard, TrendingUp, Briefcase, ExternalLink, CheckSquare, Banknote, MonitorPlay, FileText, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import SchoolLogo from '@/components/SchoolLogo';
@@ -19,6 +19,7 @@ export default function AdminSidebar({ logoUrl, userRole = 'Super Admin', userNa
 
   const isActive = (path: string) => {
     if (path === '/admin' && pathname !== '/admin') return false;
+    if (path === '/portal/guru' && pathname !== '/portal/guru') return false;
     return pathname?.startsWith(path);
   };
 
@@ -48,9 +49,11 @@ export default function AdminSidebar({ logoUrl, userRole = 'Super Admin', userNa
   ];
 
   const guruMenuItems = [
-    { name: 'Dashboard Guru', path: '/portal/guru', icon: <LayoutDashboard size={20} /> },
-    { name: 'Ujian Online (CBT)', path: '/admin/cbt', icon: <MonitorPlay size={20} /> },
+    { name: 'Jadwal & Dashboard', path: '/portal/guru', icon: <Calendar size={20} /> },
+    { name: 'Smart CBT (Ujian)', path: '/admin/cbt', icon: <MonitorPlay size={20} /> },
     { name: 'Tugas Siswa', path: '/admin/tugas', icon: <FileText size={20} /> },
+    { name: 'Kelas & Siswa', path: '/portal/guru/kelas', icon: <Users size={20} /> },
+    { name: 'Presensi Siswa', path: '/portal/guru/presensi', icon: <CheckSquare size={20} /> },
   ];
 
   const menuItems = isPPDBPanitia ? panitiaMenuItems : isBKK ? bkkMenuItems : isGuru ? guruMenuItems : superAdminMenuItems;

@@ -100,12 +100,12 @@ export default async function PortalGuru() {
               </span>
             )}
           </Link>
-          <a href="#" className="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl font-medium text-sm transition-colors">
+          <Link href="/portal/guru/kelas" className="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl font-medium text-sm transition-colors">
             <Users size={18} /> Kelas & Siswa
-          </a>
-          <a href="#" className="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl font-medium text-sm transition-colors">
+          </Link>
+          <Link href="/portal/guru/presensi" className="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl font-medium text-sm transition-colors">
             <CheckSquare size={18} /> Presensi Siswa
-          </a>
+          </Link>
         </div>
 
         <div className="p-4 border-t border-gray-200 dark:border-gray-800">
