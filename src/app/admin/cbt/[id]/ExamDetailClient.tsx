@@ -21,7 +21,14 @@ import {
   Play,
   Square,
   Wifi,
-  RefreshCw
+  RefreshCw,
+  Maximize2,
+  Minimize2,
+  Download,
+  Printer,
+  Search,
+  Sparkles,
+  MonitorPlay
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import { createQuestion, deleteQuestion, deleteAttempt, toggleExamSession } from '../actions';
@@ -77,6 +84,8 @@ export default function ExamDetailClient({ exam }: ExamDetailProps) {
   const [examToken, setExamToken] = useState(exam.token || '');
   const [togglingSession, setTogglingSession] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
+  const [isWhiteboardModalOpen, setIsWhiteboardModalOpen] = useState(false);
+  const [resultSearch, setResultSearch] = useState('');
 
   const handleToggleSession = async (open: boolean) => {
     setTogglingSession(true);
@@ -95,6 +104,34 @@ export default function ExamDetailClient({ exam }: ExamDetailProps) {
     navigator.clipboard.writeText(examToken);
     setCopiedToken(true);
     setTimeout(() => setCopiedToken(false), 2000);
+  };
+
+  const handleExportCsv = () => {
+    if (attempts.length === 0) {
+      alert('Belum ada data nilai siswa untuk diunduh.');
+      return;
+    }
+    const headers = ['No', 'Nama Siswa', 'NIS', 'Kelas', 'Nilai Akhir', 'Benar', 'Total Soal', 'Pelanggaran Tab Switch', 'Status'];
+    const rows = attempts.map((att, index) => [
+      index + 1,
+      `"${att.studentName.replace(/"/g, '""')}"`,
+      `"${(att.studentNis || '').replace(/"/g, '""')}"`,
+      `"${(att.studentClass || '').replace(/"/g, '""')}"`,
+      att.score,
+      att.totalCorrect,
+      att.totalQuestions,
+      att.tabSwitchCount,
+      att.status === 'SUBMITTED' ? 'Selesai' : 'Sedang Ujian',
+    ]);
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Rekap_Nilai_${exam.title.replace(/[^a-zA-Z0-9]/g, '_')}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Modal Create Question
@@ -283,15 +320,26 @@ export default function ExamDetailClient({ exam }: ExamDetailProps) {
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleToggleSession(false)}
-                  disabled={togglingSession}
-                  className="px-5 py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                >
-                  <Square size={14} className="fill-white" />
-                  <span>{togglingSession ? 'Menutup...' : 'Tutup Sesi Ujian'}</span>
-                </button>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsWhiteboardModalOpen(true)}
+                    className="px-4 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Maximize2 size={14} />
+                    <span>Mode Proyektor (Layar Penuh)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleToggleSession(false)}
+                    disabled={togglingSession}
+                    className="px-5 py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    <Square size={14} className="fill-white" />
+                    <span>{togglingSession ? 'Menutup...' : 'Tutup Sesi'}</span>
+                  </button>
+                </div>
               </>
             ) : (
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -457,12 +505,41 @@ export default function ExamDetailClient({ exam }: ExamDetailProps) {
       {/* TAB 2: REKAP HASIL & NILAI SISWA */}
       {activeTab === 'results' && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">Rekap Nilai Siswa</h2>
               <p className="text-xs text-slate-500">
                 Memantau nilai akhir, durasi pengerjaan, dan catatan pelanggaran anti-curang (tab-switch).
               </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                <input
+                  type="text"
+                  placeholder="Cari siswa atau NIS..."
+                  value={resultSearch}
+                  onChange={(e) => setResultSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleExportCsv}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+              >
+                <Download size={14} /> Unduh CSV / Excel
+              </button>
+
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+              >
+                <Printer size={14} /> Cetak Nilai
+              </button>
             </div>
           </div>
 
@@ -487,7 +564,13 @@ export default function ExamDetailClient({ exam }: ExamDetailProps) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {attempts.map((att) => (
+                    {attempts
+                      .filter((att) =>
+                        att.studentName.toLowerCase().includes(resultSearch.toLowerCase()) ||
+                        (att.studentNis && att.studentNis.toLowerCase().includes(resultSearch.toLowerCase())) ||
+                        (att.studentClass && att.studentClass.toLowerCase().includes(resultSearch.toLowerCase()))
+                      )
+                      .map((att) => (
                       <tr key={att.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                         <td className="py-4 px-6 font-bold text-slate-900 dark:text-white">
                           {att.studentName}
@@ -691,6 +774,92 @@ export default function ExamDetailClient({ exam }: ExamDetailProps) {
         variant="warning"
         isLoading={loading}
       />
+
+      {/* 📺 WHITEBOARD PROJEKTOR LAYAR PENUH (PAPAN TULIS KELAS) */}
+      {isWhiteboardModalOpen && (
+        <div className="fixed inset-0 bg-slate-950 z-[100] flex flex-col justify-between p-8 sm:p-14 text-white overflow-y-auto animate-fade-in font-sans">
+          
+          {/* Top Bar Proyektor */}
+          <div className="flex items-center justify-between border-b border-white/10 pb-6">
+            <div className="flex items-center gap-3">
+              <span className="w-4 h-4 rounded-full bg-emerald-500 animate-ping"></span>
+              <div>
+                <span className="text-xs font-black uppercase tracking-widest text-emerald-400">
+                  SMART CBT • SESI UJIAN AKTIF (LIVE)
+                </span>
+                <h2 className="text-2xl font-black tracking-tight">{exam.title}</h2>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsWhiteboardModalOpen(false)}
+              className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-white/20"
+            >
+              <Minimize2 size={16} /> Keluar Layar Penuh (ESC)
+            </button>
+          </div>
+
+          {/* Central Whiteboard Giant Token */}
+          <div className="my-auto py-12 flex flex-col items-center justify-center text-center space-y-6">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs sm:text-sm font-bold uppercase tracking-wider">
+              <MonitorPlay size={16} /> Token Resmi Ujian
+            </div>
+
+            <div className="p-8 sm:p-12 rounded-3xl bg-slate-900/90 border-4 border-emerald-500/60 shadow-2xl shadow-emerald-500/20 max-w-xl w-full text-center relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 pointer-events-none"></div>
+              
+              <div className="text-xs font-extrabold uppercase tracking-widest text-slate-400 mb-2">
+                Masukkan Kode Token Ini di Portal Siswa
+              </div>
+
+              <div className="text-6xl sm:text-7xl font-black font-mono tracking-widest text-white selection:bg-emerald-500">
+                {examToken || 'RPL2026'}
+              </div>
+
+              <div className="mt-6 flex items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCopyToken}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-sm cursor-pointer"
+                >
+                  {copiedToken ? <Check size={16} /> : <Copy size={16} />}
+                  <span>{copiedToken ? 'Token Tersalin!' : 'Salin Token'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Exam Meta Info for Students */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-3xl w-full text-center">
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Mata Pelajaran</div>
+                <div className="text-base font-bold text-white mt-1">{exam.subject}</div>
+              </div>
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Target Kelas</div>
+                <div className="text-base font-bold text-white mt-1">{exam.classTarget}</div>
+              </div>
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Alokasi Waktu</div>
+                <div className="text-base font-bold text-white mt-1">{exam.duration} Menit</div>
+              </div>
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Siswa Mengerjakan</div>
+                <div className="text-base font-bold text-emerald-400 mt-1">{attempts.length} Siswa</div>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-400 max-w-md text-center leading-relaxed">
+              ⚠️ Peringatan: Sistem mengaktifkan sensor anti-curang. Pindah tab atau keluar dari halaman ujian akan tercatat otomatis pada monitor guru.
+            </p>
+          </div>
+
+          {/* Bottom Bar Proyektor */}
+          <div className="flex items-center justify-between border-t border-white/10 pt-6 text-xs text-slate-500 font-medium">
+            <span>SMK Garuda Mahadhika CBT Live Console</span>
+            <span>Tekan tombol di kanan atas untuk kembali ke kontrol guru</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

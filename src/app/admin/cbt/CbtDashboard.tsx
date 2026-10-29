@@ -15,10 +15,17 @@ import {
   ExternalLink, 
   AlertCircle,
   FileCheck2,
-  Award
+  Award,
+  Play,
+  Square,
+  Sparkles,
+  RefreshCw,
+  Copy,
+  Check,
+  UserCheck
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
-import { createExam, updateExam, deleteExam } from './actions';
+import { createExam, updateExam, deleteExam, toggleExamSession } from './actions';
 
 interface ExamItem {
   id: string;
@@ -42,10 +49,20 @@ interface ExamItem {
   }[];
 }
 
-export default function CbtDashboard({ exams: initialExams }: { exams: ExamItem[] }) {
+interface CbtDashboardProps {
+  exams: ExamItem[];
+  currentUser?: {
+    name: string;
+    role: string;
+  };
+}
+
+export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDashboardProps) {
   const [exams, setExams] = useState(initialExams);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [mineOnlyFilter, setMineOnlyFilter] = useState(false);
+  const [sessionLoadingId, setSessionLoadingId] = useState<string | null>(null);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -54,29 +71,64 @@ export default function CbtDashboard({ exams: initialExams }: { exams: ExamItem[
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
+  const teacherName = currentUser?.name || 'Bpk. Ahmad ST';
+
   // Form State
   const [formData, setFormData] = useState({
     title: '',
-    subject: '',
-    classTarget: 'Semua Kelas',
+    subject: 'Pemrograman Web',
+    classTarget: 'XI RPL 1',
     duration: 60,
     token: '',
     description: '',
     status: 'PUBLISHED',
     shuffleQuestions: true,
+    authorName: teacherName,
   });
+
+  const subjectPresets = [
+    'Pemrograman Web',
+    'Basis Data',
+    'Pemrograman Berorientasi Objek',
+    'Administrasi Sistem Jaringan',
+    'Teknologi Layanan Jaringan',
+    'Desain Media Interaktif',
+    'Dasar-dasar Kejuruan',
+    'Matematika',
+    'Bahasa Inggris',
+    'Bahasa Indonesia',
+    'Pendidikan Agama',
+  ];
+
+  const classPresets = [
+    'Semua Kelas',
+    'X RPL 1',
+    'XI RPL 1',
+    'XI RPL 2',
+    'XII RPL 1',
+    'X TKJ 1',
+    'XI TKJ 1',
+    'XII TKJ 1',
+    'X DKV 1',
+    'XI DKV 1',
+    'XII DKV 1',
+    'X MPLB 1',
+    'XI MPLB 1',
+  ];
 
   const handleOpenCreate = () => {
     setEditingExam(null);
+    const randomToken = 'CBT' + Math.floor(100 + Math.random() * 900);
     setFormData({
       title: '',
-      subject: '',
-      classTarget: 'Semua Kelas',
+      subject: 'Pemrograman Web',
+      classTarget: 'XI RPL 1',
       duration: 60,
-      token: '',
+      token: randomToken,
       description: '',
       status: 'PUBLISHED',
       shuffleQuestions: true,
+      authorName: teacherName,
     });
     setIsModalOpen(true);
   };
@@ -92,8 +144,23 @@ export default function CbtDashboard({ exams: initialExams }: { exams: ExamItem[
       description: exam.description || '',
       status: exam.status,
       shuffleQuestions: exam.shuffleQuestions,
+      authorName: exam.authorName || teacherName,
     });
     setIsModalOpen(true);
+  };
+
+  const handleQuickToggleSession = async (exam: ExamItem) => {
+    setSessionLoadingId(exam.id);
+    const isCurrentlyActive = exam.status === 'ACTIVE';
+    const nextOpen = !isCurrentlyActive;
+    const res = await toggleExamSession(exam.id, nextOpen, exam.token || undefined);
+
+    if (res.success && res.data) {
+      setExams(exams.map((e) => (e.id === exam.id ? { ...e, status: res.data.status, token: res.data.token } : e)));
+    } else {
+      alert(res.error || 'Gagal mengubah status sesi ujian');
+    }
+    setSessionLoadingId(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -109,7 +176,10 @@ export default function CbtDashboard({ exams: initialExams }: { exams: ExamItem[
         alert(res.error || 'Gagal mengubah ujian');
       }
     } else {
-      const res = await createExam(formData);
+      const res = await createExam({
+        ...formData,
+        authorName: formData.authorName || teacherName,
+      });
       if (res.success && res.data) {
         setExams([
           {
@@ -145,9 +215,11 @@ export default function CbtDashboard({ exams: initialExams }: { exams: ExamItem[
     const matchesSearch =
       exam.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       exam.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      exam.classTarget.toLowerCase().includes(searchTerm.toLowerCase());
+      exam.classTarget.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (exam.authorName && exam.authorName.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = statusFilter === 'ALL' || exam.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesMine = !mineOnlyFilter || (exam.authorName && exam.authorName.toLowerCase() === teacherName.toLowerCase());
+    return matchesSearch && matchesStatus && matchesMine;
   });
 
   // Calculate stats
@@ -165,28 +237,28 @@ export default function CbtDashboard({ exams: initialExams }: { exams: ExamItem[
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-semibold mb-2">
-            <BookOpen size={14} /> Smart CBT Engine (Next.js Native)
+            <BookOpen size={14} /> Smart CBT Guru • Rilis Token & Kontrol Ruang Ujian
           </div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
             Manajemen Ujian Online (CBT)
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">
-            Kelola jadwal ujian, bank soal pilihan ganda, acak soal, token ujian, serta rekap nilai siswa.
+          <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">
+            Login sebagai: <strong className="text-purple-600 dark:text-purple-400">{teacherName}</strong>. Susun bank soal, kontrol sesi ujian, rilis token langsung ke kelas, dan pantau nilai siswa.
           </p>
         </div>
         <div className="flex items-center gap-3">
           <Link
             href="/portal/siswa/cbt"
             target="_blank"
-            className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-medium text-sm transition-all shadow-sm"
+            className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-medium text-xs sm:text-sm transition-all shadow-sm"
           >
-            <ExternalLink size={16} /> Preview Tampilan Siswa
+            <ExternalLink size={16} /> Tampilan Siswa
           </Link>
           <button
             onClick={handleOpenCreate}
-            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-semibold text-sm shadow-md shadow-purple-500/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md shadow-purple-500/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
           >
-            <Plus size={18} /> Buat Ujian Baru
+            <Plus size={18} /> Buat Paket Ujian Baru
           </button>
         </div>
       </div>
@@ -234,24 +306,37 @@ export default function CbtDashboard({ exams: initialExams }: { exams: ExamItem[
         </div>
       </div>
 
-      {/* Filter & Search */}
+      {/* Filter & Search Bar */}
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
         <div className="relative w-full sm:w-80">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input
             type="text"
-            placeholder="Cari ujian, mapel, kelas..."
+            placeholder="Cari ujian, mapel, kelas, guru..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
         </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          {/* Ujian Saya Filter Toggle */}
+          <button
+            onClick={() => setMineOnlyFilter(!mineOnlyFilter)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              mineOnlyFilter
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+            }`}
+          >
+            <UserCheck size={14} /> Ujian Saya
+          </button>
+
           {['ALL', 'ACTIVE', 'PUBLISHED', 'DRAFT'].map((st) => (
             <button
               key={st}
               onClick={() => setStatusFilter(st)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
                 statusFilter === st
                   ? 'bg-purple-600 text-white'
                   : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
@@ -260,7 +345,7 @@ export default function CbtDashboard({ exams: initialExams }: { exams: ExamItem[
               {st === 'ALL'
                 ? 'Semua Status'
                 : st === 'ACTIVE'
-                ? 'Sesi Aktif (Live)'
+                ? '🟢 Sesi Aktif'
                 : st === 'PUBLISHED'
                 ? 'Ruang Tunggu'
                 : 'Draft'}
@@ -274,125 +359,165 @@ export default function CbtDashboard({ exams: initialExams }: { exams: ExamItem[
         {filteredExams.length === 0 ? (
           <div className="col-span-full py-16 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
             <BookOpen className="mx-auto text-slate-300 dark:text-slate-600 mb-3" size={48} />
-            <p className="text-slate-500 font-medium">Belum ada paket ujian ditemukan.</p>
+            <p className="text-slate-500 font-medium">Belum ada paket ujian yang sesuai.</p>
             <button
               onClick={handleOpenCreate}
               className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700"
             >
-              Buat Ujian Sekarang
+              Buat Ujian Baru
             </button>
           </div>
         ) : (
-          filteredExams.map((exam) => (
-            <div
-              key={exam.id}
-              className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all flex flex-col justify-between overflow-hidden group"
-            >
-              <div className="p-6">
-                <div className="flex items-start justify-between gap-2 mb-3">
-                  <span className="px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200/50 dark:border-purple-800/50">
-                    {exam.subject}
-                  </span>
-                  <span
-                    className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
-                      exam.status === 'ACTIVE'
-                        ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 font-bold'
-                        : exam.status === 'PUBLISHED'
-                        ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 font-semibold'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                    }`}
+          filteredExams.map((exam) => {
+            const isLive = exam.status === 'ACTIVE';
+            const isSessionLoading = sessionLoadingId === exam.id;
+
+            return (
+              <div
+                key={exam.id}
+                className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all flex flex-col justify-between overflow-hidden group"
+              >
+                <div className="p-6">
+                  {/* Top Status & Subject Bar */}
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <span className="px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200/50 dark:border-purple-800/50">
+                      {exam.subject}
+                    </span>
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                        isLive
+                          ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 animate-pulse'
+                          : exam.status === 'PUBLISHED'
+                          ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      {isLive ? '🟢 Sesi Live' : exam.status === 'PUBLISHED' ? '⏳ Ruang Tunggu' : 'Draft'}
+                    </span>
+                  </div>
+
+                  <h3 className="font-bold text-lg text-slate-900 dark:text-white line-clamp-2 mb-1.5 group-hover:text-purple-600 transition-colors">
+                    {exam.title}
+                  </h3>
+
+                  {/* Author / Teacher Badge */}
+                  <div className="text-[11px] text-slate-500 mb-3 flex items-center gap-1.5">
+                    <span>Guru Pengampu:</span>
+                    <strong className="text-slate-700 dark:text-slate-300 font-semibold">{exam.authorName || 'Bpk. Ahmad ST'}</strong>
+                  </div>
+
+                  <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mb-4">
+                    {exam.description || 'Tidak ada deskripsi tambahan.'}
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/40 p-3 rounded-2xl mb-4 border border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-1.5">
+                      <Clock size={14} className="text-purple-500" />
+                      <span>{exam.duration} Menit</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Users size={14} className="text-blue-500" />
+                      <span>{exam.classTarget}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <FileCheck2 size={14} className="text-emerald-500" />
+                      <span>{exam._count.questions} Butir Soal</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Key size={14} className="text-amber-500" />
+                      <span className="font-mono font-bold">{exam.token || 'Tanpa Token'}</span>
+                    </div>
+                  </div>
+
+                  {/* 🚀 QUICK TOKEN CONTROL BANNER */}
+                  <div className={`p-3 rounded-2xl border flex items-center justify-between gap-3 text-xs ${
+                    isLive 
+                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/50 text-emerald-900 dark:text-emerald-200' 
+                      : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-slate-300'
+                  }`}>
+                    <div>
+                      <div className="font-extrabold uppercase text-[10px] tracking-wider text-slate-400">
+                        {isLive ? 'Token Live Kelas:' : 'Status Token:'}
+                      </div>
+                      <div className="font-mono font-black text-sm text-slate-900 dark:text-white mt-0.5">
+                        {exam.token || 'BELUM AKTIF'}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleQuickToggleSession(exam)}
+                      disabled={isSessionLoading}
+                      className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm ${
+                        isLive
+                          ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                          : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      }`}
+                    >
+                      {isSessionLoading ? (
+                        <RefreshCw size={12} className="animate-spin" />
+                      ) : isLive ? (
+                        <>
+                          <Square size={12} className="fill-white" /> Tutup Sesi
+                        </>
+                      ) : (
+                        <>
+                          <Play size={12} className="fill-white" /> Rilis Token
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Bottom Action Buttons */}
+                <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/20 flex items-center justify-between gap-2">
+                  <Link
+                    href={`/admin/cbt/${exam.id}`}
+                    className="flex-1 text-center py-2 px-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold text-xs transition-colors shadow-sm"
                   >
-                    {exam.status === 'ACTIVE'
-                      ? '🟢 Sesi Aktif'
-                      : exam.status === 'PUBLISHED'
-                      ? '⏳ Ruang Tunggu'
-                      : 'Draft'}
-                  </span>
-                </div>
-
-                <h3 className="font-bold text-lg text-slate-900 dark:text-white line-clamp-2 mb-2 group-hover:text-purple-600 transition-colors">
-                  {exam.title}
-                </h3>
-
-                <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mb-4">
-                  {exam.description || 'Tidak ada deskripsi tambahan.'}
-                </p>
-
-                <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/40 p-3 rounded-xl mb-4 border border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center gap-1.5">
-                    <Clock size={14} className="text-purple-500" />
-                    <span>{exam.duration} Menit</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Users size={14} className="text-blue-500" />
-                    <span>{exam.classTarget}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <FileCheck2 size={14} className="text-emerald-500" />
-                    <span>{exam._count.questions} Butir Soal</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Key size={14} className="text-amber-500" />
-                    <span>{exam.token ? `Token: ${exam.token}` : 'Tanpa Token'}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-xs text-slate-500">
-                  <span>Mengerjakan: <strong className="text-slate-800 dark:text-slate-200">{exam._count.attempts} Siswa</strong></span>
-                  {exam.shuffleQuestions && (
-                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">Acak Soal ON</span>
-                  )}
+                    Buka Bank Soal & Nilai
+                  </Link>
+                  <button
+                    onClick={() => handleOpenEdit(exam)}
+                    className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                    title="Edit Pengaturan Ujian"
+                  >
+                    <Edit3 size={16} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setDeleteTargetId(exam.id);
+                      setIsDeleteModalOpen(true);
+                    }}
+                    className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-colors cursor-pointer"
+                    title="Hapus Ujian"
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               </div>
-
-              {/* Action Buttons */}
-              <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/20 flex items-center justify-between gap-2">
-                <Link
-                  href={`/admin/cbt/${exam.id}`}
-                  className="flex-1 text-center py-2 px-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold text-xs transition-colors shadow-sm"
-                >
-                  Kelola Soal & Rekap Nilai
-                </Link>
-                <button
-                  onClick={() => handleOpenEdit(exam)}
-                  className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                  title="Edit Pengaturan Ujian"
-                >
-                  <Edit3 size={16} />
-                </button>
-                <button
-                  onClick={() => {
-                    setDeleteTargetId(exam.id);
-                    setIsDeleteModalOpen(true);
-                  }}
-                  className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                  title="Hapus Ujian"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
       {/* Modal Buat / Edit Ujian */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800">
-            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-xl overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30">
               <h3 className="font-bold text-lg text-slate-900 dark:text-white">
-                {editingExam ? 'Edit Pengaturan Ujian' : 'Buat Paket Ujian Baru'}
+                {editingExam ? 'Edit Paket Ujian' : 'Buat Paket Ujian Baru (CBT Guru)'}
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-xl hover:bg-white dark:hover:bg-slate-800"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Judul Ujian <span className="text-red-500">*</span>
@@ -400,10 +525,10 @@ export default function CbtDashboard({ exams: initialExams }: { exams: ExamItem[
                 <input
                   type="text"
                   required
-                  placeholder="Contoh: Penilaian Akhir Semester Ganjil"
+                  placeholder="Contoh: Penilaian Akhir Semester (PAS) Pemrograman Web"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
                 />
               </div>
 
@@ -415,30 +540,44 @@ export default function CbtDashboard({ exams: initialExams }: { exams: ExamItem[
                   <input
                     type="text"
                     required
-                    placeholder="Contoh: Pemrograman Web"
+                    list="subject-presets"
+                    placeholder="Pilih atau ketik mapel"
                     value={formData.subject}
                     onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
                   />
+                  <datalist id="subject-presets">
+                    {subjectPresets.map((s, idx) => (
+                      <option key={idx} value={s} />
+                    ))}
+                  </datalist>
                 </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Target Kelas
+                    Target Kelas <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
-                    placeholder="Contoh: XI RPL 1 atau Semua Kelas"
+                    required
+                    list="class-presets"
+                    placeholder="Pilih atau ketik kelas"
                     value={formData.classTarget}
                     onChange={(e) => setFormData({ ...formData, classTarget: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
                   />
+                  <datalist id="class-presets">
+                    {classPresets.map((c, idx) => (
+                      <option key={idx} value={c} />
+                    ))}
+                  </datalist>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Durasi (Menit) <span className="text-red-500">*</span>
+                    Durasi Pengerjaan (Menit) <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
@@ -447,79 +586,84 @@ export default function CbtDashboard({ exams: initialExams }: { exams: ExamItem[
                     required
                     value={formData.duration}
                     onChange={(e) => setFormData({ ...formData, duration: Number(e.target.value) })}
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Token Masuk (Opsional)
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Token Masuk Ujian
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setFormData(p => ({ ...p, token: 'CBT' + Math.floor(100 + Math.random() * 900) }))}
+                      className="text-[10px] text-purple-600 font-bold hover:underline"
+                    >
+                      Acak Token
+                    </button>
+                  </div>
                   <input
                     type="text"
-                    placeholder="Kosongkan jika bebas"
+                    placeholder="Contoh: CBT889"
                     value={formData.token}
-                    onChange={(e) => setFormData({ ...formData, token: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500 uppercase"
+                    onChange={(e) => setFormData({ ...formData, token: e.target.value.toUpperCase() })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-mono font-bold focus:ring-2 focus:ring-purple-500 outline-none uppercase"
                   />
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Deskripsi / Petunjuk Ujian
+                  Guru Pembuat / Pengampu
                 </label>
-                <textarea
-                  rows={3}
-                  placeholder="Petunjuk pengerjaan untuk siswa..."
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500"
+                <input
+                  type="text"
+                  value={formData.authorName}
+                  onChange={(e) => setFormData({ ...formData, authorName: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500 outline-none font-medium"
                 />
               </div>
 
-              <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Petunjuk & Catatan Ujian
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Instruksi untuk siswa sebelum mulai..."
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
                 <div>
-                  <div className="font-semibold text-xs text-slate-900 dark:text-white">Acak Urutan Soal</div>
-                  <div className="text-[11px] text-slate-500">Mencegah contek antar siswa</div>
+                  <div className="font-semibold text-xs text-slate-900 dark:text-white">Acak Urutan Soal (Anti-Contek)</div>
+                  <div className="text-[11px] text-slate-500">Urutan butir soal akan berbeda pada tiap siswa</div>
                 </div>
                 <input
                   type="checkbox"
                   checked={formData.shuffleQuestions}
                   onChange={(e) => setFormData({ ...formData, shuffleQuestions: e.target.checked })}
-                  className="w-4 h-4 text-purple-600 rounded"
+                  className="w-4 h-4 text-purple-600 rounded cursor-pointer"
                 />
-              </div>
-
-              <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
-                <div>
-                  <div className="font-semibold text-xs text-slate-900 dark:text-white">Status Publikasi</div>
-                  <div className="text-[11px] text-slate-500">Jika Aktif, siswa dapat melihat ujian ini</div>
-                </div>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className="px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs font-semibold"
-                >
-                  <option value="PUBLISHED">Aktif (Published)</option>
-                  <option value="DRAFT">Draft</option>
-                  <option value="ARCHIVED">Arsip</option>
-                </select>
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium hover:bg-slate-50"
+                  className="px-5 py-2.5 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold hover:bg-slate-50 cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-semibold shadow-md shadow-purple-500/30 disabled:opacity-50"
+                  className="px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-md shadow-purple-500/30 disabled:opacity-50 cursor-pointer"
                 >
-                  {loading ? 'Menyimpan...' : editingExam ? 'Simpan Perubahan' : 'Buat Ujian'}
+                  {loading ? 'Menyimpan...' : editingExam ? 'Simpan Perubahan' : 'Buat Paket Ujian'}
                 </button>
               </div>
             </form>

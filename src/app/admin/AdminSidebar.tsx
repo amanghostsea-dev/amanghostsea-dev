@@ -15,6 +15,7 @@ export default function AdminSidebar({ logoUrl, userRole = 'Super Admin', userNa
   const pathname = usePathname();
   const isPPDBPanitia = userRole === 'Panitia PPDB' || userRole === 'Verifikator PPDB';
   const isBKK = userRole === 'Admin BKK' || userRole === 'BKK';
+  const isGuru = userRole === 'Guru';
 
   const isActive = (path: string) => {
     if (path === '/admin' && pathname !== '/admin') return false;
@@ -46,7 +47,13 @@ export default function AdminSidebar({ logoUrl, userRole = 'Super Admin', userNa
     { name: 'Tracer Study', path: '/admin/bkk/tracer-study', icon: <TrendingUp size={20} /> },
   ];
 
-  const menuItems = isPPDBPanitia ? panitiaMenuItems : isBKK ? bkkMenuItems : superAdminMenuItems;
+  const guruMenuItems = [
+    { name: 'Dashboard Guru', path: '/portal/guru', icon: <LayoutDashboard size={20} /> },
+    { name: 'Ujian Online (CBT)', path: '/admin/cbt', icon: <MonitorPlay size={20} /> },
+    { name: 'Tugas Siswa', path: '/admin/tugas', icon: <FileText size={20} /> },
+  ];
+
+  const menuItems = isPPDBPanitia ? panitiaMenuItems : isBKK ? bkkMenuItems : isGuru ? guruMenuItems : superAdminMenuItems;
 
   return (
     <aside className="w-64 bg-slate-900 text-white flex flex-col h-screen sticky top-0 hidden md:flex flex-shrink-0 shadow-xl">
@@ -55,10 +62,10 @@ export default function AdminSidebar({ logoUrl, userRole = 'Super Admin', userNa
           <SchoolLogo logoUrl={logoUrl} />
           <div>
             <span className="font-bold text-lg tracking-tight block">
-              {isPPDBPanitia ? 'Panitia PPDB' : isBKK ? 'Pengelola BKK' : 'SuperAdmin'}
+              {isPPDBPanitia ? 'Panitia PPDB' : isBKK ? 'Pengelola BKK' : isGuru ? 'Portal Guru' : 'SuperAdmin'}
             </span>
-            <span className="text-xs text-blue-400 block font-normal">
-              {isPPDBPanitia ? 'Verifikator Berkas' : isBKK ? 'Bursa Kerja Khusus' : userName}
+            <span className="text-xs text-blue-400 block font-normal truncate max-w-[140px]">
+              {isPPDBPanitia ? 'Verifikator Berkas' : isBKK ? 'Bursa Kerja Khusus' : isGuru ? `${userName}` : userName}
             </span>
           </div>
         </div>
