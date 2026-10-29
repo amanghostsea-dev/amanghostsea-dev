@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { 
   BookOpen, 
@@ -24,10 +24,31 @@ import {
   Check,
   UserCheck,
   Calendar,
-  AlertTriangle
+  AlertTriangle,
+  Layers,
+  Download,
+  Upload,
+  CheckSquare,
+  Settings2,
+  ArrowRight,
+  Save,
+  X,
+  FileSpreadsheet,
+  CheckCheck,
+  Zap,
+  RotateCcw
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
-import { createExam, updateExam, deleteExam, toggleExamSession, checkExamScheduleConflict, ScheduleConflictExam } from './actions';
+import { 
+  createExam, 
+  updateExam, 
+  deleteExam, 
+  toggleExamSession, 
+  checkExamScheduleConflict, 
+  ScheduleConflictExam,
+  batchUpdateExamSchedules,
+  batchCreateExamsWithSchedule
+} from './actions';
 import { 
   formatExamScheduleRange, 
   getExamScheduleState, 
@@ -116,6 +137,40 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
   const [conflictWarning, setConflictWarning] = useState<string | null>(null);
   const [checkingConflict, setCheckingConflict] = useState(false);
 
+  // 📦 Batch / Collective Scheduling State
+  const [selectedExamIds, setSelectedExamIds] = useState<string[]>([]);
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+  const [batchMode, setBatchMode] = useState<'PARALLEL' | 'SEQUENTIAL'>('PARALLEL');
+  const [batchDate, setBatchDate] = useState(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  });
+  const [batchStartTime, setBatchStartTime] = useState('08:00');
+  const [batchEndTime, setBatchEndTime] = useState('09:30');
+  const [batchSeqStart, setBatchSeqStart] = useState('07:30');
+  const [batchDurationType, setBatchDurationType] = useState<'DEFAULT' | 'CUSTOM'>('DEFAULT');
+  const [batchUniformDuration, setBatchUniformDuration] = useState(60);
+  const [batchBreakMinutes, setBatchBreakMinutes] = useState(15);
+  const [batchAllowConflict, setBatchAllowConflict] = useState(false);
+  const [batchLoading, setBatchLoading] = useState(false);
+
+  // ✏️ Inline Quick-Edit Matrix State
+  const [isInlineEditMode, setIsInlineEditMode] = useState(false);
+  const [inlineSchedules, setInlineSchedules] = useState<
+    Record<string, { startTime: string; endTime: string }>
+  >({});
+  const [inlineSaving, setInlineSaving] = useState(false);
+
+  // 📊 CSV Import / Export State
+  const csvFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
+  const [csvParsedRows, setCsvParsedRows] = useState<
+    Array<{ id: string; title: string; subject: string; classTarget: string; startTime: string; endTime: string }>
+  >([]);
+  const [csvError, setCsvError] = useState<string | null>(null);
+  const [csvSaving, setCsvSaving] = useState(false);
+
   // Form State
   const [formData, setFormData] = useState({
     title: '',
@@ -186,6 +241,390 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
       }
     } catch {}
     setCheckingConflict(false);
+  };
+
+  // ==========================================
+  // 📦 COLLECTIVE SCHEDULING & BATCH ACTIONS
+  // ==========================================
+
+  const toggleSelectExam = (id: string) => {
+    setSelectedExamIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = (visibleExams: ExamItem[]) => {
+    const allVisibleSelected =
+      visibleExams.length > 0 && visibleExams.every((e) => selectedExamIds.includes(e.id));
+    if (allVisibleSelected) {
+      setSelectedExamIds((prev) => prev.filter((id) => !visibleExams.some((e) => e.id === id)));
+    } else {
+      const merged = Array.from(new Set([...selectedExamIds, ...visibleExams.map((e) => e.id)]));
+      setSelectedExamIds(merged);
+    }
+  };
+
+  const selectUnscheduledOnly = () => {
+    const unscheduled = exams.filter((e) => !e.startTime || !e.endTime).map((e) => e.id);
+    setSelectedExamIds(unscheduled);
+  };
+
+  const selectCurrentFilteredOnly = (visibleExams: ExamItem[]) => {
+    setSelectedExamIds(visibleExams.map((e) => e.id));
+  };
+
+  // ✏️ Mode Edit Cepat di Tabel Matriks
+  const handleToggleInlineEdit = () => {
+    if (!isInlineEditMode) {
+      const initial: Record<string, { startTime: string; endTime: string }> = {};
+      exams.forEach((e) => {
+        initial[e.id] = {
+          startTime: toDateTimeLocalInput(e.startTime),
+          endTime: toDateTimeLocalInput(e.endTime),
+        };
+      });
+      setInlineSchedules(initial);
+    }
+    setIsInlineEditMode(!isInlineEditMode);
+  };
+
+  const handleInlineChange = (id: string, field: 'startTime' | 'endTime', val: string) => {
+    setInlineSchedules((prev) => ({
+      ...prev,
+      [id]: {
+        ...(prev[id] || { startTime: '', endTime: '' }),
+        [field]: val,
+      },
+    }));
+  };
+
+  const handleInlinePreset = (id: string, minutes: number) => {
+    setInlineSchedules((prev) => {
+      const current = prev[id] || { startTime: '', endTime: '' };
+      const baseStart = current.startTime ? new Date(current.startTime) : new Date();
+      if (!current.startTime) {
+        baseStart.setHours(8, 0, 0, 0);
+      }
+      const end = new Date(baseStart.getTime() + minutes * 60 * 1000);
+      return {
+        ...prev,
+        [id]: {
+          startTime: toDateTimeLocalInput(baseStart),
+          endTime: toDateTimeLocalInput(end),
+        },
+      };
+    });
+  };
+
+  const handleSaveInlineSchedules = async () => {
+    setInlineSaving(true);
+    const payload = Object.entries(inlineSchedules).map(([id, sched]) => ({
+      id,
+      startTime: sched.startTime ? sched.startTime : null,
+      endTime: sched.endTime ? sched.endTime : null,
+    }));
+
+    const res = await batchUpdateExamSchedules(payload, true);
+    if (res.success) {
+      setExams((prev) =>
+        prev.map((e) => {
+          const mod = inlineSchedules[e.id];
+          if (!mod) return e;
+          return {
+            ...e,
+            startTime: mod.startTime ? new Date(mod.startTime) : null,
+            endTime: mod.endTime ? new Date(mod.endTime) : null,
+          };
+        })
+      );
+      setIsInlineEditMode(false);
+      alert(`Berhasil menyimpan perubahan jadwal untuk ${payload.length} paket ujian!`);
+    } else {
+      alert(res.error || 'Gagal menyimpan perubahan matriks jadwal.');
+    }
+    setInlineSaving(false);
+  };
+
+  // 🧙‍♂️ Wizard Batch Scheduling (Sesi Bersama & Berurutan Otomatis)
+  const getSequentialSchedulePreview = () => {
+    const selected = exams.filter((e) => selectedExamIds.includes(e.id));
+    if (selected.length === 0 || !batchDate || !batchSeqStart) return [];
+
+    const items: Array<{
+      exam: ExamItem;
+      startIso: string;
+      endIso: string;
+      startDisplay: string;
+      endDisplay: string;
+      breakAfter: number;
+    }> = [];
+
+    let currentDateTime = new Date(`${batchDate}T${batchSeqStart}:00`);
+
+    selected.forEach((ex, idx) => {
+      const dur = batchDurationType === 'DEFAULT' ? ex.duration || 60 : batchUniformDuration;
+      const start = new Date(currentDateTime);
+      const end = new Date(start.getTime() + dur * 60 * 1000);
+
+      items.push({
+        exam: ex,
+        startIso: toDateTimeLocalInput(start),
+        endIso: toDateTimeLocalInput(end),
+        startDisplay: start.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+        endDisplay: end.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+        breakAfter: idx < selected.length - 1 ? batchBreakMinutes : 0,
+      });
+
+      currentDateTime = new Date(end.getTime() + batchBreakMinutes * 60 * 1000);
+    });
+
+    return items;
+  };
+
+  const handleApplyBatchWizard = async () => {
+    if (selectedExamIds.length === 0) return;
+    setBatchLoading(true);
+
+    let payload: Array<{ id: string; startTime: string | null; endTime: string | null }> = [];
+
+    if (batchMode === 'PARALLEL') {
+      if (!batchDate || !batchStartTime || !batchEndTime) {
+        alert('Mohon lengkapi tanggal, jam mulai, dan jam selesai.');
+        setBatchLoading(false);
+        return;
+      }
+      const startIso = `${batchDate}T${batchStartTime}:00`;
+      const endIso = `${batchDate}T${batchEndTime}:00`;
+      if (new Date(startIso) >= new Date(endIso)) {
+        alert('Jam mulai harus lebih awal dari jam selesai.');
+        setBatchLoading(false);
+        return;
+      }
+      payload = selectedExamIds.map((id) => ({
+        id,
+        startTime: startIso,
+        endTime: endIso,
+      }));
+    } else {
+      const preview = getSequentialSchedulePreview();
+      payload = preview.map((p) => ({
+        id: p.exam.id,
+        startTime: p.startIso,
+        endTime: p.endIso,
+      }));
+    }
+
+    const res = await batchUpdateExamSchedules(payload, batchAllowConflict);
+    if (res.success) {
+      setExams((prev) =>
+        prev.map((e) => {
+          const match = payload.find((p) => p.id === e.id);
+          if (!match) return e;
+          return {
+            ...e,
+            startTime: match.startTime ? new Date(match.startTime) : null,
+            endTime: match.endTime ? new Date(match.endTime) : null,
+          };
+        })
+      );
+      setIsBatchModalOpen(false);
+      setSelectedExamIds([]);
+      alert(`Sukses! ${payload.length} jadwal ujian berhasil diperbarui secara kolektif.`);
+    } else {
+      alert(res.error || 'Gagal menerapkan jadwal kolektif.');
+    }
+    setBatchLoading(false);
+  };
+
+  const handleClearSelectedSchedules = async () => {
+    if (selectedExamIds.length === 0) return;
+    if (
+      !confirm(
+        `Kosongkan jadwal untuk ${selectedExamIds.length} ujian terpilih? Ujian akan berstatus tanpa jadwal.`
+      )
+    ) {
+      return;
+    }
+    setLoading(true);
+    const payload = selectedExamIds.map((id) => ({
+      id,
+      startTime: null,
+      endTime: null,
+    }));
+    const res = await batchUpdateExamSchedules(payload, true);
+    if (res.success) {
+      setExams((prev) =>
+        prev.map((e) =>
+          selectedExamIds.includes(e.id) ? { ...e, startTime: null, endTime: null } : e
+        )
+      );
+      setSelectedExamIds([]);
+      alert(`Jadwal untuk ${payload.length} ujian berhasil dikosongkan.`);
+    } else {
+      alert(res.error || 'Gagal mengosongkan jadwal.');
+    }
+    setLoading(false);
+  };
+
+  // 📊 CSV Import & Template Generator
+  const handleDownloadScheduleCsv = () => {
+    const headers = [
+      'ID_UJIAN',
+      'JUDUL_UJIAN',
+      'MATA_PELAJARAN',
+      'KELAS',
+      'DURASI_MENIT',
+      'TANGGAL_MULAI',
+      'JAM_MULAI',
+      'TANGGAL_SELESAI',
+      'JAM_SELESAI',
+    ];
+
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const defaultDate = tomorrow.toISOString().split('T')[0];
+
+    const rows = exams.map((ex) => {
+      let tglMulai = defaultDate;
+      let jamMulai = '08:00';
+      let tglSelesai = defaultDate;
+      let jamSelesai = '09:30';
+
+      if (ex.startTime) {
+        const s = new Date(ex.startTime);
+        tglMulai = s.toISOString().split('T')[0];
+        jamMulai = s.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':');
+      }
+      if (ex.endTime) {
+        const e = new Date(ex.endTime);
+        tglSelesai = e.toISOString().split('T')[0];
+        jamSelesai = e.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':');
+      }
+
+      return [
+        `"${ex.id}"`,
+        `"${ex.title.replace(/"/g, '""')}"`,
+        `"${ex.subject.replace(/"/g, '""')}"`,
+        `"${ex.classTarget}"`,
+        ex.duration || 60,
+        tglMulai,
+        jamMulai,
+        tglSelesai,
+        jamSelesai,
+      ].join(',');
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `template_jadwal_ujian_cbt_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleCsvFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setCsvError(null);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        if (!text) throw new Error('File CSV kosong.');
+
+        const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0);
+        if (lines.length < 2) throw new Error('File CSV tidak memiliki data ujian.');
+
+        const parsed: Array<{
+          id: string;
+          title: string;
+          subject: string;
+          classTarget: string;
+          startTime: string;
+          endTime: string;
+        }> = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const row = lines[i];
+          const cols = row
+            .split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
+            .map((c) => c.trim().replace(/^"|"$/g, ''));
+          if (cols.length < 8) continue;
+
+          const [id, title, , , , tglMulai, jamMulai, tglSelesai, jamSelesai] = cols;
+
+          const matchedExam = exams.find(
+            (e) => e.id === id || e.title.toLowerCase() === title.toLowerCase()
+          );
+          if (!matchedExam) continue;
+
+          const cleanJamMulai = jamMulai ? jamMulai.replace('.', ':') : '08:00';
+          const cleanJamSelesai = jamSelesai ? jamSelesai.replace('.', ':') : '09:30';
+
+          const startStr = `${tglMulai}T${cleanJamMulai.length === 5 ? cleanJamMulai : '08:00'}:00`;
+          const endStr = `${tglSelesai || tglMulai}T${cleanJamSelesai.length === 5 ? cleanJamSelesai : '09:30'}:00`;
+
+          parsed.push({
+            id: matchedExam.id,
+            title: matchedExam.title,
+            subject: matchedExam.subject,
+            classTarget: matchedExam.classTarget,
+            startTime: startStr,
+            endTime: endStr,
+          });
+        }
+
+        if (parsed.length === 0) {
+          throw new Error(
+            'Tidak ada baris ujian yang cocok dengan data di sistem. Pastikan kolom ID_UJIAN tidak diubah.'
+          );
+        }
+
+        setCsvParsedRows(parsed);
+        setIsCsvModalOpen(true);
+      } catch (err: any) {
+        setCsvError(err.message || 'Format CSV tidak valid.');
+        alert(err.message || 'Gagal memproses file CSV.');
+      } finally {
+        if (csvFileInputRef.current) csvFileInputRef.current.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleApplyCsvSchedules = async () => {
+    if (csvParsedRows.length === 0) return;
+    setCsvSaving(true);
+    const payload = csvParsedRows.map((r) => ({
+      id: r.id,
+      startTime: r.startTime,
+      endTime: r.endTime,
+    }));
+
+    const res = await batchUpdateExamSchedules(payload, true);
+    if (res.success) {
+      setExams((prev) =>
+        prev.map((e) => {
+          const match = payload.find((p) => p.id === e.id);
+          if (!match) return e;
+          return {
+            ...e,
+            startTime: match.startTime ? new Date(match.startTime) : null,
+            endTime: match.endTime ? new Date(match.endTime) : null,
+          };
+        })
+      );
+      setIsCsvModalOpen(false);
+      setCsvParsedRows([]);
+      alert(`Berhasil mengimpor dan menerapkan jadwal untuk ${payload.length} ujian dari CSV!`);
+    } else {
+      alert(res.error || 'Gagal menerapkan jadwal dari CSV.');
+    }
+    setCsvSaving(false);
   };
 
   const handleOpenCreate = () => {
@@ -406,6 +845,7 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
   const avgScore = totalSubmitted.length > 0
     ? Math.round(totalSubmitted.reduce((acc, a) => acc + a.score, 0) / totalSubmitted.length)
     : 0;
+  const unscheduledCount = exams.filter((e) => !e.startTime || !e.endTime).length;
 
   return (
     <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-8 font-sans">
@@ -556,6 +996,15 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
             </div>
           )}
 
+          {/* Hidden File Input for CSV Upload */}
+          <input
+            type="file"
+            ref={csvFileInputRef}
+            onChange={handleCsvFileUpload}
+            accept=".csv"
+            className="hidden"
+          />
+
           {/* Schedule Filter & Target Class Selector */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
@@ -610,13 +1059,152 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
             </div>
           </div>
 
+          {/* ⚡ TOOLBAR PENJADWALAN KOLEKTIF & CSV */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-50/70 via-indigo-50/50 to-slate-50 dark:from-purple-950/20 dark:via-indigo-950/20 dark:to-slate-900 border border-purple-100 dark:border-purple-900/40 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedExamIds.length === 0) {
+                    setSelectedExamIds(scheduledExams.map((e) => e.id));
+                  }
+                  setIsBatchModalOpen(true);
+                }}
+                className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-sm shadow-purple-500/20 flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Zap size={14} /> Atur Jadwal Kolektif
+              </button>
+
+              {isInlineEditMode ? (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleSaveInlineSchedules}
+                    disabled={inlineSaving}
+                    className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <Save size={14} /> {inlineSaving ? 'Menyimpan...' : 'Simpan Semua Perubahan'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsInlineEditMode(false)}
+                    className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleToggleInlineEdit}
+                  className="px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                >
+                  <Edit3 size={14} className="text-purple-600" /> Mode Edit Cepat di Tabel
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadScheduleCsv}
+                className="px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                title="Download template CSV untuk edit jadwal secara massal di Excel"
+              >
+                <Download size={14} className="text-blue-600" /> Unduh Format CSV
+              </button>
+              <button
+                type="button"
+                onClick={() => csvFileInputRef.current?.click()}
+                className="px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                title="Upload file CSV hasil edit jadwal untuk diterapkan sekaligus"
+              >
+                <Upload size={14} className="text-emerald-600" /> Import CSV Jadwal
+              </button>
+            </div>
+          </div>
+
+          {/* 📌 BAR SELEKSI MASSAL (JIKA ADA UJIAN DICENTANG) */}
+          {selectedExamIds.length > 0 && (
+            <div className="p-3.5 rounded-2xl bg-slate-900 text-white flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg shadow-purple-950/20 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-purple-500/30 flex items-center justify-center font-bold text-purple-300">
+                  <CheckCheck size={16} />
+                </div>
+                <div className="text-xs">
+                  <strong className="text-purple-300 font-bold">{selectedExamIds.length}</strong> paket ujian terpilih dari tabel
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsBatchModalOpen(true)}
+                  className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 font-bold text-xs shadow-sm flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Zap size={14} /> Atur Jadwal ({selectedExamIds.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearSelectedSchedules}
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-900/40 text-slate-300 hover:text-rose-300 border border-slate-700 font-semibold text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                >
+                  <RotateCcw size={13} /> Kosongkan Jadwal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedExamIds([])}
+                  className="px-2.5 py-1.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white text-xs cursor-pointer"
+                >
+                  Batal
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Quick Select Helper Chips */}
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 px-1">
+            <span className="font-semibold">Pilih Cepat:</span>
+            <button
+              type="button"
+              onClick={() => selectCurrentFilteredOnly(scheduledExams)}
+              className="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium cursor-pointer"
+            >
+              Semua yang Terlihat ({scheduledExams.length})
+            </button>
+            <button
+              type="button"
+              onClick={selectUnscheduledOnly}
+              className="px-2 py-0.5 rounded-md bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-medium cursor-pointer"
+            >
+              Belum Terjadwal ({unscheduledCount})
+            </button>
+            {selectedExamIds.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedExamIds([])}
+                className="px-2 py-0.5 rounded-md hover:bg-slate-100 text-rose-500 font-semibold cursor-pointer"
+              >
+                Reset Seleksi
+              </button>
+            )}
+          </div>
+
           {/* Schedule Matrix Table */}
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50/80 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[11px] border-b border-slate-200/80 dark:border-slate-800">
                   <tr>
-                    <th className="py-4 px-4 text-center w-12">No</th>
+                    <th className="py-4 px-3 text-center w-10">
+                      <input
+                        type="checkbox"
+                        checked={scheduledExams.length > 0 && scheduledExams.every((e) => selectedExamIds.includes(e.id))}
+                        onChange={() => toggleSelectAll(scheduledExams)}
+                        className="w-4 h-4 text-purple-600 rounded cursor-pointer"
+                        title="Pilih / Batal Semua"
+                      />
+                    </th>
+                    <th className="py-4 px-2 text-center w-10">No</th>
                     <th className="py-4 px-4">Mata Pelajaran & Judul</th>
                     <th className="py-4 px-4">Target Kelas</th>
                     <th className="py-4 px-4">Guru Pengampu</th>
@@ -630,18 +1218,33 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {scheduledExams.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="py-12 text-center text-slate-400">
+                      <td colSpan={10} className="py-12 text-center text-slate-400">
                         Tidak ada jadwal ujian yang sesuai filter.
                       </td>
                     </tr>
                   ) : (
                     scheduledExams.map((exam, idx) => {
                       const schedState = getExamScheduleState(exam.startTime, exam.endTime, exam.status);
-                      const isLive = exam.status === 'ACTIVE';
+                      const isSelected = selectedExamIds.includes(exam.id);
 
                       return (
-                        <tr key={exam.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
-                          <td className="py-3.5 px-4 text-center font-bold text-slate-400">{idx + 1}</td>
+                        <tr
+                          key={exam.id}
+                          className={`transition-colors ${
+                            isSelected
+                              ? 'bg-purple-50/60 dark:bg-purple-950/30'
+                              : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'
+                          }`}
+                        >
+                          <td className="py-3.5 px-3 text-center">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleSelectExam(exam.id)}
+                              className="w-4 h-4 text-purple-600 rounded cursor-pointer"
+                            />
+                          </td>
+                          <td className="py-3.5 px-2 text-center font-bold text-slate-400">{idx + 1}</td>
                           <td className="py-3.5 px-4">
                             <span className="font-bold text-slate-900 dark:text-white block text-sm">{exam.title}</span>
                             <span className="text-[11px] text-purple-600 dark:text-purple-400 font-medium">{exam.subject}</span>
@@ -655,11 +1258,49 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
                             {exam.authorName || 'Bpk. Ahmad ST'}
                           </td>
                           <td className="py-3.5 px-4">
-                            <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
-                              <Calendar size={13} className="text-purple-600 dark:text-purple-400 flex-shrink-0" />
-                              <span>{formatExamScheduleRange(exam.startTime, exam.endTime)}</span>
-                            </div>
-                            <span className="text-[10px] text-slate-400 block mt-0.5">{schedState.countdown}</span>
+                            {isInlineEditMode ? (
+                              <div className="space-y-1.5 py-1 min-w-[240px]">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[10px] text-slate-400 font-bold w-12">Mulai:</span>
+                                  <input
+                                    type="datetime-local"
+                                    value={inlineSchedules[exam.id]?.startTime || ''}
+                                    onChange={(e) => handleInlineChange(exam.id, 'startTime', e.target.value)}
+                                    className="px-2 py-1 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono outline-none focus:ring-1 focus:ring-purple-500 w-full"
+                                  />
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[10px] text-slate-400 font-bold w-12">Selesai:</span>
+                                  <input
+                                    type="datetime-local"
+                                    value={inlineSchedules[exam.id]?.endTime || ''}
+                                    onChange={(e) => handleInlineChange(exam.id, 'endTime', e.target.value)}
+                                    className="px-2 py-1 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono outline-none focus:ring-1 focus:ring-purple-500 w-full"
+                                  />
+                                </div>
+                                <div className="flex items-center gap-1 pt-0.5">
+                                  <span className="text-[9px] text-slate-400 font-bold">Preset:</span>
+                                  {[30, 45, 60, 90, 120].map((m) => (
+                                    <button
+                                      key={m}
+                                      type="button"
+                                      onClick={() => handleInlinePreset(exam.id, m)}
+                                      className="px-1.5 py-0.5 rounded bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 text-[10px] font-bold cursor-pointer"
+                                    >
+                                      +{m}m
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (
+                              <div>
+                                <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
+                                  <Calendar size={13} className="text-purple-600 dark:text-purple-400 flex-shrink-0" />
+                                  <span>{formatExamScheduleRange(exam.startTime, exam.endTime)}</span>
+                                </div>
+                                <span className="text-[10px] text-slate-400 block mt-0.5">{schedState.countdown}</span>
+                              </div>
+                            )}
                           </td>
                           <td className="py-3.5 px-4 text-center font-semibold text-slate-600 dark:text-slate-300">
                             {exam.duration} mnt
@@ -1324,6 +1965,386 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 🧙‍♂️ MODAL PENJADWALAN KOLEKTIF (BATCH SCHEDULER WIZARD) */}
+      {isBatchModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-6 my-8 animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs font-bold mb-1">
+                  <Zap size={13} /> Fitur Kolektif Kurikulum & Panitia
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                  Atur Jadwal Ujian Massal
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Menjadwalkan <strong className="text-purple-600 font-bold">{selectedExamIds.length} paket ujian</strong> sekaligus tanpa perlu edit satu per satu.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBatchModalOpen(false)}
+                className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Selected Exam Chips */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 space-y-2">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                Paket Ujian yang Dipilih ({selectedExamIds.length}):
+              </span>
+              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
+                {exams
+                  .filter((e) => selectedExamIds.includes(e.id))
+                  .map((e) => (
+                    <span
+                      key={e.id}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-2xs"
+                    >
+                      <span className="text-purple-600 font-bold">{e.classTarget}</span> • {e.title}
+                      <button
+                        type="button"
+                        onClick={() => toggleSelectExam(e.id)}
+                        className="text-slate-400 hover:text-rose-500 ml-0.5 cursor-pointer"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+              </div>
+            </div>
+
+            {/* Mode Tabs: Paralel vs Sequential */}
+            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl">
+              <button
+                type="button"
+                onClick={() => setBatchMode('PARALLEL')}
+                className={`py-2 px-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  batchMode === 'PARALLEL'
+                    ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                <Clock size={14} /> Jam Serentak (Paralel)
+              </button>
+              <button
+                type="button"
+                onClick={() => setBatchMode('SEQUENTIAL')}
+                className={`py-2 px-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  batchMode === 'SEQUENTIAL'
+                    ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                <Layers size={14} /> Sesi Berurutan (Shift Otomatis)
+              </button>
+            </div>
+
+            {/* Mode 1: PARALLEL */}
+            {batchMode === 'PARALLEL' && (
+              <div className="space-y-4">
+                <div className="p-3.5 rounded-xl bg-purple-50/60 dark:bg-purple-950/20 text-purple-900 dark:text-purple-300 text-xs border border-purple-100 dark:border-purple-900/40">
+                  Semua ujian yang dipilih akan diset pada <strong>tanggal dan jam yang persis sama</strong> (cocok jika beberapa kelas berbeda mengerjakan ujian masing-masing pada jam serentak).
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Tanggal Pelaksanaan Ujian
+                  </label>
+                  <input
+                    type="date"
+                    value={batchDate}
+                    onChange={(e) => setBatchDate(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-semibold outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Jam Mulai (WIB)
+                    </label>
+                    <input
+                      type="time"
+                      value={batchStartTime}
+                      onChange={(e) => setBatchStartTime(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-mono font-bold outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Jam Selesai (WIB)
+                    </label>
+                    <input
+                      type="time"
+                      value={batchEndTime}
+                      onChange={(e) => setBatchEndTime(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-mono font-bold outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-xs text-slate-400 font-semibold">Preset Durasi Cepat:</span>
+                  {[45, 60, 90, 120].map((mins) => (
+                    <button
+                      key={mins}
+                      type="button"
+                      onClick={() => {
+                        if (!batchStartTime) return;
+                        const [h, m] = batchStartTime.split(':').map(Number);
+                        const totalMins = h * 60 + m + mins;
+                        const newH = Math.floor(totalMins / 60) % 24;
+                        const newM = totalMins % 60;
+                        setBatchEndTime(
+                          `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`
+                        );
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer"
+                    >
+                      +{mins} Menit
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Mode 2: SEQUENTIAL */}
+            {batchMode === 'SEQUENTIAL' && (
+              <div className="space-y-4">
+                <div className="p-3.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/20 text-blue-900 dark:text-blue-300 text-xs border border-blue-100 dark:border-blue-900/40">
+                  Sistem akan <strong>menghitung jam ujian secara bertingkat/berurutan otomatis</strong> dari Sesi 1 sampai selesai, lengkap dengan jeda istirahat antar ujian.
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Tanggal Pelaksanaan
+                    </label>
+                    <input
+                      type="date"
+                      value={batchDate}
+                      onChange={(e) => setBatchDate(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-semibold outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Jam Mulai Sesi 1 (WIB)
+                    </label>
+                    <input
+                      type="time"
+                      value={batchSeqStart}
+                      onChange={(e) => setBatchSeqStart(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-mono font-bold outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Durasi Ujian
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={batchDurationType}
+                        onChange={(e) => setBatchDurationType(e.target.value as any)}
+                        className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs font-semibold outline-none focus:ring-2 focus:ring-purple-500"
+                      >
+                        <option value="DEFAULT">Durasi Asli Masing-Masing</option>
+                        <option value="CUSTOM">Durasi Seragam</option>
+                      </select>
+                      {batchDurationType === 'CUSTOM' && (
+                        <input
+                          type="number"
+                          min={15}
+                          max={300}
+                          value={batchUniformDuration}
+                          onChange={(e) => setBatchUniformDuration(Number(e.target.value))}
+                          className="w-20 px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs font-bold text-center"
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Jeda Istirahat Antar Ujian
+                    </label>
+                    <div className="flex items-center gap-1.5">
+                      {[0, 10, 15, 20, 30].map((mins) => (
+                        <button
+                          key={mins}
+                          type="button"
+                          onClick={() => setBatchBreakMinutes(mins)}
+                          className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            batchBreakMinutes === mins
+                              ? 'bg-purple-600 text-white shadow-xs'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                          }`}
+                        >
+                          {mins} mnt
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Live Timeline Simulation */}
+                <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                    Simulasi Agenda yang Dihasilkan:
+                  </span>
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {getSequentialSchedulePreview().map((item, idx) => (
+                      <div key={item.exam.id} className="space-y-1">
+                        <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-[10px]">
+                              {idx + 1}
+                            </span>
+                            <div>
+                              <strong className="text-slate-900 dark:text-white block">{item.exam.title}</strong>
+                              <span className="text-[11px] text-purple-600 dark:text-purple-400 font-medium">
+                                Kelas: {item.exam.classTarget}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right font-mono font-bold text-purple-700 dark:text-purple-300">
+                            {item.startDisplay} - {item.endDisplay} WIB
+                          </div>
+                        </div>
+                        {item.breakAfter > 0 && (
+                          <div className="text-[10px] text-center font-bold text-amber-600 dark:text-amber-400 py-0.5">
+                            ☕ Istirahat {item.breakAfter} Menit
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Anti-Bentrok Bypass Checkbox */}
+            <label className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 cursor-pointer text-xs font-semibold text-slate-600 dark:text-slate-300">
+              <input
+                type="checkbox"
+                checked={batchAllowConflict}
+                onChange={(e) => setBatchAllowConflict(e.target.checked)}
+                className="w-4 h-4 text-purple-600 rounded cursor-pointer"
+              />
+              <span>Izinkan penjadwalan jika ada bentrok (Bypass warning)</span>
+            </label>
+
+            {/* Actions */}
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsBatchModalOpen(false)}
+                className="px-5 py-2.5 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold hover:bg-slate-50 cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyBatchWizard}
+                disabled={batchLoading || selectedExamIds.length === 0}
+                className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-purple-500/25 disabled:opacity-50 cursor-pointer flex items-center gap-2"
+              >
+                <Zap size={14} />
+                {batchLoading ? 'Menerapkan...' : `Terapkan ke ${selectedExamIds.length} Paket Ujian`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 📥 MODAL PREVIEW IMPORT CSV JADWAL */}
+      {isCsvModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-6 my-8 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold mb-1">
+                  <FileSpreadsheet size={13} /> Import Excel / CSV Jadwal
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                  Konfirmasi Terapkan Jadwal dari CSV
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Ditemukan <strong className="text-emerald-600 font-bold">{csvParsedRows.length} baris jadwal ujian</strong> yang valid. Tinjau jadwal sebelum disimpan ke database:
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCsvModalOpen(false)}
+                className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Table Preview */}
+            <div className="max-h-72 overflow-y-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold sticky top-0">
+                  <tr>
+                    <th className="py-2.5 px-3">Mata Pelajaran & Judul</th>
+                    <th className="py-2.5 px-3">Kelas</th>
+                    <th className="py-2.5 px-3">Waktu Mulai Baru</th>
+                    <th className="py-2.5 px-3">Waktu Selesai Baru</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {csvParsedRows.map((r, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
+                      <td className="py-2.5 px-3">
+                        <span className="font-bold text-slate-900 dark:text-white block">{r.title}</span>
+                        <span className="text-[11px] text-purple-600 dark:text-purple-400">{r.subject}</span>
+                      </td>
+                      <td className="py-2.5 px-3 font-semibold text-blue-600">{r.classTarget}</td>
+                      <td className="py-2.5 px-3 font-mono font-bold text-slate-700 dark:text-slate-200">
+                        {new Date(r.startTime).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })} WIB
+                      </td>
+                      <td className="py-2.5 px-3 font-mono font-bold text-slate-700 dark:text-slate-200">
+                        {new Date(r.endTime).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })} WIB
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsCsvModalOpen(false)}
+                className="px-5 py-2.5 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold hover:bg-slate-50 cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyCsvSchedules}
+                disabled={csvSaving}
+                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-500/25 disabled:opacity-50 cursor-pointer flex items-center gap-2"
+              >
+                <CheckCheck size={14} />
+                {csvSaving ? 'Menyimpan ke Database...' : `Simpan ${csvParsedRows.length} Jadwal ke Database`}
+              </button>
+            </div>
           </div>
         </div>
       )}

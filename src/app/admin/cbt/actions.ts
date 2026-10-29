@@ -301,6 +301,121 @@ export async function updateExam(
   }
 }
 
+/**
+ * 📦 Batch Update Exam Schedules (Kolektif)
+ * Allows updating multiple exam start/end times at once with collision verification
+ */
+export async function batchUpdateExamSchedules(
+  schedules: Array<{
+    id: string;
+    startTime: string | Date | null;
+    endTime: string | Date | null;
+  }>,
+  allowConflict = false
+) {
+  try {
+    if (!schedules || schedules.length === 0) {
+      return { success: false, error: 'Tidak ada jadwal yang dipilih untuk diperbarui.' };
+    }
+
+    // Step 1: Pre-validate conflicts if allowConflict is false
+    if (!allowConflict) {
+      for (const item of schedules) {
+        if (item.startTime && item.endTime) {
+          const exam = await prisma.exam.findUnique({
+            where: { id: item.id },
+            select: { id: true, title: true, classTarget: true },
+          });
+          if (exam) {
+            const conflictCheck = await checkExamScheduleConflict({
+              examId: item.id,
+              classTarget: exam.classTarget,
+              startTime: item.startTime,
+              endTime: item.endTime,
+            });
+            if (conflictCheck.hasConflict && conflictCheck.conflicts.length > 0) {
+              return {
+                error: `Ujian "${exam.title}" (${exam.classTarget}) bentrok dengan jadwal lain!`,
+                conflict: true,
+                conflicts: conflictCheck.conflicts,
+              };
+            }
+          }
+        }
+      }
+    }
+
+    // Step 2: Apply updates
+    const updatedExams = [];
+    for (const item of schedules) {
+      const updated = await prisma.exam.update({
+        where: { id: item.id },
+        data: {
+          startTime: item.startTime ? new Date(item.startTime) : null,
+          endTime: item.endTime ? new Date(item.endTime) : null,
+        },
+      });
+      updatedExams.push(updated);
+    }
+
+    revalidatePath('/admin/cbt');
+    revalidatePath('/portal/siswa/cbt');
+    revalidatePath('/portal/siswa');
+    return { success: true, count: updatedExams.length, data: updatedExams };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+/**
+ * 📋 Batch Create Exams With Schedule
+ * Allows creating multiple scheduled exams at once (e.g. from collective wizard or import)
+ */
+export async function batchCreateExamsWithSchedule(
+  examsData: Array<{
+    title: string;
+    subject: string;
+    classTarget: string;
+    duration: number;
+    startTime?: string | Date | null;
+    endTime?: string | Date | null;
+    authorName?: string;
+  }>
+) {
+  try {
+    if (!examsData || examsData.length === 0) {
+      return { success: false, error: 'Data paket ujian kosong.' };
+    }
+
+    const created = [];
+    for (const item of examsData) {
+      const token = generateRandomCbtToken();
+      const exam = await prisma.exam.create({
+        data: {
+          title: item.title,
+          subject: item.subject,
+          classTarget: item.classTarget,
+          duration: Number(item.duration) || 60,
+          token: `${token}|${new Date().toISOString()}`,
+          authorName: item.authorName || 'Bpk. Ahmad ST',
+          status: 'PUBLISHED',
+          shuffleQuestions: true,
+          startTime: item.startTime ? new Date(item.startTime) : null,
+          endTime: item.endTime ? new Date(item.endTime) : null,
+        },
+      });
+      created.push(exam);
+    }
+
+    revalidatePath('/admin/cbt');
+    revalidatePath('/portal/siswa/cbt');
+    revalidatePath('/portal/siswa');
+    return { success: true, count: created.length, data: created };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
 export async function deleteExam(id: string) {
   try {
     await prisma.exam.delete({ where: { id } });
