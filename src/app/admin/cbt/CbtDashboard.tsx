@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   BookOpen, 
@@ -81,6 +81,32 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   const teacherName = currentUser?.name || 'Bpk. Ahmad ST';
+
+  // Main View Tab: 'exams' (Paket Soal) | 'schedule' (Matriks Penjadwalan)
+  const [activeMainTab, setActiveMainTab] = useState<'exams' | 'schedule'>('exams');
+  const [selectedClassFilter, setSelectedClassFilter] = useState('ALL');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('tab') === 'jadwal') {
+        setActiveMainTab('schedule');
+      }
+    }
+  }, []);
+
+  const handleTabSwitch = (tab: 'exams' | 'schedule') => {
+    setActiveMainTab(tab);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (tab === 'schedule') {
+        url.searchParams.set('tab', 'jadwal');
+      } else {
+        url.searchParams.delete('tab');
+      }
+      window.history.replaceState({}, '', url.toString());
+    }
+  };
 
   // Filter States
   const [scheduleFilter, setScheduleFilter] = useState<'ALL' | 'TODAY' | 'UPCOMING' | 'ONGOING' | 'ENDED'>('ALL');
@@ -322,6 +348,56 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
     return matchesSearch && matchesStatus && matchesMine && matchesSchedule;
   });
 
+  // Calculate system-wide schedule conflicts across all exams
+  const systemConflicts: Array<{ exam1: ExamItem; exam2: ExamItem }> = [];
+  for (let i = 0; i < exams.length; i++) {
+    for (let j = i + 1; j < exams.length; j++) {
+      const e1 = exams[i];
+      const e2 = exams[j];
+      if (e1.status === 'ARCHIVED' || e2.status === 'ARCHIVED') continue;
+      if (!e1.startTime || !e1.endTime || !e2.startTime || !e2.endTime) continue;
+      const start1 = new Date(e1.startTime).getTime();
+      const end1 = new Date(e1.endTime).getTime();
+      const start2 = new Date(e2.startTime).getTime();
+      const end2 = new Date(e2.endTime).getTime();
+
+      const classOverlap =
+        e1.classTarget === 'Semua Kelas' ||
+        e2.classTarget === 'Semua Kelas' ||
+        e1.classTarget === e2.classTarget;
+      const timeOverlap = start1 < end2 && end1 > start2;
+
+      if (classOverlap && timeOverlap) {
+        systemConflicts.push({ exam1: e1, exam2: e2 });
+      }
+    }
+  }
+
+  // Filter exams for schedule matrix table
+  const scheduledExams = exams.filter((exam) => {
+    const matchesSearch =
+      exam.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      exam.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      exam.classTarget.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (exam.authorName && exam.authorName.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    const matchesClass = selectedClassFilter === 'ALL' || exam.classTarget === selectedClassFilter;
+
+    const schedState = getExamScheduleState(exam.startTime, exam.endTime, exam.status);
+    const matchesSchedule =
+      scheduleFilter === 'ALL' ||
+      (scheduleFilter === 'TODAY' && schedState.isOngoingToday) ||
+      (scheduleFilter === 'ONGOING' && schedState.state === 'ONGOING') ||
+      (scheduleFilter === 'UPCOMING' && schedState.state === 'UPCOMING') ||
+      (scheduleFilter === 'ENDED' && schedState.state === 'ENDED');
+
+    return matchesSearch && matchesClass && matchesSchedule;
+  }).sort((a, b) => {
+    if (!a.startTime) return 1;
+    if (!b.startTime) return -1;
+    return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
+  });
+
   // Calculate stats
   const totalExams = exams.length;
   const totalQuestions = exams.reduce((acc, curr) => acc + curr._count.questions, 0);
@@ -363,6 +439,269 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
         </div>
       </div>
 
+      {/* 🌟 VIEW MODE SELECTOR TABS */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => handleTabSwitch('exams')}
+            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+              activeMainTab === 'exams'
+                ? 'bg-purple-600 text-white shadow-md shadow-purple-500/25'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+            }`}
+          >
+            <BookOpen size={16} /> Daftar Paket Ujian ({totalExams})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleTabSwitch('schedule')}
+            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+              activeMainTab === 'schedule'
+                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/25 ring-2 ring-indigo-400/30'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+            }`}
+          >
+            <Calendar size={16} /> Matriks Jadwal Ujian & Anti-Bentrok
+            {systemConflicts.length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white animate-pulse">
+                {systemConflicts.length} Bentrok!
+              </span>
+            )}
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-400 font-medium">Status Jadwal Sistem:</span>
+          {systemConflicts.length === 0 ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+              <CheckCircle size={14} className="text-emerald-600 dark:text-emerald-400" />
+              <span>Bebas Bentrok (0 Tabrakan)</span>
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800 animate-pulse">
+              <AlertTriangle size={14} className="text-rose-600 dark:text-rose-400" />
+              <span>{systemConflicts.length} Tabrakan Terdeteksi</span>
+            </span>
+          )}
+        </div>
+      </div>
+
+      {activeMainTab === 'schedule' ? (
+        <div className="space-y-6">
+          {/* Conflict Alert Banner */}
+          {systemConflicts.length > 0 ? (
+            <div className="p-5 rounded-3xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200 space-y-3">
+              <div className="flex items-center gap-2.5 font-bold text-sm text-rose-700 dark:text-rose-300">
+                <AlertTriangle size={20} className="text-rose-600 dark:text-rose-400 flex-shrink-0" />
+                <span>Peringatan Sistem: Terdeteksi {systemConflicts.length} Pasang Jadwal Ujian yang Bertabrakan!</span>
+              </div>
+              <p className="text-xs text-rose-800 dark:text-rose-300 leading-relaxed">
+                Ujian di bawah ini memiliki waktu pengerjaan yang saling tumpang tindih untuk kelas yang sama. Klik tombol <strong>Ubah Jadwal</strong> untuk menyesuaikan jam ujian:
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                {systemConflicts.map((conf, idx) => (
+                  <div key={idx} className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 shadow-sm space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="text-xs">
+                        <span className="font-bold text-slate-900 dark:text-white block">{conf.exam1.title}</span>
+                        <span className="text-[11px] text-slate-500">{conf.exam1.subject} • Kelas: <strong className="text-rose-600">{conf.exam1.classTarget}</strong></span>
+                        <span className="text-[11px] text-purple-600 block mt-0.5">{formatExamScheduleRange(conf.exam1.startTime, conf.exam1.endTime)}</span>
+                      </div>
+                      <button
+                        onClick={() => handleOpenEdit(conf.exam1)}
+                        className="px-2.5 py-1 rounded-lg bg-rose-100 hover:bg-rose-200 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 text-[11px] font-bold cursor-pointer"
+                      >
+                        Ubah Jadwal
+                      </button>
+                    </div>
+                    <div className="text-[10px] text-center font-bold text-rose-500 uppercase tracking-widest border-t border-b border-rose-100 dark:border-rose-900/40 py-0.5">
+                      ⚔️ BENTROK WAKTU DENGAN:
+                    </div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="text-xs">
+                        <span className="font-bold text-slate-900 dark:text-white block">{conf.exam2.title}</span>
+                        <span className="text-[11px] text-slate-500">{conf.exam2.subject} • Kelas: <strong className="text-rose-600">{conf.exam2.classTarget}</strong></span>
+                        <span className="text-[11px] text-purple-600 block mt-0.5">{formatExamScheduleRange(conf.exam2.startTime, conf.exam2.endTime)}</span>
+                      </div>
+                      <button
+                        onClick={() => handleOpenEdit(conf.exam2)}
+                        className="px-2.5 py-1 rounded-lg bg-rose-100 hover:bg-rose-200 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 text-[11px] font-bold cursor-pointer"
+                      >
+                        Ubah Jadwal
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-bold flex-shrink-0">
+                  <CheckCircle size={22} />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-emerald-900 dark:text-emerald-200">Seluruh Jadwal Ujian Telah Selaras & Bebas Bentrok</h4>
+                  <p className="text-xs text-emerald-700 dark:text-emerald-300">Sistem otomatis mendeteksi 0 bentrok jadwal antar mata pelajaran untuk setiap kelas.</p>
+                </div>
+              </div>
+              <button
+                onClick={handleOpenCreate}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+              >
+                <Plus size={14} /> Tambah Jadwal Ujian
+              </button>
+            </div>
+          )}
+
+          {/* Schedule Filter & Target Class Selector */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              <div className="text-xs font-bold text-slate-500 mr-1 flex items-center gap-1">
+                <Users size={14} /> Filter Kelas:
+              </div>
+              <select
+                value={selectedClassFilter}
+                onChange={(e) => setSelectedClassFilter(e.target.value)}
+                className="px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-purple-500 outline-none"
+              >
+                <option value="ALL">Semua Kelas ({exams.length} Ujian)</option>
+                {classPresets.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                {[
+                  { id: 'ALL', label: 'Semua Status' },
+                  { id: 'TODAY', label: '📅 Hari Ini' },
+                  { id: 'UPCOMING', label: '⏳ Akan Datang' },
+                  { id: 'ONGOING', label: '🟢 Berlangsung' },
+                  { id: 'ENDED', label: '🏁 Selesai' },
+                ].map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setScheduleFilter(s.id as any)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      scheduleFilter === s.id
+                        ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-sm font-bold'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <input
+                type="text"
+                placeholder="Cari jadwal ujian, mapel..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-none shadow-sm"
+              />
+            </div>
+          </div>
+
+          {/* Schedule Matrix Table */}
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50/80 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[11px] border-b border-slate-200/80 dark:border-slate-800">
+                  <tr>
+                    <th className="py-4 px-4 text-center w-12">No</th>
+                    <th className="py-4 px-4">Mata Pelajaran & Judul</th>
+                    <th className="py-4 px-4">Target Kelas</th>
+                    <th className="py-4 px-4">Guru Pengampu</th>
+                    <th className="py-4 px-4">Jadwal Pelaksanaan (WIB)</th>
+                    <th className="py-4 px-4 text-center">Durasi</th>
+                    <th className="py-4 px-4">Status Waktu</th>
+                    <th className="py-4 px-4 text-center">Token</th>
+                    <th className="py-4 px-4 text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {scheduledExams.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="py-12 text-center text-slate-400">
+                        Tidak ada jadwal ujian yang sesuai filter.
+                      </td>
+                    </tr>
+                  ) : (
+                    scheduledExams.map((exam, idx) => {
+                      const schedState = getExamScheduleState(exam.startTime, exam.endTime, exam.status);
+                      const isLive = exam.status === 'ACTIVE';
+
+                      return (
+                        <tr key={exam.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                          <td className="py-3.5 px-4 text-center font-bold text-slate-400">{idx + 1}</td>
+                          <td className="py-3.5 px-4">
+                            <span className="font-bold text-slate-900 dark:text-white block text-sm">{exam.title}</span>
+                            <span className="text-[11px] text-purple-600 dark:text-purple-400 font-medium">{exam.subject}</span>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span className="px-2.5 py-1 rounded-lg font-bold text-[11px] bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                              {exam.classTarget}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300 font-medium">
+                            {exam.authorName || 'Bpk. Ahmad ST'}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
+                              <Calendar size={13} className="text-purple-600 dark:text-purple-400 flex-shrink-0" />
+                              <span>{formatExamScheduleRange(exam.startTime, exam.endTime)}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-400 block mt-0.5">{schedState.countdown}</span>
+                          </td>
+                          <td className="py-3.5 px-4 text-center font-semibold text-slate-600 dark:text-slate-300">
+                            {exam.duration} mnt
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${schedState.badgeClass}`}>
+                              {schedState.label}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-center">
+                            <span className="font-mono font-bold text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md text-slate-700 dark:text-slate-200">
+                              {(exam.token || '').split('|')[0] || 'Tanpa Token'}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => handleOpenEdit(exam)}
+                                className="px-2.5 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 font-bold text-xs transition-colors flex items-center gap-1 cursor-pointer"
+                              >
+                                <Edit3 size={13} /> Atur Jadwal
+                              </button>
+                              <Link
+                                href={`/admin/cbt/${exam.id}`}
+                                className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                                title="Buka Bank Soal"
+                              >
+                                <ExternalLink size={15} />
+                              </Link>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-8">
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center gap-4">
@@ -643,6 +982,8 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
           })
         )}
       </div>
+      </div>
+      )}
 
       {/* Modal Buat / Edit Ujian */}
       {isModalOpen && (

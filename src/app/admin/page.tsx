@@ -1,4 +1,4 @@
-import { Users, Settings, Database, Server, Shield, Activity, LogOut, BookOpen, Network, TrendingUp, Briefcase } from 'lucide-react';
+import { Users, Settings, Database, Server, Shield, Activity, LogOut, BookOpen, Network, TrendingUp, Briefcase, MonitorPlay, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import SchoolLogo from '@/components/SchoolLogo';
 import { cookies } from 'next/headers';
@@ -50,6 +50,16 @@ export default async function SuperAdminDashboard() {
       <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-6 md:p-8">
         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Akses Cepat Modul Sistem</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Link href="/admin/cbt" className="p-6 border border-purple-200 dark:border-purple-800/60 bg-purple-50/20 dark:bg-purple-950/20 rounded-xl hover:border-purple-500 hover:shadow-lg transition-all group cursor-pointer block">
+            <MonitorPlay className="text-purple-600 mb-4 group-hover:scale-110 transition-transform" size={32} />
+            <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Ujian Online (CBT)</h3>
+            <p className="text-slate-500 text-sm">Kelola bank soal, kontrol ruang ujian live, dan rilis token kelas.</p>
+          </Link>
+          <Link href="/admin/cbt?tab=jadwal" className="p-6 border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50/20 dark:bg-indigo-950/20 rounded-xl hover:border-indigo-500 hover:shadow-lg transition-all group cursor-pointer block">
+            <Calendar className="text-indigo-600 mb-4 group-hover:scale-110 transition-transform" size={32} />
+            <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Jadwal Ujian & Anti-Bentrok</h3>
+            <p className="text-slate-500 text-sm">Atur jadwal ujian online per kelas dan cegah tabrakan waktu otomatis.</p>
+          </Link>
           <Link href="/admin/ppdb" className="p-6 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-blue-500 hover:shadow-lg transition-all group">
             <Database className="text-blue-500 mb-4 group-hover:scale-110 transition-transform" size={32} />
             <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-2">Verifikasi PPDB</h3>

@@ -22,12 +22,20 @@ export default function AdminSidebar({ logoUrl, userRole = 'Super Admin', userNa
   const isActive = (path: string) => {
     if (path === '/admin' && pathname !== '/admin') return false;
     if (path === '/portal/guru' && pathname !== '/portal/guru') return false;
+    if (path === '/admin/cbt?tab=jadwal') {
+      return pathname === '/admin/cbt' && (typeof window !== 'undefined' && window.location.search.includes('tab=jadwal'));
+    }
+    if (path === '/admin/cbt') {
+      if (typeof window !== 'undefined' && window.location.search.includes('tab=jadwal')) return false;
+      return pathname === '/admin/cbt';
+    }
     return pathname?.startsWith(path);
   };
 
   const superAdminMenuItems = [
     { name: 'Dashboard Utama', path: '/admin', icon: <Activity size={20} /> },
     { name: 'Ujian Online (CBT)', path: '/admin/cbt', icon: <MonitorPlay size={20} /> },
+    { name: 'Jadwal Ujian (CBT)', path: '/admin/cbt?tab=jadwal', icon: <Calendar size={20} /> },
     { name: 'Tugas Siswa', path: '/admin/tugas', icon: <FileText size={20} /> },
     { name: 'Modul PPDB', path: '/admin/ppdb', icon: <Database size={20} /> },
     { name: 'Rincian Biaya PPDB', path: '/admin/settings/biaya-ppdb', icon: <Banknote size={20} /> },
@@ -53,6 +61,7 @@ export default function AdminSidebar({ logoUrl, userRole = 'Super Admin', userNa
   const guruMenuItems = [
     { name: 'Jadwal & Dashboard', path: '/portal/guru', icon: <Calendar size={20} /> },
     { name: 'Smart CBT (Ujian)', path: '/admin/cbt', icon: <MonitorPlay size={20} /> },
+    { name: 'Jadwal Ujian (CBT)', path: '/admin/cbt?tab=jadwal', icon: <Calendar size={20} /> },
     { name: 'Tugas Siswa', path: '/admin/tugas', icon: <FileText size={20} /> },
     { name: 'Kelas & Siswa', path: '/portal/guru/kelas', icon: <Users size={20} /> },
     { name: 'Presensi Siswa', path: '/portal/guru/presensi', icon: <CheckSquare size={20} /> },

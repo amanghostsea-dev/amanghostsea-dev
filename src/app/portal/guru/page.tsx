@@ -143,6 +143,12 @@ export default async function PortalGuru() {
                 >
                   <MonitorPlay size={16} /> Buka Manajemen CBT
                 </Link>
+                <Link
+                  href="/admin/cbt?tab=jadwal"
+                  className="px-5 py-3 bg-purple-900/40 hover:bg-purple-900/60 text-white border border-purple-300/30 rounded-2xl font-bold text-xs shadow-md transition-all flex items-center gap-2"
+                >
+                  <Calendar size={16} /> Atur Jadwal & Anti-Bentrok
+                </Link>
               </div>
             </div>
           )}
