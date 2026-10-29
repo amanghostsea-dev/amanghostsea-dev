@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   ArrowLeft, 
@@ -38,7 +38,7 @@ import {
   Info
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
-import { createQuestion, deleteQuestion, deleteAttempt, toggleExamSession, createBatchQuestions, updateQuestion } from '../actions';
+import { createQuestion, deleteQuestion, deleteAttempt, toggleExamSession, createBatchQuestions, updateQuestion, rotateExamToken } from '../actions';
 
 interface ParsedQuestion {
   questionText: string;
@@ -314,6 +314,7 @@ interface ExamDetailProps {
     description: string | null;
     status: string;
     shuffleQuestions: boolean;
+    updatedAt?: Date | string;
     questions: QuestionItem[];
     attempts: AttemptItem[];
   };
@@ -324,20 +325,66 @@ export default function ExamDetailClient({ exam }: ExamDetailProps) {
   const [questions, setQuestions] = useState(exam.questions);
   const [attempts, setAttempts] = useState(exam.attempts);
 
-  // Session Dual-Key state
+  // Session Dual-Key state & 5-minute rolling token
   const [examStatus, setExamStatus] = useState(exam.status || 'PUBLISHED');
-  const [examToken, setExamToken] = useState(exam.token || '');
+  const [examToken, setExamToken] = useState((exam.token || '').split('|')[0]);
   const [togglingSession, setTogglingSession] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
   const [isWhiteboardModalOpen, setIsWhiteboardModalOpen] = useState(false);
   const [resultSearch, setResultSearch] = useState('');
+
+  // 🔄 Dynamic 5-minute Rolling Token System (300 seconds)
+  const calculateRemainingTokenTime = () => {
+    if (!exam.updatedAt) return 300;
+    const elapsed = Math.floor((Date.now() - new Date(exam.updatedAt).getTime()) / 1000);
+    const remaining = 300 - (elapsed % 300);
+    return remaining > 0 ? remaining : 300;
+  };
+
+  const [tokenTimer, setTokenTimer] = useState<number>(() => calculateRemainingTokenTime());
+  const [isRotatingToken, setIsRotatingToken] = useState(false);
+
+  const handleRotateToken = async (manualToken?: string) => {
+    setIsRotatingToken(true);
+    const res = await rotateExamToken(exam.id, manualToken);
+    if (res.success && res.displayToken) {
+      setExamToken(res.displayToken);
+      setTokenTimer(300);
+    } else if (res.error) {
+      console.error('Gagal memperbarui token:', res.error);
+    }
+    setIsRotatingToken(false);
+  };
+
+  useEffect(() => {
+    if (examStatus !== 'ACTIVE') return;
+
+    setTokenTimer(calculateRemainingTokenTime());
+
+    const interval = setInterval(() => {
+      setTokenTimer((prev) => {
+        if (prev <= 1) {
+          handleRotateToken();
+          return 300;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [examStatus, exam.id]);
 
   const handleToggleSession = async (open: boolean) => {
     setTogglingSession(true);
     const res = await toggleExamSession(exam.id, open, examToken);
     if (res.success && res.data) {
       setExamStatus(res.data.status);
-      if (res.data.token) setExamToken(res.data.token);
+      if (res.data.token) {
+        setExamToken(res.data.token.split('|')[0]);
+      }
+      if (open) {
+        setTokenTimer(300);
+      }
     } else {
       alert(res.error || 'Gagal mengubah status sesi ujian.');
     }
@@ -345,8 +392,9 @@ export default function ExamDetailClient({ exam }: ExamDetailProps) {
   };
 
   const handleCopyToken = () => {
-    if (!examToken) return;
-    navigator.clipboard.writeText(examToken);
+    const activeToken = examToken.split('|')[0];
+    if (!activeToken) return;
+    navigator.clipboard.writeText(activeToken);
     setCopiedToken(true);
     setTimeout(() => setCopiedToken(false), 2000);
   };
@@ -971,10 +1019,10 @@ Poin: 10
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
             {examStatus === 'ACTIVE' ? (
               <>
-                {/* Big Whiteboard Token Card */}
-                <div className="bg-white dark:bg-slate-900 border-2 border-emerald-500 rounded-2xl p-3 px-5 text-center shadow-md">
-                  <div className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">
-                    Token Papan Tulis Kelas
+                {/* Big Whiteboard Token Card with 5-Minute Auto-Reset Countdown */}
+                <div className="bg-white dark:bg-slate-900 border-2 border-emerald-500 rounded-2xl p-3.5 px-5 text-center shadow-md min-w-[240px]">
+                  <div className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest flex items-center justify-center gap-1.5">
+                    <span>Token Papan Tulis Kelas</span>
                   </div>
                   <div className="flex items-center justify-center gap-2 mt-1">
                     <span className="text-2xl font-black font-mono tracking-widest text-slate-900 dark:text-white">
@@ -987,6 +1035,44 @@ Poin: 10
                       className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-500 hover:text-emerald-600 transition cursor-pointer"
                     >
                       {copiedToken ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
+                    </button>
+                  </div>
+
+                  {/* 🔄 Dynamic Rolling Timer (5 Menit) */}
+                  <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1.5 text-left">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="flex items-center gap-1 font-semibold text-slate-500">
+                        <RefreshCw size={11} className={isRotatingToken ? 'animate-spin text-emerald-600' : ''} />
+                        Reset Tiap 5 Menit:
+                      </span>
+                      <span className={`font-mono font-black px-1.5 py-0.5 rounded text-[11px] ${
+                        tokenTimer <= 30
+                          ? 'bg-red-500 text-white animate-pulse'
+                          : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200'
+                      }`}>
+                        {Math.floor(tokenTimer / 60).toString().padStart(2, '0')}:{(tokenTimer % 60).toString().padStart(2, '0')}
+                      </span>
+                    </div>
+
+                    {/* Progress bar */}
+                    <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-1000 rounded-full ${
+                          tokenTimer <= 30 ? 'bg-red-500' : 'bg-gradient-to-r from-emerald-500 to-teal-500'
+                        }`}
+                        style={{ width: `${(tokenTimer / 300) * 100}%` }}
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRotateToken()}
+                      disabled={isRotatingToken}
+                      className="w-full mt-1 py-1 px-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-800 text-[10px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+                      title="Generate token acak baru sekarang tanpa menunggu 5 menit"
+                    >
+                      <RefreshCw size={10} className={isRotatingToken ? 'animate-spin' : ''} />
+                      {isRotatingToken ? 'Memperbarui...' : 'Perbarui Token Sekarang'}
                     </button>
                   </div>
                 </div>
@@ -2113,7 +2199,33 @@ Poin: 15`}
                 {examToken || 'RPL2026'}
               </div>
 
-              <div className="mt-6 flex items-center justify-center gap-2">
+              {/* 🔄 Dynamic 5-Minute Timer on Projector Screen */}
+              <div className="mt-6 max-w-sm mx-auto space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-300">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <RefreshCw size={13} className={isRotatingToken ? 'animate-spin text-emerald-400' : 'text-slate-400'} />
+                    Token diperbarui otomatis dalam:
+                  </span>
+                  <span className={`font-mono font-black text-sm px-2.5 py-0.5 rounded-lg ${
+                    tokenTimer <= 30
+                      ? 'bg-red-500 text-white animate-pulse'
+                      : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                  }`}>
+                    {Math.floor(tokenTimer / 60).toString().padStart(2, '0')}:{(tokenTimer % 60).toString().padStart(2, '0')}
+                  </span>
+                </div>
+
+                <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full transition-all duration-1000 rounded-full ${
+                      tokenTimer <= 30 ? 'bg-red-500' : 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                    }`}
+                    style={{ width: `${(tokenTimer / 300) * 100}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 flex items-center justify-center gap-3">
                 <button
                   type="button"
                   onClick={handleCopyToken}
@@ -2121,6 +2233,17 @@ Poin: 15`}
                 >
                   {copiedToken ? <Check size={16} /> : <Copy size={16} />}
                   <span>{copiedToken ? 'Token Tersalin!' : 'Salin Token'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleRotateToken()}
+                  disabled={isRotatingToken}
+                  className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition border border-white/20 cursor-pointer disabled:opacity-50"
+                  title="Generate token baru sekarang"
+                >
+                  <RefreshCw size={14} className={isRotatingToken ? 'animate-spin text-emerald-400' : ''} />
+                  <span>{isRotatingToken ? 'Memperbarui...' : 'Perbarui Token Sekarang'}</span>
                 </button>
               </div>
             </div>

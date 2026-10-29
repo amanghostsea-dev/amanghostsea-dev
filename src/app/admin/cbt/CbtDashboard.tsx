@@ -425,7 +425,7 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Key size={14} className="text-amber-500" />
-                      <span className="font-mono font-bold">{exam.token || 'Tanpa Token'}</span>
+                      <span className="font-mono font-bold">{(exam.token || '').split('|')[0] || 'Tanpa Token'}</span>
                     </div>
                   </div>
 
@@ -440,7 +440,7 @@ export default function CbtDashboard({ exams: initialExams, currentUser }: CbtDa
                         {isLive ? 'Token Live Kelas:' : 'Status Token:'}
                       </div>
                       <div className="font-mono font-black text-sm text-slate-900 dark:text-white mt-0.5">
-                        {exam.token || 'BELUM AKTIF'}
+                        {(exam.token || '').split('|')[0] || 'BELUM AKTIF'}
                       </div>
                     </div>
 

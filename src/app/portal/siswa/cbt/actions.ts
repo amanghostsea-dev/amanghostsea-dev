@@ -59,10 +59,16 @@ export async function startOrResumeAttempt(data: {
       };
     }
 
-    // Verify token if required
+    // Verify token if required (supports dynamic 5-minute rolling token with grace period)
     if (exam.token && exam.token.trim() !== '') {
-      if (!data.token || data.token.trim().toUpperCase() !== exam.token.trim().toUpperCase()) {
-        return { error: 'Token ujian yang Anda masukkan salah!' };
+      const allowedTokens = exam.token
+        .split('|')
+        .map((t) => t.trim().toUpperCase())
+        .filter(Boolean);
+
+      const studentInput = (data.token || '').trim().toUpperCase();
+      if (!allowedTokens.includes(studentInput)) {
+        return { error: 'Token ujian yang Anda masukkan salah atau sudah kadaluwarsa!' };
       }
     }
 

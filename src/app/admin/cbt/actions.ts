@@ -3,12 +3,67 @@
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
+// Helper: Generate clean 6-character alphanumeric token without confusing symbols (0, O, 1, I)
+export function generateRandomCbtToken(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let res = '';
+  for (let i = 0; i < 6; i++) {
+    res += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return res;
+}
+
+// 🔄 Rotate token periodically (every 5 mins or manual refresh by teacher)
+export async function rotateExamToken(id: string, customToken?: string) {
+  try {
+    const current = await prisma.exam.findUnique({
+      where: { id },
+      select: { token: true, status: true },
+    });
+
+    if (!current) {
+      return { error: 'Ujian tidak ditemukan.' };
+    }
+
+    const currentPrimary = current.token ? current.token.split('|')[0].trim() : '';
+    const nextToken = customToken?.trim().toUpperCase() || generateRandomCbtToken();
+
+    // Store new token and keep old primary as fallback for grace period (graceful rotation)
+    const combinedToken = currentPrimary && currentPrimary !== nextToken 
+      ? `${nextToken}|${currentPrimary}`
+      : nextToken;
+
+    const updated = await prisma.exam.update({
+      where: { id },
+      data: {
+        token: combinedToken,
+      },
+    });
+
+    revalidatePath('/admin/cbt');
+    revalidatePath(`/admin/cbt/${id}`);
+    revalidatePath('/portal/siswa/cbt');
+    revalidatePath(`/portal/siswa/cbt/${id}`);
+    revalidatePath('/ujian');
+
+    return { 
+      success: true, 
+      displayToken: nextToken, 
+      token: combinedToken,
+      updatedAt: updated.updatedAt,
+    };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
 export async function toggleExamSession(id: string, openSession: boolean, customToken?: string) {
   try {
     let token = customToken?.trim().toUpperCase();
     if (openSession && !token) {
       const current = await prisma.exam.findUnique({ where: { id } });
-      token = current?.token || 'CBT' + Math.floor(100 + Math.random() * 900);
+      const currentPrimary = current?.token ? current.token.split('|')[0].trim() : '';
+      token = currentPrimary || generateRandomCbtToken();
     }
 
     const updated = await prisma.exam.update({
@@ -24,7 +79,13 @@ export async function toggleExamSession(id: string, openSession: boolean, custom
     revalidatePath('/portal/siswa/cbt');
     revalidatePath(`/portal/siswa/cbt/${id}`);
     revalidatePath('/ujian');
-    return { success: true, data: updated };
+    return { 
+      success: true, 
+      data: {
+        ...updated,
+        displayToken: updated.token ? updated.token.split('|')[0].trim() : '',
+      } 
+    };
   } catch (error: any) {
     return { error: error.message };
   }
