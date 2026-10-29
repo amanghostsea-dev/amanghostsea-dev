@@ -267,3 +267,44 @@ model AssignmentSubmission {
   status       String     @default("SUBMITTED") // SUBMITTED, GRADED, LATE
 }
 
+model Subject {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  category    String   @default("Muatan Kejuruan") // Muatan Kejuruan, Muatan Nasional, Muatan Kewilayahan
+  classTarget String   @default("XI RPL 1")
+  teacherId   String?  // Id User guru pengampu (jika ada)
+  teacherName String?  // Nama Guru Pengampu (e.g. "Abdul Rahman", "Bpk. Ahmad ST")
+  day         String?  // Hari: "Senin", "Selasa", "Rabu", "Kamis", "Jumat"
+  time        String?  // Jam: "07:30 - 10:00"
+  room        String?  // Ruang: "Lab Komputer 1"
+  kkm         Int      @default(75)
+  credits     Int      @default(4) // Jam Pelajaran (JP)
+  status      String   @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  grades      StudentGrade[]
+}
+
+model StudentGrade {
+  id           String   @id @default(cuid())
+  subjectId    String
+  subject      Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  studentId    String?
+  studentName  String
+  studentNis   String?
+  studentClass String   @default("XI RPL 1")
+  assignment   Float    @default(85) // Tugas & Kuis
+  midExam      Float    @default(80) // UTS (PTS)
+  finalExam    Float    @default(85) // UAS (PAS)
+  finalGrade   String   @default("A") // A, A-, B+, B, C, D
+  notes        String?  @db.Text
+  updatedBy    String?  // Nama penginput nilai (Guru Pengampu / Admin)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([subjectId, studentName])
+}
+
+

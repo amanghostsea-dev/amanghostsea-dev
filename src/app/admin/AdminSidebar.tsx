@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Users, Settings, Database, Activity, LogOut, BookOpen, Network, LayoutDashboard, TrendingUp, Briefcase, ExternalLink, CheckSquare, Banknote, MonitorPlay, FileText, Calendar, Menu, X } from 'lucide-react';
+import { Users, Settings, Database, Activity, LogOut, BookOpen, Network, LayoutDashboard, TrendingUp, Briefcase, ExternalLink, CheckSquare, Banknote, MonitorPlay, FileText, Calendar, Menu, X, Layers, Award } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import SchoolLogo from '@/components/SchoolLogo';
@@ -27,6 +27,7 @@ export default function AdminSidebar({ logoUrl, userRole = 'Super Admin', userNa
 
   const superAdminMenuItems = [
     { name: 'Dashboard Utama', path: '/admin', icon: <Activity size={20} /> },
+    { name: 'Plotting & Mapel', path: '/admin/mapel', icon: <BookOpen size={20} /> },
     { name: 'Ujian Online & Jadwal (CBT)', path: '/admin/cbt', icon: <MonitorPlay size={20} /> },
     { name: 'Tugas Siswa', path: '/admin/tugas', icon: <FileText size={20} /> },
     { name: 'Modul PPDB', path: '/admin/ppdb', icon: <Database size={20} /> },
@@ -34,7 +35,7 @@ export default function AdminSidebar({ logoUrl, userRole = 'Super Admin', userNa
     { name: 'BKK Lowongan', path: '/admin/bkk/jobs', icon: <Briefcase size={20} /> },
     { name: 'Tracer Study', path: '/admin/bkk/tracer-study', icon: <TrendingUp size={20} /> },
     { name: 'Manajemen Akun', path: '/admin/users', icon: <Users size={20} /> },
-    { name: 'Manajemen Jurusan', path: '/admin/jurusan', icon: <BookOpen size={20} /> },
+    { name: 'Manajemen Jurusan', path: '/admin/jurusan', icon: <Layers size={20} /> },
     { name: 'Manajemen Konten', path: '/admin/berita', icon: <LayoutDashboard size={20} /> },
     { name: 'Kelola Sambutan', path: '/admin/sambutan', icon: <Users size={20} /> },
     { name: 'Struktur Organisasi', path: '/admin/struktur', icon: <Network size={20} /> },
@@ -54,6 +55,7 @@ export default function AdminSidebar({ logoUrl, userRole = 'Super Admin', userNa
     { name: 'Jadwal & Dashboard', path: '/portal/guru', icon: <Calendar size={20} /> },
     { name: 'Smart CBT & Jadwal Ujian', path: '/admin/cbt', icon: <MonitorPlay size={20} /> },
     { name: 'Tugas Siswa', path: '/admin/tugas', icon: <FileText size={20} /> },
+    { name: 'Penilaian Siswa', path: '/portal/guru/nilai', icon: <Award size={20} /> },
     { name: 'Kelas & Siswa', path: '/portal/guru/kelas', icon: <Users size={20} /> },
     { name: 'Presensi Siswa', path: '/portal/guru/presensi', icon: <CheckSquare size={20} /> },
   ];

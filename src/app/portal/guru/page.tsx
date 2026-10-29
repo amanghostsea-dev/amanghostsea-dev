@@ -33,9 +33,10 @@ export default async function PortalGuru() {
   let activeExams: any[] = [];
   let totalAttempts = 0;
   let unreviewedSubmissions = 0;
+  let teacherSubjects: any[] = [];
 
   try {
-    const [examsCount, activeList, attemptsCount, unreviewedCount] = await Promise.all([
+    const [examsCount, activeList, attemptsCount, unreviewedCount, subjectsList] = await Promise.all([
       prisma.exam.count(),
       prisma.exam.findMany({
         where: { status: 'ACTIVE' },
@@ -50,21 +51,49 @@ export default async function PortalGuru() {
       prisma.examAttempt.count(),
       prisma.assignmentSubmission.count({
         where: { grade: null }
+      }),
+      prisma.subject.findMany({
+        where: {
+          status: 'ACTIVE',
+          OR: [
+            { teacherName: { contains: teacherName, mode: 'insensitive' } },
+            { teacherName: null },
+          ],
+        },
+        include: {
+          _count: { select: { grades: true } },
+        },
+        orderBy: [{ day: 'asc' }, { time: 'asc' }],
       })
     ]);
     totalExams = examsCount;
     activeExams = activeList;
     totalAttempts = attemptsCount;
     unreviewedSubmissions = unreviewedCount;
+    teacherSubjects = subjectsList;
+
+    if (teacherSubjects.length === 0) {
+      teacherSubjects = await prisma.subject.findMany({
+        where: { status: 'ACTIVE' },
+        take: 4,
+        include: {
+          _count: { select: { grades: true } },
+        },
+        orderBy: [{ day: 'asc' }, { time: 'asc' }],
+      });
+    }
   } catch (err) {
     console.error('Error fetching guru stats:', err);
   }
 
-  const classes = [
-    { name: 'XI RPL 1', subject: 'Pemrograman Web', students: 32, status: 'Sedang Berlangsung' },
-    { name: 'XI RPL 2', subject: 'Pemrograman Web', students: 34, status: 'Menunggu (10:15)' },
-    { name: 'XII TKJ 1', subject: 'Dasar Jaringan', students: 30, status: 'Besok (07:30)' },
-  ];
+  const classes = teacherSubjects.map((s) => ({
+    id: s.id,
+    name: s.classTarget || 'XI RPL 1',
+    subject: s.name,
+    students: s._count?.grades || 32,
+    dayTime: `${s.day || 'Senin'} (${s.time || '07:30 - 10:00'})`,
+    room: s.room || 'Lab Komputer 1',
+  }));
 
   return (
     <main className="p-6 md:p-10 max-w-7xl mx-auto w-full">
@@ -214,7 +243,7 @@ export default async function PortalGuru() {
                   <th className="py-4 px-6">Kelas</th>
                   <th className="py-4 px-6">Mata Pelajaran</th>
                   <th className="py-4 px-6">Jumlah Siswa</th>
-                  <th className="py-4 px-6">Status / Waktu</th>
+                  <th className="py-4 px-6">Jadwal & Ruang</th>
                   <th className="py-4 px-6 text-right">Aksi</th>
                 </tr>
               </thead>
@@ -222,19 +251,24 @@ export default async function PortalGuru() {
                 {classes.map((cls, i) => (
                   <tr key={i} className="hover:bg-gray-50/80 dark:hover:bg-gray-800/50 transition-colors">
                     <td className="py-4 px-6 font-bold text-gray-900 dark:text-white">{cls.name}</td>
-                    <td className="py-4 px-6 text-gray-600 dark:text-gray-300 font-medium">{cls.subject}</td>
+                    <td className="py-4 px-6 text-gray-900 dark:text-white font-bold">{cls.subject}</td>
                     <td className="py-4 px-6 text-gray-600 dark:text-gray-300">{cls.students} Siswa</td>
-                    <td className="py-4 px-6">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                        cls.status.includes('Sedang') ? 'bg-green-100 text-green-700 dark:bg-green-950/60 dark:text-green-300' : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
-                      }`}>
-                        {cls.status}
-                      </span>
+                    <td className="py-4 px-6 text-xs text-gray-500">
+                      <span className="font-semibold text-gray-800 dark:text-gray-200 block">{cls.dayTime}</span>
+                      <span>{cls.room}</span>
                     </td>
                     <td className="py-4 px-6 text-right">
-                      <Link href="/admin/cbt" className="text-purple-600 dark:text-purple-400 hover:underline font-bold text-xs inline-flex items-center gap-1">
-                        Siapkan CBT <ArrowRight size={12} />
-                      </Link>
+                      <div className="flex items-center justify-end gap-3">
+                        <Link
+                          href={`/portal/guru/nilai?subjectId=${cls.id}`}
+                          className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition-colors"
+                        >
+                          <Award size={13} /> Input Nilai
+                        </Link>
+                        <Link href="/admin/cbt" className="text-purple-600 dark:text-purple-400 hover:underline font-bold text-xs inline-flex items-center gap-1">
+                          CBT <ArrowRight size={12} />
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}

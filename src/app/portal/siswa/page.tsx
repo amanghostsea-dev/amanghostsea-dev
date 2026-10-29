@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
 import { logoutAction } from "@/app/login/actions";
 import SiswaDashboardClient from "./SiswaDashboardClient";
+import { ensureDefaultSubjectsAndGrades } from "@/lib/subject-seed";
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +36,9 @@ export default async function PortalSiswa() {
   if (!studentName) {
     studentName = 'Siswa SMK';
   }
+
+  // Pastikan master mapel dan nilai siswa tersinkronisasi di Postgres
+  await ensureDefaultSubjectsAndGrades(studentName, studentNis);
 
   const initials = studentName
     .split(' ')
@@ -85,27 +89,42 @@ export default async function PortalSiswa() {
     take: 6,
   });
 
-  const schedule = [
-    { day: 'Senin', subject: 'Pemrograman Web & Perangkat Bergerak', time: '07:30 - 10:00', teacher: 'Bpk. Ahmad ST', room: 'Lab Komputer 1' },
-    { day: 'Senin', subject: 'Matematika Terapan', time: '10:15 - 12:30', teacher: 'Ibu Siti S.Pd', room: 'Ruang Teori 12A' },
-    { day: 'Selasa', subject: 'Administrasi Basis Data Relasional', time: '07:30 - 09:45', teacher: 'Bpk. Budi S.Kom', room: 'Lab Komputer 2' },
-    { day: 'Selasa', subject: 'Bahasa Inggris Kejuruan', time: '10:00 - 11:30', teacher: 'Mr. John', room: 'Ruang 10B' },
-    { day: 'Rabu', subject: 'Pemodelan Perangkat Lunak (UML)', time: '07:30 - 10:00', teacher: 'Ibu Ratna M.Kom', room: 'Lab Komputer 1' },
-    { day: 'Rabu', subject: 'Pendidikan Pancasila & Kewarganegaraan', time: '10:15 - 12:00', teacher: 'Bpk. Drs. H. Suryanto', room: 'Ruang 12A' },
-    { day: 'Kamis', subject: 'Pemrograman Berorientasi Objek (OOP)', time: '07:30 - 10:30', teacher: 'Bpk. Hendra S.T', room: 'Lab RPL 2' },
-    { day: 'Kamis', subject: 'Produk Kreatif & Kewirausahaan (PKK)', time: '10:45 - 13:00', teacher: 'Ibu Dewi SE', room: 'Ruang Kreatif' },
-    { day: 'Jumat', subject: 'Pendidikan Agama & Budi Pekerti', time: '07:00 - 09:00', teacher: 'Ust. Nurul Huda M.Pd', room: 'Masjid Sekolah' },
-    { day: 'Jumat', subject: 'Bimbingan Konseling & Karir', time: '09:15 - 10:45', teacher: 'Ibu Dian S.Psi', room: 'Ruang BK' },
-  ];
+  // 1. Ambil data Jadwal Pelajaran (Mapel yang aktif & Guru Pengampu)
+  const dbSubjects = await prisma.subject.findMany({
+    where: { status: 'ACTIVE' },
+    orderBy: [{ code: 'asc' }],
+  });
 
-  const grades = [
-    { subject: 'Pemrograman Web & Perangkat Bergerak', assignment: 88, midExam: 85, finalExam: 92, finalGrade: 'A' },
-    { subject: 'Administrasi Basis Data Relasional', assignment: 92, midExam: 88, finalExam: 95, finalGrade: 'A' },
-    { subject: 'Matematika Terapan', assignment: 82, midExam: 78, finalExam: 84, finalGrade: 'B+' },
-    { subject: 'Bahasa Inggris Kejuruan', assignment: 90, midExam: 86, finalExam: 89, finalGrade: 'A-' },
-    { subject: 'Pemodelan Perangkat Lunak (UML)', assignment: 87, midExam: 84, finalExam: 88, finalGrade: 'A-' },
-    { subject: 'Produk Kreatif & Kewirausahaan (PKK)', assignment: 91, midExam: 89, finalExam: 93, finalGrade: 'A' },
-  ];
+  const schedule = dbSubjects.map((s) => ({
+    day: s.day || 'Senin',
+    subject: s.name,
+    time: s.time || '07:30 - 10:00',
+    teacher: s.teacherName || 'Guru Pengampu',
+    room: s.room || 'Lab Komputer 1',
+  }));
+
+  // 2. Ambil data Transkrip Nilai Siswa langsung dari Database
+  const dbGrades = await prisma.studentGrade.findMany({
+    where: {
+      studentName: studentName,
+    },
+    include: {
+      subject: true,
+    },
+    orderBy: {
+      subject: {
+        code: 'asc',
+      },
+    },
+  });
+
+  const grades = dbGrades.map((g) => ({
+    subject: g.subject.name,
+    assignment: g.assignment,
+    midExam: g.midExam,
+    finalExam: g.finalExam,
+    finalGrade: g.finalGrade,
+  }));
 
   return (
     <SiswaDashboardClient
