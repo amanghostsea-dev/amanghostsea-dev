@@ -22,10 +22,17 @@ import {
   RefreshCw,
   Copy,
   Check,
-  UserCheck
+  UserCheck,
+  Calendar,
+  AlertTriangle
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
-import { createExam, updateExam, deleteExam, toggleExamSession } from './actions';
+import { createExam, updateExam, deleteExam, toggleExamSession, checkExamScheduleConflict, ScheduleConflictExam } from './actions';
+import { 
+  formatExamScheduleRange, 
+  getExamScheduleState, 
+  toDateTimeLocalInput 
+} from '@/lib/cbt-schedule';
 
 interface ExamItem {
   id: string;
@@ -38,6 +45,8 @@ interface ExamItem {
   status: string;
   shuffleQuestions: boolean;
   authorName: string | null;
+  startTime?: Date | string | null;
+  endTime?: Date | string | null;
   createdAt: Date | string;
   _count: {
     questions: number;

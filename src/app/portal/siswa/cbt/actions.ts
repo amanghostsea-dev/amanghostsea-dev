@@ -2,6 +2,7 @@
 
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { formatScheduleDate, formatScheduleTime } from '@/lib/cbt-schedule';
 
 export async function getExamSessionStatus(examId: string) {
   try {
@@ -51,6 +52,20 @@ export async function startOrResumeAttempt(data: {
 
     if (exam.status === 'CLOSED' || exam.status === 'ARCHIVED') {
       return { error: 'Sesi ujian telah resmi ditutup oleh guru pengawas.' };
+    }
+
+    // 📅 Verify Schedule Window
+    const now = new Date();
+    if (exam.startTime && now < exam.startTime && exam.status !== 'ACTIVE') {
+      return { 
+        error: `Ujian ini belum dimulai. Sesuai jadwal, ujian baru dapat diakses pada ${formatScheduleDate(exam.startTime)} pukul ${formatScheduleTime(exam.startTime)}.` 
+      };
+    }
+
+    if (exam.endTime && now > exam.endTime && exam.status !== 'ACTIVE') {
+      return { 
+        error: `Waktu pengerjaan ujian ini telah berakhir pada ${formatScheduleDate(exam.endTime)} pukul ${formatScheduleTime(exam.endTime)}. Silakan hubungi guru pengampu.` 
+      };
     }
 
     if (exam.status !== 'ACTIVE') {

@@ -91,6 +91,94 @@ export async function toggleExamSession(id: string, openSession: boolean, custom
   }
 }
 
+export interface ScheduleConflictExam {
+  id: string;
+  title: string;
+  subject: string;
+  classTarget: string;
+  startTime: Date | null;
+  endTime: Date | null;
+  duration: number;
+}
+
+/**
+ * 🛡️ Anti-Collision Schedule Checker
+ * Detects if an exam schedule overlaps with existing active exams for the same class
+ */
+export async function checkExamScheduleConflict(params: {
+  examId?: string;
+  classTarget: string;
+  startTime?: string | Date | null;
+  endTime?: string | Date | null;
+}) {
+  try {
+    if (!params.startTime || !params.endTime) {
+      return { hasConflict: false, conflicts: [] };
+    }
+
+    const start = new Date(params.startTime);
+    const end = new Date(params.endTime);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return { hasConflict: false, conflicts: [] };
+    }
+
+    if (start >= end) {
+      return {
+        hasConflict: true,
+        conflicts: [],
+        message: 'Jadwal Mulai harus lebih awal dari Jadwal Selesai.',
+      };
+    }
+
+    // Overlap condition: existing.startTime < newEnd && existing.endTime > newStart
+    const classFilter =
+      params.classTarget === 'Semua Kelas'
+        ? {}
+        : {
+            OR: [
+              { classTarget: params.classTarget },
+              { classTarget: 'Semua Kelas' },
+            ],
+          };
+
+    const conflicting = await prisma.exam.findMany({
+      where: {
+        ...(params.examId ? { id: { not: params.examId } } : {}),
+        status: { not: 'ARCHIVED' },
+        startTime: { not: null },
+        endTime: { not: null },
+        ...classFilter,
+        AND: [
+          { startTime: { lt: end } },
+          { endTime: { gt: start } },
+        ],
+      },
+      select: {
+        id: true,
+        title: true,
+        subject: true,
+        classTarget: true,
+        startTime: true,
+        endTime: true,
+        duration: true,
+      },
+    });
+
+    if (conflicting.length > 0) {
+      return {
+        hasConflict: true,
+        conflicts: conflicting,
+        message: `Terdeteksi ${conflicting.length} jadwal ujian yang bentrok untuk kelas ${params.classTarget}!`,
+      };
+    }
+
+    return { hasConflict: false, conflicts: [] };
+  } catch (error: any) {
+    return { error: error.message, hasConflict: false, conflicts: [] };
+  }
+}
+
 export async function createExam(data: {
   title: string;
   subject: string;
@@ -101,8 +189,27 @@ export async function createExam(data: {
   status?: string;
   shuffleQuestions?: boolean;
   authorName?: string;
+  startTime?: string | Date | null;
+  endTime?: string | Date | null;
+  allowConflict?: boolean;
 }) {
   try {
+    if (data.startTime && data.endTime && !data.allowConflict) {
+      const conflictCheck = await checkExamScheduleConflict({
+        classTarget: data.classTarget || 'Semua Kelas',
+        startTime: data.startTime,
+        endTime: data.endTime,
+      });
+
+      if (conflictCheck.hasConflict && conflictCheck.conflicts.length > 0) {
+        return {
+          error: conflictCheck.message || 'Jadwal ujian bentrok dengan ujian lain!',
+          conflict: true,
+          conflicts: conflictCheck.conflicts,
+        };
+      }
+    }
+
     const exam = await prisma.exam.create({
       data: {
         title: data.title,
@@ -114,11 +221,14 @@ export async function createExam(data: {
         status: data.status || 'PUBLISHED',
         shuffleQuestions: data.shuffleQuestions ?? true,
         authorName: data.authorName || 'Guru Pengampu',
+        startTime: data.startTime ? new Date(data.startTime) : null,
+        endTime: data.endTime ? new Date(data.endTime) : null,
       },
     });
 
     revalidatePath('/admin/cbt');
     revalidatePath('/portal/siswa/cbt');
+    revalidatePath('/portal/siswa');
     return { success: true, data: exam };
   } catch (error: any) {
     return { error: error.message };
@@ -136,9 +246,34 @@ export async function updateExam(
     description?: string;
     status?: string;
     shuffleQuestions?: boolean;
+    startTime?: string | Date | null;
+    endTime?: string | Date | null;
+    allowConflict?: boolean;
   }
 ) {
   try {
+    if (data.startTime && data.endTime && !data.allowConflict) {
+      const targetClass =
+        data.classTarget ||
+        (await prisma.exam.findUnique({ where: { id }, select: { classTarget: true } }))?.classTarget ||
+        'Semua Kelas';
+
+      const conflictCheck = await checkExamScheduleConflict({
+        examId: id,
+        classTarget: targetClass,
+        startTime: data.startTime,
+        endTime: data.endTime,
+      });
+
+      if (conflictCheck.hasConflict && conflictCheck.conflicts.length > 0) {
+        return {
+          error: conflictCheck.message || 'Jadwal ujian bentrok dengan ujian lain!',
+          conflict: true,
+          conflicts: conflictCheck.conflicts,
+        };
+      }
+    }
+
     const updated = await prisma.exam.update({
       where: { id },
       data: {
@@ -150,12 +285,16 @@ export async function updateExam(
         ...(data.description !== undefined && { description: data.description }),
         ...(data.status && { status: data.status }),
         ...(data.shuffleQuestions !== undefined && { shuffleQuestions: data.shuffleQuestions }),
+        ...(data.startTime !== undefined && { startTime: data.startTime ? new Date(data.startTime) : null }),
+        ...(data.endTime !== undefined && { endTime: data.endTime ? new Date(data.endTime) : null }),
       },
     });
 
     revalidatePath('/admin/cbt');
     revalidatePath(`/admin/cbt/${id}`);
     revalidatePath('/portal/siswa/cbt');
+    revalidatePath(`/portal/siswa/cbt/${id}`);
+    revalidatePath('/portal/siswa');
     return { success: true, data: updated };
   } catch (error: any) {
     return { error: error.message };
