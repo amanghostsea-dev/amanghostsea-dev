@@ -158,71 +158,46 @@ export function computeGradePredicate(score: number): string {
 }
 
 export function computeFinalScore(assignment: number, midExam: number, finalExam: number): number {
-  // Bobot: 30% Tugas + 30% UTS + 40% UAS
   return Math.round((assignment * 0.3 + midExam * 0.3 + finalExam * 0.4) * 10) / 10;
 }
 
 /**
- * Memastikan 8 Mapel dasar dan nilai default siswa sudah terdaftar di PostgreSQL
+ * Memastikan Mapel dasar dan nilai awal siswa terdaftar di PostgreSQL
+ * Dioptimalkan agar tidak melakukan loop lambat pada setiap pemanggilan halaman.
  */
 export async function ensureDefaultSubjectsAndGrades(targetStudentName?: string, targetStudentNis?: string) {
   try {
-    // 1. Sinkronisasi Data Mapel (Subjects)
-    for (const def of DEFAULT_SUBJECTS) {
-      await prisma.subject.upsert({
-        where: { code: def.code },
-        update: {},
-        create: {
-          code: def.code,
-          name: def.name,
-          category: def.category,
-          classTarget: def.classTarget,
-          teacherName: def.teacherName,
-          day: def.day,
-          time: def.time,
-          room: def.room,
-          kkm: def.kkm,
-          credits: def.credits,
-          status: 'ACTIVE',
-        },
-      });
-    }
-
-    // Ambil semua mapel yang ada
-    const allSubjects = await prisma.subject.findMany({
-      where: { status: 'ACTIVE' },
-      orderBy: { code: 'asc' },
-    });
-
-    // 2. Ambil daftar siswa yang perlu di-seed nilainya
-    const studentNamesToSeed: { name: string; nisn?: string }[] = [];
-
-    if (targetStudentName) {
-      studentNamesToSeed.push({ name: targetStudentName, nisn: targetStudentNis });
-    }
-
-    // Ambil juga siswa di database
-    const dbStudents = await prisma.user.findMany({
-      where: { role: 'Siswa' },
-      select: { name: true, nisn: true, username: true },
-    });
-
-    for (const s of dbStudents) {
-      if (!studentNamesToSeed.some((item) => item.name.toLowerCase() === s.name.toLowerCase())) {
-        studentNamesToSeed.push({ name: s.name, nisn: s.nisn || s.username });
+    // 1. Inisialisasi awal Mapel jika tabel Subject masih kosong
+    const subjectCount = await prisma.subject.count();
+    if (subjectCount === 0) {
+      for (const def of DEFAULT_SUBJECTS) {
+        await prisma.subject.create({
+          data: {
+            code: def.code,
+            name: def.name,
+            category: def.category,
+            classTarget: def.classTarget,
+            teacherName: def.teacherName,
+            day: def.day,
+            time: def.time,
+            room: def.room,
+            kkm: def.kkm,
+            credits: def.credits,
+            status: 'ACTIVE',
+          },
+        });
       }
     }
 
-    // Default fallback jika belum ada user
-    if (studentNamesToSeed.length === 0) {
-      studentNamesToSeed.push({ name: 'Aman Rahman', nisn: '10293847' });
-    }
+    // 2. Jika dipanggil khusus untuk 1 siswa tertentu (misal setelah registrasi baru)
+    if (targetStudentName) {
+      const activeSubjects = await prisma.subject.findMany({
+        where: { status: 'ACTIVE' },
+        select: { id: true, code: true, classTarget: true, teacherName: true },
+      });
 
-    // 3. Pastikan setiap siswa memiliki nilai untuk setiap subject
-    for (const student of studentNamesToSeed) {
-      for (const subj of allSubjects) {
+      for (const subj of activeSubjects) {
         const defMatch = DEFAULT_SUBJECTS.find((d) => d.code === subj.code);
-
         const assignment = defMatch ? defMatch.defaultAssignment : 85;
         const midExam = defMatch ? defMatch.defaultMid : 80;
         const finalExam = defMatch ? defMatch.defaultFinal : 85;
@@ -232,14 +207,14 @@ export async function ensureDefaultSubjectsAndGrades(targetStudentName?: string,
           where: {
             subjectId_studentName: {
               subjectId: subj.id,
-              studentName: student.name,
+              studentName: targetStudentName,
             },
           },
           update: {},
           create: {
             subjectId: subj.id,
-            studentName: student.name,
-            studentNis: student.nisn || '10293847',
+            studentName: targetStudentName,
+            studentNis: targetStudentNis || '10293847',
             studentClass: subj.classTarget,
             assignment,
             midExam,
@@ -250,6 +225,51 @@ export async function ensureDefaultSubjectsAndGrades(targetStudentName?: string,
           },
         });
       }
+      return { success: true };
+    }
+
+    // 3. Jika inisialisasi awal dan StudentGrade masih kosong sama sekali
+    const gradeCount = await prisma.studentGrade.count();
+    if (gradeCount === 0) {
+      const allSubjects = await prisma.subject.findMany({
+        where: { status: 'ACTIVE' },
+      });
+
+      const dbStudents = await prisma.user.findMany({
+        where: { role: 'Siswa' },
+        select: { name: true, nisn: true, username: true },
+      });
+
+      const seedList = dbStudents.length > 0 
+        ? dbStudents.map((s) => ({ name: s.name, nisn: s.nisn || s.username }))
+        : [{ name: 'Aman Rahman', nisn: '10293847' }];
+
+      for (const student of seedList) {
+        for (const subj of allSubjects) {
+          const defMatch = DEFAULT_SUBJECTS.find((d) => d.code === subj.code);
+          await prisma.studentGrade.upsert({
+            where: {
+              subjectId_studentName: {
+                subjectId: subj.id,
+                studentName: student.name,
+              },
+            },
+            update: {},
+            create: {
+              subjectId: subj.id,
+              studentName: student.name,
+              studentNis: student.nisn || '10293847',
+              studentClass: subj.classTarget,
+              assignment: defMatch?.defaultAssignment ?? 85,
+              midExam: defMatch?.defaultMid ?? 80,
+              finalExam: defMatch?.defaultFinal ?? 85,
+              finalGrade: defMatch?.defaultGrade ?? 'A',
+              notes: 'Kemajuan belajar sangat baik, aktif dalam praktikum dan diskusi kelas.',
+              updatedBy: subj.teacherName || 'Admin',
+            },
+          });
+        }
+      }
     }
 
     return { success: true };
@@ -258,4 +278,3 @@ export async function ensureDefaultSubjectsAndGrades(targetStudentName?: string,
     return { error: String(error) };
   }
 }
-

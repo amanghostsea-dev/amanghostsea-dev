@@ -37,21 +37,15 @@ const DEFAULT_JURUSANS = [
 ];
 
 /**
- * Memastikan jurusan-jurusan standar terdaftar di database jika belum ada
+ * Mengambil daftar jurusan resmi dari database admin.
+ * HANYA melakukan seeding jika tabel Jurusan di database benar-benar kosong (pertama kali inisialisasi).
+ * Tidak akan pernah meregenerasi jurusan yang telah dihapus atau diubah oleh Admin.
  */
 export async function ensureDefaultJurusans(): Promise<JurusanItem[]> {
   try {
-    for (const def of DEFAULT_JURUSANS) {
-      const existing = await prisma.jurusan.findFirst({
-        where: {
-          OR: [
-            { code: { equals: def.code, mode: 'insensitive' } },
-            { name: { contains: def.code, mode: 'insensitive' } },
-          ],
-        },
-      });
-
-      if (!existing) {
+    const count = await prisma.jurusan.count();
+    if (count === 0) {
+      for (const def of DEFAULT_JURUSANS) {
         await prisma.jurusan.create({
           data: {
             name: def.name,
@@ -72,25 +66,38 @@ export async function ensureDefaultJurusans(): Promise<JurusanItem[]> {
 }
 
 /**
- * Menghasilkan daftar target kelas dinamis berdasarkan Jurusan yang ada di database.
- * Contoh hasil: ['Semua Kelas', 'X RPL 1', 'XI RPL 1', 'XII RPL 1', 'X TJKT 1', ...]
+ * Menghasilkan daftar target kelas yang ringkas & sinkron dengan Jurusan yang diinput Admin.
+ * Format standar: X [KODE] 1, XI [KODE] 1, XII [KODE] 1.
+ * Hanya memuat 1 rombel standar per jenjang agar opsi tidak menumpuk/terlalu banyak.
  */
 export async function getDynamicClassTargets(): Promise<string[]> {
   const jurusans = await ensureDefaultJurusans();
 
   const classList: string[] = ['Semua Kelas'];
-
-  // Tambahkan kelas per jenjang X, XI, XII untuk setiap jurusan
   const levels = ['X', 'XI', 'XII'];
 
   for (const j of jurusans) {
-    const code = j.code.toUpperCase();
+    const code = (j.code || '').trim().toUpperCase();
+    if (!code) continue;
     for (const lvl of levels) {
       classList.push(`${lvl} ${code} 1`);
-      classList.push(`${lvl} ${code} 2`);
     }
+  }
+
+  // Tambahkan kelas eksisting jika ada kelas kustom yang sudah tercatat di Subject
+  try {
+    const existing = await prisma.subject.findMany({
+      select: { classTarget: true },
+      distinct: ['classTarget'],
+    });
+    for (const item of existing) {
+      if (item.classTarget && !classList.includes(item.classTarget)) {
+        classList.push(item.classTarget);
+      }
+    }
+  } catch (e) {
+    console.error('Error fetching existing subject classes:', e);
   }
 
   return Array.from(new Set(classList));
 }
-

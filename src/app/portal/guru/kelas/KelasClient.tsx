@@ -110,15 +110,22 @@ export default function KelasClient({
         studentClass: formClass,
       });
 
-      if (res.error) {
+      if (res?.error) {
         showNotify('error', res.error);
-      } else if (res.data) {
-        showNotify('success', `Siswa ${res.data.name} berhasil ditambahkan ke kelas ${formClass}!`);
-        setStudents((prev) => [res.data as StudentItem, ...prev]);
+      } else {
+        const studentCreated = res?.data;
+        showNotify('success', `Siswa ${studentCreated?.name || formName} berhasil ditambahkan ke kelas ${formClass}!`);
+        if (studentCreated) {
+          setStudents((prev) => [studentCreated as StudentItem, ...prev]);
+        }
         setIsAddModalOpen(false);
+        setFormName('');
+        setFormNisn('');
+        setFormUsername('');
+        setFormPassword('');
       }
     } catch {
-      showNotify('error', 'Terjadi kesalahan sistem.');
+      showNotify('error', 'Terjadi kesalahan sistem saat menyimpan siswa.');
     } finally {
       setLoading(false);
     }
@@ -348,7 +355,12 @@ export default function KelasClient({
 
       {/* MODAL 1: TAMBAH SISWA BARU LANGSUNG OLEH GURU */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsAddModalOpen(false);
+          }}
+        >
           <div className="bg-white dark:bg-gray-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-100 dark:border-gray-800 space-y-5">
             <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800">
               <div className="flex items-center gap-3">
@@ -479,7 +491,12 @@ export default function KelasClient({
 
       {/* MODAL 2: IMPORT MASSAL SISWA */}
       {isImportModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsImportModalOpen(false);
+          }}
+        >
           <div className="bg-white dark:bg-gray-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 dark:border-gray-800 space-y-5">
             <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800">
               <div className="flex items-center gap-3">

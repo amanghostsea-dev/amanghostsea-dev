@@ -3,7 +3,6 @@
 import prisma from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-import { ensureDefaultSubjectsAndGrades } from '@/lib/subject-seed';
 
 async function requireGuruOrAdmin() {
   const cookieStore = await cookies();
@@ -76,15 +75,51 @@ export async function createStudentByGuru(data: {
       },
     });
 
-    // Otomatis sinkronkan buku nilai siswa baru
-    await ensureDefaultSubjectsAndGrades(name, nisn || username);
+    // Otomatis sinkronkan buku nilai siswa baru secara cepat
+    try {
+      const activeSubjects = await prisma.subject.findMany({
+        where: { status: 'ACTIVE' },
+        select: { id: true, classTarget: true, teacherName: true },
+      });
+
+      if (activeSubjects.length > 0) {
+        await prisma.studentGrade.createMany({
+          data: activeSubjects.map((subj) => ({
+            subjectId: subj.id,
+            studentName: name,
+            studentNis: nisn || username,
+            studentClass: data.studentClass || subj.classTarget || 'XI RPL 1',
+            assignment: 85,
+            midExam: 80,
+            finalExam: 85,
+            finalGrade: 'A',
+            notes: 'Kemajuan belajar sangat baik, aktif dalam praktikum dan diskusi kelas.',
+            updatedBy: subj.teacherName || 'Admin',
+          })),
+          skipDuplicates: true,
+        });
+      }
+    } catch (gradeErr) {
+      console.warn('Non-fatal grade seed error for new student:', gradeErr);
+    }
 
     revalidatePath('/portal/guru/kelas');
     revalidatePath('/portal/guru/nilai');
     revalidatePath('/admin/users');
     revalidatePath('/admin/mapel');
 
-    return { success: true, data: newStudent };
+    return {
+      success: true,
+      data: {
+        id: newStudent.id,
+        name: newStudent.name,
+        username: newStudent.username,
+        nisn: newStudent.nisn,
+        role: newStudent.role,
+        status: newStudent.status,
+        createdAt: newStudent.createdAt.toISOString(),
+      },
+    };
   } catch (error: unknown) {
     console.error('Error creating student by guru:', error);
     const message = error instanceof Error ? error.message : 'Gagal menambahkan data siswa';
@@ -92,12 +127,13 @@ export async function createStudentByGuru(data: {
   }
 }
 
-export async function importStudentsByGuru(studentsData: { name: string; nisn?: string; username?: string; password?: string }[]) {
+export async function importStudentsByGuru(studentsData: { name: string; nisn?: string; username?: string; password?: string; studentClass?: string }[]) {
   await requireGuruOrAdmin();
 
   try {
     let successCount = 0;
     const errors: string[] = [];
+    const createdStudents: { name: string; nisnOrUser: string; studentClass: string }[] = [];
 
     for (const item of studentsData) {
       const name = item.name?.trim();
@@ -137,8 +173,49 @@ export async function importStudentsByGuru(studentsData: { name: string; nisn?: 
         },
       });
 
-      await ensureDefaultSubjectsAndGrades(name, nisn || username);
+      createdStudents.push({
+        name,
+        nisnOrUser: nisn || username,
+        studentClass: item.studentClass || 'XI RPL 1',
+      });
       successCount++;
+    }
+
+    // Bulk create grades for all created students
+    if (createdStudents.length > 0) {
+      try {
+        const activeSubjects = await prisma.subject.findMany({
+          where: { status: 'ACTIVE' },
+          select: { id: true, classTarget: true, teacherName: true },
+        });
+
+        if (activeSubjects.length > 0) {
+          const gradesData = [];
+          for (const st of createdStudents) {
+            for (const subj of activeSubjects) {
+              gradesData.push({
+                subjectId: subj.id,
+                studentName: st.name,
+                studentNis: st.nisnOrUser,
+                studentClass: st.studentClass || subj.classTarget || 'XI RPL 1',
+                assignment: 85,
+                midExam: 80,
+                finalExam: 85,
+                finalGrade: 'A',
+                notes: 'Kemajuan belajar sangat baik.',
+                updatedBy: subj.teacherName || 'Admin',
+              });
+            }
+          }
+
+          await prisma.studentGrade.createMany({
+            data: gradesData,
+            skipDuplicates: true,
+          });
+        }
+      } catch (gradeBulkErr) {
+        console.warn('Non-fatal bulk grade creation error:', gradeBulkErr);
+      }
     }
 
     revalidatePath('/portal/guru/kelas');
@@ -148,7 +225,6 @@ export async function importStudentsByGuru(studentsData: { name: string; nisn?: 
     return { success: true, count: successCount, errors };
   } catch (error) {
     console.error('Error importing students by guru:', error);
-    return { error: 'Gagal mengimpor data siswa' };
+    return { error: 'Gagal memproses impor siswa massal.' };
   }
 }
-
