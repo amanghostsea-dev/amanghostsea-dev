@@ -1,8 +1,26 @@
 'use client';
 
 import { useState } from 'react';
-import { Users, Search, GraduationCap, ShieldCheck, UserCheck, Plus, ExternalLink, ArrowRight } from 'lucide-react';
+import { 
+  Users, 
+  Search, 
+  GraduationCap, 
+  ShieldCheck, 
+  UserCheck, 
+  Plus, 
+  ExternalLink, 
+  ArrowRight, 
+  X, 
+  CheckCircle2, 
+  AlertCircle, 
+  Upload, 
+  FileSpreadsheet,
+  UserPlus,
+  Key,
+  Sparkles
+} from 'lucide-react';
 import Link from 'next/link';
+import { createStudentByGuru, importStudentsByGuru } from './actions';
 
 interface StudentItem {
   id: string;
@@ -15,7 +33,7 @@ interface StudentItem {
 }
 
 export default function KelasClient({
-  students,
+  students: initialStudents,
   teacherName,
   classTargets = ['Semua Kelas', 'X RPL 1', 'XI RPL 1', 'XII RPL 1', 'X TJKT 1', 'XI TJKT 1', 'XII TJKT 1', 'X DKV 1', 'XI DKV 1', 'XII DKV 1', 'X MPLB 1', 'XI MPLB 1', 'XII MPLB 1'],
 }: {
@@ -23,8 +41,30 @@ export default function KelasClient({
   teacherName: string;
   classTargets?: string[];
 }) {
+  const [students, setStudents] = useState<StudentItem[]>(initialStudents);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState('ALL');
+
+  // Modals
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Form Fields
+  const [formName, setFormName] = useState('');
+  const [formNisn, setFormNisn] = useState('');
+  const [formUsername, setFormUsername] = useState('');
+  const [formPassword, setFormPassword] = useState('');
+  const [formClass, setFormClass] = useState('XI RPL 1');
+
+  // Import Field
+  const [importText, setImportText] = useState('');
+
+  const showNotify = (type: 'success' | 'error', message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 4500);
+  };
 
   const classOptions = [
     { id: 'ALL', label: 'Semua Kelas' },
@@ -44,8 +84,109 @@ export default function KelasClient({
     return matchesSearch;
   });
 
+  const handleOpenAddModal = () => {
+    setFormName('');
+    setFormNisn('');
+    setFormUsername('');
+    setFormPassword('');
+    setFormClass(selectedClass !== 'ALL' ? selectedClass : 'XI RPL 1');
+    setIsAddModalOpen(true);
+  };
+
+  const handleSaveStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formName.trim()) {
+      showNotify('error', 'Nama lengkap siswa wajib diisi.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await createStudentByGuru({
+        name: formName,
+        nisn: formNisn,
+        username: formUsername,
+        password: formPassword,
+        studentClass: formClass,
+      });
+
+      if (res.error) {
+        showNotify('error', res.error);
+      } else if (res.data) {
+        showNotify('success', `Siswa ${res.data.name} berhasil ditambahkan ke kelas ${formClass}!`);
+        setStudents((prev) => [res.data as StudentItem, ...prev]);
+        setIsAddModalOpen(false);
+      }
+    } catch {
+      showNotify('error', 'Terjadi kesalahan sistem.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleProcessImport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!importText.trim()) {
+      showNotify('error', 'Data impor tidak boleh kosong.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Format: Nama Siswa, NISN
+      const lines = importText.split('\n').filter((l) => l.trim() !== '');
+      const parsedRows = lines.map((line) => {
+        const parts = line.split(/[,;\t]/).map((p) => p.trim());
+        const name = parts[0] || '';
+        const nisn = parts[1] || '';
+        return { name, nisn };
+      }).filter((r) => r.name !== '');
+
+      if (parsedRows.length === 0) {
+        showNotify('error', 'Tidak ada data valid yang dapat diproses.');
+        setLoading(false);
+        return;
+      }
+
+      const res = await importStudentsByGuru(parsedRows);
+      if (res.error) {
+        showNotify('error', res.error);
+      } else {
+        showNotify('success', `Berhasil mengimpor ${res.count} siswa ke kelas!`);
+        setIsImportModalOpen(false);
+        setImportText('');
+        // Refresh page data
+        window.location.reload();
+      }
+    } catch {
+      showNotify('error', 'Gagal memproses impor data.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-8 font-sans">
+      {/* Top Banner Alert / Notification */}
+      {notification && (
+        <div
+          className={`p-4 rounded-2xl flex items-center gap-3 text-sm font-semibold shadow-lg transition-all animate-in fade-in slide-in-from-top-4 ${
+            notification.type === 'success'
+              ? 'bg-emerald-500 text-white shadow-emerald-500/20'
+              : 'bg-rose-500 text-white shadow-rose-500/20'
+          }`}
+        >
+          {notification.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+          <span>{notification.message}</span>
+          <button
+            onClick={() => setNotification(null)}
+            className="ml-auto p-1 rounded-lg hover:bg-white/20 transition-colors"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -60,12 +201,24 @@ export default function KelasClient({
           </p>
         </div>
 
-        <Link
-          href="/admin/users"
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-amber-500/25 transition-all"
-        >
-          <Plus size={16} /> Tambah / Import Siswa
-        </Link>
+        {/* Action Buttons for Guru */}
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setIsImportModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 text-gray-700 dark:text-gray-300 rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer"
+          >
+            <Upload size={16} className="text-amber-600" /> Import CSV/Excel
+          </button>
+
+          <button
+            type="button"
+            onClick={handleOpenAddModal}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-amber-500/25 transition-all cursor-pointer"
+          >
+            <Plus size={16} /> Tambah Siswa Baru
+          </button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -119,7 +272,7 @@ export default function KelasClient({
             <button
               key={c.id}
               onClick={() => setSelectedClass(c.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 selectedClass === c.id
                   ? 'bg-amber-600 text-white shadow-sm'
                   : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-800 hover:bg-gray-50'
@@ -192,7 +345,205 @@ export default function KelasClient({
           </table>
         </div>
       </div>
+
+      {/* MODAL 1: TAMBAH SISWA BARU LANGSUNG OLEH GURU */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-100 dark:border-gray-800 space-y-5">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800">
+              <div className="flex items-center gap-3">
+                <span className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600">
+                  <UserPlus size={20} />
+                </span>
+                <div>
+                  <h3 className="font-bold text-gray-900 dark:text-white text-base">
+                    Tambah Peserta Didik Baru
+                  </h3>
+                  <p className="text-xs text-gray-500">Daftarkan siswa ke kelas bimbingan</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(false)}
+                className="p-1 rounded-xl text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveStudent} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                  Nama Lengkap Siswa *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: Muhammad Rizky Pratama"
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs sm:text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    NISN / NIS (10 Digit)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="0012345678"
+                    value={formNisn}
+                    onChange={(e) => {
+                      setFormNisn(e.target.value);
+                      if (!formUsername) setFormUsername(e.target.value);
+                    }}
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-mono text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    Username Login
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Auto jika kosong"
+                    value={formUsername}
+                    onChange={(e) => setFormUsername(e.target.value.toLowerCase().trim())}
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-mono text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    Target Kelas
+                  </label>
+                  <select
+                    value={formClass}
+                    onChange={(e) => setFormClass(e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-semibold text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500"
+                  >
+                    {classTargets.filter((c) => c !== 'Semua Kelas').map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    Password Awal
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="Default: NISN"
+                    value={formPassword}
+                    onChange={(e) => setFormPassword(e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/40 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+                <div className="font-bold flex items-center gap-1.5">
+                  <Sparkles size={14} /> Otomatisasi Terintegrasi
+                </div>
+                <p className="text-[11px] leading-relaxed">
+                  Akun siswa langsung aktif dan disinkronkan ke buku nilai mapel kelas Anda. Siswa dapat login dengan NISN atau username yang didaftarkan.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-gray-100 dark:border-gray-800">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="px-4 py-2 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-xl text-xs font-semibold hover:bg-gray-50 cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-md shadow-amber-500/20 disabled:opacity-50 cursor-pointer"
+                >
+                  {loading ? 'Menyimpan...' : 'Simpan Siswa'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: IMPORT MASSAL SISWA */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 dark:border-gray-800 space-y-5">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800">
+              <div className="flex items-center gap-3">
+                <span className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600">
+                  <FileSpreadsheet size={20} />
+                </span>
+                <div>
+                  <h3 className="font-bold text-gray-900 dark:text-white text-base">
+                    Import Data Siswa Kolektif
+                  </h3>
+                  <p className="text-xs text-gray-500">Salin & tempel daftar siswa dari Excel atau CSV</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsImportModalOpen(false)}
+                className="p-1 rounded-xl text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleProcessImport} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                  Format: Nama Siswa, NISN (Satu siswa per baris)
+                </label>
+                <textarea
+                  rows={6}
+                  required
+                  placeholder={`Contoh:\nAhmad Fauzi, 0081234567\nSiti Rahmawati, 0082345678\nBudi Santoso, 0083456789`}
+                  value={importText}
+                  onChange={(e) => setImportText(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-mono text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60 text-xs text-slate-600 dark:text-slate-300 space-y-1">
+                <div className="font-bold text-slate-900 dark:text-white">Petunjuk Cepat:</div>
+                <p className="text-[11px] leading-relaxed">
+                  Anda dapat menyalin kolom <strong>Nama</strong> dan <strong>NISN</strong> langsung dari tabel Microsoft Excel atau Google Spreadsheet, lalu menempelkannya di kotak teks di atas.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-gray-100 dark:border-gray-800">
+                <button
+                  type="button"
+                  onClick={() => setIsImportModalOpen(false)}
+                  className="px-4 py-2 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-xl text-xs font-semibold hover:bg-gray-50 cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-md shadow-amber-500/20 disabled:opacity-50 cursor-pointer"
+                >
+                  {loading ? 'Memproses Impor...' : 'Proses Impor Siswa'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
