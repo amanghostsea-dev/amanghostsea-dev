@@ -21,12 +21,9 @@ export default function ModernHeroSection({
   jurusans = [],
   hotJobs = []
 }: ModernHeroProps) {
-  // Rich Default Majors with Photorealistic Studio Assets
-  const defaultJurusans = [
-    {
-      id: '1',
-      name: 'Rekayasa Perangkat Lunak (RPL)',
-      code: 'RPL',
+  // Visual meta assets for each official jurusan
+  const visualMeta: Record<string, any> = {
+    RPL: {
       image: '/images/hero/rpl.jpg',
       tag: '🔬 Lab Komputasi AI & Cloud',
       themeColor: 'blue',
@@ -34,53 +31,25 @@ export default function ModernHeroSection({
       activeBorderClass: 'border-blue-500 shadow-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400',
       badgeClass: 'bg-blue-600 text-white',
       accentColor: '#2563eb',
-      kuota: 72,
-      description: 'Mencetak software engineer tangguh yang menguasai Web Development, Full-Stack Next.js, Mobile App, dan Implementasi AI terapan.',
       icon: 'Laptop',
       skills: ['Fullstack Web (Next.js & React)', 'Mobile App (Flutter)', 'Database & Cloud Computing', 'AI Prompt Engineering'],
       careers: ['Full-stack Engineer', 'Mobile App Creator', 'Software QA', 'IT Consultant'],
       partnerCompany: 'PT Telkom, GoTo, Microsoft'
     },
-    {
-      id: '2',
-      name: 'Teknik Komputer & Jaringan (TKJ)',
-      code: 'TKJ',
-      image: '/images/hero/tkj.jpg',
-      tag: '🌐 Data Center & Cyber Defense Lab',
-      themeColor: 'cyan',
-      glowClass: 'from-cyan-600/30 via-sky-600/25 to-blue-600/20',
-      activeBorderClass: 'border-cyan-500 shadow-cyan-500/30 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400',
-      badgeClass: 'bg-cyan-600 text-white',
-      accentColor: '#0891b2',
-      kuota: 72,
-      description: 'Fokus pada arsitektur jaringan enterprise, cyber security defense, server cloud computing (AWS/GCP), dan fiber optic.',
-      icon: 'Cpu',
-      skills: ['MikroTik & Cisco CCNA', 'Cyber Security Defense', 'Linux Enterprise Server', 'Cloud Infrastructure'],
-      careers: ['Network Engineer', 'Cyber Security Analyst', 'System Administrator', 'DevOps Junior'],
-      partnerCompany: 'Biznet, Telkomsel, Cisco Network'
+    MPLB: {
+      image: '/images/hero/akl.jpg',
+      tag: '🏢 Modern Corporate Governance & Digital Office',
+      themeColor: 'emerald',
+      glowClass: 'from-emerald-600/30 via-teal-600/25 to-green-600/20',
+      activeBorderClass: 'border-emerald-500 shadow-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+      badgeClass: 'bg-emerald-600 text-white',
+      accentColor: '#059669',
+      icon: 'Building2',
+      skills: ['Administrasi Perkantoran Digital', 'Korespondensi & Kearsipan Cloud', 'Manajemen Bisnis & Humas', 'Spreadsheet & Financial Reports'],
+      careers: ['Corporate Administrator', 'Executive Assistant', 'Public Relations Staff', 'Office Manager'],
+      partnerCompany: 'Astra International, Bank Mandiri, Telkomsel'
     },
-    {
-      id: '3',
-      name: 'Teknik Kendaraan Ringan (TKR)',
-      code: 'TKR',
-      image: '/images/hero/tkr.jpg',
-      tag: '⚡ Bengkel EFI & EV Diagnostic Lab',
-      themeColor: 'amber',
-      glowClass: 'from-amber-500/30 via-orange-500/25 to-red-500/20',
-      activeBorderClass: 'border-amber-500 shadow-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400',
-      badgeClass: 'bg-amber-600 text-white',
-      accentColor: '#d97706',
-      kuota: 72,
-      description: 'Penguasaan teknologi mesin otomotif modern, transmisi otomatis, scanner diagnostik OBD, hingga sistem kendaraan listrik (EV).',
-      icon: 'Flame',
-      skills: ['Engine EFI Management', 'Sistem Rem ABS & Transmisi', 'Diagnostik Scanner Komputer', 'Teknologi Mobil Listrik (EV)'],
-      careers: ['Service Advisor Otomotif', 'Teknisi Ahli Diagnostik', 'Quality Control Pabrikan', 'Wirausaha Bengkel Modern'],
-      partnerCompany: 'Astra Honda, Toyota Auto2000, Daihatsu'
-    },
-    {
-      id: '4',
-      name: 'Desain Komunikasi Visual (DKV)',
-      code: 'DKV',
+    DKV: {
       image: '/images/hero/dkv.jpg',
       tag: '🎬 Studio Sinematografi & 3D Animation',
       themeColor: 'purple',
@@ -88,48 +57,60 @@ export default function ModernHeroSection({
       activeBorderClass: 'border-purple-500 shadow-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400',
       badgeClass: 'bg-purple-600 text-white',
       accentColor: '#9333ea',
-      kuota: 72,
-      description: 'Melahirkan kreator profesional ahli animasi 3D, sinematografi komersial, motion graphic, fotografi studio, dan branding visual.',
       icon: 'Sparkles',
       skills: ['Adobe Creative Suite', '3D Blender Animation', 'Videografi & Color Grading', 'UI/UX Visual Design'],
       careers: ['Motion Designer', 'Creative Director', 'Video Editor Profesional', 'UI/UX Visualist'],
       partnerCompany: 'Transmedia, Studio Animasi 3D, Creative Agency'
     },
-    {
-      id: '5',
-      name: 'Akuntansi & Keuangan Lembaga (AKL)',
-      code: 'AKL',
-      image: '/images/hero/akl.jpg',
-      tag: '🏛️ Mini Bank & Cloud Accounting SAP',
-      themeColor: 'emerald',
-      glowClass: 'from-emerald-600/30 via-teal-600/25 to-green-600/20',
-      activeBorderClass: 'border-emerald-500 shadow-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-      badgeClass: 'bg-emerald-600 text-white',
-      accentColor: '#059669',
-      kuota: 72,
-      description: 'Pusat kompetensi manajemen finansial modern berbasis software akuntansi (Accurate, SAP, MYOB), perpajakan e-Faktur, dan perbankan.',
-      icon: 'TrendingUp',
-      skills: ['Software Accurate & SAP', 'Perpajakan Digital (e-Faktur)', 'Financial Analysis', 'Perbankan & Kasir Modern'],
-      careers: ['Junior Auditor', 'Staff Akuntansi & Tax', 'Customer Service Bank', 'Fintech Specialist'],
-      partnerCompany: 'Bank Mandiri, BCA, Kantor Akuntan Publik'
+    TJKT: {
+      image: '/images/hero/tkj.jpg',
+      tag: '🌐 Data Center & Cyber Defense Lab',
+      themeColor: 'cyan',
+      glowClass: 'from-cyan-600/30 via-sky-600/25 to-blue-600/20',
+      activeBorderClass: 'border-cyan-500 shadow-cyan-500/30 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400',
+      badgeClass: 'bg-cyan-600 text-white',
+      accentColor: '#0891b2',
+      icon: 'Cpu',
+      skills: ['MikroTik & Cisco CCNA', 'Cyber Security Defense', 'Linux Enterprise Server', 'Cloud Infrastructure & Fiber Optic'],
+      careers: ['Network Engineer', 'Cyber Security Analyst', 'System Administrator', 'DevOps Junior'],
+      partnerCompany: 'Biznet, Telkomsel, Cisco Network'
+    },
+    TKJ: {
+      image: '/images/hero/tkj.jpg',
+      tag: '🌐 Data Center & Cyber Defense Lab',
+      themeColor: 'cyan',
+      glowClass: 'from-cyan-600/30 via-sky-600/25 to-blue-600/20',
+      activeBorderClass: 'border-cyan-500 shadow-cyan-500/30 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400',
+      badgeClass: 'bg-cyan-600 text-white',
+      accentColor: '#0891b2',
+      icon: 'Cpu',
+      skills: ['MikroTik & Cisco CCNA', 'Cyber Security Defense', 'Linux Enterprise Server', 'Cloud Infrastructure'],
+      careers: ['Network Engineer', 'Cyber Security Analyst', 'System Administrator', 'DevOps Junior'],
+      partnerCompany: 'Biznet, Telkomsel, Cisco Network'
     }
-  ];
+  };
 
-  // Merge DB jurusans if present while preserving images & styles
-  const displayJurusans = defaultJurusans.map((def, idx) => {
-    const match = jurusans.find((j: any) => 
-      j.code?.toUpperCase() === def.code || 
-      j.name?.toLowerCase().includes(def.code.toLowerCase())
-    );
-    if (match) {
-      return {
-        ...def,
-        name: match.name || def.name,
-        description: match.description || def.description,
-        kuota: match.kuota || def.kuota,
-      };
-    }
-    return def;
+  // Strictly prioritize Admin DB Jurusans
+  const rawList = (jurusans && jurusans.length > 0)
+    ? jurusans
+    : [
+        { id: '1', name: 'Pengembangan Perangkat Lunak & Gim', code: 'RPL', kuota: 36, description: 'Program keahlian unggulan dalam rekayasa perangkat lunak, pemrograman web & mobile, kecerdasan buatan, dan pengembangan gim.' },
+        { id: '2', name: 'Manajemen Perkantoran & Layanan Bisnis', code: 'MPLB', kuota: 35, description: 'Program keahlian manajemen administrasi perkantoran modern, korespondensi digital, kearsipan elektronik, dan layanan prima.' },
+        { id: '3', name: 'Desain Komunikasi Visual', code: 'DKV', kuota: 35, description: 'Program keahlian kreatif yang mencakup desain grafis, animasi 2D/3D, videografi, fotografi, serta produksi media interaktif.' },
+        { id: '4', name: 'Teknik Jaringan Komputer & Telekomunikasi', code: 'TJKT', kuota: 35, description: 'Program keahlian yang berfokus pada instalasi jaringan komputer, administrasi server, keamanan siber, dan infrastruktur cloud.' },
+      ];
+
+  const displayJurusans = rawList.map((j: any, idx: number) => {
+    const code = (j.code || '').toUpperCase();
+    const meta = visualMeta[code] || visualMeta.RPL;
+    return {
+      id: j.id || String(idx + 1),
+      name: j.name,
+      code: j.code,
+      kuota: j.kuota || 36,
+      description: j.description || 'Program keahlian kejuruan masa depan berstandar industri.',
+      ...meta,
+    };
   });
 
   const [selectedMajorIndex, setSelectedMajorIndex] = useState(0);
@@ -164,27 +145,27 @@ export default function ModernHeroSection({
       location: 'Jakarta Barat',
       salary: 'Rp 5.5 - 7.5 Jt',
       type: 'Full-time',
-      department: 'RPL / TKJ',
+      department: 'RPL',
       isHot: true
     },
     {
       id: 'j2',
-      title: 'Teknisi Kendaraan & Diagnostic Specialist',
-      company: 'Astra Motor Authorized Dealer',
-      location: 'Tangerang',
-      salary: 'Rp 4.8 - 6.2 Jt',
+      title: 'Network & Cloud Infrastructure Specialist',
+      company: 'Biznet Networks Partner',
+      location: 'Jakarta & Tangerang',
+      salary: 'Rp 5.0 - 6.8 Jt',
       type: 'Full-time',
-      department: 'TKR',
+      department: 'TJKT',
       isHot: true
     },
     {
       id: 'j3',
-      title: 'Staff Administrasi Keuangan & Pajak',
-      company: 'PT Mitra Finansial Sejahtera',
+      title: 'Digital Office Administrator & Secretarial Staff',
+      company: 'PT Astra International Partner',
       location: 'Jakarta Pusat',
       salary: 'Rp 5.0 - 6.5 Jt',
       type: 'Full-time',
-      department: 'AKL',
+      department: 'MPLB',
       isHot: false
     },
     {
@@ -207,38 +188,31 @@ export default function ModernHeroSection({
     setTimeout(() => {
       const text = aiInterestInput.toLowerCase();
       let res = {
-        major: 'Rekayasa Perangkat Lunak (RPL)',
+        major: 'Pengembangan Perangkat Lunak & Gim (RPL)',
         score: 96,
-        description: 'Karakter Anda sangat analitis dan cocok untuk berkarir di dunia coding, pembuatan aplikasi web modern, dan kecerdasan buatan.',
+        description: 'Karakter Anda sangat analitis dan cocok untuk berkarir di dunia coding, pembuatan aplikasi web modern, game development, dan implementasi kecerdasan buatan.',
         careers: ['Full-stack Engineer', 'Mobile App Creator', 'Tech Founder']
       };
 
-      if (text.includes('mesin') || text.includes('motor') || text.includes('mobil') || text.includes('bengkel') || text.includes('otomotif') || text.includes('mekanik')) {
+      if (text.includes('jaringan') || text.includes('internet') || text.includes('hacker') || text.includes('server') || text.includes('security') || text.includes('cyber') || text.includes('cisco') || text.includes('mikrotik') || text.includes('tjkt') || text.includes('tkj')) {
         res = {
-          major: 'Teknik Kendaraan Ringan (TKR)',
+          major: 'Teknik Jaringan Komputer & Telekomunikasi (TJKT)',
           score: 97,
-          description: 'Anda memiliki bakat kinestetik dan teknis tinggi. Sangat berpeluang jadi teknisi ahli otomotif modern dan industri kendaraan listrik!',
-          careers: ['Teknisi Otomotif Astra', 'Diagnostic Specialist', 'Pengusaha Bengkel']
-        };
-      } else if (text.includes('jaringan') || text.includes('internet') || text.includes('hacker') || text.includes('server') || text.includes('security') || text.includes('rakit')) {
-        res = {
-          major: 'Teknik Komputer & Jaringan (TKJ)',
-          score: 95,
-          description: 'Minat Anda kuat pada arsitektur infrastruktur digital, cyber security, dan instalasi jaringan komputasi skala besar.',
+          description: 'Minat Anda kuat pada arsitektur infrastruktur digital, cyber security, server cloud, dan instalasi jaringan telekomunikasi skala besar.',
           careers: ['Cyber Security Analyst', 'Network Administrator', 'Cloud Architect']
         };
-      } else if (text.includes('uang') || text.includes('hitung') || text.includes('bank') || text.includes('bisnis') || text.includes('kantor') || text.includes('pajak')) {
+      } else if (text.includes('kantor') || text.includes('bisnis') || text.includes('surat') || text.includes('admin') || text.includes('manajemen') || text.includes('mplb') || text.includes('layanan') || text.includes('uang') || text.includes('hitung')) {
         res = {
-          major: 'Akuntansi & Keuangan Lembaga (AKL)',
-          score: 94,
-          description: 'Ketelitian dan kemampuan numerik Anda adalah aset berharga untuk menguasai manajemen finansial, perpajakan, dan perbankan digital.',
-          careers: ['Financial Analyst', 'Staff Perbankan Nasional', 'Auditor Muda']
+          major: 'Manajemen Perkantoran & Layanan Bisnis (MPLB)',
+          score: 95,
+          description: 'Kemampuan tata kelola organisasi, komunikasi korporat, korespondensi digital, dan administrasi modern Anda sangat cocok untuk perkantoran modern.',
+          careers: ['Corporate Administrator', 'Executive Assistant', 'Public Relations Specialist']
         };
-      } else if (text.includes('gambar') || text.includes('video') || text.includes('animasi') || text.includes('foto') || text.includes('desain') || text.includes('kreatif')) {
+      } else if (text.includes('gambar') || text.includes('video') || text.includes('animasi') || text.includes('foto') || text.includes('desain') || text.includes('kreatif') || text.includes('dkv')) {
         res = {
           major: 'Desain Komunikasi Visual (DKV)',
           score: 98,
-          description: 'Imajinasi visual Anda sangat kaya! Sangat ideal untuk mendalami industri kreatif, motion graphic, 3D modelling, dan branding komersial.',
+          description: 'Imajinasi visual Anda sangat kaya! Sangat ideal untuk mendalami industri kreatif, motion graphic, 3D modelling, videografi, dan branding komersial.',
           careers: ['Motion Designer', 'Creative Director', 'UI/UX Visualist']
         };
       }
@@ -495,7 +469,10 @@ export default function ModernHeroSection({
                   <span className="text-blue-600 dark:text-blue-400 lowercase font-medium">klik untuk beralih</span>
                 </div>
 
-                <div className="grid grid-cols-5 gap-1 sm:gap-1.5">
+                <div 
+                  className="grid gap-1 sm:gap-1.5"
+                  style={{ gridTemplateColumns: `repeat(${displayJurusans.length}, minmax(0, 1fr))` }}
+                >
                   {displayJurusans.map((j, idx) => {
                     const isSelected = selectedMajorIndex === idx;
                     return (
@@ -517,9 +494,9 @@ export default function ModernHeroSection({
                         </div>
                         <div className="text-[8px] sm:text-[9px] font-medium truncate max-w-full hidden sm:block opacity-80">
                           {j.code === 'RPL' ? 'Software' : 
-                           j.code === 'TKJ' ? 'Jaringan' : 
-                           j.code === 'TKR' ? 'Otomotif' : 
-                           j.code === 'DKV' ? 'Animasi' : 'Akuntansi'}
+                           j.code === 'MPLB' ? 'Bisnis & Admin' : 
+                           j.code === 'DKV' ? 'Desain Grafis' : 
+                           j.code === 'TJKT' || j.code === 'TKJ' ? 'Jaringan' : (j.name || j.code)}
                         </div>
                       </button>
                     );
@@ -793,7 +770,7 @@ export default function ModernHeroSection({
                     Bingung Memilih Jurusan? Tanyakan Pada AI!
                   </h3>
                   <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-6">
-                    Ketik apa yang Anda suka lakukan (misalnya hobi, gadget, otomotif, hitung uang, atau menggambar), AI kami akan merekomendasikan jurusan yang paling cocok!
+                    Ketik apa yang Anda suka lakukan (misalnya coding, gadget, jaringan internet, tata kelola kantor, atau desain kreatif), AI kami akan merekomendasikan jurusan yang paling cocok!
                   </p>
 
                   <form onSubmit={handleSimulateAI} className="flex gap-2 max-w-lg mx-auto mb-6">
@@ -866,28 +843,28 @@ export default function ModernHeroSection({
                     <p className="text-xs text-gray-500 leading-relaxed">PC High-End, dual-monitor, gigabit fiber optic untuk render 3D & software development.</p>
                   </div>
 
-                  <div className="p-4 bg-gray-50 dark:bg-gray-950 rounded-2xl border border-gray-200 dark:border-gray-800 hover:border-emerald-500 transition-colors">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 flex items-center justify-center font-bold mb-3">
-                      🔧
+                  <div className="p-4 bg-gray-50 dark:bg-gray-950 rounded-2xl border border-gray-200 dark:border-gray-800 hover:border-cyan-500 transition-colors">
+                    <div className="w-10 h-10 rounded-xl bg-cyan-100 dark:bg-cyan-900/40 text-cyan-600 flex items-center justify-center font-bold mb-3">
+                      🌐
                     </div>
-                    <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-1">Bengkel EFI & EV Lab</h4>
-                    <p className="text-xs text-gray-500 leading-relaxed">Scanner diagnostik OBD, hydraulic car lift, dan modul pelatihan kendaraan listrik.</p>
+                    <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-1">Data Center & Cyber Lab</h4>
+                    <p className="text-xs text-gray-500 leading-relaxed">Rack server Cisco, MikroTik routerboard, firewall appliance, dan simulator jaringan fiber optic.</p>
                   </div>
 
-                  <div className="p-4 bg-gray-50 dark:bg-gray-950 rounded-2xl border border-gray-200 dark:border-gray-800 hover:border-emerald-500 transition-colors">
+                  <div className="p-4 bg-gray-50 dark:bg-gray-950 rounded-2xl border border-gray-200 dark:border-gray-800 hover:border-purple-500 transition-colors">
                     <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/40 text-purple-600 flex items-center justify-center font-bold mb-3">
                       🎙️
                     </div>
-                    <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-1">Studio Podcast 4K</h4>
-                    <p className="text-xs text-gray-500 leading-relaxed">Kamera sinema Sony, mic Shure broadcast, green screen studio, dan lighting multi-point.</p>
+                    <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-1">Studio Podcast & Cinema</h4>
+                    <p className="text-xs text-gray-500 leading-relaxed">Kamera sinema 4K, mic Shure broadcast, green screen studio, dan lighting multi-point profesional.</p>
                   </div>
 
                   <div className="p-4 bg-gray-50 dark:bg-gray-950 rounded-2xl border border-gray-200 dark:border-gray-800 hover:border-emerald-500 transition-colors">
-                    <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 flex items-center justify-center font-bold mb-3">
-                      🏛️
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 flex items-center justify-center font-bold mb-3">
+                      🏢
                     </div>
-                    <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-1">Mini Bank & POS</h4>
-                    <p className="text-xs text-gray-500 leading-relaxed">Ruang simulasi perbankan nyata dengan mesin teller, software kasir, dan akuntansi SAP.</p>
+                    <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-1">Simulasi Digital Office</h4>
+                    <p className="text-xs text-gray-500 leading-relaxed">Ruang tata kelola modern dengan software enterprise, smart archive cloud, dan fasilitas business meeting.</p>
                   </div>
                 </div>
               </div>

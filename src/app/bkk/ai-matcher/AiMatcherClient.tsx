@@ -9,11 +9,10 @@ import JobDetailModal, { JobListing } from '@/components/bkk/JobDetailModal';
 import Link from 'next/link';
 
 const QUICK_SKILLS = [
-  'HTML & CSS', 'JavaScript', 'React', 'Next.js', 'PHP / Laravel', 
-  'Mikrotik', 'Cisco Networking', 'Fiber Optik', 'Linux Server',
-  'Tune Up Otomotif', 'Kelistrikan Mesin', 'CAD / Solidworks', 'Las Listrik',
-  'Desain Grafis (Photoshop/Canva)', 'Video Editing (Premiere)',
-  'Microsoft Excel', 'Akuntansi Keuangan', 'Administrasi Perkantoran'
+  'HTML & CSS', 'JavaScript', 'React', 'Next.js', 'Flutter Mobile', 
+  'Mikrotik', 'Cisco Networking', 'Fiber Optik', 'Linux Server', 'Cyber Security',
+  'UI/UX Design (Figma)', 'Desain Grafis (Photoshop/Illustrator)', 'Video Editing (Premiere/After Effects)',
+  'Administrasi Perkantoran Digital', 'Microsoft Excel & Cloud Office', 'Manajemen Kearsipan', 'Public Relations'
 ];
 
 export default function AiMatcherClient() {
@@ -213,11 +212,10 @@ export default function AiMatcherClient() {
                 className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl text-xs font-bold text-gray-800 dark:text-gray-200 outline-none"
               >
                 <option value="">Semua Program Keahlian</option>
-                <option value="RPL">RPL (Rekayasa Perangkat Lunak)</option>
-                <option value="TKJ">TKJ (Teknik Komputer & Jaringan)</option>
-                <option value="TKR">TKR / Otomotif</option>
-                <option value="Akuntansi">Akuntansi & Keuangan</option>
+                <option value="RPL">RPL (Pengembangan Perangkat Lunak & Gim)</option>
+                <option value="MPLB">MPLB (Manajemen Perkantoran & Layanan Bisnis)</option>
                 <option value="DKV">DKV (Desain Komunikasi Visual)</option>
+                <option value="TJKT">TJKT (Teknik Jaringan Komputer & Telekomunikasi)</option>
               </select>
             </div>
 

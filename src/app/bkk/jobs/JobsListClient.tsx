@@ -49,10 +49,9 @@ export default function JobsListClient({ initialJobs }: { initialJobs: JobListin
   const departments = [
     'Semua',
     'RPL',
-    'TKJ',
-    'TKR / Otomotif',
-    'Akuntansi',
-    'DKV / Multimedia'
+    'MPLB',
+    'DKV',
+    'TJKT'
   ];
 
   // Types list

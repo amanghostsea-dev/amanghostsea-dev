@@ -767,14 +767,10 @@ export default function TracerStudyClient() {
                       onChange={(e) => setRegForm({ ...regForm, major: e.target.value })}
                       className="w-full px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="Rekayasa Perangkat Lunak">Rekayasa Perangkat Lunak</option>
-                      <option value="Teknik Komputer dan Jaringan">Teknik Komputer & Jaringan</option>
-                      <option value="Desain Komunikasi Visual">Desain Komunikasi Visual / MM</option>
-                      <option value="Teknik Kendaraan Ringan">Teknik Kendaraan Ringan</option>
-                      <option value="Teknik Bisnis Sepeda Motor">Teknik Bisnis Sepeda Motor</option>
-                      <option value="Teknik Pemesinan">Teknik Pemesinan</option>
-                      <option value="Akuntansi dan Keuangan Lembaga">Akuntansi & Keuangan</option>
-                      <option value="Otomatisasi Tata Kelola Perkantoran">OTKP / Perkantoran</option>
+                      <option value="Pengembangan Perangkat Lunak & Gim">Pengembangan Perangkat Lunak & Gim (RPL)</option>
+                      <option value="Manajemen Perkantoran & Layanan Bisnis">Manajemen Perkantoran & Layanan Bisnis (MPLB)</option>
+                      <option value="Desain Komunikasi Visual">Desain Komunikasi Visual (DKV)</option>
+                      <option value="Teknik Jaringan Komputer & Telekomunikasi">Teknik Jaringan Komputer & Telekomunikasi (TJKT)</option>
                     </select>
                   </div>
                 </div>

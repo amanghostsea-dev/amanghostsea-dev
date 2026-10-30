@@ -27,7 +27,7 @@ export default async function BeritaSekolah() {
     {
       id: 3,
       title: 'Kunjungan Industri Kelas XI ke PT. Teknologi Indonesia',
-      excerpt: 'Untuk meningkatkan pemahaman dunia kerja, siswa kelas XI jurusan TKJ mengadakan kunjungan industri guna melihat infrastruktur jaringan.',
+      excerpt: 'Untuk meningkatkan pemahaman dunia kerja, siswa kelas XI jurusan TJKT mengadakan kunjungan industri guna melihat infrastruktur jaringan.',
       category: 'Kegiatan',
       date: '28 September 2026',
       image: 'https://images.unsplash.com/photo-1573164713988-8665fc963095?w=800&q=80',

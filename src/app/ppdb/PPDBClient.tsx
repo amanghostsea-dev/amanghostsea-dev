@@ -65,40 +65,26 @@ interface JurusanEmblemInfo {
 }
 
 const JURUSAN_EMBLEMS: Record<string, JurusanEmblemInfo> = {
-  TJKT: {
-    code: 'TJKT',
-    name: 'Teknik Jaringan Komputer & Telekomunikasi',
-    title: 'TJKT Garuda Mahadhika',
-    tagline: 'Cybersecurity, Cloud Infrastructure & Fiber Telecom Network',
-    badge: 'Akreditasi A • Kuota 72 Siswa',
-    image: '/images/emblem/tjkt.png',
-    accent: '#dc2626',
-    borderActive: 'border-red-500 ring-2 ring-red-500/20',
-    bgActive: 'bg-red-50/80 dark:bg-red-950/30',
-    textColor: 'text-red-600 dark:text-red-400',
-    glow: 'rgba(220, 38, 38, 0.4)',
-    iconBg: 'from-red-600 to-rose-700',
-  },
-  DKV: {
-    code: 'DKV',
-    name: 'Desain Komunikasi Visual',
-    title: 'DKV Garuda Mahadhika',
-    tagline: 'Creative Multimedia, UI/UX Design, 3D Motion & Digital Arts',
-    badge: 'Akreditasi A • Kuota 72 Siswa',
-    image: '/images/emblem/dkv.png',
-    accent: '#9333ea',
-    borderActive: 'border-purple-500 ring-2 ring-purple-500/20',
-    bgActive: 'bg-purple-50/80 dark:bg-purple-950/30',
-    textColor: 'text-purple-600 dark:text-purple-400',
-    glow: 'rgba(147, 51, 234, 0.4)',
-    iconBg: 'from-purple-600 to-fuchsia-700',
+  RPL: {
+    code: 'RPL',
+    name: 'Pengembangan Perangkat Lunak & Gim',
+    title: 'RPL Garuda Mahadhika',
+    tagline: 'Software Engineering, Web, Mobile App & Game Development',
+    badge: 'Akreditasi A • Kuota 36 Siswa',
+    image: '/images/hero/rpl.jpg',
+    accent: '#2563eb',
+    borderActive: 'border-blue-500 ring-2 ring-blue-500/20',
+    bgActive: 'bg-blue-50/80 dark:bg-blue-950/30',
+    textColor: 'text-blue-600 dark:text-blue-400',
+    glow: 'rgba(37, 99, 235, 0.4)',
+    iconBg: 'from-blue-600 to-indigo-700',
   },
   MPLB: {
     code: 'MPLB',
     name: 'Manajemen Perkantoran & Layanan Bisnis',
     title: 'MPLB Garuda Mahadhika',
     tagline: 'Modern Corporate Governance, Digital Business & Administration',
-    badge: 'Akreditasi A • Kuota 72 Siswa',
+    badge: 'Akreditasi A • Kuota 35 Siswa',
     image: '/images/emblem/mplb.png',
     accent: '#0284c7',
     borderActive: 'border-sky-500 ring-2 ring-sky-500/20',
@@ -107,9 +93,56 @@ const JURUSAN_EMBLEMS: Record<string, JurusanEmblemInfo> = {
     glow: 'rgba(2, 132, 199, 0.4)',
     iconBg: 'from-sky-600 to-blue-700',
   },
+  DKV: {
+    code: 'DKV',
+    name: 'Desain Komunikasi Visual',
+    title: 'DKV Garuda Mahadhika',
+    tagline: 'Creative Multimedia, UI/UX Design, 3D Motion & Digital Arts',
+    badge: 'Akreditasi A • Kuota 35 Siswa',
+    image: '/images/emblem/dkv.png',
+    accent: '#9333ea',
+    borderActive: 'border-purple-500 ring-2 ring-purple-500/20',
+    bgActive: 'bg-purple-50/80 dark:bg-purple-950/30',
+    textColor: 'text-purple-600 dark:text-purple-400',
+    glow: 'rgba(147, 51, 234, 0.4)',
+    iconBg: 'from-purple-600 to-fuchsia-700',
+  },
+  TJKT: {
+    code: 'TJKT',
+    name: 'Teknik Jaringan Komputer & Telekomunikasi',
+    title: 'TJKT Garuda Mahadhika',
+    tagline: 'Cybersecurity, Cloud Infrastructure & Fiber Telecom Network',
+    badge: 'Akreditasi A • Kuota 35 Siswa',
+    image: '/images/emblem/tjkt.png',
+    accent: '#dc2626',
+    borderActive: 'border-red-500 ring-2 ring-red-500/20',
+    bgActive: 'bg-red-50/80 dark:bg-red-950/30',
+    textColor: 'text-red-600 dark:text-red-400',
+    glow: 'rgba(220, 38, 38, 0.4)',
+    iconBg: 'from-red-600 to-rose-700',
+  },
 };
 
-const SHOWCASE_ROTATION: ('TJKT' | 'DKV' | 'MPLB')[] = ['TJKT', 'DKV', 'MPLB'];
+function getEmblem(code: string, fallbackList: JurusanItem[]): JurusanEmblemInfo {
+  const upper = (code || '').toUpperCase();
+  if (JURUSAN_EMBLEMS[upper]) return JURUSAN_EMBLEMS[upper];
+
+  const found = fallbackList.find((j) => (j.code || '').toUpperCase() === upper);
+  return {
+    code: upper,
+    name: found?.name || code,
+    title: `${upper} Garuda Mahadhika`,
+    tagline: found?.description || 'Program Keahlian Unggulan SMK',
+    badge: `Akreditasi A • Kuota ${found?.kuota || 36} Siswa`,
+    image: '/images/hero/rpl.jpg',
+    accent: '#2563eb',
+    borderActive: 'border-blue-500 ring-2 ring-blue-500/20',
+    bgActive: 'bg-blue-50/80 dark:bg-blue-950/30',
+    textColor: 'text-blue-600 dark:text-blue-400',
+    glow: 'rgba(37, 99, 235, 0.4)',
+    iconBg: 'from-blue-600 to-indigo-700',
+  };
+}
 
 export default function PPDBClient({ 
   schoolName = "SMK GaMa",
@@ -125,14 +158,19 @@ export default function PPDBClient({
   const router = useRouter();
   const { success, warning, error: notifyError, info, confirm, celebrate } = useNotification();
 
+  // Active Major Codes derived strictly from Admin DB
+  const activeMajorCodes = (jurusanList && jurusanList.length > 0)
+    ? jurusanList.map((j) => (j.code || '').toUpperCase()).filter(Boolean)
+    : ['RPL', 'MPLB', 'DKV', 'TJKT'];
+
   // Active Theme State
   const [theme, setTheme] = useState<PPDBTheme>(defaultTheme || 'cyber-cards');
 
   // Selected Jurusan for FORM REGISTRATION (100% independent from showcase)
-  const [selectedMajor, setSelectedMajor] = useState<string>('TJKT');
+  const [selectedMajor, setSelectedMajor] = useState<string>(activeMajorCodes[0] || 'RPL');
 
   // 10-Second Auto-Rotating Showcase for Header Logos (Visual only, does not affect form registration!)
-  const [showcaseMajor, setShowcaseMajor] = useState<'TJKT' | 'DKV' | 'MPLB'>('TJKT');
+  const [showcaseMajor, setShowcaseMajor] = useState<string>(activeMajorCodes[0] || 'RPL');
   const [isPausedShowcase, setIsPausedShowcase] = useState(false);
   const [showcaseTimerKey, setShowcaseTimerKey] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
@@ -143,21 +181,21 @@ export default function PPDBClient({
 
   // Auto-rotate every 10 seconds (10,000ms)
   useEffect(() => {
-    if (isPausedShowcase) return;
+    if (isPausedShowcase || activeMajorCodes.length === 0) return;
 
     const interval = setInterval(() => {
       setShowcaseMajor((prev) => {
-        const nextIdx = (SHOWCASE_ROTATION.indexOf(prev) + 1) % SHOWCASE_ROTATION.length;
-        return SHOWCASE_ROTATION[nextIdx];
+        const nextIdx = (activeMajorCodes.indexOf(prev) + 1) % activeMajorCodes.length;
+        return activeMajorCodes[nextIdx] || activeMajorCodes[0];
       });
       setShowcaseTimerKey((k) => k + 1);
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [isPausedShowcase]);
+  }, [isPausedShowcase, activeMajorCodes]);
 
   // Click handler for showcase preview (Visual change only, does NOT change form choice!)
-  const handleShowcaseClick = (code: 'TJKT' | 'DKV' | 'MPLB') => {
+  const handleShowcaseClick = (code: string) => {
     setShowcaseMajor(code);
     setShowcaseTimerKey((k) => k + 1);
   };
@@ -230,7 +268,7 @@ export default function PPDBClient({
   const [transferNotes, setTransferNotes] = useState<string>('');
   const [copiedBank, setCopiedBank] = useState<string | null>(null);
 
-  const activeMajorData = JURUSAN_EMBLEMS[selectedMajor] || JURUSAN_EMBLEMS.TJKT;
+  const activeMajorData = getEmblem(selectedMajor, jurusanList);
 
   const handleCopy = (text: string, bank: string) => {
     navigator.clipboard.writeText(text);
@@ -512,8 +550,8 @@ export default function PPDBClient({
   };
 
   const isDarkMode = theme === 'dark-glass';
-  const activeShowcaseData = JURUSAN_EMBLEMS[showcaseMajor] || JURUSAN_EMBLEMS.TJKT;
-  const activeRegistrationData = JURUSAN_EMBLEMS[selectedMajor] || JURUSAN_EMBLEMS.TJKT;
+  const activeShowcaseData = getEmblem(showcaseMajor, jurusanList);
+  const activeRegistrationData = getEmblem(selectedMajor, jurusanList);
 
   return (
     <div className={`min-h-screen font-sans relative overflow-hidden transition-colors duration-700 ${
@@ -632,10 +670,10 @@ export default function PPDBClient({
             style={{ background: activeShowcaseData.accent }}
           />
 
-          {/* The 3 Emblems Showcase Row */}
-          <div className="flex items-center justify-center gap-4 sm:gap-8 pt-2 pb-4">
-            {(['TJKT', 'DKV', 'MPLB'] as const).map((code) => {
-              const item = JURUSAN_EMBLEMS[code];
+          {/* The Emblems Showcase Row */}
+          <div className="flex items-center justify-center gap-4 sm:gap-8 pt-2 pb-4 flex-wrap">
+            {activeMajorCodes.map((code) => {
+              const item = getEmblem(code, jurusanList);
               const isActive = showcaseMajor === code;
 
               return (
@@ -1224,10 +1262,10 @@ export default function PPDBClient({
                   </div>
                 </div>
 
-                {/* The 3 Interactive Major Cards with Transparent Emblems */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                  {(['TJKT', 'DKV', 'MPLB'] as const).map((code) => {
-                    const j = JURUSAN_EMBLEMS[code];
+                {/* The Interactive Major Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                  {activeMajorCodes.map((code) => {
+                    const j = getEmblem(code, jurusanList);
                     const isSelected = selectedMajor === code;
 
                     return (

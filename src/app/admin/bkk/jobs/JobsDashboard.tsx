@@ -720,7 +720,7 @@ export default function JobsDashboard({
                     value={formData.department || ''} 
                     onChange={e => setFormData({...formData, department: e.target.value})} 
                     className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                    placeholder="RPL, TKJ, Otomotif, Akuntansi, atau Semua Jurusan"
+                    placeholder="RPL, MPLB, DKV, TJKT, atau Semua Jurusan"
                   />
                 </div>
                 <div>

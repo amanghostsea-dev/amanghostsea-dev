@@ -89,7 +89,7 @@ export default function BKKLandingClient({
             {/* Popular Badges */}
             <div className="flex flex-wrap items-center justify-center gap-2 mt-4 text-xs text-gray-500">
               <span className="font-semibold text-gray-400">Paling banyak dicari:</span>
-              {['RPL / Developer', 'TKJ / Networking', 'Otomotif & Mesin', 'Akuntansi', 'Magang / PKL'].map((tag) => (
+              {['RPL / Developer', 'TJKT / Networking', 'MPLB / Perkantoran', 'DKV / Multimedia', 'Magang / PKL'].map((tag) => (
                 <Link
                   key={tag}
                   href={`/bkk/jobs?q=${encodeURIComponent(tag.split(' ')[0])}`}

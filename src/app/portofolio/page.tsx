@@ -28,8 +28,8 @@ export default async function PortofolioSiswa() {
     {
       id: 2,
       title: "Film Pendek: Asa di Ujung Senja",
-      student: "Tim Sinematografi (Kelas XI MM)",
-      category: "Multimedia",
+      student: "Tim Sinematografi (Kelas XI DKV)",
+      category: "Desain Komunikasi Visual",
       image: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?q=80&w=1925&auto=format&fit=crop",
       description: "Juara 2 Lomba Film Pendek Nasional. Menceritakan perjuangan meraih cita-cita.",
       icon: <Camera size={20} className="text-purple-500" />
@@ -37,8 +37,8 @@ export default async function PortofolioSiswa() {
     {
       id: 3,
       title: "Robot Pemilah Sampah Otomatis",
-      student: "Eko Pratama (Kelas XII TKJ)",
-      category: "Hardware / IoT",
+      student: "Eko Pratama (Kelas XII TJKT)",
+      category: "Jaringan & IoT",
       image: "https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=2070&auto=format&fit=crop",
       description: "Menggunakan sensor ultrasonik dan AI untuk mendeteksi sampah organik dan anorganik.",
       icon: <Briefcase size={20} className="text-orange-500" />
