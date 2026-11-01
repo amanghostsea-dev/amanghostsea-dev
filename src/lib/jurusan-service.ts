@@ -1,4 +1,5 @@
 import prisma from './prisma';
+import { getManagedClasses } from './kelas-service';
 
 export interface JurusanItem {
   id: string;
@@ -66,13 +67,21 @@ export async function ensureDefaultJurusans(): Promise<JurusanItem[]> {
 }
 
 /**
- * Menghasilkan daftar target kelas yang ringkas & sinkron dengan Jurusan yang diinput Admin.
- * Format standar: X [KODE] 1, XI [KODE] 1, XII [KODE] 1.
- * Hanya memuat 1 rombel standar per jenjang agar opsi tidak menumpuk/terlalu banyak.
+ * Menghasilkan daftar target kelas yang sinkron dengan Manajemen Kelas & Rombel.
  */
 export async function getDynamicClassTargets(): Promise<string[]> {
-  const jurusans = await ensureDefaultJurusans();
+  try {
+    const managedClasses = await getManagedClasses();
+    if (managedClasses && managedClasses.length > 0) {
+      const names = managedClasses.map((c) => c.name);
+      return Array.from(new Set(['Semua Kelas', ...names]));
+    }
+  } catch (err) {
+    console.error('Error fetching managed classes in getDynamicClassTargets:', err);
+  }
 
+  // Fallback ke generator berbasis Jurusan
+  const jurusans = await ensureDefaultJurusans();
   const classList: string[] = ['Semua Kelas'];
   const levels = ['X', 'XI', 'XII'];
 
@@ -82,21 +91,6 @@ export async function getDynamicClassTargets(): Promise<string[]> {
     for (const lvl of levels) {
       classList.push(`${lvl} ${code} 1`);
     }
-  }
-
-  // Tambahkan kelas eksisting jika ada kelas kustom yang sudah tercatat di Subject
-  try {
-    const existing = await prisma.subject.findMany({
-      select: { classTarget: true },
-      distinct: ['classTarget'],
-    });
-    for (const item of existing) {
-      if (item.classTarget && !classList.includes(item.classTarget)) {
-        classList.push(item.classTarget);
-      }
-    }
-  } catch (e) {
-    console.error('Error fetching existing subject classes:', e);
   }
 
   return Array.from(new Set(classList));
