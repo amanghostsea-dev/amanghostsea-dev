@@ -2,7 +2,7 @@
 
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-import { formatScheduleDate, formatScheduleTime } from '@/lib/cbt-schedule';
+import { formatScheduleDate, formatScheduleTime, getExamScheduleState } from '@/lib/cbt-schedule';
 
 export async function getExamSessionStatus(examId: string) {
   try {
@@ -13,15 +13,26 @@ export async function getExamSessionStatus(examId: string) {
         status: true,
         title: true,
         token: true,
+        startTime: true,
+        endTime: true,
       },
     });
+
+    if (!exam) {
+      return { status: 'NOT_FOUND', isSessionOpen: false, hasToken: false, scheduleState: null };
+    }
+
+    const schedule = getExamScheduleState(exam.startTime, exam.endTime, exam.status);
+    const isSessionOpen = exam.status === 'ACTIVE' || (exam.status === 'PUBLISHED' && schedule.isAccessible);
+
     return {
-      status: exam?.status || 'UNKNOWN',
-      isSessionOpen: exam?.status === 'ACTIVE',
-      hasToken: Boolean(exam?.token),
+      status: exam.status || 'UNKNOWN',
+      isSessionOpen,
+      hasToken: Boolean(exam.token && exam.token.trim()),
+      scheduleState: schedule,
     };
   } catch (error) {
-    return { status: 'ERROR', isSessionOpen: false, hasToken: false };
+    return { status: 'ERROR', isSessionOpen: false, hasToken: false, scheduleState: null };
   }
 }
 
@@ -54,8 +65,10 @@ export async function startOrResumeAttempt(data: {
       return { error: 'Sesi ujian telah resmi ditutup oleh guru pengawas.' };
     }
 
-    // 📅 Verify Schedule Window
+    // 📅 Verify Schedule Window & Auto-Accessibility
     const now = new Date();
+    const schedule = getExamScheduleState(exam.startTime, exam.endTime, exam.status, now);
+
     if (exam.startTime && now < exam.startTime && exam.status !== 'ACTIVE') {
       return { 
         error: `Ujian ini belum dimulai. Sesuai jadwal, ujian baru dapat diakses pada ${formatScheduleDate(exam.startTime)} pukul ${formatScheduleTime(exam.startTime)}.` 
@@ -68,7 +81,8 @@ export async function startOrResumeAttempt(data: {
       };
     }
 
-    if (exam.status !== 'ACTIVE') {
+    const isSessionAllowed = exam.status === 'ACTIVE' || (exam.status === 'PUBLISHED' && schedule.isAccessible);
+    if (!isSessionAllowed) {
       return { 
         error: 'Sesi ujian kelas ini belum dibuka oleh pengawas di kelas. Harap tunggu di Ruang Tunggu.' 
       };
@@ -100,7 +114,7 @@ export async function startOrResumeAttempt(data: {
       return { success: true, attempt: existing, questions: exam.questions };
     }
 
-    // Create new attempt
+    // Create new attempt with verified student info
     const newAttempt = await prisma.examAttempt.create({
       data: {
         examId: data.examId,
@@ -190,8 +204,93 @@ export async function submitExam(
       },
     });
 
+    // 🎓 Auto-Sync Nilai Ujian ke Transkrip Nilai Siswa (StudentGrade)
+    try {
+      const studentName = attempt.studentName;
+      const examTitleUpper = (attempt.exam.title || '').toUpperCase();
+      const examSubjectUpper = (attempt.exam.subject || '').toUpperCase();
+
+      // Cari mapel terkait di database
+      const matchedSubject = await prisma.subject.findFirst({
+        where: {
+          OR: [
+            { name: { contains: attempt.exam.subject, mode: 'insensitive' } },
+            { code: { contains: attempt.exam.subject, mode: 'insensitive' } },
+          ],
+        },
+      });
+
+      if (matchedSubject && studentName) {
+        const existingGrade = await prisma.studentGrade.findFirst({
+          where: {
+            subjectId: matchedSubject.id,
+            studentName: studentName,
+          },
+        });
+
+        const isMidExam = examTitleUpper.includes('UTS') || examTitleUpper.includes('PTS') || examTitleUpper.includes('TENGAH');
+        const isFinalExam = examTitleUpper.includes('UAS') || examTitleUpper.includes('PAS') || examTitleUpper.includes('AKHIR');
+
+        let assignment = existingGrade ? existingGrade.assignment : 85;
+        let midExam = existingGrade ? existingGrade.midExam : 80;
+        let finalExam = existingGrade ? existingGrade.finalExam : 85;
+
+        if (isMidExam) {
+          midExam = finalScaledScore;
+        } else if (isFinalExam) {
+          finalExam = finalScaledScore;
+        } else {
+          // Kuis atau Penilaian Harian
+          assignment = finalScaledScore;
+        }
+
+        // Hitung nilai akhir berbobot: Tugas & Kuis 30%, UTS 30%, UAS 40%
+        const weightedScore = (assignment * 0.3) + (midExam * 0.3) + (finalExam * 0.4);
+        let finalGradeLetter = 'B';
+        if (weightedScore >= 90) finalGradeLetter = 'A';
+        else if (weightedScore >= 85) finalGradeLetter = 'A-';
+        else if (weightedScore >= 80) finalGradeLetter = 'B+';
+        else if (weightedScore >= 75) finalGradeLetter = 'B';
+        else if (weightedScore >= 70) finalGradeLetter = 'C';
+        else finalGradeLetter = 'D';
+
+        if (existingGrade) {
+          await prisma.studentGrade.update({
+            where: { id: existingGrade.id },
+            data: {
+              assignment,
+              midExam,
+              finalExam,
+              finalGrade: finalGradeLetter,
+              updatedBy: 'Sistem CBT Otomatis',
+              updatedAt: new Date(),
+            },
+          });
+        } else {
+          await prisma.studentGrade.create({
+            data: {
+              subjectId: matchedSubject.id,
+              studentName: studentName,
+              studentNis: attempt.studentNis || undefined,
+              studentClass: attempt.studentClass || 'XI RPL 1',
+              assignment,
+              midExam,
+              finalExam,
+              finalGrade: finalGradeLetter,
+              updatedBy: 'Sistem CBT Otomatis',
+            },
+          });
+        }
+      }
+    } catch (gradeSyncErr) {
+      console.error('Auto-sync grade from CBT error:', gradeSyncErr);
+    }
+
     revalidatePath(`/admin/cbt/${attempt.examId}`);
     revalidatePath('/portal/siswa/cbt');
+    revalidatePath('/portal/siswa');
+    revalidatePath('/portal/guru/nilai');
+    revalidatePath('/admin/mapel');
 
     return {
       success: true,

@@ -10,9 +10,10 @@ export default async function SiswaCbtListPage() {
   const authUser = cookieStore.get('auth_user')?.value;
 
   let studentName = authName;
+  let studentNis = authUser || '';
   let studentClass = 'XI RPL 1';
 
-  if (!studentName && authUser) {
+  if (authUser) {
     try {
       const user = await prisma.user.findFirst({
         where: {
@@ -24,10 +25,33 @@ export default async function SiswaCbtListPage() {
       });
       if (user) {
         studentName = user.name;
+        studentNis = user.nisn || user.username;
       }
     } catch {}
   }
   if (!studentName) studentName = 'Siswa SMK';
+
+  // Sinkronkan kelas aktual siswa dari database rapor StudentGrade
+  try {
+    const gradeRecord = await prisma.studentGrade.findFirst({
+      where: {
+        OR: [
+          { studentName },
+          ...(studentNis ? [{ studentNis }] : [])
+        ]
+      },
+      select: { studentClass: true, studentNis: true }
+    });
+
+    if (gradeRecord?.studentClass) {
+      studentClass = gradeRecord.studentClass;
+      if (!studentNis && gradeRecord.studentNis) {
+        studentNis = gradeRecord.studentNis;
+      }
+    }
+  } catch (err) {
+    console.error('Error querying student class:', err);
+  }
 
   const initials = studentName
     .split(' ')

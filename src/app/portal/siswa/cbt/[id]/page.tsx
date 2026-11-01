@@ -11,29 +11,6 @@ export default async function SiswaExamRoomPage({ params }: { params: Promise<{ 
   const authName = cookieStore.get('auth_name')?.value;
   const authUser = cookieStore.get('auth_user')?.value;
 
-  let studentName = authName;
-  if (!studentName && authUser) {
-    try {
-      const user = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { username: authUser },
-            { nisn: authUser }
-          ]
-        }
-      });
-      if (user) {
-        studentName = user.name;
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  if (!studentName) {
-    studentName = 'Siswa SMK';
-  }
-
   const exam = await prisma.exam.findUnique({
     where: { id },
     include: {
@@ -45,6 +22,55 @@ export default async function SiswaExamRoomPage({ params }: { params: Promise<{ 
 
   if (!exam) {
     notFound();
+  }
+
+  let studentName = authName;
+  let studentNis = authUser || '';
+  let studentClass = exam.classTarget !== 'Semua Kelas' ? exam.classTarget : 'XI RPL 1';
+
+  if (authUser) {
+    try {
+      const user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { username: authUser },
+            { nisn: authUser }
+          ]
+        }
+      });
+      if (user) {
+        studentName = user.name;
+        studentNis = user.nisn || user.username;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  if (!studentName) {
+    studentName = 'Siswa SMK';
+  }
+
+  // Cari kelas & NISN aktual siswa dari database StudentGrade
+  try {
+    const gradeRecord = await prisma.studentGrade.findFirst({
+      where: {
+        OR: [
+          { studentName },
+          ...(studentNis ? [{ studentNis }] : [])
+        ]
+      },
+      select: { studentClass: true, studentNis: true }
+    });
+
+    if (gradeRecord?.studentClass) {
+      studentClass = gradeRecord.studentClass;
+      if (!studentNis && gradeRecord.studentNis) {
+        studentNis = gradeRecord.studentNis;
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching student class info:', err);
   }
 
   // Find any existing attempt
@@ -60,6 +86,8 @@ export default async function SiswaExamRoomPage({ params }: { params: Promise<{ 
     <CbtExamRoom
       exam={exam}
       studentName={studentName}
+      studentClass={studentClass}
+      studentNis={studentNis}
       existingAttempt={existingAttempt}
     />
   );

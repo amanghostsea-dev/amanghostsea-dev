@@ -69,12 +69,16 @@ interface CbtExamRoomProps {
     questions: QuestionItem[];
   };
   studentName: string;
+  studentClass?: string;
+  studentNis?: string;
   existingAttempt: AttemptItem | null;
 }
 
 export default function CbtExamRoom({
   exam,
   studentName,
+  studentClass,
+  studentNis,
   existingAttempt,
 }: CbtExamRoomProps) {
   // Attempt & Mode state
@@ -84,7 +88,11 @@ export default function CbtExamRoom({
   const [startError, setStartError] = useState<string | null>(null);
 
   // Dual-Key Session State (Waiting Room vs Active)
+  const initialSchedule = getExamScheduleState(exam.startTime, exam.endTime, exam.status);
   const [sessionStatus, setSessionStatus] = useState<string>(exam.status || 'PUBLISHED');
+  const [isSessionOpen, setIsSessionOpen] = useState<boolean>(
+    exam.status === 'ACTIVE' || (exam.status === 'PUBLISHED' && initialSchedule.isAccessible)
+  );
   const [checkingStatus, setCheckingStatus] = useState(false);
 
   const refreshSessionStatus = useCallback(async () => {
@@ -93,18 +101,21 @@ export default function CbtExamRoom({
       const res = await getExamSessionStatus(exam.id);
       if (res && res.status) {
         setSessionStatus(res.status);
+        if (typeof res.isSessionOpen === 'boolean') {
+          setIsSessionOpen(res.isSessionOpen);
+        }
       }
     } catch {}
     setCheckingStatus(false);
   }, [exam.id]);
 
   useEffect(() => {
-    if (attempt || sessionStatus === 'ACTIVE') return;
+    if (attempt || isSessionOpen) return;
     const interval = setInterval(() => {
       refreshSessionStatus();
     }, 4000);
     return () => clearInterval(interval);
-  }, [attempt, sessionStatus, refreshSessionStatus]);
+  }, [attempt, isSessionOpen, refreshSessionStatus]);
 
   // Exam engine state
   const [questions, setQuestions] = useState<QuestionItem[]>(exam.questions);
@@ -253,8 +264,8 @@ export default function CbtExamRoom({
     const res = await startOrResumeAttempt({
       examId: exam.id,
       studentName,
-      studentClass: 'XI RPL 1',
-      studentNis: '10293847',
+      studentClass: studentClass || exam.classTarget || 'XI RPL 1',
+      studentNis: studentNis || undefined,
       token: tokenInput,
     });
 
@@ -503,7 +514,7 @@ export default function CbtExamRoom({
           )}
 
           {/* DUAL-KEY GATEWAY: WAITING ROOM vs ACTIVE WITH TOKEN */}
-          {sessionStatus !== 'ACTIVE' ? (
+          {!isSessionOpen && sessionStatus !== 'ACTIVE' ? (
             <div className="space-y-4">
               <div className="p-5 rounded-2xl bg-amber-500/10 border-2 border-dashed border-amber-500/40 text-amber-800 dark:text-amber-200 space-y-3">
                 <div className="flex items-center justify-between">
@@ -520,13 +531,13 @@ export default function CbtExamRoom({
                 </div>
 
                 <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
-                  Sesi ujian untuk kelas ini <strong>belum dibuka oleh guru pengawas</strong>. Silakan duduk dengan tertib. Layar ini akan <strong>otomatis terbuka</strong> begitu pengawas mengaktifkan sesi dan menuliskan token di papan tulis kelas.
+                  Sesi ujian untuk kelas ini <strong>belum dibuka oleh guru pengawas</strong> atau belum memasuki jam jadwal resmi. Silakan duduk dengan tertib. Layar ini akan <strong>otomatis terbuka</strong> begitu pengawas mengaktifkan sesi atau saat jadwal ujian dimulai.
                 </p>
 
                 <div className="flex items-center justify-between pt-1 border-t border-amber-500/20">
                   <span className="text-[11px] text-slate-500 flex items-center gap-1.5">
                     <Wifi size={13} className="text-emerald-500" />
-                    Mengecek sinyal pengawas...
+                    Mengecek sinyal pengawas & jadwal...
                   </span>
                   <button
                     type="button"
@@ -544,7 +555,7 @@ export default function CbtExamRoom({
               <div className="p-4 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center space-y-1.5 opacity-60">
                 <Lock className="mx-auto text-slate-400" size={20} />
                 <div className="text-xs font-semibold text-slate-500">
-                  Kolom token terkunci hingga pengawas mengaktifkan sesi di kelas
+                  Kolom token terkunci hingga pengawas mengaktifkan sesi atau jam jadwal resmi tiba
                 </div>
               </div>
             </div>
@@ -556,10 +567,12 @@ export default function CbtExamRoom({
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
                   </span>
-                  Sesi Ujian Telah Dibuka Pengawas!
+                  {sessionStatus === 'ACTIVE' ? 'Sesi Ujian Telah Diaktifkan Pengawas!' : 'Sesi Ujian Sesuai Jadwal Resmi Dibuka!'}
                 </div>
                 <p className="text-xs text-emerald-700 dark:text-emerald-300">
-                  Pengawas telah membuka sesi ujian kelas ini. Silakan lihat <strong>kode token di papan tulis ruangan</strong> dan masukkan di bawah ini:
+                  {sessionStatus === 'ACTIVE' 
+                    ? 'Pengawas telah membuka sesi ujian kelas ini. Silakan lihat kode token di papan tulis ruangan dan masukkan di bawah ini:' 
+                    : 'Ujian telah memasuki waktu pelaksanaan resmi. Silakan masukkan token ujian dari guru pengawas untuk mulai mengerjakan:'}
                 </p>
               </div>
 
