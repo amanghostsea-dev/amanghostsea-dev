@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { 
   BookOpen, 
   Plus, 
@@ -49,6 +49,39 @@ export default function JurusanClient({
 }: JurusanClientProps) {
   const [activeTab, setActiveTab] = useState<'jurusan' | 'kelas'>(initialTab);
 
+  // Sync tab with props & browser URL
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  useEffect(() => {
+    const handleUrlSync = () => {
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const tab = params.get('tab');
+        if (tab === 'kelas') {
+          setActiveTab('kelas');
+        } else if (tab === 'jurusan') {
+          setActiveTab('jurusan');
+        }
+      }
+    };
+    handleUrlSync();
+    window.addEventListener('popstate', handleUrlSync);
+    return () => window.removeEventListener('popstate', handleUrlSync);
+  }, []);
+
+  const switchTab = (tab: 'jurusan' | 'kelas') => {
+    setActiveTab(tab);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      window.history.pushState({}, '', url.toString());
+    }
+  };
+
   // 🏢 State Manajemen Jurusan
   const [jurusan, setJurusan] = useState(initialJurusan);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -58,6 +91,12 @@ export default function JurusanClient({
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // 🎓 Opsi Rombel Otomatis saat Buat Jurusan Baru
+  const [autoCreateClasses, setAutoCreateClasses] = useState(true);
+  const [selectedLevels, setSelectedLevels] = useState<('X' | 'XI' | 'XII')[]>(['X', 'XI', 'XII']);
+  const [rombelPerLevel, setRombelPerLevel] = useState<number>(1);
+  const [classRoomDefault, setClassRoomDefault] = useState<string>('');
 
   // 🎓 State Manajemen Kelas & Rombel
   const [classes, setClasses] = useState<SchoolClassItem[]>(initialClasses);
@@ -96,6 +135,10 @@ export default function JurusanClient({
   // 🏢 Handlers Jurusan
   const handleAdd = () => {
     setFormData({ id: '', name: '', code: '', description: '', kuota: 36 });
+    setAutoCreateClasses(true);
+    setSelectedLevels(['X', 'XI', 'XII']);
+    setRombelPerLevel(1);
+    setClassRoomDefault('');
     setIsEditing(false);
     setIsModalOpen(true);
   };
@@ -139,22 +182,19 @@ export default function JurusanClient({
         alert(res.error);
       }
     } else {
-      const res = await createJurusan(formData);
+      const res = await createJurusan({
+        ...formData,
+        autoCreateClasses,
+        selectedLevels,
+        rombelCount: rombelPerLevel,
+        classRoom: classRoomDefault,
+        classCapacity: formData.kuota || 36,
+      });
       if (res.success) {
         setJurusan([...jurusan, res.data]);
-        // Auto-seed kelas untuk jurusan baru
-        const code = (res.data.code || '').toUpperCase();
-        const newClasses: SchoolClassItem[] = ['X', 'XI', 'XII'].map(lvl => ({
-          id: `cls-${lvl.toLowerCase()}-${code.toLowerCase()}-1`,
-          name: `${lvl} ${code} 1`,
-          level: lvl as any,
-          jurusanCode: code,
-          rombel: 1,
-          waliKelas: 'Guru Pengampu',
-          room: `Ruang ${code} ${lvl}`,
-          capacity: 36,
-        }));
-        setClasses(prev => [...prev, ...newClasses]);
+        if (res.classes && Array.isArray(res.classes)) {
+          setClasses(res.classes);
+        }
         setIsModalOpen(false);
       } else {
         alert(res.error);
@@ -170,15 +210,22 @@ export default function JurusanClient({
   );
 
   // 🎓 Handlers Kelas / Rombel
-  const handleOpenAddClass = () => {
-    const defaultJurusan = jurusan[0]?.code || 'RPL';
+  const handleOpenAddClass = (jurusanCode?: string) => {
+    const defaultJurusan = jurusanCode || (filterClassJurusan !== 'ALL' ? filterClassJurusan : (jurusan[0]?.code || 'RPL'));
+    
+    // Hitung nomor rombel berikutnya untuk jurusan & tingkat X
+    const existingRombels = classes
+      .filter(c => c.jurusanCode.toUpperCase() === defaultJurusan.toUpperCase() && c.level === 'X')
+      .map(c => c.rombel);
+    const nextRombel = existingRombels.length > 0 ? Math.max(...existingRombels) + 1 : 1;
+
     setClassForm({
       level: 'X',
       jurusanCode: defaultJurusan,
-      rombel: 1,
+      rombel: nextRombel,
       waliKelas: teachers[0]?.name || '',
       waliKelasId: teachers[0]?.id || '',
-      room: `Lab ${defaultJurusan}`,
+      room: `Lab ${defaultJurusan} 1`,
       capacity: 36,
     });
     setIsEditingClass(false);
@@ -272,15 +319,31 @@ export default function JurusanClient({
             </p>
           </div>
 
-          {/* Quick Stats Badges */}
-          <div className="flex items-center gap-3">
-            <div className="px-4 py-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm text-center">
-              <div className="text-xs text-gray-400 font-medium">Total Jurusan</div>
-              <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{jurusan.length} Program</div>
+          {/* Quick Stats Badges & Header Actions */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={handleAdd} 
+                className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center gap-1.5 transition-all shadow-sm shadow-emerald-600/30 text-xs sm:text-sm cursor-pointer"
+              >
+                <Plus size={16} /> Tambah Jurusan
+              </button>
+              <button 
+                onClick={() => handleOpenAddClass()} 
+                className="px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center gap-1.5 transition-all shadow-sm shadow-blue-600/30 text-xs sm:text-sm cursor-pointer"
+              >
+                <GraduationCap size={16} /> Tambah Kelas Baru
+              </button>
             </div>
-            <div className="px-4 py-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm text-center">
-              <div className="text-xs text-gray-400 font-medium">Total Rombel</div>
-              <div className="text-lg font-bold text-blue-600 dark:text-blue-400">{totalRombel} Kelas</div>
+            <div className="hidden sm:flex items-center gap-2">
+              <div className="px-3.5 py-1.5 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm text-center">
+                <div className="text-[10px] text-gray-400 font-medium">Total Jurusan</div>
+                <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{jurusan.length} Program</div>
+              </div>
+              <div className="px-3.5 py-1.5 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm text-center">
+                <div className="text-[10px] text-gray-400 font-medium">Total Rombel</div>
+                <div className="text-sm font-bold text-blue-600 dark:text-blue-400">{totalRombel} Kelas</div>
+              </div>
             </div>
           </div>
         </div>
@@ -289,7 +352,7 @@ export default function JurusanClient({
         <div className="flex items-center gap-2 p-1.5 bg-gray-100 dark:bg-gray-800/80 rounded-2xl w-full sm:w-fit border border-gray-200 dark:border-gray-700/80">
           <button
             type="button"
-            onClick={() => setActiveTab('jurusan')}
+            onClick={() => switchTab('jurusan')}
             className={`flex-1 sm:flex-initial px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
               activeTab === 'jurusan'
                 ? 'bg-white dark:bg-gray-900 text-emerald-600 dark:text-emerald-400 shadow-sm shadow-emerald-500/10'
@@ -305,7 +368,7 @@ export default function JurusanClient({
 
           <button
             type="button"
-            onClick={() => setActiveTab('kelas')}
+            onClick={() => switchTab('kelas')}
             className={`flex-1 sm:flex-initial px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
               activeTab === 'kelas'
                 ? 'bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-400 shadow-sm shadow-blue-500/10'
@@ -337,12 +400,20 @@ export default function JurusanClient({
                 <Search className="absolute left-3.5 top-3 text-gray-400" size={18} />
               </div>
 
-              <button 
-                onClick={handleAdd} 
-                className="w-full sm:w-auto px-4 py-2.5 bg-emerald-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm shadow-emerald-600/30 text-sm cursor-pointer"
-              >
-                <Plus size={18} /> Tambah Program Jurusan
-              </button>
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <button 
+                  onClick={handleAdd} 
+                  className="flex-1 sm:flex-initial px-4 py-2.5 bg-emerald-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm shadow-emerald-600/30 text-xs sm:text-sm cursor-pointer"
+                >
+                  <Plus size={16} /> Tambah Program Jurusan
+                </button>
+                <button 
+                  onClick={() => handleOpenAddClass()} 
+                  className="flex-1 sm:flex-initial px-4 py-2.5 bg-blue-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors shadow-sm shadow-blue-600/30 text-xs sm:text-sm cursor-pointer"
+                >
+                  <GraduationCap size={16} /> Tambah Kelas Baru
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -379,16 +450,30 @@ export default function JurusanClient({
                             </span>
                           </td>
                           <td className="p-4">
-                            <div className="flex flex-wrap gap-1">
+                            <div className="flex flex-wrap items-center gap-1.5 max-w-sm">
                               {jurusanClasses.length > 0 ? (
                                 jurusanClasses.map(c => (
-                                  <span key={c.id} className="px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 text-[11px] font-bold border border-blue-200 dark:border-blue-900/40">
+                                  <button
+                                    key={c.id}
+                                    type="button"
+                                    onClick={() => handleOpenEditClass(c)}
+                                    className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 text-[11px] font-bold border border-blue-200 dark:border-blue-900/40 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors cursor-pointer"
+                                    title={`Edit Kelas ${c.name} (Wali: ${c.waliKelas || '-'})`}
+                                  >
                                     {c.name}
-                                  </span>
+                                  </button>
                                 ))
                               ) : (
                                 <span className="text-xs text-amber-500 font-semibold">Belum ada rombel</span>
                               )}
+                              <button
+                                type="button"
+                                onClick={() => handleOpenAddClass(item.code)}
+                                className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-dashed border-emerald-300 dark:border-emerald-800 text-[10px] font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900 flex items-center gap-1 transition-colors cursor-pointer"
+                                title={`Tambah rombel kelas baru khusus jurusan ${item.code}`}
+                              >
+                                <Plus size={11} /> Tambah Kelas
+                              </button>
                             </div>
                           </td>
                           <td className="p-4 text-gray-500 dark:text-gray-400 text-xs max-w-xs truncate">
@@ -398,9 +483,16 @@ export default function JurusanClient({
                             {item.kuota} Kursi
                           </td>
                           <td className="p-4">
-                            <div className="flex items-center justify-center gap-2">
-                              <button onClick={() => handleEdit(item)} className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors cursor-pointer" title="Edit"><Edit2 size={16} /></button>
-                              <button onClick={() => setDeleteTarget(item)} className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors cursor-pointer" title="Hapus"><Trash2 size={16} /></button>
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button 
+                                onClick={() => handleOpenAddClass(item.code)} 
+                                className="p-2 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors cursor-pointer" 
+                                title={`Tambah Kelas untuk ${item.code}`}
+                              >
+                                <GraduationCap size={16} />
+                              </button>
+                              <button onClick={() => handleEdit(item)} className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors cursor-pointer" title="Edit Jurusan"><Edit2 size={16} /></button>
+                              <button onClick={() => setDeleteTarget(item)} className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors cursor-pointer" title="Hapus Jurusan"><Trash2 size={16} /></button>
                             </div>
                           </td>
                         </tr>
@@ -457,7 +549,7 @@ export default function JurusanClient({
               </div>
 
               <button 
-                onClick={handleOpenAddClass} 
+                onClick={() => handleOpenAddClass()} 
                 className="w-full sm:w-auto px-4 py-2.5 bg-blue-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors shadow-sm shadow-blue-600/30 text-sm cursor-pointer"
               >
                 <Plus size={18} /> Tambah Kelas / Rombel Baru
@@ -618,13 +710,126 @@ export default function JurusanClient({
                 <div>
                   <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">Deskripsi Singkat</label>
                   <textarea 
-                    rows={3}
+                    rows={2}
                     value={formData.description} 
                     onChange={e => setFormData({...formData, description: e.target.value})} 
                     className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-emerald-500 outline-none" 
                     placeholder="Jelaskan keunggulan kompetensi keahlian ini..."
                   />
                 </div>
+
+                {/* 🎓 Pengaturan Rombel Kelas Otomatis (Saat Tambah Jurusan Baru) */}
+                {!isEditing && (
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-50/70 to-indigo-50/70 dark:from-blue-950/40 dark:to-indigo-950/40 border border-blue-200 dark:border-blue-900/60 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <GraduationCap size={18} className="text-blue-600 dark:text-blue-400" />
+                        <div>
+                          <span className="text-xs font-bold text-gray-900 dark:text-white block">
+                            Buat Rombel Kelas Otomatis
+                          </span>
+                          <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                            Sistem akan otomatis membuatkan kelas untuk jurusan ini
+                          </span>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={autoCreateClasses} 
+                          onChange={e => setAutoCreateClasses(e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-10 h-5 bg-gray-300 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+
+                    {autoCreateClasses && (
+                      <div className="space-y-3 pt-3 border-t border-blue-200/80 dark:border-blue-900/60 animate-in fade-in">
+                        <div>
+                          <label className="block text-[11px] font-bold text-gray-700 dark:text-gray-300 mb-1.5">
+                            Pilih Tingkat Kelas:
+                          </label>
+                          <div className="flex items-center gap-2">
+                            {(['X', 'XI', 'XII'] as const).map(lvl => {
+                              const isSelected = selectedLevels.includes(lvl);
+                              return (
+                                <button
+                                  key={lvl}
+                                  type="button"
+                                  onClick={() => {
+                                    if (isSelected) {
+                                      if (selectedLevels.length > 1) {
+                                        setSelectedLevels(selectedLevels.filter(l => l !== lvl));
+                                      }
+                                    } else {
+                                      setSelectedLevels([...selectedLevels, lvl]);
+                                    }
+                                  }}
+                                  className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                    isSelected 
+                                      ? 'bg-blue-600 text-white shadow-sm' 
+                                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 hover:bg-gray-100'
+                                  }`}
+                                >
+                                  Kelas {lvl}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[11px] font-bold text-gray-700 dark:text-gray-300 mb-1">
+                              Jumlah Rombel / Tingkat:
+                            </label>
+                            <select
+                              value={rombelPerLevel}
+                              onChange={e => setRombelPerLevel(Number(e.target.value))}
+                              className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-bold text-gray-900 dark:text-white outline-none cursor-pointer"
+                            >
+                              <option value={1}>1 Rombel</option>
+                              <option value={2}>2 Rombel</option>
+                              <option value={3}>3 Rombel</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-bold text-gray-700 dark:text-gray-300 mb-1">
+                              Ruang Belajar / Lab:
+                            </label>
+                            <input
+                              type="text"
+                              value={classRoomDefault}
+                              onChange={e => setClassRoomDefault(e.target.value)}
+                              placeholder={`Lab ${(formData.code || 'Jurusan').trim()}`}
+                              className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-semibold text-gray-900 dark:text-white outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Live preview badges of classes that will be created */}
+                        <div className="p-2.5 rounded-xl bg-white/90 dark:bg-gray-800/90 border border-blue-200/60 dark:border-blue-900/40">
+                          <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold block mb-1">
+                            ✨ Pratinjau Kelas Otomatis Dibuat:
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {selectedLevels.map(lvl => 
+                              Array.from({ length: rombelPerLevel }).map((_, i) => (
+                                <span 
+                                  key={`${lvl}-${i+1}`} 
+                                  className="px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200 text-[10px] font-mono font-bold border border-blue-200 dark:border-blue-800"
+                                >
+                                  {lvl} {(formData.code || 'KODE').trim()} {i + 1}
+                                </span>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="pt-3 flex justify-end gap-3 border-t border-gray-100 dark:border-gray-800">
                   <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-gray-600 bg-gray-100 rounded-xl text-xs font-semibold">Batal</button>
                   <button 

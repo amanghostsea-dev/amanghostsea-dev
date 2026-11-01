@@ -16,30 +16,41 @@ export async function createJurusan(data: any) {
       },
     });
 
-    // Otomatis buatkan rombel kelas standar (X, XI, XII) untuk jurusan baru ini
-    try {
-      const currentClasses = await getManagedClasses();
-      const levels: ('X' | 'XI' | 'XII')[] = ['X', 'XI', 'XII'];
-      const updatedClasses = [...currentClasses];
+    let currentClasses = await getManagedClasses();
+    // Otomatis buatkan rombel kelas sesuai konfigurasi admin untuk jurusan baru ini
+    if (data.autoCreateClasses !== false) {
+      try {
+        const levels: ('X' | 'XI' | 'XII')[] = (Array.isArray(data.selectedLevels) && data.selectedLevels.length > 0)
+          ? data.selectedLevels
+          : ['X', 'XI', 'XII'];
+        const rombelCount = Math.max(1, Math.min(5, Number(data.rombelCount) || 1));
+        const capacity = Number(data.classCapacity) || 36;
+        const room = (data.classRoom && data.classRoom.trim()) ? data.classRoom.trim() : `Ruang ${code}`;
+        const updatedClasses = [...currentClasses];
 
-      for (const lvl of levels) {
-        const classId = `cls-${lvl.toLowerCase()}-${code.toLowerCase()}-1`;
-        if (!updatedClasses.some(c => c.id === classId || c.name === `${lvl} ${code} 1`)) {
-          updatedClasses.push({
-            id: classId,
-            name: `${lvl} ${code} 1`,
-            level: lvl,
-            jurusanCode: code,
-            rombel: 1,
-            waliKelas: 'Guru Pengampu',
-            room: `Ruang ${code} ${lvl}`,
-            capacity: 36,
-          });
+        for (const lvl of levels) {
+          for (let r = 1; r <= rombelCount; r++) {
+            const classId = `cls-${lvl.toLowerCase()}-${code.toLowerCase()}-${r}`;
+            const className = `${lvl} ${code} ${r}`;
+            if (!updatedClasses.some(c => c.id === classId || c.name === className)) {
+              updatedClasses.push({
+                id: classId,
+                name: className,
+                level: lvl,
+                jurusanCode: code,
+                rombel: r,
+                waliKelas: 'Guru Pengampu',
+                room: `${room} ${lvl}-${r}`,
+                capacity: capacity,
+              });
+            }
+          }
         }
+        await saveManagedClasses(updatedClasses);
+        currentClasses = updatedClasses;
+      } catch (e) {
+        console.error('Error auto-creating classes for new jurusan:', e);
       }
-      await saveManagedClasses(updatedClasses);
-    } catch (e) {
-      console.error('Error auto-creating classes for new jurusan:', e);
     }
 
     revalidatePath('/admin/jurusan');
@@ -50,7 +61,7 @@ export async function createJurusan(data: any) {
     revalidatePath('/portal/guru/kelas');
     revalidatePath('/ppdb');
     revalidatePath('/');
-    return { success: true, data: newJurusan };
+    return { success: true, data: newJurusan, classes: currentClasses };
   } catch (error: any) {
     return { error: error.message };
   }
