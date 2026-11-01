@@ -22,7 +22,8 @@ import {
   FileText, 
   Sparkles, 
   CheckCircle2,
-  GraduationCap
+  GraduationCap,
+  Layers
 } from 'lucide-react';
 import { createUser, updateUser, deleteUser, createBulkStudents, BulkStudentItem } from './actions';
 import ConfirmModal from '@/components/ConfirmModal';
@@ -36,7 +37,27 @@ interface ParsedBulkStudent {
   error?: string;
 }
 
-export default function UsersCRUD({ initialUsers }: { initialUsers: User[] }) {
+export interface JurusanOption {
+  id: string;
+  name: string;
+  code: string;
+  kuota: number;
+  description: string;
+}
+
+export interface UsersCRUDProps {
+  initialUsers: User[];
+  jurusans?: JurusanOption[];
+  classTargets?: string[];
+  studentClassMap?: Record<string, string>;
+}
+
+export default function UsersCRUD({ 
+  initialUsers,
+  jurusans = [],
+  classTargets = [],
+  studentClassMap = {},
+}: UsersCRUDProps) {
   const [users, setUsers] = useState<User[]>(initialUsers || []);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({ 
@@ -46,8 +67,10 @@ export default function UsersCRUD({ initialUsers }: { initialUsers: User[] }) {
     role: 'Siswa', 
     status: 'Aktif', 
     password: '',
-    nisn: '' 
+    nisn: '',
+    studentClass: 'XI RPL 1',
   });
+  const [selectedJurusanCode, setSelectedJurusanCode] = useState(jurusans[0]?.code || 'RPL');
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
@@ -58,6 +81,7 @@ export default function UsersCRUD({ initialUsers }: { initialUsers: User[] }) {
   const [bulkText, setBulkText] = useState('');
   const [bulkDefaultPassword, setBulkDefaultPassword] = useState('siswa123');
   const [bulkPasswordMode, setBulkPasswordMode] = useState<'default' | 'nisn'>('default');
+  const [bulkClass, setBulkClass] = useState('XI RPL 1');
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkResult, setBulkResult] = useState<{
     success: boolean;
@@ -68,13 +92,44 @@ export default function UsersCRUD({ initialUsers }: { initialUsers: User[] }) {
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Available classes for selected jurusan
+  const availableClassesForJurusan = useMemo(() => {
+    const filtered = classTargets.filter(c => 
+      c !== 'Semua Kelas' && c.toUpperCase().includes(selectedJurusanCode.toUpperCase())
+    );
+    if (filtered.length > 0) return filtered;
+    return [`X ${selectedJurusanCode} 1`, `XI ${selectedJurusanCode} 1`, `XII ${selectedJurusanCode} 1`];
+  }, [classTargets, selectedJurusanCode]);
+
+  const handleJurusanChange = (code: string) => {
+    setSelectedJurusanCode(code);
+    const matchedClass = classTargets.find(c => c !== 'Semua Kelas' && c.toUpperCase().includes(code.toUpperCase())) || `XI ${code} 1`;
+    setFormData(prev => ({ ...prev, studentClass: matchedClass }));
+  };
+
   const handleAdd = () => {
-    setFormData({ id: '', name: '', username: '', role: 'Siswa', status: 'Aktif', password: '', nisn: '' });
+    const defaultJurusan = jurusans[0]?.code || 'RPL';
+    setSelectedJurusanCode(defaultJurusan);
+    const defaultClass = classTargets.find(c => c !== 'Semua Kelas' && c.toUpperCase().includes(defaultJurusan.toUpperCase())) || `XI ${defaultJurusan} 1`;
+    setFormData({ 
+      id: '', 
+      name: '', 
+      username: '', 
+      role: 'Siswa', 
+      status: 'Aktif', 
+      password: '', 
+      nisn: '',
+      studentClass: defaultClass,
+    });
     setIsEditing(false);
     setIsModalOpen(true);
   };
 
   const handleEdit = (item: User) => {
+    const userClass = studentClassMap[item.name] || (item.nisn && studentClassMap[item.nisn]) || 'XI RPL 1';
+    const matchedJurusan = jurusans.find(j => userClass.toUpperCase().includes(j.code.toUpperCase()))?.code || jurusans[0]?.code || 'RPL';
+    setSelectedJurusanCode(matchedJurusan);
+
     setFormData({ 
       id: item.id,
       name: item.name,
@@ -82,7 +137,8 @@ export default function UsersCRUD({ initialUsers }: { initialUsers: User[] }) {
       role: item.role,
       status: item.status,
       password: '',
-      nisn: item.nisn || ''
+      nisn: item.nisn || '',
+      studentClass: userClass,
     });
     setIsEditing(true);
     setIsModalOpen(true);
@@ -114,6 +170,10 @@ export default function UsersCRUD({ initialUsers }: { initialUsers: User[] }) {
         const res = await updateUser(formData.id, formData);
         if (res?.success && res.data) {
           setUsers(users.map(u => u.id === formData.id ? res.data : u));
+          if (formData.role === 'Siswa' && formData.studentClass) {
+            studentClassMap[formData.name] = formData.studentClass;
+            if (formData.nisn) studentClassMap[formData.nisn] = formData.studentClass;
+          }
           setIsModalOpen(false);
         } else if (res?.error) {
           alert(res.error);
@@ -123,6 +183,10 @@ export default function UsersCRUD({ initialUsers }: { initialUsers: User[] }) {
         const res = await createUser(formData);
         if (res?.success && res.data) {
           setUsers([res.data, ...users]);
+          if (formData.role === 'Siswa' && formData.studentClass) {
+            studentClassMap[formData.name] = formData.studentClass;
+            if (formData.nisn) studentClassMap[formData.nisn] = formData.studentClass;
+          }
           setIsModalOpen(false);
         } else if (res?.error) {
           alert(res.error);
@@ -150,18 +214,16 @@ export default function UsersCRUD({ initialUsers }: { initialUsers: User[] }) {
         continue;
       }
 
-      // Detect separator: Tab, Semicolon, Comma, Pipe
+      // Support tab, comma, semicolon, or multiple spaces as delimiters
       let parts: string[] = [];
       if (line.includes('\t')) {
         parts = line.split('\t');
       } else if (line.includes(';')) {
         parts = line.split(';');
-      } else if (line.includes('|')) {
-        parts = line.split('|');
       } else if (line.includes(',')) {
         parts = line.split(',');
       } else {
-        // Space separated if only 2 parts (NISN and Name)
+        // Match 10-digit number followed by name
         const match = line.match(/^(\d{8,12})\s+(.+)$/);
         if (match) {
           parts = [match[1], match[2]];
@@ -171,62 +233,44 @@ export default function UsersCRUD({ initialUsers }: { initialUsers: User[] }) {
       }
 
       parts = parts.map(p => p.trim()).filter(Boolean);
-      if (parts.length === 0) continue;
 
       let nisn = '';
       let name = '';
-      let customPassword = '';
 
-      if (parts.length === 1) {
-        // Only one piece of data
-        if (/^\d{8,12}$/.test(parts[0])) {
+      if (parts.length >= 2) {
+        // Detect which part is the NISN (numeric)
+        if (/^\d+$/.test(parts[0])) {
           nisn = parts[0];
-          name = '';
-        } else {
-          name = parts[0];
-        }
-      } else if (parts.length === 2) {
-        // E.g. [0071234567, "Ahmad Fauzi"] or ["Ahmad Fauzi", 0071234567]
-        if (/^\d{6,14}$/.test(parts[0])) {
-          nisn = parts[0];
-          name = parts[1];
-        } else if (/^\d{6,14}$/.test(parts[1])) {
-          name = parts[0];
-          nisn = parts[1];
+          name = parts.slice(1).join(' ');
+        } else if (/^\d+$/.test(parts[parts.length - 1])) {
+          nisn = parts[parts.length - 1];
+          name = parts.slice(0, -1).join(' ');
         } else {
           nisn = parts[0];
           name = parts[1];
         }
-      } else {
-        // 3 or more parts: [NISN, Name, Password] or [Name, NISN, Password]
-        if (/^\d{6,14}$/.test(parts[0])) {
-          nisn = parts[0];
-          name = parts[1];
-          customPassword = parts[2] || '';
-        } else {
-          name = parts[0];
-          nisn = parts[1];
-          customPassword = parts[2] || '';
-        }
+      } else if (parts.length === 1) {
+        name = parts[0];
       }
 
-      // Validation
       let isValid = true;
       let error = '';
 
       if (!name) {
         isValid = false;
-        error = 'Nama siswa kosong';
+        error = 'Nama tidak boleh kosong';
       } else if (!nisn) {
         isValid = false;
-        error = 'NISN kosong';
+        error = 'NISN tidak boleh kosong';
       } else if (!/^\d{8,12}$/.test(nisn)) {
         isValid = false;
-        error = 'Format NISN harus angka (8-12 digit)';
+        error = 'NISN harus 8-12 angka';
       } else if (seenNisns.has(nisn)) {
         isValid = false;
-        error = 'Duplikat NISN dalam daftar';
-      } else {
+        error = 'Duplikat dalam daftar impor';
+      }
+
+      if (nisn) {
         seenNisns.add(nisn);
       }
 
@@ -234,7 +278,6 @@ export default function UsersCRUD({ initialUsers }: { initialUsers: User[] }) {
         name,
         nisn,
         username: nisn,
-        password: customPassword,
         isValid,
         error,
       });
@@ -243,6 +286,10 @@ export default function UsersCRUD({ initialUsers }: { initialUsers: User[] }) {
     return results;
   }, [bulkText]);
 
+  const validStudentsCount = parsedBulkStudents.filter(s => s.isValid).length;
+  const invalidStudentsCount = parsedBulkStudents.length - validStudentsCount;
+
+  // Handle CSV file upload
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -252,46 +299,48 @@ export default function UsersCRUD({ initialUsers }: { initialUsers: User[] }) {
       const content = event.target?.result as string;
       if (content) {
         setBulkText(content);
+        setBulkResult(null);
       }
     };
     reader.readAsText(file);
-    // Reset file input
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    // Reset file input value to allow re-uploading the same file
+    e.target.value = '';
   };
 
+  // Download sample CSV template
   const handleDownloadCsvTemplate = () => {
-    const csvContent = 
-      "NISN,Nama Siswa,Password (Opsional)\n" +
-      "0071234501,Ahmad Fauzi Pratama,siswa123\n" +
-      "0071234502,Budi Santoso,siswa123\n" +
-      "0071234503,Citra Dewi Lestari,siswa123\n" +
-      "0071234504,Dimas Wahyu Ramadhan,siswa123\n" +
-      "0071234505,Eka Putri Maharani,siswa123";
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const templateContent = "NISN,Nama Lengkap\n0071234501,Ahmad Fauzi Pratama\n0071234502,Budi Santoso\n0071234503,Citra Dewi Lestari\n0071234504,Dwi Kurniawan\n0071234505,Eka Putri Rahayu\n";
+    const blob = new Blob([templateContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'Template_Import_Siswa_SMK.csv');
+    link.href = url;
+    link.setAttribute('download', 'template_import_siswa_smk.csv');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
+  // Load demo dummy data
   const handleLoadSampleData = () => {
-    setBulkText(
-      "0071234501\tAhmad Fauzi Pratama\n" +
-      "0071234502\tBudi Santoso\n" +
-      "0071234503\tCitra Dewi Lestari\n" +
-      "0071234504\tDimas Wahyu Ramadhan\n" +
-      "0071234505\tEka Putri Maharani"
-    );
+    const sample = `0081122331\tAditia Pratama Putra
+0081122332\tAnnisa Bella Safitri
+0081122333\tBagas Arya Yudha
+0081122334\tCantika Putri Wulandari
+0081122335\tDimas Wahyu Nugroho
+0081122336\tFajar Ramadhan Saputra
+0081122337\tGita Maya Anggraini
+0081122338\tHendra Saputra Jaya
+0081122339\tIndah Permata Sari
+0081122340\tJoko Wicaksono`;
+    setBulkText(sample);
+    setBulkResult(null);
   };
 
-  const handleExecuteBulkImport = async () => {
+  // Process Bulk Submit
+  const handleBulkSubmit = async () => {
     const validStudents = parsedBulkStudents.filter(s => s.isValid);
     if (validStudents.length === 0) {
-      alert('Tidak ada data siswa valid untuk diimpor. Periksa kembali nama dan NISN.');
+      alert('Tidak ada data siswa yang valid untuk diimpor.');
       return;
     }
 
@@ -310,6 +359,7 @@ export default function UsersCRUD({ initialUsers }: { initialUsers: User[] }) {
         defaultPassword: bulkDefaultPassword,
         useNisnAsPassword: bulkPasswordMode === 'nisn',
         useNisnAsUsername: true,
+        studentClass: bulkClass,
       });
 
       if (res?.success) {
@@ -322,6 +372,10 @@ export default function UsersCRUD({ initialUsers }: { initialUsers: User[] }) {
         });
         if (res.createdUsers && res.createdUsers.length > 0) {
           setUsers(prev => [...(res.createdUsers as User[]), ...prev]);
+          for (const u of res.createdUsers) {
+            studentClassMap[u.name] = bulkClass;
+            if (u.nisn) studentClassMap[u.nisn] = bulkClass;
+          }
         }
       } else {
         alert(res?.error || 'Gagal melakukan import siswa.');
@@ -349,9 +403,10 @@ export default function UsersCRUD({ initialUsers }: { initialUsers: User[] }) {
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <Users className="text-indigo-600 dark:text-indigo-400" /> Manajemen Akun Pengguna
-            </h1>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-xs font-semibold mb-2">
+              <Users size={14} /> Hak Akses & Akun Pengguna
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Manajemen Akun</h1>
             <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
               Kelola data login siswa, guru, dan administrator SMK ({totalSiswa} akun siswa terdaftar)
             </p>
@@ -400,20 +455,20 @@ export default function UsersCRUD({ initialUsers }: { initialUsers: User[] }) {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-gray-50 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-gray-800 text-sm">
-                  <th className="p-4 font-semibold">Nama Lengkap & NISN</th>
-                  <th className="p-4 font-semibold">Username Login</th>
-                  <th className="p-4 font-semibold">Password</th>
-                  <th className="p-4 font-semibold">Role (Peran)</th>
-                  <th className="p-4 font-semibold">Status</th>
-                  <th className="p-4 font-semibold text-center">Aksi</th>
+                <tr className="bg-gray-50/50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider font-semibold border-b border-gray-200 dark:border-gray-800">
+                  <th className="p-4">Nama Lengkap & NISN</th>
+                  <th className="p-4">Username Login</th>
+                  <th className="p-4">Password Awal</th>
+                  <th className="p-4">Peran (Role)</th>
+                  <th className="p-4">Status</th>
+                  <th className="p-4 text-center">Aksi</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800 text-sm">
                 {filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-12 text-center text-gray-400">
-                      Tidak ada pengguna ditemukan.
+                    <td colSpan={6} className="text-center py-12 text-gray-400 dark:text-gray-500">
+                      Tidak ada akun pengguna yang cocok dengan pencarian
                     </td>
                   </tr>
                 ) : (
@@ -421,12 +476,21 @@ export default function UsersCRUD({ initialUsers }: { initialUsers: User[] }) {
                     <tr key={item.id} className="hover:bg-gray-50/80 dark:hover:bg-gray-800/40 transition-colors">
                       <td className="p-4">
                         <div className="font-semibold text-gray-900 dark:text-white">{item.name}</div>
-                        {item.nisn ? (
-                          <div className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                            NISN: {item.nisn}
+                        {item.role === 'Siswa' ? (
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                            {item.nisn ? (
+                              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                                NISN: {item.nisn}
+                              </div>
+                            ) : (
+                              <span className="text-[11px] text-amber-600 dark:text-amber-400 font-mono">NISN: Belum diisi</span>
+                            )}
+                            {(studentClassMap[item.name] || (item.nisn && studentClassMap[item.nisn])) && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                                {studentClassMap[item.name] || (item.nisn && studentClassMap[item.nisn])}
+                              </span>
+                            )}
                           </div>
-                        ) : item.role === 'Siswa' ? (
-                          <span className="text-[11px] text-amber-600 dark:text-amber-400 font-mono block mt-0.5">NISN: Belum diisi</span>
                         ) : null}
                       </td>
                       <td className="p-4 text-gray-600 dark:text-gray-300 font-mono text-sm font-medium">
@@ -513,9 +577,9 @@ export default function UsersCRUD({ initialUsers }: { initialUsers: User[] }) {
                   </div>
                 </div>
 
-                {/* NISN Input Khusus Siswa */}
+                {/* NISN & Jurusan Khusus Siswa */}
                 {formData.role === 'Siswa' && (
-                  <div className="p-4 bg-purple-50/70 dark:bg-purple-950/30 rounded-xl border border-purple-200 dark:border-purple-900/50 space-y-2">
+                  <div className="p-4 bg-purple-50/70 dark:bg-purple-950/30 rounded-xl border border-purple-200 dark:border-purple-900/50 space-y-3">
                     <div className="flex items-center justify-between">
                       <label className="block text-xs font-bold text-purple-950 dark:text-purple-300 flex items-center gap-1.5">
                         <GraduationCap size={15} /> NISN Siswa (Nomor Induk Siswa Nasional)
@@ -548,6 +612,43 @@ export default function UsersCRUD({ initialUsers }: { initialUsers: User[] }) {
                           Gunakan sebagai username
                         </button>
                       )}
+                    </div>
+
+                    {/* Dropdown Jurusan & Rombel Kelas untuk Siswa */}
+                    <div className="pt-3 border-t border-purple-200/80 dark:border-purple-800/40 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-purple-950 dark:text-purple-300 mb-1 flex items-center gap-1">
+                          <Layers size={13} className="text-purple-600" /> Program Keahlian (Jurusan) *
+                        </label>
+                        <select
+                          value={selectedJurusanCode}
+                          onChange={(e) => handleJurusanChange(e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg border border-purple-300 dark:border-purple-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-xs font-semibold focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
+                        >
+                          {jurusans.map((j) => (
+                            <option key={j.id} value={j.code}>
+                              {j.code} - {j.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-purple-950 dark:text-purple-300 mb-1 flex items-center gap-1">
+                          <GraduationCap size={13} className="text-purple-600" /> Target Kelas Siswa *
+                        </label>
+                        <select
+                          value={formData.studentClass}
+                          onChange={(e) => setFormData(prev => ({ ...prev, studentClass: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-lg border border-purple-300 dark:border-purple-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-xs font-bold text-purple-700 dark:text-purple-300 focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
+                        >
+                          {availableClassesForJurusan.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -688,6 +789,28 @@ export default function UsersCRUD({ initialUsers }: { initialUsers: User[] }) {
                   </button>
                 </div>
 
+                {/* Pilihan Target Kelas untuk Impor Massal */}
+                <div className="p-3.5 bg-purple-50/70 dark:bg-purple-950/30 rounded-2xl border border-purple-200 dark:border-purple-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-purple-950 dark:text-purple-300 flex items-center gap-1.5">
+                      <Layers size={14} className="text-purple-600" />
+                      Jurusan & Kelas Siswa Impor Kolektif:
+                    </label>
+                    <p className="text-[11px] text-purple-700/80 dark:text-purple-400">
+                      Seluruh siswa yang diimpor akan langsung terdaftar di kelas jurusan ini
+                    </p>
+                  </div>
+                  <select
+                    value={bulkClass}
+                    onChange={(e) => setBulkClass(e.target.value)}
+                    className="px-3.5 py-2 bg-white dark:bg-gray-900 border border-purple-300 dark:border-purple-700 rounded-xl text-xs font-bold text-purple-700 dark:text-purple-300 focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
+                  >
+                    {classTargets.filter(c => c !== 'Semua Kelas').map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+
                 {/* Textarea Input */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -748,133 +871,115 @@ export default function UsersCRUD({ initialUsers }: { initialUsers: User[] }) {
                         className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white font-mono text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
                         placeholder="siswa123"
                       />
-                      <p className="text-[11px] text-gray-500 mt-1">Siswa dapat mengganti password setelah berhasil login.</p>
                     </div>
                   )}
                 </div>
 
-                {/* Live Preview Table */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                      <FileSpreadsheet size={16} className="text-indigo-600" />
-                      Pratinjau Akun ({parsedBulkStudents.length} baris terdeteksi)
-                    </h4>
-                    <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-1 bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-300 font-bold rounded-lg text-xs">
-                        {parsedBulkStudents.filter(s => s.isValid).length} Valid
-                      </span>
-                      {parsedBulkStudents.filter(s => !s.isValid).length > 0 && (
-                        <span className="px-2.5 py-1 bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-300 font-bold rounded-lg text-xs">
-                          {parsedBulkStudents.filter(s => !s.isValid).length} Tidak Valid
+                {/* Live Preview parsed table */}
+                {parsedBulkStudents.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                        <FileSpreadsheet size={16} className="text-purple-600" />
+                        <span>Pratinjau Data ({parsedBulkStudents.length} baris terdeteksi)</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-semibold font-mono">
+                          {validStudentsCount} Valid
                         </span>
-                      )}
+                        {invalidStudentsCount > 0 && (
+                          <span className="px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 font-semibold font-mono">
+                            {invalidStudentsCount} Error
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden max-h-56 overflow-y-auto">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead className="sticky top-0 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 z-10">
-                        <tr>
-                          <th className="p-3 font-bold w-12 text-center">No</th>
-                          <th className="p-3 font-bold">NISN</th>
-                          <th className="p-3 font-bold">Nama Lengkap Siswa</th>
-                          <th className="p-3 font-bold">Username Login</th>
-                          <th className="p-3 font-bold">Password</th>
-                          <th className="p-3 font-bold text-center">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 dark:divide-gray-800 font-mono">
-                        {parsedBulkStudents.length === 0 ? (
+                    <div className="border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden max-h-56 overflow-y-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-gray-50 dark:bg-gray-800/80 sticky top-0 text-gray-500 font-semibold border-b border-gray-200 dark:border-gray-800">
                           <tr>
-                            <td colSpan={6} className="p-8 text-center text-gray-400 font-sans">
-                              Belum ada data. Silakan paste baris nama dan NISN di kotak atas atau klik &quot;Muat Contoh Data&quot;.
-                            </td>
+                            <th className="p-2.5 pl-4 w-12 text-center">No</th>
+                            <th className="p-2.5">Nama Siswa</th>
+                            <th className="p-2.5 font-mono">NISN</th>
+                            <th className="p-2.5 font-mono">Username</th>
+                            <th className="p-2.5 pr-4 text-right">Status</th>
                           </tr>
-                        ) : (
-                          parsedBulkStudents.map((item, idx) => (
-                            <tr key={idx} className={item.isValid ? "hover:bg-gray-50/60 dark:hover:bg-gray-800/40" : "bg-red-50/50 dark:bg-red-950/20"}>
-                              <td className="p-3 text-center text-gray-500">{idx + 1}</td>
-                              <td className="p-3 font-bold text-indigo-600 dark:text-indigo-400">{item.nisn || '-'}</td>
-                              <td className="p-3 font-sans font-medium text-gray-900 dark:text-white">{item.name || '-'}</td>
-                              <td className="p-3 text-gray-600 dark:text-gray-400">{item.username || '-'}</td>
-                              <td className="p-3 text-gray-500">
-                                {item.password || (bulkPasswordMode === 'nisn' ? item.nisn : bulkDefaultPassword)}
-                              </td>
-                              <td className="p-3 text-center font-sans">
-                                {item.isValid ? (
-                                  <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400 font-bold text-[11px]">
-                                    <Check size={14} /> Siap
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                          {parsedBulkStudents.map((s, idx) => (
+                            <tr key={idx} className={s.isValid ? 'hover:bg-gray-50/50 dark:hover:bg-gray-800/30' : 'bg-red-50/40 dark:bg-red-950/20'}>
+                              <td className="p-2.5 pl-4 text-center text-gray-400 font-mono">{idx + 1}</td>
+                              <td className="p-2.5 font-semibold text-gray-900 dark:text-white">{s.name || '-'}</td>
+                              <td className="p-2.5 font-mono text-gray-700 dark:text-gray-300">{s.nisn || '-'}</td>
+                              <td className="p-2.5 font-mono text-gray-500 dark:text-gray-400">{s.username || '-'}</td>
+                              <td className="p-2.5 pr-4 text-right">
+                                {s.isValid ? (
+                                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center justify-end gap-1">
+                                    <Check size={13} /> Siap
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400 font-bold text-[11px]" title={item.error}>
-                                    <AlertCircle size={14} /> {item.error}
+                                  <span className="text-[11px] text-red-600 dark:text-red-400 font-semibold flex items-center justify-end gap-1" title={s.error}>
+                                    <AlertCircle size={13} /> {s.error}
                                   </span>
                                 )}
                               </td>
                             </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
-
+                )}
               </div>
 
               {/* Modal Footer */}
-              <div className="p-6 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-gray-800/40">
+              <div className="p-6 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/50">
                 <button
                   type="button"
                   onClick={() => setIsBulkModalOpen(false)}
-                  className="px-5 py-2.5 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl font-medium transition-colors text-sm"
+                  className="px-5 py-2.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-semibold transition-colors"
                 >
-                  Tutup
+                  Batal
                 </button>
 
-                <button
-                  type="button"
-                  onClick={handleExecuteBulkImport}
-                  disabled={bulkLoading || parsedBulkStudents.filter(s => s.isValid).length === 0}
-                  className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 text-white rounded-xl font-bold flex items-center gap-2 text-sm shadow-md shadow-indigo-600/30 transition-all"
-                >
-                  {bulkLoading ? (
-                    <>
-                      <Loader2 size={18} className="animate-spin" /> Sedang Mengimpor...
-                    </>
-                  ) : (
-                    <>
-                      <Check size={18} />
-                      Simpan {parsedBulkStudents.filter(s => s.isValid).length} Akun Siswa Sekarang
-                    </>
-                  )}
-                </button>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-gray-500 hidden sm:inline">
+                    {validStudentsCount > 0 ? `${validStudentsCount} siswa siap diimport` : 'Isi data terlebih dahulu'}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={validStudentsCount === 0 || bulkLoading}
+                    onClick={handleBulkSubmit}
+                    className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold rounded-xl shadow-md shadow-indigo-600/25 active:scale-95 transition-all flex items-center gap-2"
+                  >
+                    {bulkLoading ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" /> Memproses Import...
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus size={16} /> Import {validStudentsCount > 0 ? `${validStudentsCount} Siswa` : ''}
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
             </div>
           </div>
         )}
 
-        {/* Modern 3D Confirm Modal */}
+        {/* Delete Confirmation Modal */}
         <ConfirmModal
           isOpen={!!deleteTarget}
-          onClose={() => setDeleteTarget(null)}
-          onConfirm={handleConfirmDelete}
+          title="Hapus Pengguna"
+          message={`Apakah Anda yakin ingin menghapus akun "${deleteTarget?.name}"? Tindakan ini tidak dapat dibatalkan.`}
+          confirmText="Ya, Hapus"
           isLoading={isDeleting}
-          title="Hapus Akun Pengguna?"
-          message={
-            <span>
-              Apakah Anda yakin ingin menghapus akun pengguna{' '}
-              <strong className="text-slate-900 dark:text-white font-bold">
-                {deleteTarget?.name} (@{deleteTarget?.username})
-              </strong>
-              {deleteTarget?.nisn && <span> dengan NISN <strong className="font-mono">{deleteTarget.nisn}</strong></span>}
-              ? Pengguna ini tidak akan dapat login lagi ke dalam sistem.
-            </span>
-          }
-          confirmText="Ya, Hapus Akun"
-          cancelText="Batalkan"
           variant="danger"
+          onConfirm={handleConfirmDelete}
+          onClose={() => setDeleteTarget(null)}
         />
       </div>
     </div>

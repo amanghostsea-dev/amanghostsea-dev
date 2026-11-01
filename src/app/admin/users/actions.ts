@@ -18,6 +18,7 @@ export async function createUser(data: {
   status: string;
   nisn?: string | null;
   password?: string;
+  studentClass?: string | null;
 }) {
   await requireSuperAdmin();
   try {
@@ -56,7 +57,50 @@ export async function createUser(data: {
         password,
       }
     });
+
+    // Jika role Siswa dan ada kelas/jurusan, sinkronkan ke buku nilai rapor (StudentGrade)
+    if (data.role === 'Siswa' && data.studentClass) {
+      try {
+        const activeSubjects = await prisma.subject.findMany({
+          where: { status: 'ACTIVE' },
+          select: { id: true, classTarget: true, teacherName: true },
+        });
+
+        if (activeSubjects.length > 0) {
+          for (const subj of activeSubjects) {
+            await prisma.studentGrade.upsert({
+              where: {
+                subjectId_studentName: {
+                  subjectId: subj.id,
+                  studentName: data.name.trim(),
+                },
+              },
+              update: {
+                studentNis: nisn || username,
+                studentClass: data.studentClass,
+              },
+              create: {
+                subjectId: subj.id,
+                studentName: data.name.trim(),
+                studentNis: nisn || username,
+                studentClass: data.studentClass,
+                assignment: 85,
+                midExam: 80,
+                finalExam: 85,
+                finalGrade: 'A',
+                updatedBy: 'Admin Utama',
+              },
+            });
+          }
+        }
+      } catch (gradeErr) {
+        console.error('Error linking student class to StudentGrade in createUser:', gradeErr);
+      }
+    }
+
     revalidatePath('/admin/users');
+    revalidatePath('/portal/guru/kelas');
+    revalidatePath('/portal/guru/nilai');
     return { success: true, data: newUser };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -71,6 +115,7 @@ export async function updateUser(id: string, data: {
   status: string;
   nisn?: string | null;
   password?: string;
+  studentClass?: string | null;
 }) {
   await requireSuperAdmin();
   try {
@@ -118,7 +163,22 @@ export async function updateUser(id: string, data: {
       where: { id },
       data: updateData
     });
+
+    // Jika role Siswa dan ada kelas/jurusan, perbarui kelas di buku rapor (StudentGrade)
+    if (data.role === 'Siswa' && data.studentClass) {
+      try {
+        await prisma.studentGrade.updateMany({
+          where: { studentName: data.name.trim() },
+          data: { studentClass: data.studentClass },
+        });
+      } catch (gradeErr) {
+        console.error('Error updating student class in StudentGrade:', gradeErr);
+      }
+    }
+
     revalidatePath('/admin/users');
+    revalidatePath('/portal/guru/kelas');
+    revalidatePath('/portal/guru/nilai');
     return { success: true, data: updated };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -129,10 +189,20 @@ export async function updateUser(id: string, data: {
 export async function deleteUser(id: string) {
   await requireSuperAdmin();
   try {
-    await prisma.user.delete({
-      where: { id }
-    });
+    const user = await prisma.user.findUnique({ where: { id } });
+    await prisma.user.delete({ where: { id } });
+
+    // Hapus juga grade terkait jika siswa dihapus
+    if (user?.role === 'Siswa') {
+      try {
+        await prisma.studentGrade.deleteMany({
+          where: { studentName: user.name }
+        });
+      } catch {}
+    }
+
     revalidatePath('/admin/users');
+    revalidatePath('/portal/guru/kelas');
     return { success: true };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -153,6 +223,7 @@ export async function createBulkStudents(
     defaultPassword?: string;
     useNisnAsPassword?: boolean;
     useNisnAsUsername?: boolean;
+    studentClass?: string;
   }
 ) {
   await requireSuperAdmin();
@@ -164,6 +235,7 @@ export async function createBulkStudents(
     const defaultPwd = options?.defaultPassword?.trim() || 'siswa123';
     const useNisnAsPassword = !!options?.useNisnAsPassword;
     const useNisnAsUsername = options?.useNisnAsUsername ?? true;
+    const studentClass = options?.studentClass?.trim() || 'XI RPL 1';
 
     // Fetch existing users to check duplicates quickly in memory
     const existingUsers = await prisma.user.findMany({
@@ -239,7 +311,43 @@ export async function createBulkStudents(
       }
     }
 
+    // Auto-sync StudentGrade untuk siswa yang baru dibuat massal
+    if (createdUsers.length > 0 && studentClass) {
+      try {
+        const activeSubjects = await prisma.subject.findMany({
+          where: { status: 'ACTIVE' },
+          select: { id: true, classTarget: true, teacherName: true },
+        });
+
+        if (activeSubjects.length > 0) {
+          const gradesData: any[] = [];
+          for (const u of createdUsers) {
+            for (const subj of activeSubjects) {
+              gradesData.push({
+                subjectId: subj.id,
+                studentName: u.name,
+                studentNis: u.nisn || u.username,
+                studentClass: studentClass,
+                assignment: 85,
+                midExam: 80,
+                finalExam: 85,
+                finalGrade: 'A',
+                updatedBy: 'Admin Utama',
+              });
+            }
+          }
+          await prisma.studentGrade.createMany({
+            data: gradesData,
+            skipDuplicates: true,
+          });
+        }
+      } catch (gradeBulkErr) {
+        console.error('Error auto-syncing grades for bulk students:', gradeBulkErr);
+      }
+    }
+
     revalidatePath('/admin/users');
+    revalidatePath('/portal/guru/kelas');
     return {
       success: true,
       totalSubmitted: students.length,
