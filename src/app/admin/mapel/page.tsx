@@ -4,7 +4,7 @@ import MapelClient from './MapelClient';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminMapelPage() {
-  const { subjects, teachers, students, classTargets } = await getSubjects();
+  const { subjects, teachers, students, classTargets, jurusans } = await getSubjects();
 
   return (
     <main className="p-6 md:p-10 max-w-7xl mx-auto w-full">
@@ -13,8 +13,8 @@ export default async function AdminMapelPage() {
         teachers={teachers}
         students={students}
         classTargets={classTargets}
+        jurusans={jurusans}
       />
     </main>
   );
 }
-

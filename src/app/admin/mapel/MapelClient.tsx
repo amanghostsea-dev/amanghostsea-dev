@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { 
   BookOpen, 
   Users, 
@@ -58,11 +58,20 @@ interface SubjectItem {
   };
 }
 
+interface JurusanItem {
+  id: string;
+  name: string;
+  code: string;
+  kuota: number;
+  description: string;
+}
+
 interface MapelClientProps {
   initialSubjects: SubjectItem[];
   teachers: TeacherItem[];
   students: StudentItem[];
   classTargets?: string[];
+  jurusans?: JurusanItem[];
 }
 
 export default function MapelClient({
@@ -70,6 +79,7 @@ export default function MapelClient({
   teachers,
   students,
   classTargets = ['Semua Kelas', 'X RPL 1', 'XI RPL 1', 'XII RPL 1', 'X TJKT 1', 'XI TJKT 1', 'XII TJKT 1', 'X DKV 1', 'XI DKV 1', 'XII DKV 1', 'X MPLB 1', 'XI MPLB 1', 'XII MPLB 1'],
+  jurusans = [],
 }: MapelClientProps) {
   const [subjects, setSubjects] = useState<SubjectItem[]>(initialSubjects);
   const [search, setSearch] = useState('');
@@ -89,6 +99,7 @@ export default function MapelClient({
   const [formCode, setFormCode] = useState('');
   const [formName, setFormName] = useState('');
   const [formCategory, setFormCategory] = useState('Muatan Kejuruan');
+  const [formJurusan, setFormJurusan] = useState(jurusans[0]?.code || 'RPL');
   const [formClassTarget, setFormClassTarget] = useState('XI RPL 1');
   const [formTeacherId, setFormTeacherId] = useState('');
   const [formTeacherName, setFormTeacherName] = useState('');
@@ -97,6 +108,27 @@ export default function MapelClient({
   const [formRoom, setFormRoom] = useState('Lab Komputer 1');
   const [formKkm, setFormKkm] = useState(78);
   const [formCredits, setFormCredits] = useState(3);
+
+  const handleFormJurusanChange = (code: string) => {
+    setFormJurusan(code);
+    if (code === 'ALL') {
+      setFormClassTarget('Semua Kelas');
+    } else {
+      const match = classTargets.find((c) => c !== 'Semua Kelas' && c.toUpperCase().includes(code.toUpperCase())) || `XI ${code} 1`;
+      setFormClassTarget(match);
+    }
+  };
+
+  const modalClassOptions = useMemo(() => {
+    if (formJurusan === 'ALL') {
+      return classTargets;
+    }
+    const filtered = classTargets.filter((c) => 
+      c !== 'Semua Kelas' && c.toUpperCase().includes(formJurusan.toUpperCase())
+    );
+    if (filtered.length > 0) return filtered;
+    return [`X ${formJurusan} 1`, `XI ${formJurusan} 1`, `XII ${formJurusan} 1`];
+  }, [classTargets, formJurusan]);
 
   const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -130,7 +162,10 @@ export default function MapelClient({
     setFormCode(`MAPEL-${subjects.length + 1}`);
     setFormName('');
     setFormCategory('Muatan Kejuruan');
-    setFormClassTarget('XI RPL 1');
+    const defaultJurusan = jurusans[0]?.code || 'RPL';
+    setFormJurusan(defaultJurusan);
+    const defaultClass = classTargets.find((c) => c !== 'Semua Kelas' && c.toUpperCase().includes(defaultJurusan.toUpperCase())) || `XI ${defaultJurusan} 1`;
+    setFormClassTarget(defaultClass);
     setFormTeacherId(teachers[0]?.id || '');
     setFormTeacherName(teachers[0]?.name || 'Abdul Rahman');
     setFormDay('Senin');
@@ -147,6 +182,8 @@ export default function MapelClient({
     setFormName(subject.name);
     setFormCategory(subject.category);
     setFormClassTarget(subject.classTarget);
+    const matchedJurusan = jurusans.find((j) => subject.classTarget.toUpperCase().includes(j.code.toUpperCase()))?.code || (subject.classTarget === 'Semua Kelas' ? 'ALL' : (jurusans[0]?.code || 'RPL'));
+    setFormJurusan(matchedJurusan);
     setFormTeacherId(subject.teacherId || '');
     setFormTeacherName(subject.teacherName || '');
     setFormDay(subject.day || 'Senin');
@@ -763,43 +800,73 @@ export default function MapelClient({
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    Target Kelas
-                  </label>
-                  <select
-                    value={formClassTarget}
-                    onChange={(e) => setFormClassTarget(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-semibold text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                  >
-                    {classTargets.filter((c) => c !== 'Semua Kelas').map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
+              {/* Program Keahlian (Jurusan) & Target Kelas */}
+              <div className="p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/50 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-blue-950 dark:text-blue-300 mb-1 flex items-center gap-1.5">
+                      <Layers size={13} className="text-blue-600" /> Program Keahlian (Jurusan) *
+                    </label>
+                    <select
+                      value={formJurusan}
+                      onChange={(e) => handleFormJurusanChange(e.target.value)}
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-blue-300 dark:border-blue-700 rounded-xl text-xs font-semibold text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
+                    >
+                      <option value="ALL">Semua Jurusan (Muatan Umum)</option>
+                      {jurusans.map((j) => (
+                        <option key={j.id} value={j.code}>
+                          {j.code} - {j.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-blue-950 dark:text-blue-300 mb-1 flex items-center gap-1.5">
+                      <GraduationCap size={13} className="text-blue-600" /> Target Kelas / Rombel *
+                    </label>
+                    <select
+                      value={formClassTarget}
+                      onChange={(e) => setFormClassTarget(e.target.value)}
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-blue-300 dark:border-blue-700 rounded-xl text-xs font-bold text-blue-700 dark:text-blue-300 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
+                    >
+                      {modalClassOptions.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    Guru Pengampu
-                  </label>
-                  <select
-                    value={formTeacherId}
-                    onChange={(e) => {
-                      setFormTeacherId(e.target.value);
-                      const t = teachers.find((item) => item.id === e.target.value);
-                      if (t) setFormTeacherName(t.name);
-                    }}
-                    className="w-full px-3.5 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-semibold text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">-- Pilih Guru --</option>
-                    {teachers.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name} (@{t.username})
-                      </option>
-                    ))}
-                  </select>
+                <div className="flex items-center gap-1.5 text-[11px] text-blue-700 dark:text-blue-400 font-medium">
+                  <span>💡</span>
+                  <span>
+                    {formJurusan === 'ALL'
+                      ? 'Cocok untuk mapel umum lintas jurusan (seperti Agama, Bhs Indonesia, Matematika Terapan).'
+                      : `Target kelas otomatis disaring khusus untuk program keahlian ${formJurusan}.`}
+                  </span>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                  Guru Pengampu
+                </label>
+                <select
+                  value={formTeacherId}
+                  onChange={(e) => {
+                    setFormTeacherId(e.target.value);
+                    const t = teachers.find((item) => item.id === e.target.value);
+                    if (t) setFormTeacherName(t.name);
+                  }}
+                  className="w-full px-3.5 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-semibold text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">-- Pilih Guru Pengampu --</option>
+                  {teachers.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name} (@{t.username})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-3 gap-3">

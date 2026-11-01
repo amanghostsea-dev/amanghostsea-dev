@@ -4,14 +4,17 @@ import prisma from '@/lib/prisma';
 import { requireSuperAdmin } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import { ensureDefaultSubjectsAndGrades } from '@/lib/subject-seed';
-import { getDynamicClassTargets } from '@/lib/jurusan-service';
+import { ensureDefaultJurusans, getDynamicClassTargets } from '@/lib/jurusan-service';
 
 export async function getSubjects() {
   await requireSuperAdmin();
 
   // Pastikan data awal tersedia
   await ensureDefaultSubjectsAndGrades();
-  const classTargets = await getDynamicClassTargets();
+  const [classTargets, jurusans] = await Promise.all([
+    getDynamicClassTargets(),
+    ensureDefaultJurusans(),
+  ]);
 
   const [subjects, teachers, students] = await Promise.all([
     prisma.subject.findMany({
@@ -49,7 +52,7 @@ export async function getSubjects() {
     }),
   ]);
 
-  return { subjects, teachers, students, classTargets };
+  return { subjects, teachers, students, classTargets, jurusans };
 }
 
 export async function saveSubject(data: {
@@ -115,26 +118,44 @@ export async function saveSubject(data: {
         },
       });
 
-      // Buat default nilai untuk siswa yang ada
-      const students = await prisma.user.findMany({
-        where: { role: 'Siswa' },
-      });
-
-      for (const st of students) {
-        await prisma.studentGrade.create({
-          data: {
-            subjectId: subject.id,
-            studentName: st.name,
-            studentNis: st.nisn || st.username,
-            studentClass: data.classTarget,
-            assignment: 85,
-            midExam: 80,
-            finalExam: 85,
-            finalGrade: 'A',
-            notes: 'Mata pelajaran baru ditambahkan.',
-            updatedBy: data.teacherName || 'Admin',
-          },
+      // Sinkronkan buku nilai hanya untuk siswa yang berada di kelas target mapel tersebut (atau semua jika 'Semua Kelas')
+      try {
+        const targetClass = data.classTarget;
+        const allStudents = await prisma.user.findMany({
+          where: { role: 'Siswa' },
+          select: { id: true, name: true, nisn: true, username: true },
         });
+
+        const studentGrades = await prisma.studentGrade.findMany({
+          select: { studentName: true, studentClass: true },
+          distinct: ['studentName'],
+        });
+        const classMap = new Map<string, string>();
+        for (const sg of studentGrades) {
+          if (sg.studentName) classMap.set(sg.studentName, sg.studentClass);
+        }
+
+        for (const st of allStudents) {
+          const studentClass = classMap.get(st.name) || 'XI RPL 1';
+          if (targetClass === 'Semua Kelas' || targetClass === studentClass || !classMap.has(st.name)) {
+            await prisma.studentGrade.create({
+              data: {
+                subjectId: subject.id,
+                studentName: st.name,
+                studentNis: st.nisn || st.username,
+                studentClass: studentClass,
+                assignment: 85,
+                midExam: 80,
+                finalExam: 85,
+                finalGrade: 'A',
+                notes: 'Mata pelajaran baru ditambahkan.',
+                updatedBy: data.teacherName || 'Admin',
+              },
+            });
+          }
+        }
+      } catch (gradeInitErr) {
+        console.error('Error initializing student grades for subject:', gradeInitErr);
       }
     }
 
@@ -150,44 +171,12 @@ export async function saveSubject(data: {
   }
 }
 
-export async function plotTeacher(subjectId: string, teacherId: string | null, teacherName: string) {
-  await requireSuperAdmin();
-
-  try {
-    const updated = await prisma.subject.update({
-      where: { id: subjectId },
-      data: {
-        teacherId: teacherId || null,
-        teacherName: teacherName.trim(),
-      },
-    });
-
-    // Perbarui field updatedBy di studentGrade jika masih kosong/default
-    await prisma.studentGrade.updateMany({
-      where: { subjectId },
-      data: {
-        updatedBy: teacherName.trim(),
-      },
-    });
-
-    revalidatePath('/admin/mapel');
-    revalidatePath('/portal/siswa');
-    revalidatePath('/portal/guru');
-    revalidatePath('/portal/guru/nilai');
-
-    return { success: true, updated };
-  } catch (error) {
-    console.error('Error plotting teacher:', error);
-    return { error: error instanceof Error ? error.message : 'Gagal memplotting guru' };
-  }
-}
-
-export async function deleteSubject(subjectId: string) {
+export async function deleteSubject(id: string) {
   await requireSuperAdmin();
 
   try {
     await prisma.subject.delete({
-      where: { id: subjectId },
+      where: { id },
     });
 
     revalidatePath('/admin/mapel');
@@ -202,3 +191,48 @@ export async function deleteSubject(subjectId: string) {
   }
 }
 
+export async function plotTeacherToSubject(data: {
+  subjectId: string;
+  teacherId?: string | null;
+  teacherName?: string | null;
+}) {
+  await requireSuperAdmin();
+
+  try {
+    const updated = await prisma.subject.update({
+      where: { id: data.subjectId },
+      data: {
+        teacherId: data.teacherId || null,
+        teacherName: data.teacherName || null,
+      },
+    });
+
+    // Update updatedBy di nilai jika perlu
+    if (data.teacherName) {
+      await prisma.studentGrade.updateMany({
+        where: { subjectId: data.subjectId },
+        data: {
+          updatedBy: data.teacherName,
+        },
+      });
+    }
+
+    revalidatePath('/admin/mapel');
+    revalidatePath('/portal/siswa');
+    revalidatePath('/portal/guru');
+    revalidatePath('/portal/guru/nilai');
+
+    return { success: true, subject: updated };
+  } catch (error) {
+    console.error('Error plotting teacher to subject:', error);
+    return { error: error instanceof Error ? error.message : 'Gagal memplotting guru ke mata pelajaran' };
+  }
+}
+
+export async function plotTeacher(
+  subjectId: string,
+  teacherId?: string | null,
+  teacherName?: string | null
+) {
+  return await plotTeacherToSubject({ subjectId, teacherId, teacherName });
+}
