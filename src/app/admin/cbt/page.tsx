@@ -12,7 +12,7 @@ export default async function AdminCbtPage({
   searchParams?: Promise<{ tab?: string }>;
 }) {
   const sp = searchParams ? await searchParams : undefined;
-  const initialTab = sp?.tab === 'jadwal' ? 'schedule' : 'exams';
+  const initialTab = sp?.tab === 'jadwal' ? 'schedule' : sp?.tab === 'laporan' ? 'reports' : 'exams';
 
   const cookieStore = await cookies();
   const userName = cookieStore.get('auth_name')?.value || 'Guru Mapel';
@@ -29,9 +29,19 @@ export default async function AdminCbtPage({
         },
         attempts: {
           select: {
+            id: true,
+            studentName: true,
+            studentNis: true,
+            studentClass: true,
             score: true,
+            totalQuestions: true,
+            totalCorrect: true,
             status: true,
+            tabSwitchCount: true,
+            startedAt: true,
+            submittedAt: true,
           },
+          orderBy: { submittedAt: 'desc' },
         },
       },
       orderBy: { createdAt: 'desc' },

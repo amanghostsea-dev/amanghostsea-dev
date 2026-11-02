@@ -55,6 +55,7 @@ import {
   getExamScheduleState, 
   toDateTimeLocalInput 
 } from '@/lib/cbt-schedule';
+import CbtReportView from './CbtReportView';
 
 interface ExamItem {
   id: string;
@@ -75,8 +76,17 @@ interface ExamItem {
     attempts: number;
   };
   attempts: {
+    id?: string;
+    studentName?: string;
+    studentNis?: string | null;
+    studentClass?: string | null;
     score: number;
+    totalQuestions?: number;
+    totalCorrect?: number;
     status: string;
+    tabSwitchCount?: number;
+    startedAt?: Date | string;
+    submittedAt?: Date | string | null;
   }[];
 }
 
@@ -86,7 +96,7 @@ interface CbtDashboardProps {
     name: string;
     role: string;
   };
-  initialTab?: 'exams' | 'schedule';
+  initialTab?: 'exams' | 'schedule' | 'reports';
   dynamicClassPresets?: string[];
   dynamicSubjectPresets?: string[];
 }
@@ -117,8 +127,8 @@ export default function CbtDashboard({
 
   const teacherName = currentUser?.name || 'Bpk. Ahmad ST';
 
-  // Main View Tab: 'exams' (Paket Soal) | 'schedule' (Matriks Penjadwalan)
-  const [activeMainTab, setActiveMainTab] = useState<'exams' | 'schedule'>(initialTab);
+  // Main View Tab: 'exams' (Paket Soal) | 'schedule' (Matriks Penjadwalan) | 'reports' (Laporan Nilai)
+  const [activeMainTab, setActiveMainTab] = useState<'exams' | 'schedule' | 'reports'>(initialTab);
   const [selectedClassFilter, setSelectedClassFilter] = useState('ALL');
 
   // Reactively sync active tab with URL search parameter
@@ -126,15 +136,19 @@ export default function CbtDashboard({
     const tabParam = searchParams?.get('tab');
     if (tabParam === 'jadwal') {
       setActiveMainTab('schedule');
+    } else if (tabParam === 'laporan' || tabParam === 'reports') {
+      setActiveMainTab('reports');
     } else if (tabParam === 'ujian' || !tabParam) {
       setActiveMainTab('exams');
     }
   }, [searchParams]);
 
-  const handleTabSwitch = (tab: 'exams' | 'schedule') => {
+  const handleTabSwitch = (tab: 'exams' | 'schedule' | 'reports') => {
     setActiveMainTab(tab);
     if (tab === 'schedule') {
       router.replace('/admin/cbt?tab=jadwal', { scroll: false });
+    } else if (tab === 'reports') {
+      router.replace('/admin/cbt?tab=laporan', { scroll: false });
     } else {
       router.replace('/admin/cbt', { scroll: false });
     }
@@ -947,6 +961,18 @@ export default function CbtDashboard({
               </span>
             )}
           </button>
+
+          <button
+            type="button"
+            onClick={() => handleTabSwitch('reports')}
+            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+              activeMainTab === 'reports'
+                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/25 ring-2 ring-emerald-400/30'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+            }`}
+          >
+            <FileSpreadsheet size={16} /> Laporan Hasil & Rekap Nilai CBT
+          </button>
         </div>
 
         <div className="flex items-center gap-2">
@@ -965,7 +991,14 @@ export default function CbtDashboard({
         </div>
       </div>
 
-      {activeMainTab === 'schedule' ? (
+      {activeMainTab === 'reports' ? (
+        <CbtReportView
+          exams={exams as any}
+          currentUser={currentUser}
+          classPresets={classPresets}
+          subjectPresets={subjectPresets}
+        />
+      ) : activeMainTab === 'schedule' ? (
         <div className="space-y-6">
           {/* Conflict Alert Banner */}
           {systemConflicts.length > 0 ? (

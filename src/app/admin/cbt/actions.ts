@@ -541,3 +541,168 @@ export async function deleteAttempt(attemptId: string, examId: string) {
     return { error: error.message };
   }
 }
+
+export async function resetStudentAttemptAction(attemptId: string) {
+  try {
+    const attempt = await prisma.examAttempt.findUnique({
+      where: { id: attemptId },
+      select: { examId: true, studentName: true },
+    });
+
+    if (!attempt) {
+      return { error: 'Data pengerjaan ujian tidak ditemukan.' };
+    }
+
+    await prisma.examAttempt.delete({ where: { id: attemptId } });
+
+    revalidatePath('/admin/cbt');
+    revalidatePath(`/admin/cbt/${attempt.examId}`);
+    revalidatePath('/portal/siswa/cbt');
+    revalidatePath(`/portal/siswa/cbt/${attempt.examId}`);
+    revalidatePath('/ujian');
+
+    return { 
+      success: true, 
+      message: `Pengerjaan ujian siswa "${attempt.studentName}" berhasil di-reset. Siswa kini dapat mengerjakan ulang ujian.` 
+    };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+export async function syncCbtScoresToStudentGradesAction(examId: string, customSubjectId?: string) {
+  try {
+    const exam = await prisma.exam.findUnique({
+      where: { id: examId },
+      include: {
+        attempts: {
+          where: { status: 'SUBMITTED' },
+        },
+      },
+    });
+
+    if (!exam) {
+      return { error: 'Paket ujian tidak ditemukan.' };
+    }
+
+    if (!exam.attempts || exam.attempts.length === 0) {
+      return { error: 'Belum ada siswa yang menyelesaikan (submit) ujian ini.' };
+    }
+
+    // Cari subject terkait di tabel Subject
+    let targetSubject = null;
+    if (customSubjectId) {
+      targetSubject = await prisma.subject.findUnique({ where: { id: customSubjectId } });
+    }
+
+    if (!targetSubject) {
+      targetSubject = await prisma.subject.findFirst({
+        where: {
+          OR: [
+            { name: { equals: exam.subject, mode: 'insensitive' } },
+            { name: { contains: exam.subject, mode: 'insensitive' } },
+          ],
+        },
+      });
+    }
+
+    if (!targetSubject) {
+      // Buat subject baru jika belum ada agar nilai tetap tersimpan rapi di kurikulum
+      targetSubject = await prisma.subject.create({
+        data: {
+          code: `CBT-${(exam.subject || 'MAPEL').slice(0, 4).toUpperCase()}-${Date.now().toString().slice(-4)}`,
+          name: exam.subject,
+          category: 'Muatan Kejuruan',
+          classTarget: exam.classTarget || 'Semua Kelas',
+          teacherName: exam.authorName || 'Guru Pengampu',
+          kkm: 75,
+        },
+      });
+    }
+
+    const isUTS = /uts|pts|tengah semester/i.test(exam.title);
+    const isUAS = /uas|pas|akhir semester/i.test(exam.title);
+
+    let syncedCount = 0;
+
+    for (const attempt of exam.attempts) {
+      const score = Math.round(attempt.score);
+      const studentClass = attempt.studentClass || exam.classTarget || 'Semua Kelas';
+
+      // Cari atau buat StudentGrade
+      const existingGrade = await prisma.studentGrade.findFirst({
+        where: {
+          subjectId: targetSubject.id,
+          studentName: attempt.studentName,
+        },
+      });
+
+      let assignment = existingGrade ? existingGrade.assignment : 85;
+      let midExam = existingGrade ? existingGrade.midExam : 80;
+      let finalExam = existingGrade ? existingGrade.finalExam : 85;
+
+      if (isUTS) {
+        midExam = score;
+      } else if (isUAS) {
+        finalExam = score;
+      } else {
+        assignment = score;
+      }
+
+      // Hitung final grade
+      const finalNumeric = Math.round(assignment * 0.3 + midExam * 0.3 + finalExam * 0.4);
+      let finalGradeLetter = 'C';
+      if (finalNumeric >= 90) finalGradeLetter = 'A';
+      else if (finalNumeric >= 80) finalGradeLetter = 'B';
+      else if (finalNumeric >= 70) finalGradeLetter = 'C';
+      else finalGradeLetter = 'D';
+
+      const notes = `Sinkronisasi Otomatis CBT: ${exam.title} (Skor: ${score})`;
+
+      if (existingGrade) {
+        await prisma.studentGrade.update({
+          where: { id: existingGrade.id },
+          data: {
+            assignment,
+            midExam,
+            finalExam,
+            finalGrade: finalGradeLetter,
+            notes,
+            studentClass,
+            studentNis: attempt.studentNis || existingGrade.studentNis,
+            updatedBy: `CBT Sync (${exam.authorName || 'Sistem'})`,
+          },
+        });
+      } else {
+        await prisma.studentGrade.create({
+          data: {
+            subjectId: targetSubject.id,
+            studentName: attempt.studentName,
+            studentNis: attempt.studentNis,
+            studentClass,
+            assignment,
+            midExam,
+            finalExam,
+            finalGrade: finalGradeLetter,
+            notes,
+            updatedBy: `CBT Sync (${exam.authorName || 'Sistem'})`,
+          },
+        });
+      }
+
+      syncedCount++;
+    }
+
+    revalidatePath('/admin/cbt');
+    revalidatePath('/portal/guru/nilai');
+    revalidatePath('/portal/guru/kelas');
+
+    return {
+      success: true,
+      message: `Berhasil menyinkronkan nilai ${syncedCount} siswa dari ujian "${exam.title}" ke Buku Nilai Siswa / Raport Guru!`,
+      syncedCount,
+    };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}

@@ -62,7 +62,19 @@ export default async function SiswaCbtListPage() {
 
   const exams = await prisma.exam.findMany({
     where: {
-      status: { in: ['PUBLISHED', 'ACTIVE'] },
+      OR: [
+        { status: { in: ['PUBLISHED', 'ACTIVE'] } },
+        {
+          attempts: {
+            some: {
+              OR: [
+                { studentName },
+                ...(studentNis ? [{ studentNis }] : []),
+              ],
+            },
+          },
+        },
+      ],
     },
     include: {
       _count: {
@@ -72,7 +84,13 @@ export default async function SiswaCbtListPage() {
       },
       attempts: {
         where: {
-          studentName,
+          OR: [
+            { studentName },
+            ...(studentNis ? [{ studentNis }] : []),
+          ],
+        },
+        orderBy: {
+          startedAt: 'desc',
         },
       },
     },
@@ -86,6 +104,7 @@ export default async function SiswaCbtListPage() {
     <SiswaCbtClient
       exams={exams as any}
       studentName={studentName}
+      studentNis={studentNis}
       studentClass={studentClass}
       initials={initials}
     />
