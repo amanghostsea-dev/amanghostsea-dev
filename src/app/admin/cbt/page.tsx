@@ -18,7 +18,7 @@ export default async function AdminCbtPage({
   const userName = cookieStore.get('auth_name')?.value || 'Guru Mapel';
   const userRole = cookieStore.get('auth_token')?.value || 'Guru';
 
-  const [exams, classTargets] = await Promise.all([
+  const [exams, classTargets, subjects] = await Promise.all([
     prisma.exam.findMany({
       include: {
         _count: {
@@ -37,6 +37,11 @@ export default async function AdminCbtPage({
       orderBy: { createdAt: 'desc' },
     }),
     getDynamicClassTargets(),
+    prisma.subject.findMany({
+      select: { name: true },
+      distinct: ['name'],
+      orderBy: { name: 'asc' },
+    }),
   ]);
 
   return (
@@ -46,6 +51,7 @@ export default async function AdminCbtPage({
         currentUser={{ name: userName, role: userRole }} 
         initialTab={initialTab}
         dynamicClassPresets={classTargets}
+        dynamicSubjectPresets={subjects.map(s => s.name)}
       />
     </Suspense>
   );

@@ -508,21 +508,20 @@ export default function TugasDashboard({
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Target Kelas
+                    Target Kelas & Rombel <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    list="tugas-class-presets"
-                    placeholder="Contoh: XI RPL 1 atau Semua Kelas"
+                  <select
                     value={formData.classTarget}
                     onChange={(e) => setFormData({ ...formData, classTarget: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs focus:ring-2 focus:ring-blue-500"
-                  />
-                  <datalist id="tugas-class-presets">
-                    {dynamicClassPresets.map((c, idx) => (
-                      <option key={idx} value={c} />
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
+                  >
+                    <option value="Semua Kelas">🌐 Semua Kelas (Terbuka untuk Semua)</option>
+                    {dynamicClassPresets.filter(c => c !== 'Semua Kelas').map((c, idx) => (
+                      <option key={idx} value={c}>
+                        {c}
+                      </option>
                     ))}
-                  </datalist>
+                  </select>
                 </div>
               </div>
 

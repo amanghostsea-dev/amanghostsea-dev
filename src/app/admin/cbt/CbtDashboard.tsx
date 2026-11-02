@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
@@ -88,6 +88,7 @@ interface CbtDashboardProps {
   };
   initialTab?: 'exams' | 'schedule';
   dynamicClassPresets?: string[];
+  dynamicSubjectPresets?: string[];
 }
 
 export default function CbtDashboard({
@@ -95,6 +96,7 @@ export default function CbtDashboard({
   currentUser,
   initialTab = 'exams',
   dynamicClassPresets,
+  dynamicSubjectPresets,
 }: CbtDashboardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -108,6 +110,7 @@ export default function CbtDashboard({
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExam, setEditingExam] = useState<ExamItem | null>(null);
+  const [isCustomClassTarget, setIsCustomClassTarget] = useState(false);
   const [loading, setLoading] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -179,11 +182,61 @@ export default function CbtDashboard({
   const [csvError, setCsvError] = useState<string | null>(null);
   const [csvSaving, setCsvSaving] = useState(false);
 
+  const classPresets: string[] = useMemo(() => {
+    const list = dynamicClassPresets && dynamicClassPresets.length > 0 ? dynamicClassPresets : [
+      'Semua Kelas',
+      'X RPL 1',
+      'XI RPL 1',
+      'XI RPL 2',
+      'XII RPL 1',
+      'X TJKT 1',
+      'XI TJKT 1',
+      'XII TJKT 1',
+      'X DKV 1',
+      'XI DKV 1',
+      'XII DKV 1',
+      'X MPLB 1',
+      'XI MPLB 1',
+      'XII MPLB 1',
+    ];
+    return Array.from(new Set(list));
+  }, [dynamicClassPresets]);
+
+  const subjectPresets: string[] = useMemo(() => {
+    const defaults = [
+      'Pemrograman Web',
+      'Basis Data',
+      'Pemrograman Berorientasi Objek',
+      'Administrasi Sistem Jaringan',
+      'Teknologi Layanan Jaringan',
+      'Desain Media Interaktif',
+      'Dasar-dasar Kejuruan',
+      'Matematika',
+      'Bahasa Inggris',
+      'Bahasa Indonesia',
+      'Pendidikan Agama',
+    ];
+    if (dynamicSubjectPresets && dynamicSubjectPresets.length > 0) {
+      return Array.from(new Set([...dynamicSubjectPresets, ...defaults]));
+    }
+    return defaults;
+  }, [dynamicSubjectPresets]);
+
+  const groupedClassOptions = useMemo(() => {
+    const onlyClasses = classPresets.filter((c: string) => c !== 'Semua Kelas');
+    const xClasses = onlyClasses.filter((c: string) => c.startsWith('X ') || c.startsWith('X-') || c === 'X');
+    const xiClasses = onlyClasses.filter((c: string) => c.startsWith('XI ') || c.startsWith('XI-') || c === 'XI');
+    const xiiClasses = onlyClasses.filter((c: string) => c.startsWith('XII ') || c.startsWith('XII-') || c === 'XII');
+    const others = onlyClasses.filter((c: string) => !xClasses.includes(c) && !xiClasses.includes(c) && !xiiClasses.includes(c));
+
+    return { xClasses, xiClasses, xiiClasses, others };
+  }, [classPresets]);
+
   // Form State
   const [formData, setFormData] = useState({
     title: '',
     subject: 'Pemrograman Web',
-    classTarget: 'XI RPL 1',
+    classTarget: 'Semua Kelas',
     duration: 60,
     token: '',
     description: '',
@@ -195,37 +248,6 @@ export default function CbtDashboard({
     enableSchedule: true,
     allowConflict: false,
   });
-
-  const subjectPresets = [
-    'Pemrograman Web',
-    'Basis Data',
-    'Pemrograman Berorientasi Objek',
-    'Administrasi Sistem Jaringan',
-    'Teknologi Layanan Jaringan',
-    'Desain Media Interaktif',
-    'Dasar-dasar Kejuruan',
-    'Matematika',
-    'Bahasa Inggris',
-    'Bahasa Indonesia',
-    'Pendidikan Agama',
-  ];
-
-  const classPresets = dynamicClassPresets && dynamicClassPresets.length > 0 ? dynamicClassPresets : [
-    'Semua Kelas',
-    'X RPL 1',
-    'XI RPL 1',
-    'XI RPL 2',
-    'XII RPL 1',
-    'X TJKT 1',
-    'XI TJKT 1',
-    'XII TJKT 1',
-    'X DKV 1',
-    'XI DKV 1',
-    'XII DKV 1',
-    'X MPLB 1',
-    'XI MPLB 1',
-    'XII MPLB 1',
-  ];
 
   const runConflictCheck = async (startTime: string, endTime: string, classTarget: string) => {
     if (!startTime || !endTime) {
@@ -638,15 +660,20 @@ export default function CbtDashboard({
 
   const handleOpenCreate = () => {
     setEditingExam(null);
+    setIsCustomClassTarget(false);
     const randomToken = 'CBT' + Math.floor(100 + Math.random() * 900);
     const now = new Date();
     const startStr = toDateTimeLocalInput(now);
     const endStr = toDateTimeLocalInput(new Date(now.getTime() + 60 * 60000));
 
+    const defaultClass = (selectedClassFilter !== 'ALL' && selectedClassFilter)
+      ? selectedClassFilter
+      : (classPresets.find((c: string) => c !== 'Semua Kelas') || 'Semua Kelas');
+
     setFormData({
       title: '',
-      subject: 'Pemrograman Web',
-      classTarget: 'XI RPL 1',
+      subject: subjectPresets[0] || 'Pemrograman Web',
+      classTarget: defaultClass,
       duration: 60,
       token: randomToken,
       description: '',
@@ -665,6 +692,7 @@ export default function CbtDashboard({
 
   const handleOpenEdit = (exam: ExamItem) => {
     setEditingExam(exam);
+    setIsCustomClassTarget(!classPresets.includes(exam.classTarget));
     const startStr = toDateTimeLocalInput(exam.startTime);
     const endStr = toDateTimeLocalInput(exam.endTime);
 
@@ -1023,14 +1051,37 @@ export default function CbtDashboard({
               <select
                 value={selectedClassFilter}
                 onChange={(e) => setSelectedClassFilter(e.target.value)}
-                className="px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-purple-500 outline-none"
+                className="px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
               >
                 <option value="ALL">Semua Kelas ({exams.length} Ujian)</option>
-                {classPresets.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
+                {groupedClassOptions.xClasses.length > 0 && (
+                  <optgroup label="Tingkat X">
+                    {groupedClassOptions.xClasses.map((c: string) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </optgroup>
+                )}
+                {groupedClassOptions.xiClasses.length > 0 && (
+                  <optgroup label="Tingkat XI">
+                    {groupedClassOptions.xiClasses.map((c: string) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </optgroup>
+                )}
+                {groupedClassOptions.xiiClasses.length > 0 && (
+                  <optgroup label="Tingkat XII">
+                    {groupedClassOptions.xiiClasses.map((c: string) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </optgroup>
+                )}
+                {groupedClassOptions.others.length > 0 && (
+                  <optgroup label="Lainnya">
+                    {groupedClassOptions.others.map((c: string) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
 
               <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
@@ -1681,30 +1732,94 @@ export default function CbtDashboard({
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
                   />
                   <datalist id="subject-presets">
-                    {subjectPresets.map((s, idx) => (
+                    {subjectPresets.map((s: string, idx: number) => (
                       <option key={idx} value={s} />
                     ))}
                   </datalist>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Target Kelas <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    list="class-presets"
-                    placeholder="Pilih atau ketik kelas"
-                    value={formData.classTarget}
-                    onChange={(e) => setFormData({ ...formData, classTarget: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
-                  />
-                  <datalist id="class-presets">
-                    {classPresets.map((c, idx) => (
-                      <option key={idx} value={c} />
-                    ))}
-                  </datalist>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Target Kelas & Rombel <span className="text-red-500">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomClassTarget(!isCustomClassTarget)}
+                      className="text-[11px] text-purple-600 dark:text-purple-400 hover:underline font-medium cursor-pointer"
+                    >
+                      {isCustomClassTarget ? '← Pilih dari Rombel' : '+ Ketik Bebas'}
+                    </button>
+                  </div>
+
+                  {isCustomClassTarget ? (
+                    <input
+                      type="text"
+                      required
+                      placeholder="Contoh: XI RPL 1 atau Gabungan Kelas"
+                      value={formData.classTarget}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData({ ...formData, classTarget: val });
+                        if (formData.startTime && formData.endTime) {
+                          runConflictCheck(formData.startTime, formData.endTime, val);
+                        }
+                      }}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-semibold focus:ring-2 focus:ring-purple-500 outline-none"
+                    />
+                  ) : (
+                    <select
+                      required
+                      value={formData.classTarget}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData({ ...formData, classTarget: val });
+                        if (formData.startTime && formData.endTime) {
+                          runConflictCheck(formData.startTime, formData.endTime, val);
+                        }
+                      }}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-semibold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
+                    >
+                      <option value="" disabled>-- Pilih Target Kelas / Rombel --</option>
+                      <option value="Semua Kelas">🌐 Semua Kelas (Terbuka untuk Semua Siswa)</option>
+                      {groupedClassOptions.xClasses.length > 0 && (
+                        <optgroup label="📚 Tingkat X (Kelas 10)">
+                          {groupedClassOptions.xClasses.map((c: string) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {groupedClassOptions.xiClasses.length > 0 && (
+                        <optgroup label="📚 Tingkat XI (Kelas 11)">
+                          {groupedClassOptions.xiClasses.map((c: string) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {groupedClassOptions.xiiClasses.length > 0 && (
+                        <optgroup label="📚 Tingkat XII (Kelas 12)">
+                          {groupedClassOptions.xiiClasses.map((c: string) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {groupedClassOptions.others.length > 0 && (
+                        <optgroup label="📚 Kelas Lainnya">
+                          {groupedClassOptions.others.map((c: string) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {formData.classTarget && !classPresets.includes(formData.classTarget) && (
+                        <optgroup label="Kelas Terpilih Sebelumnya">
+                          <option value={formData.classTarget}>{formData.classTarget}</option>
+                        </optgroup>
+                      )}
+                    </select>
+                  )}
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Data sinkron otomatis dengan Manajemen Jurusan & Rombel Kelas
+                  </span>
                 </div>
               </div>
 
