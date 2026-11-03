@@ -331,6 +331,365 @@ export default function SettingsClient(props: { initialData: any }) {
               </div>
             </div>
 
+            {/* Section 4: Pengaturan Kop Surat & Dokumen Resmi (CBT & Rapor) */}
+            <div id="kop-surat" className="pt-6 border-t border-gray-100 dark:border-gray-800 space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 dark:border-gray-800 pb-3">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Printer className="text-purple-600" size={22} />
+                    Kop Surat & Identitas Dokumen Resmi (CBT & Rapor)
+                  </h2>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    Sesuaikan logo, teks nama yayasan, legalitas (NSS/NPSN), akreditasi, alamat, dan pejabat penandatangan resmi untuk seluruh cetak CBT dan laporan sekolah.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={resetKopToDefault}
+                    className="px-3 py-1.5 rounded-xl border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                    title="Kembalikan format ke default SMK TI GAMA 1"
+                  >
+                    <RefreshCw size={13} /> Reset Default
+                  </button>
+                </div>
+              </div>
+
+              {/* 🌟 LIVE INTERACTIVE KOP SURAT PREVIEW */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <Eye size={14} className="text-blue-600" /> Pratinjau Langsung (Live Preview Kop Surat Cetak):
+                  </span>
+                  <span className="text-[11px] text-gray-400">Tampilan ini persis seperti yang akan tercetak di kertas A4</span>
+                </div>
+                <div className="p-6 rounded-2xl bg-white border-2 border-slate-300 shadow-md overflow-x-auto">
+                  <div className="min-w-[600px]">
+                    <CbtOfficialKopSurat
+                      documentTitle="CONTOH DOKUMEN EVALUASI RESMI (PRATINJAU)"
+                      documentNumber={`Nomor: 421.5 / CBT / ${new Date().getFullYear()} / CONTOH`}
+                      subTitle="Pratinjau Hasil Konfigurasi Kop Surat Anda"
+                      config={kopSurat}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Form Grid: Logo Settings */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 dark:bg-slate-800/40 p-5 rounded-2xl border border-gray-200 dark:border-gray-700/60">
+                {/* Logo Kiri (Logo Sekolah) */}
+                <div className="space-y-3">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                    1. Logo Kiri (Lambang Sekolah)
+                  </label>
+                  <div className="flex items-center gap-4">
+                    <div className="w-20 h-20 bg-white dark:bg-slate-900 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl flex items-center justify-center overflow-hidden p-1 flex-shrink-0">
+                      {kopSurat.logoLeftUrl ? (
+                        <img src={kopSurat.logoLeftUrl} alt="Logo Kiri" className="w-full h-full object-contain" />
+                      ) : (
+                        <span className="text-[10px] text-gray-400 text-center font-bold">Vector Default</span>
+                      )}
+                    </div>
+                    <div className="space-y-2 flex-1">
+                      <div className="relative inline-block">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleKopLogoLeftUpload}
+                          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                        />
+                        <button
+                          type="button"
+                          className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-bold hover:bg-gray-50 flex items-center gap-1.5 shadow-xs"
+                        >
+                          <Upload size={13} /> Unggah Logo Kiri
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={syncLogoFromWeb}
+                        className="block text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                      >
+                        Gunakan Logo Website Utama
+                      </button>
+                      {kopSurat.logoLeftUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setKopSurat(prev => ({ ...prev, logoLeftUrl: null }))}
+                          className="block text-[10px] text-red-500 hover:underline cursor-pointer"
+                        >
+                          Hapus (Kembalikan ke Vector Emblem)
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Logo Kanan (Logo Akreditasi BAN-S/M) */}
+                <div className="space-y-3">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                    2. Logo Kanan (Akreditasi / Sertifikasi)
+                  </label>
+                  <div className="flex items-center gap-4">
+                    <div className="w-20 h-20 bg-white dark:bg-slate-900 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl flex items-center justify-center overflow-hidden p-1 flex-shrink-0">
+                      {kopSurat.logoRightUrl ? (
+                        <img src={kopSurat.logoRightUrl} alt="Logo Kanan" className="w-full h-full object-contain" />
+                      ) : (
+                        <div className="text-center">
+                          <div className="text-[8px] font-bold text-gray-500">BAN-S/M</div>
+                          <div className="text-lg font-black text-blue-600 leading-tight">{kopSurat.akreditasi.charAt(0) || 'A'}</div>
+                          <div className="text-[7px] text-gray-500">UNGGUL</div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-2 flex-1">
+                      <div className="relative inline-block">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleKopLogoRightUpload}
+                          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                        />
+                        <button
+                          type="button"
+                          className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-bold hover:bg-gray-50 flex items-center gap-1.5 shadow-xs"
+                        >
+                          <Upload size={13} /> Unggah Gambar Logo Kanan
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-gray-500">
+                        Biarkan kosong untuk menggunakan lambang Akreditasi BAN-S/M otomatis.
+                      </p>
+                      {kopSurat.logoRightUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setKopSurat(prev => ({ ...prev, logoRightUrl: null }))}
+                          className="block text-[10px] text-red-500 hover:underline cursor-pointer"
+                        >
+                          Hapus (Kembalikan ke Badge BAN-S/M)
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Form Grid: Teks & Identitas Sekolah */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    Nama Yayasan / Lembaga Induk
+                  </label>
+                  <input
+                    type="text"
+                    value={kopSurat.yayasanName}
+                    onChange={(e) => setKopSurat({ ...kopSurat, yayasanName: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="Contoh: YAYASAN PENDIDIKAN KEJURUAN GAMA BEKASI"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    Nama Resmi Sekolah (Header Utama Kop)
+                  </label>
+                  <input
+                    type="text"
+                    value={kopSurat.schoolName}
+                    onChange={(e) => setKopSurat({ ...kopSurat, schoolName: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-black focus:ring-2 focus:ring-blue-500 outline-none text-blue-900 dark:text-blue-300"
+                    placeholder="Contoh: SMK TEKNOLOGI INFORMASI GAMA 1 BEKASI"
+                  />
+                </div>
+
+                <div className="col-span-full">
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    Daftar Kompetensi Keahlian / Konsentrasi
+                  </label>
+                  <input
+                    type="text"
+                    value={kopSurat.competencies}
+                    onChange={(e) => setKopSurat({ ...kopSurat, competencies: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="KOMPETENSI KEAHLIAN: PPLG • TEKNIK JARINGAN (TJKT) • DKV • MANAJEMEN PERKANTORAN (MPLB)"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    Nomor NSS
+                  </label>
+                  <input
+                    type="text"
+                    value={kopSurat.nss}
+                    onChange={(e) => setKopSurat({ ...kopSurat, nss: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="322026501001"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    Nomor NPSN
+                  </label>
+                  <input
+                    type="text"
+                    value={kopSurat.npsn}
+                    onChange={(e) => setKopSurat({ ...kopSurat, npsn: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="69752981"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    Status Akreditasi & Predikat
+                  </label>
+                  <input
+                    type="text"
+                    value={kopSurat.akreditasi}
+                    onChange={(e) => setKopSurat({ ...kopSurat, akreditasi: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="A (UNGGUL)"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    Nomor SK Akreditasi
+                  </label>
+                  <input
+                    type="text"
+                    value={kopSurat.akreditasiSk}
+                    onChange={(e) => setKopSurat({ ...kopSurat, akreditasiSk: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="No. 129/BAN-SM/2023"
+                  />
+                </div>
+
+                <div className="col-span-full">
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    Alamat Lengkap Kampus / Sekolah
+                  </label>
+                  <input
+                    type="text"
+                    value={kopSurat.address}
+                    onChange={(e) => setKopSurat({ ...kopSurat, address: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="Kampus: Jl. KH. Muchtar Tabrani No. 12, Kel. Perwira, Kec. Bekasi Utara, Kota Bekasi, Jawa Barat 17122"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    Nomor Telepon Sekolah
+                  </label>
+                  <input
+                    type="text"
+                    value={kopSurat.phone}
+                    onChange={(e) => setKopSurat({ ...kopSurat, phone: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="(021) 8898-7654"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    Alamat Website Resmi
+                  </label>
+                  <input
+                    type="text"
+                    value={kopSurat.website}
+                    onChange={(e) => setKopSurat({ ...kopSurat, website: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="https://smkgama.sch.id"
+                  />
+                </div>
+
+                <div className="col-span-full">
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    Alamat Email Resmi Sekolah
+                  </label>
+                  <input
+                    type="email"
+                    value={kopSurat.email}
+                    onChange={(e) => setKopSurat({ ...kopSurat, email: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="info@smkgama.sch.id"
+                  />
+                </div>
+              </div>
+
+              {/* Form Grid: Pejabat Penandatangan Resmi */}
+              <div className="pt-4 border-t border-gray-100 dark:border-gray-800 space-y-4">
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <Shield size={16} className="text-emerald-600" /> Pejabat Penandatangan Resmi Dokumen
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                      Nama Kepala Sekolah
+                    </label>
+                    <input
+                      type="text"
+                      value={kopSurat.headmasterName}
+                      onChange={(e) => setKopSurat({ ...kopSurat, headmasterName: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="Drs. H. M. Syarifudin, M.M."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                      NIP Kepala Sekolah
+                    </label>
+                    <input
+                      type="text"
+                      value={kopSurat.headmasterNip}
+                      onChange={(e) => setKopSurat({ ...kopSurat, headmasterNip: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-mono focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="19680514 199403 1 003"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                      Kota Kedudukan Penandatanganan
+                    </label>
+                    <input
+                      type="text"
+                      value={kopSurat.city}
+                      onChange={(e) => setKopSurat({ ...kopSurat, city: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="Kota Bekasi"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                      Nama Koordinator / Proktor CBT
+                    </label>
+                    <input
+                      type="text"
+                      value={kopSurat.proctorName}
+                      onChange={(e) => setKopSurat({ ...kopSurat, proctorName: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="Ahmad Suhendar, M.Kom"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                      NIP Koordinator CBT
+                    </label>
+                    <input
+                      type="text"
+                      value={kopSurat.proctorNip}
+                      onChange={(e) => setKopSurat({ ...kopSurat, proctorNip: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-mono focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="19850412 201001 1 008"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Action Buttons */}
             <div className="pt-6 border-t border-gray-100 dark:border-gray-800 flex justify-end gap-3">
               {isSaved && (

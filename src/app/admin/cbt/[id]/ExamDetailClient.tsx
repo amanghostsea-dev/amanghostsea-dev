@@ -47,6 +47,7 @@ import {
   CbtSecurityValidationBox, 
   CbtDigitalStamp 
 } from '@/components/cbt/CbtOfficialPrintComponents';
+import { KopSuratConfig } from '@/app/admin/settings/types';
 
 interface ParsedQuestion {
   questionText: string;
@@ -328,9 +329,10 @@ interface ExamDetailProps {
     questions: QuestionItem[];
     attempts: AttemptItem[];
   };
+  kopSuratConfig?: KopSuratConfig;
 }
 
-export default function ExamDetailClient({ exam }: ExamDetailProps) {
+export default function ExamDetailClient({ exam, kopSuratConfig }: ExamDetailProps) {
   const [activeTab, setActiveTab] = useState<'questions' | 'results'>('questions');
   const [questions, setQuestions] = useState(exam.questions);
   const [attempts, setAttempts] = useState(exam.attempts);
@@ -2325,6 +2327,7 @@ Poin: 15`}
               <div id="cbt-printable-exam-detail-report" className="space-y-4 bg-white text-black">
                 {/* 🏛️ KOP SURAT RESMI */}
                 <CbtOfficialKopSurat
+                  config={kopSuratConfig}
                   documentTitle="DAFTAR NILAI & REKAPITULASI HASIL EVALUASI UJIAN BERBASIS KOMPUTER (CBT)"
                   documentNumber={`Nomor: 421.5 / CBT-NILAI / ${new Date().getFullYear()} / ${exam.id.slice(0, 8).toUpperCase()}`}
                   subTitle="Semester Ganjil • Tahun Ajaran 2025/2026"
@@ -2444,6 +2447,7 @@ Poin: 15`}
 
                 {/* 🖋️ TANDA TANGAN 3 PIHAK */}
                 <CbtOfficialSignatures
+                  config={kopSuratConfig}
                   subjectName={exam.subject}
                   classNameTarget={exam.classTarget}
                   mode="three-column"

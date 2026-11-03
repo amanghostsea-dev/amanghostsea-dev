@@ -56,6 +56,7 @@ import {
   toDateTimeLocalInput 
 } from '@/lib/cbt-schedule';
 import CbtReportView from './CbtReportView';
+import { KopSuratConfig } from '@/app/admin/settings/types';
 
 interface ExamItem {
   id: string;
@@ -99,6 +100,7 @@ interface CbtDashboardProps {
   initialTab?: 'exams' | 'schedule' | 'reports';
   dynamicClassPresets?: string[];
   dynamicSubjectPresets?: string[];
+  kopSuratConfig?: KopSuratConfig;
 }
 
 export default function CbtDashboard({
@@ -107,6 +109,7 @@ export default function CbtDashboard({
   initialTab = 'exams',
   dynamicClassPresets,
   dynamicSubjectPresets,
+  kopSuratConfig,
 }: CbtDashboardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -997,6 +1000,7 @@ export default function CbtDashboard({
           currentUser={currentUser}
           classPresets={classPresets}
           subjectPresets={subjectPresets}
+          kopSuratConfig={kopSuratConfig}
         />
       ) : activeMainTab === 'schedule' ? (
         <div className="space-y-6">

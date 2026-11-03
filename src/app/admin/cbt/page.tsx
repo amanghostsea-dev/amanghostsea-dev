@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import CbtDashboard from './CbtDashboard';
 import { getDynamicClassTargets } from '@/lib/jurusan-service';
+import { getKopSuratConfig } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,7 @@ export default async function AdminCbtPage({
   const userName = cookieStore.get('auth_name')?.value || 'Guru Mapel';
   const userRole = cookieStore.get('auth_token')?.value || 'Guru';
 
-  const [exams, classTargets, subjects] = await Promise.all([
+  const [exams, classTargets, subjects, kopSuratConfig] = await Promise.all([
     prisma.exam.findMany({
       include: {
         _count: {
@@ -52,6 +53,7 @@ export default async function AdminCbtPage({
       distinct: ['name'],
       orderBy: { name: 'asc' },
     }),
+    getKopSuratConfig(),
   ]);
 
   return (
@@ -62,6 +64,7 @@ export default async function AdminCbtPage({
         initialTab={initialTab}
         dynamicClassPresets={classTargets}
         dynamicSubjectPresets={subjects.map(s => s.name)}
+        kopSuratConfig={kopSuratConfig}
       />
     </Suspense>
   );

@@ -21,8 +21,10 @@ import {
   Check, 
   X,
   FileText,
-  RotateCcw
+  RotateCcw,
+  Settings2
 } from 'lucide-react';
+import { KopSuratConfig } from '@/app/admin/settings/types';
 import { resetStudentAttemptAction, syncCbtScoresToStudentGradesAction } from './actions';
 import ConfirmModal from '@/components/ConfirmModal';
 import { 
@@ -67,6 +69,7 @@ interface CbtReportViewProps {
   };
   classPresets?: string[];
   subjectPresets?: string[];
+  kopSuratConfig?: KopSuratConfig;
 }
 
 export default function CbtReportView({
@@ -74,6 +77,7 @@ export default function CbtReportView({
   currentUser,
   classPresets = [],
   subjectPresets = [],
+  kopSuratConfig,
 }: CbtReportViewProps) {
   const isSuperAdmin = currentUser?.role === 'Super Admin' || currentUser?.role === 'Admin Utama';
   const isGuru = currentUser?.role === 'Guru';
@@ -294,6 +298,14 @@ export default function CbtReportView({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            {isSuperAdmin && (
+              <a
+                href="/admin/settings#kop-surat"
+                className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer backdrop-blur-md shadow-sm"
+              >
+                <Settings2 size={16} /> Atur Kop Surat
+              </a>
+            )}
             <button
               onClick={handleExportCsv}
               className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer backdrop-blur-md shadow-sm"
@@ -744,6 +756,7 @@ export default function CbtReportView({
               <div id="cbt-printable-collective-report" className="space-y-4 bg-white text-black">
                 {/* 🏛️ KOP SURAT RESMI */}
                 <CbtOfficialKopSurat
+                  config={kopSuratConfig}
                   documentTitle="DAFTAR NILAI & REKAPITULASI HASIL EVALUASI UJIAN BERBASIS KOMPUTER (CBT)"
                   documentNumber={`Nomor: 421.5 / CBT-REKAP / ${new Date().getFullYear()} / SMK-GAMA`}
                   subTitle="Semester Ganjil • Tahun Ajaran 2025/2026"
@@ -861,6 +874,7 @@ export default function CbtReportView({
 
                 {/* 🖋️ TANDA TANGAN 3 PIHAK */}
                 <CbtOfficialSignatures
+                  config={kopSuratConfig}
                   teacherName={isGuru ? currentUserName : (exams.find(e => e.id === examFilter)?.authorName || 'Bpk. Ahmad ST')}
                   subjectName={subjectFilter !== 'ALL' ? subjectFilter : (exams.find(e => e.id === examFilter)?.subject || 'Mata Pelajaran')}
                   classNameTarget={classFilter !== 'ALL' ? classFilter : undefined}
@@ -913,6 +927,7 @@ export default function CbtReportView({
               <div id="cbt-printable-student-card" className="space-y-4 bg-white text-black">
                 {/* 🏛️ KOP SURAT RESMI */}
                 <CbtOfficialKopSurat
+                  config={kopSuratConfig}
                   documentTitle="SURAT KETERANGAN HASIL EVALUASI UJIAN BERBASIS KOMPUTER (CBT)"
                   documentNumber={`Nomor: 421.5 / SKH-CBT / ${new Date().getFullYear()} / ${printStudentCard.studentNis}`}
                   subTitle="Sistem Evaluasi Berbasis Komputer & Verifikasi Akademik Resmi"
@@ -992,6 +1007,7 @@ export default function CbtReportView({
                 />
 
                 <CbtOfficialSignatures
+                  config={kopSuratConfig}
                   teacherName={isGuru ? currentUserName : 'Guru Pengampu / Proktor'}
                   subjectName={printStudentCard.subject}
                   classNameTarget={printStudentCard.studentClass}

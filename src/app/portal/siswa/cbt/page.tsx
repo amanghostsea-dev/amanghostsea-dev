@@ -1,11 +1,15 @@
 import prisma from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import SiswaCbtClient from './SiswaCbtClient';
+import { getKopSuratConfig } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SiswaCbtListPage() {
-  const cookieStore = await cookies();
+  const [cookieStore, kopSuratConfig] = await Promise.all([
+    cookies(),
+    getKopSuratConfig(),
+  ]);
   const authName = cookieStore.get('auth_name')?.value;
   const authUser = cookieStore.get('auth_user')?.value;
 
@@ -107,6 +111,7 @@ export default async function SiswaCbtListPage() {
       studentNis={studentNis}
       studentClass={studentClass}
       initials={initials}
+      kopSuratConfig={kopSuratConfig}
     />
   );
 }

@@ -35,6 +35,7 @@ import {
   CbtSecurityValidationBox, 
   CbtDigitalStamp 
 } from '@/components/cbt/CbtOfficialPrintComponents';
+import { KopSuratConfig } from '@/app/admin/settings/types';
 
 export interface AttemptItem {
   id: string;
@@ -70,6 +71,7 @@ interface SiswaCbtClientProps {
   studentNis?: string;
   studentClass: string;
   initials: string;
+  kopSuratConfig?: KopSuratConfig;
 }
 
 export default function SiswaCbtClient({
@@ -78,6 +80,7 @@ export default function SiswaCbtClient({
   studentNis = '-',
   studentClass,
   initials,
+  kopSuratConfig,
 }: SiswaCbtClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -917,6 +920,7 @@ export default function SiswaCbtClient({
               <div id="printable-single-cbt-card" className="space-y-4 bg-white text-black">
                 {/* 🏛️ KOP SURAT RESMI */}
                 <CbtOfficialKopSurat
+                  config={kopSuratConfig}
                   documentTitle="SURAT KETERANGAN HASIL EVALUASI UJIAN BERBASIS KOMPUTER (CBT)"
                   documentNumber={`Nomor: 421.5 / SKH-CBT / ${new Date().getFullYear()} / ${studentNis}`}
                   subTitle="Sistem Evaluasi Berbasis Komputer & Verifikasi Akademik Resmi"
@@ -1000,6 +1004,7 @@ export default function SiswaCbtClient({
                 />
 
                 <CbtOfficialSignatures
+                  config={kopSuratConfig}
                   teacherName={`Wali Kelas ${studentClass}`}
                   subjectName={selectedExamForModal.subject}
                   classNameTarget={studentClass}
@@ -1059,6 +1064,7 @@ export default function SiswaCbtClient({
               <div id="printable-cbt-student-report" className="space-y-4 bg-white text-black">
                 {/* 🏛️ KOP SURAT RESMI */}
                 <CbtOfficialKopSurat
+                  config={kopSuratConfig}
                   documentTitle="TRANSKRIP RESMI HASIL EVALUASI UJIAN BERBASIS KOMPUTER (CBT)"
                   documentNumber={`Nomor: 421.5 / CBT-TRANSKRIP / ${new Date().getFullYear()} / ${studentNis}`}
                   subTitle="Semester Ganjil • Tahun Ajaran 2025/2026"
@@ -1154,6 +1160,7 @@ export default function SiswaCbtClient({
 
                 {/* 🖋️ TANDA TANGAN RESMI */}
                 <CbtOfficialSignatures
+                  config={kopSuratConfig}
                   teacherName={`Wali Kelas ${studentClass}`}
                   classNameTarget={studentClass}
                   mode="two-column"
