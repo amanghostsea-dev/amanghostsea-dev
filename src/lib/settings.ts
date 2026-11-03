@@ -5,7 +5,9 @@ import {
   DEFAULT_PPDB_PAYMENT_CONFIG,
   DEFAULT_TRACK_REGULER,
   DEFAULT_TRACK_AFIRMASI,
-  DEFAULT_TRACK_PRESTASI
+  DEFAULT_TRACK_PRESTASI,
+  KopSuratConfig,
+  DEFAULT_KOP_SURAT_CONFIG
 } from '@/app/admin/settings/types';
 
 export async function getWebSettings() {
@@ -87,4 +89,20 @@ export async function getPPDBPaymentConfig(): Promise<PPDBPaymentConfig> {
     };
   }
   return DEFAULT_PPDB_PAYMENT_CONFIG;
+}
+
+export async function getKopSuratConfig(): Promise<KopSuratConfig> {
+  const settings = await getWebSettings();
+  if (settings?.kopSurat) {
+    return {
+      ...DEFAULT_KOP_SURAT_CONFIG,
+      ...settings.kopSurat,
+      // If logoUrl is in webSettings root and logoLeftUrl not explicitly set, reuse it
+      logoLeftUrl: settings.kopSurat.logoLeftUrl || settings.logoUrl || null,
+    };
+  }
+  return {
+    ...DEFAULT_KOP_SURAT_CONFIG,
+    logoLeftUrl: settings?.logoUrl || null,
+  };
 }

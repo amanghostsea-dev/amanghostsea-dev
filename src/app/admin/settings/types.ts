@@ -160,3 +160,45 @@ export function getTrackConfig(
     totalAmount: total,
   };
 }
+
+export interface KopSuratConfig {
+  yayasanName: string;
+  schoolName: string;
+  competencies: string;
+  nss: string;
+  npsn: string;
+  akreditasi: string;
+  akreditasiSk: string;
+  address: string;
+  phone: string;
+  website: string;
+  email: string;
+  logoLeftUrl?: string | null;
+  logoRightUrl?: string | null;
+  headmasterName: string;
+  headmasterNip: string;
+  proctorName: string;
+  proctorNip: string;
+  city: string;
+}
+
+export const DEFAULT_KOP_SURAT_CONFIG: KopSuratConfig = {
+  yayasanName: 'YAYASAN PENDIDIKAN KEJURUAN GAMA BEKASI',
+  schoolName: 'SMK TEKNOLOGI INFORMASI GAMA 1 BEKASI',
+  competencies: 'KOMPETENSI KEAHLIAN: PPLG • TEKNIK JARINGAN (TJKT) • DKV • MANAJEMEN PERKANTORAN (MPLB)',
+  nss: '322026501001',
+  npsn: '69752981',
+  akreditasi: 'A (UNGGUL)',
+  akreditasiSk: 'No. 129/BAN-SM/2023',
+  address: 'Kampus: Jl. KH. Muchtar Tabrani No. 12, Kel. Perwira, Kec. Bekasi Utara, Kota Bekasi, Jawa Barat 17122',
+  phone: '(021) 8898-7654',
+  website: 'https://smkgama.sch.id',
+  email: 'info@smkgama.sch.id',
+  logoLeftUrl: null,
+  logoRightUrl: null,
+  headmasterName: 'Drs. H. M. Syarifudin, M.M.',
+  headmasterNip: '19680514 199403 1 003',
+  proctorName: 'Ahmad Suhendar, M.Kom',
+  proctorNip: '19850412 201001 1 008',
+  city: 'Kota Bekasi',
+};

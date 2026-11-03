@@ -8,8 +8,14 @@ import {
   DEFAULT_PPDB_PAYMENT_CONFIG,
   DEFAULT_TRACK_REGULER,
   DEFAULT_TRACK_AFIRMASI,
-  DEFAULT_TRACK_PRESTASI
+  DEFAULT_TRACK_PRESTASI,
+  KopSuratConfig
 } from './types';
+import { 
+  getWebSettings as libGetWebSettings, 
+  getPPDBPaymentConfig as libGetPPDBPaymentConfig,
+  getKopSuratConfig as libGetKopSuratConfig
+} from '@/lib/settings';
 
 export async function saveWebSettings(data: any) {
   try {
@@ -27,6 +33,8 @@ export async function saveWebSettings(data: any) {
     });
     revalidatePath('/admin/settings');
     revalidatePath('/admin/settings/biaya-ppdb');
+    revalidatePath('/admin/cbt');
+    revalidatePath('/portal/siswa/cbt');
     revalidatePath('/ppdb');
     revalidatePath('/ppdb/success');
     revalidatePath('/ppdb/status');
@@ -38,14 +46,39 @@ export async function saveWebSettings(data: any) {
   }
 }
 
-import { getWebSettings as libGetWebSettings, getPPDBPaymentConfig as libGetPPDBPaymentConfig } from '@/lib/settings';
-
 export async function getWebSettings() {
   return await libGetWebSettings();
 }
 
 export async function getPPDBPaymentConfig(): Promise<PPDBPaymentConfig> {
   return await libGetPPDBPaymentConfig();
+}
+
+export async function getKopSuratConfig(): Promise<KopSuratConfig> {
+  return await libGetKopSuratConfig();
+}
+
+export async function saveKopSuratConfig(kopSurat: KopSuratConfig) {
+  try {
+    const existing = (await getWebSettings()) || {};
+    const merged = { ...existing, kopSurat };
+    const value = JSON.stringify(merged);
+    await prisma.setting.upsert({
+      where: { key: 'webSettings' },
+      update: { value },
+      create: {
+        key: 'webSettings',
+        value,
+        description: 'Web Settings (Logo, Name, Tagline, Themes, Kop Surat, Payment)',
+      },
+    });
+    revalidatePath('/admin/settings');
+    revalidatePath('/admin/cbt');
+    revalidatePath('/portal/siswa/cbt');
+    return { success: true };
+  } catch (error: any) {
+    return { error: error.message };
+  }
 }
 
 

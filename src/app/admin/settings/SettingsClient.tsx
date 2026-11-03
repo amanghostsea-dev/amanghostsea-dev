@@ -1,10 +1,35 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Settings, Image as ImageIcon, Save, Check, ArrowLeft, Upload, Loader2, Banknote, ExternalLink } from 'lucide-react';
+import { 
+  Settings, 
+  Image as ImageIcon, 
+  Save, 
+  Check, 
+  ArrowLeft, 
+  Upload, 
+  Loader2, 
+  Banknote, 
+  ExternalLink,
+  Printer,
+  FileText,
+  Award,
+  Shield,
+  MapPin,
+  Phone,
+  Mail,
+  Globe,
+  Sparkles,
+  RefreshCw,
+  Eye,
+  Building,
+  CheckCircle2
+} from 'lucide-react';
 import Link from 'next/link';
 
 import { saveWebSettings } from './actions';
+import { KopSuratConfig, DEFAULT_KOP_SURAT_CONFIG } from './types';
+import { CbtOfficialKopSurat } from '@/components/cbt/CbtOfficialPrintComponents';
 
 export default function SettingsClient(props: { initialData: any }) {
   const [formData, setFormData] = useState(props.initialData || {
@@ -14,16 +39,29 @@ export default function SettingsClient(props: { initialData: any }) {
     primaryColor: '#2563eb'
   });
 
+  const [kopSurat, setKopSurat] = useState<KopSuratConfig>(() => {
+    return {
+      ...DEFAULT_KOP_SURAT_CONFIG,
+      ...(props.initialData?.kopSurat || {}),
+      logoLeftUrl: props.initialData?.kopSurat?.logoLeftUrl || props.initialData?.logoUrl || null,
+    };
+  });
+
   const [isSaved, setIsSaved] = useState(false);
   const [previewLogo, setPreviewLogo] = useState<string | null>(props.initialData?.logoUrl || null);
-
   const [loading, setLoading] = useState(false);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
-    const dataToSave = { ...formData };
+    const dataToSave = { 
+      ...formData,
+      kopSurat: {
+        ...kopSurat,
+        logoLeftUrl: kopSurat.logoLeftUrl || previewLogo || null,
+      }
+    };
     if (previewLogo) {
       dataToSave.logoUrl = previewLogo;
     }
@@ -41,14 +79,53 @@ export default function SettingsClient(props: { initialData: any }) {
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Gunakan FileReader untuk mengonversi gambar ke Base64 agar bisa disimpan di localStorage
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64String = reader.result as string;
         setPreviewLogo(base64String);
         setFormData({ ...formData, logoUrl: file.name });
+        // Automatically sync to kop surat left logo if empty
+        if (!kopSurat.logoLeftUrl) {
+          setKopSurat(prev => ({ ...prev, logoLeftUrl: base64String }));
+        }
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleKopLogoLeftUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setKopSurat(prev => ({ ...prev, logoLeftUrl: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleKopLogoRightUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setKopSurat(prev => ({ ...prev, logoRightUrl: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const resetKopToDefault = () => {
+    if (confirm('Kembalikan seluruh teks & format kop surat ke data standar bawaan SMK TI GAMA 1 BEKASI?')) {
+      setKopSurat(DEFAULT_KOP_SURAT_CONFIG);
+    }
+  };
+
+  const syncLogoFromWeb = () => {
+    if (previewLogo) {
+      setKopSurat(prev => ({ ...prev, logoLeftUrl: previewLogo }));
+    } else {
+      alert('Belum ada logo utama website yang diunggah.');
     }
   };
 
