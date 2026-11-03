@@ -41,6 +41,12 @@ import {
 import ConfirmModal from '@/components/ConfirmModal';
 import { createQuestion, deleteQuestion, deleteAttempt, toggleExamSession, createBatchQuestions, updateQuestion, rotateExamToken } from '../actions';
 import { formatExamScheduleRange, getExamScheduleState } from '@/lib/cbt-schedule';
+import { 
+  CbtOfficialKopSurat, 
+  CbtOfficialSignatures, 
+  CbtSecurityValidationBox, 
+  CbtDigitalStamp 
+} from '@/components/cbt/CbtOfficialPrintComponents';
 
 interface ParsedQuestion {
   questionText: string;
@@ -336,6 +342,7 @@ export default function ExamDetailClient({ exam }: ExamDetailProps) {
   const [copiedToken, setCopiedToken] = useState(false);
   const [isWhiteboardModalOpen, setIsWhiteboardModalOpen] = useState(false);
   const [resultSearch, setResultSearch] = useState('');
+  const [isPrintExamModalOpen, setIsPrintExamModalOpen] = useState(false);
 
   // 🔄 Dynamic 5-minute Rolling Token System (300 seconds)
   const calculateRemainingTokenTime = () => {
@@ -1353,10 +1360,10 @@ Poin: 10
 
               <button
                 type="button"
-                onClick={() => window.print()}
+                onClick={() => setIsPrintExamModalOpen(true)}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
               >
-                <Printer size={14} /> Cetak Nilai
+                <Printer size={14} /> Cetak Nilai Resmi
               </button>
             </div>
           </div>
@@ -2288,6 +2295,211 @@ Poin: 15`}
           </div>
         </div>
       )}
+
+      {/* 🖨️ MODAL CETAK REKAPITULASI NILAI RESMI UJIAN INI */}
+      {isPrintExamModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-4xl w-full flex flex-col max-h-[92vh] overflow-hidden text-slate-900 dark:text-white">
+            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/40 dark:to-indigo-950/40">
+              <div className="flex items-center gap-2.5">
+                <Printer className="text-purple-600" size={20} />
+                <div>
+                  <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
+                    Pratinjau Lembar Rekap Nilai Resmi Ujian CBT
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Format cetak resmi standar Dinas Pendidikan & SMK TI GAMA 1 BEKASI
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPrintExamModalOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 sm:p-8 bg-white text-black font-serif">
+              <div id="cbt-printable-exam-detail-report" className="space-y-4 bg-white text-black">
+                {/* 🏛️ KOP SURAT RESMI */}
+                <CbtOfficialKopSurat
+                  documentTitle="DAFTAR NILAI & REKAPITULASI HASIL EVALUASI UJIAN BERBASIS KOMPUTER (CBT)"
+                  documentNumber={`Nomor: 421.5 / CBT-NILAI / ${new Date().getFullYear()} / ${exam.id.slice(0, 8).toUpperCase()}`}
+                  subTitle="Semester Ganjil • Tahun Ajaran 2025/2026"
+                />
+
+                {/* 📋 METADATA LAPORAN */}
+                <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs border border-black p-3 bg-slate-50/50 print-avoid-break">
+                  <div className="flex">
+                    <span className="w-32 font-bold text-slate-700">Mata Pelajaran</span>
+                    <span>: <strong>{exam.subject}</strong></span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-32 font-bold text-slate-700">Target Rombel</span>
+                    <span>: <strong>{exam.classTarget}</strong></span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-32 font-bold text-slate-700">Paket Ujian CBT</span>
+                    <span>: {exam.title}</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-32 font-bold text-slate-700">Standar KKM Sekolah</span>
+                    <span>: <strong>75.00</strong> (Kriteria Ketuntasan Minimal)</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-32 font-bold text-slate-700">Alokasi Soal & Waktu</span>
+                    <span>: {exam.questions.length} Butir Soal • {exam.duration} Menit</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-32 font-bold text-slate-700">Waktu Cetak</span>
+                    <span>: {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                  </div>
+                </div>
+
+                {/* 📊 TABEL NILAI RESMI */}
+                <table className="w-full text-left border-collapse border border-black text-[10px] sm:text-xs">
+                  <thead>
+                    <tr className="bg-slate-200 border-b border-black text-black font-bold uppercase text-center tracking-tight">
+                      <th className="py-2 px-1 border-r border-black w-8">No</th>
+                      <th className="py-2 px-2 border-r border-black w-24">NIS / NISN</th>
+                      <th className="py-2 px-3 border-r border-black text-left">Nama Lengkap Siswa</th>
+                      <th className="py-2 px-2 border-r border-black w-20">Kelas</th>
+                      <th className="py-2 px-2 border-r border-black w-16">Benar</th>
+                      <th className="py-2 px-2 border-r border-black w-16">Nilai</th>
+                      <th className="py-2 px-2 border-r border-black w-14">Grade</th>
+                      <th className="py-2 px-2 border-r border-black w-20">Status</th>
+                      <th className="py-2 px-2">Integritas</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-black/40">
+                    {attempts.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="py-6 text-center text-slate-500 italic">
+                          Belum ada data pengerjaan ujian oleh siswa.
+                        </td>
+                      </tr>
+                    ) : (
+                      attempts.map((att, idx) => {
+                        const isTuntas = att.score >= 75;
+                        let grade = 'C';
+                        if (att.score >= 90) grade = 'A';
+                        else if (att.score >= 80) grade = 'B';
+                        else if (att.score >= 75) grade = 'C+';
+                        else if (att.score >= 60) grade = 'C';
+                        else grade = 'D';
+
+                        return (
+                          <tr key={att.id} className="text-center print-avoid-break">
+                            <td className="py-1.5 px-1 border-r border-black font-bold">{idx + 1}</td>
+                            <td className="py-1.5 px-2 border-r border-black font-mono font-medium text-[10px]">{att.studentNis || '-'}</td>
+                            <td className="py-1.5 px-3 border-r border-black text-left font-semibold uppercase">{att.studentName}</td>
+                            <td className="py-1.5 px-2 border-r border-black font-bold">{att.studentClass || exam.classTarget}</td>
+                            <td className="py-1.5 px-2 border-r border-black font-semibold">{att.totalCorrect} / {att.totalQuestions}</td>
+                            <td className="py-1.5 px-2 border-r border-black font-black text-sm">{Math.round(att.score)}</td>
+                            <td className="py-1.5 px-2 border-r border-black font-bold">{grade}</td>
+                            <td className="py-1.5 px-2 border-r border-black font-bold text-[10px]">
+                              {isTuntas ? (
+                                <span className="text-emerald-800">TUNTAS</span>
+                              ) : (
+                                <span className="text-rose-800">REMEDIAL</span>
+                              )}
+                            </td>
+                            <td className="py-1.5 px-2 text-[9px]">
+                              {att.tabSwitchCount === 0 ? 'Tertib' : `⚠️ ${att.tabSwitchCount}x Tab`}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                  {attempts.length > 0 && (
+                    <tfoot>
+                      <tr className="bg-slate-100 font-bold border-t-2 border-black text-[10px] sm:text-xs">
+                        <td colSpan={4} className="py-2 px-3 text-right border-r border-black">
+                          Statistik Nilai ({attempts.length} Siswa):
+                        </td>
+                        <td className="py-2 px-2 text-center border-r border-black">
+                          Rata-rata:
+                        </td>
+                        <td className="py-2 px-2 text-center border-r border-black font-black text-sm text-purple-900">
+                          {Math.round((attempts.reduce((a, b) => a + b.score, 0) / attempts.length) * 10) / 10}
+                        </td>
+                        <td className="py-2 px-2 text-center border-r border-black font-black">
+                          {Math.round((attempts.reduce((a, b) => a + b.score, 0) / attempts.length)) >= 75 ? 'TUNTAS' : 'REMED'}
+                        </td>
+                        <td colSpan={2} className="py-2 px-2 text-center font-bold">
+                          {Math.round((attempts.filter(a => a.score >= 75).length / attempts.length) * 100)}% Kelulusan ({attempts.filter(a => a.score >= 75).length} Tuntas / {attempts.filter(a => a.score < 75).length} Remedial)
+                        </td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+
+                {/* 🔒 KEABSAHAN SISTEM CBT */}
+                <CbtSecurityValidationBox
+                  examTitle={exam.title}
+                />
+
+                {/* 🖋️ TANDA TANGAN 3 PIHAK */}
+                <CbtOfficialSignatures
+                  subjectName={exam.subject}
+                  classNameTarget={exam.classTarget}
+                  mode="three-column"
+                />
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsPrintExamModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
+              >
+                Tutup
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white flex items-center gap-1.5 shadow-md shadow-purple-500/25"
+              >
+                <Printer size={15} /> Cetak Rekap Nilai Resmi (PDF / Print)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Global Print Styles for Exam Detail */}
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          #cbt-printable-exam-detail-report, #cbt-printable-exam-detail-report * {
+            visibility: visible !important;
+          }
+          #cbt-printable-exam-detail-report {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            background: white !important;
+            color: black !important;
+            padding: 10mm 12mm !important;
+            font-size: 10.5pt !important;
+          }
+          @page {
+            size: A4 portrait;
+            margin: 10mm 12mm 12mm 12mm;
+          }
+          .print-avoid-break {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

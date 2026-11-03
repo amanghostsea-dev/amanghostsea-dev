@@ -25,6 +25,12 @@ import {
 } from 'lucide-react';
 import { resetStudentAttemptAction, syncCbtScoresToStudentGradesAction } from './actions';
 import ConfirmModal from '@/components/ConfirmModal';
+import { 
+  CbtOfficialKopSurat, 
+  CbtOfficialSignatures, 
+  CbtSecurityValidationBox, 
+  CbtDigitalStamp 
+} from '@/components/cbt/CbtOfficialPrintComponents';
 
 export interface ReportAttemptItem {
   id: string;
@@ -87,6 +93,7 @@ export default function CbtReportView({
   const [resetTargetAttempt, setResetTargetAttempt] = useState<{ id: string; studentName: string; examTitle: string } | null>(null);
   const [isResetting, setIsResetting] = useState(false);
   const [printStudentCard, setPrintStudentCard] = useState<any | null>(null);
+  const [isPrintCollectiveModalOpen, setIsPrintCollectiveModalOpen] = useState(false);
 
   // Flatten all attempts into uniform report rows
   const allRows = useMemo(() => {
@@ -259,7 +266,7 @@ export default function CbtReportView({
 
   // Print view
   const handlePrintReport = () => {
-    window.print();
+    setIsPrintCollectiveModalOpen(true);
   };
 
   return (
@@ -708,20 +715,193 @@ export default function CbtReportView({
         </div>
       </div>
 
-      {/* 🖨️ MODAL PRINT KARTU HASIL UJIAN SISWA */}
+      {/* 🖨️ MODAL 1: CETAK REKAPITULASI RESMI KOLEKTIF (KELAS / MAPEL) */}
+      {isPrintCollectiveModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-4xl w-full flex flex-col max-h-[92vh] overflow-hidden text-slate-900 dark:text-white">
+            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/40 dark:to-indigo-950/40">
+              <div className="flex items-center gap-2.5">
+                <Printer className="text-purple-600" size={20} />
+                <div>
+                  <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
+                    Pratinjau Lembar Rekapitulasi Nilai Resmi CBT
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Format cetak resmi standar Dinas Pendidikan & SMK TI GAMA 1 BEKASI
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPrintCollectiveModalOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 sm:p-8 bg-white text-black font-serif">
+              <div id="cbt-printable-collective-report" className="space-y-4 bg-white text-black">
+                {/* 🏛️ KOP SURAT RESMI */}
+                <CbtOfficialKopSurat
+                  documentTitle="DAFTAR NILAI & REKAPITULASI HASIL EVALUASI UJIAN BERBASIS KOMPUTER (CBT)"
+                  documentNumber={`Nomor: 421.5 / CBT-REKAP / ${new Date().getFullYear()} / SMK-GAMA`}
+                  subTitle="Semester Ganjil • Tahun Ajaran 2025/2026"
+                />
+
+                {/* 📋 METADATA LAPORAN */}
+                <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs border border-black p-3 bg-slate-50/50 print-avoid-break">
+                  <div className="flex">
+                    <span className="w-32 font-bold text-slate-700">Mata Pelajaran</span>
+                    <span>: {subjectFilter !== 'ALL' ? subjectFilter : (exams.find(e => e.id === examFilter)?.subject || 'Seluruh Mata Pelajaran Terpilih')}</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-32 font-bold text-slate-700">Tingkat / Target Kelas</span>
+                    <span>: {classFilter !== 'ALL' ? classFilter : 'Seluruh Rombel Kelas'}</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-32 font-bold text-slate-700">Paket Ujian CBT</span>
+                    <span>: {exams.find(e => e.id === examFilter)?.title || 'Seluruh Paket Ujian Terpilih'}</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-32 font-bold text-slate-700">Standar KKM Sekolah</span>
+                    <span>: <strong>75.00</strong> (Kriteria Ketuntasan Minimal)</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-32 font-bold text-slate-700">Guru / Pengampu</span>
+                    <span>: {isGuru ? currentUserName : (exams.find(e => e.id === examFilter)?.authorName || 'Tim Kurikulum & CBT')}</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-32 font-bold text-slate-700">Waktu Cetak</span>
+                    <span>: {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                  </div>
+                </div>
+
+                {/* 📊 TABEL NILAI RESMI */}
+                <table className="w-full text-left border-collapse border border-black text-[10px] sm:text-xs">
+                  <thead>
+                    <tr className="bg-slate-200 border-b border-black text-black font-bold uppercase text-center tracking-tight">
+                      <th className="py-2 px-1 border-r border-black w-8">No</th>
+                      <th className="py-2 px-2 border-r border-black w-24">NIS / NISN</th>
+                      <th className="py-2 px-3 border-r border-black text-left">Nama Lengkap Siswa</th>
+                      <th className="py-2 px-2 border-r border-black w-20">Kelas</th>
+                      <th className="py-2 px-2 border-r border-black w-16">Benar</th>
+                      <th className="py-2 px-2 border-r border-black w-16">Nilai</th>
+                      <th className="py-2 px-2 border-r border-black w-14">Grade</th>
+                      <th className="py-2 px-2 border-r border-black w-20">Status</th>
+                      <th className="py-2 px-2">Integritas</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-black/40">
+                    {filteredRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="py-6 text-center text-slate-500 italic">
+                          Tidak ada data peserta ujian yang sesuai filter.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredRows.map((r, idx) => {
+                        const isTuntas = r.score >= kkmScore;
+                        let grade = 'C';
+                        if (r.score >= 90) grade = 'A';
+                        else if (r.score >= 80) grade = 'B';
+                        else if (r.score >= 75) grade = 'C+';
+                        else if (r.score >= 60) grade = 'C';
+                        else grade = 'D';
+
+                        return (
+                          <tr key={r.attemptId} className="text-center print-avoid-break">
+                            <td className="py-1.5 px-1 border-r border-black font-bold">{idx + 1}</td>
+                            <td className="py-1.5 px-2 border-r border-black font-mono font-medium text-[10px]">{r.studentNis}</td>
+                            <td className="py-1.5 px-3 border-r border-black text-left font-semibold uppercase">{r.studentName}</td>
+                            <td className="py-1.5 px-2 border-r border-black font-bold">{r.studentClass}</td>
+                            <td className="py-1.5 px-2 border-r border-black font-semibold">{r.totalCorrect} / {r.totalQuestions}</td>
+                            <td className="py-1.5 px-2 border-r border-black font-black text-sm">{Math.round(r.score)}</td>
+                            <td className="py-1.5 px-2 border-r border-black font-bold">{grade}</td>
+                            <td className="py-1.5 px-2 border-r border-black font-bold text-[10px]">
+                              {isTuntas ? (
+                                <span className="text-emerald-800">TUNTAS</span>
+                              ) : (
+                                <span className="text-rose-800">REMEDIAL</span>
+                              )}
+                            </td>
+                            <td className="py-1.5 px-2 text-[9px]">
+                              {r.tabSwitchCount === 0 ? 'Tertib' : `⚠️ ${r.tabSwitchCount}x Tab`}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-slate-100 font-bold border-t-2 border-black text-[10px] sm:text-xs">
+                      <td colSpan={4} className="py-2 px-3 text-right border-r border-black">
+                        Statistik Evaluasi (Total: {totalAttempts} Peserta):
+                      </td>
+                      <td className="py-2 px-2 text-center border-r border-black">
+                        Avg:
+                      </td>
+                      <td className="py-2 px-2 text-center border-r border-black font-black text-sm text-purple-900">
+                        {avgScore}
+                      </td>
+                      <td className="py-2 px-2 text-center border-r border-black font-black">
+                        {avgScore >= 75 ? 'TUNTAS' : 'REMED'}
+                      </td>
+                      <td colSpan={2} className="py-2 px-2 text-center font-bold">
+                        {passRate}% Kelulusan ({passedCount} Tuntas / {remedialCount} Remedial)
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+
+                {/* 🔒 KEABSAHAN SISTEM CBT */}
+                <CbtSecurityValidationBox
+                  examTitle={exams.find(e => e.id === examFilter)?.title || 'Rekapitulasi Evaluasi CBT'}
+                />
+
+                {/* 🖋️ TANDA TANGAN 3 PIHAK */}
+                <CbtOfficialSignatures
+                  teacherName={isGuru ? currentUserName : (exams.find(e => e.id === examFilter)?.authorName || 'Bpk. Ahmad ST')}
+                  subjectName={subjectFilter !== 'ALL' ? subjectFilter : (exams.find(e => e.id === examFilter)?.subject || 'Mata Pelajaran')}
+                  classNameTarget={classFilter !== 'ALL' ? classFilter : undefined}
+                  mode="three-column"
+                />
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsPrintCollectiveModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
+              >
+                Tutup
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white flex items-center gap-1.5 shadow-md shadow-purple-500/25"
+              >
+                <Printer size={15} /> Cetak Rekap Dokumen Sekarang (PDF / Print)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🖨️ MODAL 2: CETAK KARTU / TRANSKRIP RESMI SISWA INDIVIDUAL */}
       {printStudentCard && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-lg w-full p-6 space-y-6 text-slate-900 dark:text-white">
-            <div className="flex justify-between items-start border-b border-slate-100 dark:border-slate-800 pb-4">
-              <div>
-                <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest block">
-                  SMK TI GAMA 1 BEKASI • SMART CBT
-                </span>
-                <h3 className="text-lg font-black text-slate-900 dark:text-white mt-0.5">
-                  Transkrip Hasil Ujian CBT Siswa
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-xl w-full flex flex-col max-h-[92vh] overflow-hidden text-slate-900 dark:text-white">
+            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/40 dark:to-indigo-950/40">
+              <div className="flex items-center gap-2">
+                <Award className="text-purple-600" size={20} />
+                <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+                  Surat Keterangan Hasil Evaluasi Ujian (CBT) Siswa
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setPrintStudentCard(null)}
                 className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
@@ -729,77 +909,111 @@ export default function CbtReportView({
               </button>
             </div>
 
-            <div className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 font-semibold">
-                <div>
-                  <span className="text-slate-400 block text-[10px]">Nama Lengkap:</span>
-                  <span className="text-sm font-bold text-slate-900 dark:text-white">{printStudentCard.studentName}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px]">NISN / ID:</span>
-                  <span className="text-sm font-bold text-slate-900 dark:text-white font-mono">{printStudentCard.studentNis}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px]">Kelas & Rombel:</span>
-                  <span className="font-bold text-blue-600 dark:text-blue-400">{printStudentCard.studentClass}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px]">Mata Pelajaran:</span>
-                  <span className="font-bold text-purple-600 dark:text-purple-400">{printStudentCard.subject}</span>
-                </div>
-              </div>
+            <div className="flex-1 overflow-y-auto p-6 sm:p-8 bg-white text-black font-serif">
+              <div id="cbt-printable-student-card" className="space-y-4 bg-white text-black">
+                {/* 🏛️ KOP SURAT RESMI */}
+                <CbtOfficialKopSurat
+                  documentTitle="SURAT KETERANGAN HASIL EVALUASI UJIAN BERBASIS KOMPUTER (CBT)"
+                  documentNumber={`Nomor: 421.5 / SKH-CBT / ${new Date().getFullYear()} / ${printStudentCard.studentNis}`}
+                  subTitle="Sistem Evaluasi Berbasis Komputer & Verifikasi Akademik Resmi"
+                />
 
-              <div className="p-5 rounded-2xl bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950/40 dark:to-indigo-950/40 border border-purple-200 dark:border-purple-900/60 text-center space-y-2">
-                <span className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider block">
-                  Perolehan Nilai Akhir
-                </span>
-                <div className="text-5xl font-black text-purple-900 dark:text-white font-mono">
-                  {Math.round(printStudentCard.score)}
-                  <span className="text-lg font-normal text-slate-400"> / 100</span>
+                {/* 👤 IDENTITAS RESMI SISWA */}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs border border-black p-3 bg-slate-50/50 print-avoid-break">
+                  <div className="flex">
+                    <span className="w-32 font-bold text-slate-700">Nama Lengkap</span>
+                    <span className="font-bold text-black">: {printStudentCard.studentName}</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-32 font-bold text-slate-700">Kelas / Rombel</span>
+                    <span className="font-bold text-black">: {printStudentCard.studentClass}</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-32 font-bold text-slate-700">NISN / Nomor Induk</span>
+                    <span className="font-mono font-bold text-black">: {printStudentCard.studentNis}</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-32 font-bold text-slate-700">Waktu Evaluasi</span>
+                    <span>: {printStudentCard.submittedAt ? new Date(printStudentCard.submittedAt).toLocaleString('id-ID') : '-'}</span>
+                  </div>
                 </div>
-                <div>
-                  {printStudentCard.score >= kkmScore ? (
-                    <span className="px-3 py-1 rounded-full bg-emerald-500 text-white text-xs font-bold shadow-sm shadow-emerald-500/30">
-                      ✓ Dinyatakan Tuntas (Lulus KKM)
-                    </span>
-                  ) : (
-                    <span className="px-3 py-1 rounded-full bg-amber-500 text-white text-xs font-bold shadow-sm shadow-amber-500/30">
-                      Wajib Mengikuti Remedial (KKM: {kkmScore})
-                    </span>
-                  )}
-                </div>
-              </div>
 
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
-                  <span className="text-[10px] text-slate-400 block">Jawaban Benar</span>
-                  <span className="text-base font-bold text-emerald-600">{printStudentCard.totalCorrect} Soal</span>
+                {/* 📚 RINCIAN PAKET UJIAN */}
+                <div className="p-3 border border-black bg-purple-50/30 print-avoid-break space-y-1">
+                  <div className="text-[10px] font-bold text-purple-900 uppercase tracking-wider">
+                    Mata Pelajaran: {printStudentCard.subject}
+                  </div>
+                  <div className="text-base font-black text-black">
+                    {printStudentCard.examTitle}
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-slate-700 pt-0.5">
+                    <span>Target: <strong>{printStudentCard.studentClass}</strong></span>
+                    <span>•</span>
+                    <span>KKM: <strong>75.00</strong></span>
+                    <span>•</span>
+                    <span>Total Soal: <strong>{printStudentCard.totalQuestions} Butir</strong></span>
+                  </div>
                 </div>
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
-                  <span className="text-[10px] text-slate-400 block">Total Soal</span>
-                  <span className="text-base font-bold text-slate-800 dark:text-slate-200">{printStudentCard.totalQuestions} Soal</span>
+
+                {/* 🎯 KOTAK NILAI RESMI KEDINASAN */}
+                <div className="border-2 border-black p-4 bg-slate-50 flex items-center justify-between print-avoid-break">
+                  <div>
+                    <span className="text-[11px] font-bold text-slate-600 block uppercase">
+                      Nilai Perolehan Ujian CBT:
+                    </span>
+                    <div className="text-4xl font-black text-black">
+                      {Math.round(printStudentCard.score)} <span className="text-xs font-normal text-slate-500">/ 100</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 italic block mt-0.5">
+                      Terbilang: {printStudentCard.score >= 90 ? 'Sangat Baik' : printStudentCard.score >= 80 ? 'Baik' : printStudentCard.score >= 75 ? 'Cukup (Tuntas KKM)' : 'Perlu Peningkatan'}
+                    </span>
+                  </div>
+
+                  <div className="text-right space-y-1">
+                    <span className="text-[10px] font-bold text-slate-600 uppercase block">Status Kriteria Ketuntasan:</span>
+                    {printStudentCard.score >= kkmScore ? (
+                      <span className="inline-block px-3 py-1 bg-black text-white text-xs font-black border border-black uppercase tracking-wider">
+                        ✓ LULUS / TUNTAS
+                      </span>
+                    ) : (
+                      <span className="inline-block px-3 py-1 bg-white text-black text-xs font-black border-2 border-black uppercase tracking-wider">
+                        WAJIB REMEDIAL
+                      </span>
+                    )}
+                    <div className="text-[10px] text-slate-700">
+                      Benar: <strong>{printStudentCard.totalCorrect}</strong> dari {printStudentCard.totalQuestions} Soal
+                    </div>
+                  </div>
                 </div>
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
-                  <span className="text-[10px] text-slate-400 block">Integritas</span>
-                  <span className="text-base font-bold text-slate-800 dark:text-slate-200">{printStudentCard.tabSwitchCount === 0 ? '100% Bersih' : `${printStudentCard.tabSwitchCount}x Tab`}</span>
-                </div>
+
+                {/* 🛡️ KEABSAHAN & TANDA TANGAN */}
+                <CbtSecurityValidationBox
+                  examTitle={printStudentCard.examTitle}
+                />
+
+                <CbtOfficialSignatures
+                  teacherName={isGuru ? currentUserName : 'Guru Pengampu / Proktor'}
+                  subjectName={printStudentCard.subject}
+                  classNameTarget={printStudentCard.studentClass}
+                  mode="two-column"
+                />
               </div>
             </div>
 
-            <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setPrintStudentCard(null)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs"
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
               >
                 Tutup
               </button>
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md shadow-purple-600/30 flex items-center justify-center gap-2 cursor-pointer"
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-1.5 shadow-md shadow-purple-500/25"
               >
-                <Printer size={15} /> Cetak Lembar Nilai
+                <Printer size={15} /> Cetak Lembar Nilai Siswa (PDF / Print)
               </button>
             </div>
           </div>
@@ -818,6 +1032,37 @@ export default function CbtReportView({
         isLoading={isResetting}
         variant="danger"
       />
+
+      {/* 🖨️ GLOBAL PRINT CSS FOR HIGH-FIDELITY OFFICIAL DOCUMENTS */}
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          #cbt-printable-collective-report, #cbt-printable-collective-report *,
+          #cbt-printable-student-card, #cbt-printable-student-card * {
+            visibility: visible !important;
+          }
+          #cbt-printable-collective-report, #cbt-printable-student-card {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            background: white !important;
+            color: black !important;
+            padding: 10mm 12mm !important;
+            font-size: 10.5pt !important;
+          }
+          @page {
+            size: A4 portrait;
+            margin: 10mm 12mm 12mm 12mm;
+          }
+          .print-avoid-break {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

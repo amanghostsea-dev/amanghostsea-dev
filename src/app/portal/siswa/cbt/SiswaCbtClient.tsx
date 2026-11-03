@@ -29,6 +29,12 @@ import {
   FileText
 } from 'lucide-react';
 import { formatExamScheduleRange, getExamScheduleState, ScheduleState } from '@/lib/cbt-schedule';
+import { 
+  CbtOfficialKopSurat, 
+  CbtOfficialSignatures, 
+  CbtSecurityValidationBox, 
+  CbtDigitalStamp 
+} from '@/components/cbt/CbtOfficialPrintComponents';
 
 export interface AttemptItem {
   id: string;
@@ -890,12 +896,12 @@ export default function SiswaCbtClient({
       {/* ========================================================================= */}
       {selectedExamForModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 flex flex-col max-h-[90vh]">
-            <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 flex flex-col max-h-[92vh]">
+            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30">
               <div className="flex items-center gap-2">
                 <Award className="text-purple-600" size={20} />
-                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-                  Kartu Hasil Ujian CBT Siswa
+                <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
+                  Surat Keterangan Hasil Evaluasi Belajar CBT Siswa
                 </h3>
               </div>
               <button
@@ -907,101 +913,98 @@ export default function SiswaCbtClient({
               </button>
             </div>
 
-            <div id="printable-single-cbt-card" className="p-6 space-y-5 overflow-y-auto bg-white text-slate-900">
-              {/* Kop Surat Mini */}
-              <div className="text-center border-b-2 border-slate-800 pb-3">
-                <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">
-                  SMK TEKNOLOGI INFORMASI GAMA 1 BEKASI
-                </div>
-                <div className="text-base font-black text-slate-900">
-                  SURAT KETERANGAN HASIL EVALUASI BELAJAR (CBT)
-                </div>
-                <div className="text-[10px] text-slate-500">
-                  Sistem Ujian Berbasis Komputer & Verifikasi Digital Resmi
-                </div>
-              </div>
+            <div className="flex-1 overflow-y-auto p-6 sm:p-8 bg-white text-black font-serif">
+              <div id="printable-single-cbt-card" className="space-y-4 bg-white text-black">
+                {/* 🏛️ KOP SURAT RESMI */}
+                <CbtOfficialKopSurat
+                  documentTitle="SURAT KETERANGAN HASIL EVALUASI UJIAN BERBASIS KOMPUTER (CBT)"
+                  documentNumber={`Nomor: 421.5 / SKH-CBT / ${new Date().getFullYear()} / ${studentNis}`}
+                  subTitle="Sistem Evaluasi Berbasis Komputer & Verifikasi Akademik Resmi"
+                />
 
-              {/* Data Siswa */}
-              <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <div>
-                  <span className="text-slate-500 text-[10px] block">Nama Lengkap Siswa:</span>
-                  <span className="font-bold text-slate-900">{studentName}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 text-[10px] block">Nomor Induk Siswa (NISN):</span>
-                  <span className="font-bold text-slate-900">{studentNis}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 text-[10px] block">Kelas & Rombel:</span>
-                  <span className="font-bold text-slate-900">{studentClass}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 text-[10px] block">Waktu Verifikasi:</span>
-                  <span className="font-bold text-slate-900">
-                    {selectedExamForModal.attempts[0]?.submittedAt 
+                {/* 👤 IDENTITAS RESMI SISWA */}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs border border-black p-3 bg-slate-50/50 print-avoid-break">
+                  <div className="flex">
+                    <span className="w-32 font-bold text-slate-700">Nama Lengkap</span>
+                    <span className="font-bold text-black">: {studentName}</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-32 font-bold text-slate-700">Kelas / Rombel</span>
+                    <span className="font-bold text-black">: {studentClass}</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-32 font-bold text-slate-700">NISN / Nomor Induk</span>
+                    <span className="font-mono font-bold text-black">: {studentNis}</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-32 font-bold text-slate-700">Waktu Evaluasi</span>
+                    <span>: {selectedExamForModal.attempts[0]?.submittedAt 
                       ? new Date(selectedExamForModal.attempts[0].submittedAt).toLocaleString('id-ID') 
-                      : '-'}
-                  </span>
+                      : '-'}</span>
+                  </div>
                 </div>
-              </div>
 
-              {/* Rincian Ujian */}
-              <div className="p-4 rounded-xl border border-purple-200 bg-purple-50/50 space-y-2">
-                <div className="text-xs text-purple-700 font-bold uppercase tracking-wider">
-                  Mata Pelajaran: {selectedExamForModal.subject}
+                {/* 📚 RINCIAN PAKET UJIAN */}
+                <div className="p-3 border border-black bg-purple-50/30 print-avoid-break space-y-1">
+                  <div className="text-[10px] font-bold text-purple-900 uppercase tracking-wider">
+                    Mata Pelajaran: {selectedExamForModal.subject}
+                  </div>
+                  <div className="text-base font-black text-black">
+                    {selectedExamForModal.title}
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-slate-700 pt-0.5">
+                    <span>Target: <strong>{selectedExamForModal.classTarget}</strong></span>
+                    <span>•</span>
+                    <span>KKM: <strong>75.00</strong></span>
+                    <span>•</span>
+                    <span>Total Soal: <strong>{selectedExamForModal._count.questions} Butir</strong></span>
+                    <span>•</span>
+                    <span>Durasi: <strong>{selectedExamForModal.duration} Menit</strong></span>
+                  </div>
                 </div>
-                <div className="text-lg font-black text-slate-900">
-                  {selectedExamForModal.title}
-                </div>
-                <div className="flex items-center gap-3 text-xs text-slate-600">
-                  <span>KKM: <strong>75</strong></span>
-                  <span>•</span>
-                  <span>Durasi: <strong>{selectedExamForModal.duration} Menit</strong></span>
-                  <span>•</span>
-                  <span>Total Soal: <strong>{selectedExamForModal._count.questions} Butir</strong></span>
-                </div>
-              </div>
 
-              {/* Skor & Status */}
-              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200">
-                <div>
-                  <span className="text-xs text-slate-500 block">Nilai Akhir Ujian:</span>
-                  <span className="text-4xl font-black text-purple-600">
-                    {selectedExamForModal.attempts[0]?.score || 0}
-                  </span>
-                  <span className="text-xs text-slate-400"> / 100</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-xs text-slate-500 block">Status Hasil:</span>
-                  {(selectedExamForModal.attempts[0]?.score || 0) >= 75 ? (
-                    <span className="inline-block px-3 py-1 bg-emerald-600 text-white rounded-lg text-xs font-black">
-                      LULUS / TUNTAS
+                {/* 🎯 KOTAK NILAI RESMI KEDINASAN */}
+                <div className="border-2 border-black p-4 bg-slate-50 flex items-center justify-between print-avoid-break">
+                  <div>
+                    <span className="text-[11px] font-bold text-slate-600 block uppercase">
+                      Nilai Perolehan Ujian CBT:
                     </span>
-                  ) : (
-                    <span className="inline-block px-3 py-1 bg-rose-600 text-white rounded-lg text-xs font-black">
-                      PERLU REMEDIAL
+                    <div className="text-4xl font-black text-black">
+                      {Math.round(selectedExamForModal.attempts[0]?.score || 0)} <span className="text-xs font-normal text-slate-500">/ 100</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 italic block mt-0.5">
+                      Status Evaluasi: {(selectedExamForModal.attempts[0]?.score || 0) >= 75 ? 'Tuntas Sesuai Kriteria Ketuntasan Minimal' : 'Belum Memenuhi Standar KKM'}
                     </span>
-                  )}
-                  <span className="block text-[10px] text-slate-400 mt-1">
-                    Benar: {selectedExamForModal.attempts[0]?.totalCorrect || 0} dari {selectedExamForModal.attempts[0]?.totalQuestions || selectedExamForModal._count.questions}
-                  </span>
-                </div>
-              </div>
+                  </div>
 
-              {/* Tanda Tangan */}
-              <div className="pt-4 flex justify-between text-xs text-center text-slate-700">
-                <div>
-                  <div>Mengetahui,</div>
-                  <div className="font-bold">Wali Kelas</div>
-                  <div className="h-12"></div>
-                  <div className="font-bold underline">Wali Kelas {studentClass}</div>
+                  <div className="text-right space-y-1">
+                    <span className="text-[10px] font-bold text-slate-600 uppercase block">Status Kriteria Ketuntasan:</span>
+                    {(selectedExamForModal.attempts[0]?.score || 0) >= 75 ? (
+                      <span className="inline-block px-3 py-1 bg-black text-white text-xs font-black border border-black uppercase tracking-wider">
+                        ✓ LULUS / TUNTAS
+                      </span>
+                    ) : (
+                      <span className="inline-block px-3 py-1 bg-white text-black text-xs font-black border-2 border-black uppercase tracking-wider">
+                        WAJIB REMEDIAL
+                      </span>
+                    )}
+                    <div className="text-[10px] text-slate-700">
+                      Benar: <strong>{selectedExamForModal.attempts[0]?.totalCorrect || 0}</strong> dari {selectedExamForModal.attempts[0]?.totalQuestions || selectedExamForModal._count.questions} Soal
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <div>Bekasi, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-                  <div className="font-bold">Proktor / Guru Pengampu</div>
-                  <div className="h-12"></div>
-                  <div className="font-bold underline">{selectedExamForModal.subject}</div>
-                </div>
+
+                {/* 🛡️ KEABSAHAN & TANDA TANGAN */}
+                <CbtSecurityValidationBox
+                  examTitle={selectedExamForModal.title}
+                />
+
+                <CbtOfficialSignatures
+                  teacherName={`Wali Kelas ${studentClass}`}
+                  subjectName={selectedExamForModal.subject}
+                  classNameTarget={studentClass}
+                  mode="two-column"
+                />
               </div>
             </div>
 
@@ -1018,7 +1021,7 @@ export default function SiswaCbtClient({
                 onClick={handlePrint}
                 className="px-5 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-1.5 shadow-md shadow-purple-500/25"
               >
-                <Printer size={14} /> Cetak Kartu Ini
+                <Printer size={14} /> Cetak Kartu Lembar Nilai (PDF / Print)
               </button>
             </div>
           </div>
@@ -1030,13 +1033,18 @@ export default function SiswaCbtClient({
       {/* ========================================================================= */}
       {isPrintTranscriptModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 flex flex-col max-h-[92vh]">
-            <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-3xl w-full overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 flex flex-col max-h-[92vh]">
+            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30">
               <div className="flex items-center gap-2">
                 <FileSpreadsheet className="text-emerald-600" size={20} />
-                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-                  Pratinjau Transkrip Nilai CBT Resmi
-                </h3>
+                <div>
+                  <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
+                    Pratinjau Transkrip Nilai CBT Resmi Siswa
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Format transkrip resmi akademik SMK TI GAMA 1 BEKASI
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
@@ -1047,131 +1055,109 @@ export default function SiswaCbtClient({
               </button>
             </div>
 
-            <div id="printable-cbt-student-report" className="p-8 space-y-5 overflow-y-auto bg-white text-slate-900">
-              {/* Kop Surat Resmi */}
-              <div className="text-center border-b-4 border-double border-slate-800 pb-3">
-                <div className="text-xs font-bold text-slate-600 tracking-wider">
-                  YAYASAN PENDIDIKAN KEJURUAN GAMA BEKASI
-                </div>
-                <div className="text-xl font-black text-slate-900">
-                  SMK TEKNOLOGI INFORMASI GAMA 1 BEKASI
-                </div>
-                <div className="text-[11px] text-slate-500">
-                  Jl. KH. Muchtar Tabrani No. 12, Perwira, Bekasi Utara, Kota Bekasi, Jawa Barat 17122
-                </div>
-                <div className="text-[11px] text-slate-500 font-semibold mt-1">
-                  Website: www.smkgama.sch.id • Email: info@smkgama.sch.id
-                </div>
-              </div>
+            <div className="flex-1 overflow-y-auto p-6 sm:p-8 bg-white text-black font-serif">
+              <div id="printable-cbt-student-report" className="space-y-4 bg-white text-black">
+                {/* 🏛️ KOP SURAT RESMI */}
+                <CbtOfficialKopSurat
+                  documentTitle="TRANSKRIP RESMI HASIL EVALUASI UJIAN BERBASIS KOMPUTER (CBT)"
+                  documentNumber={`Nomor: 421.5 / CBT-TRANSKRIP / ${new Date().getFullYear()} / ${studentNis}`}
+                  subTitle="Semester Ganjil • Tahun Ajaran 2025/2026"
+                />
 
-              <div className="text-center pt-2">
-                <h2 className="text-base font-black uppercase text-slate-900 tracking-wide underline">
-                  TRANSKRIP EVALUASI HASIL UJIAN CBT
-                </h2>
-                <div className="text-xs text-slate-500">
-                  Nomor: SMK-CBT/TR/{new Date().getFullYear()}/{studentNis}
+                {/* 👤 DATA SISWA LENGKAP */}
+                <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs border border-black p-3 bg-slate-50/50 print-avoid-break">
+                  <div className="flex">
+                    <span className="w-32 font-bold text-slate-700">Nama Lengkap Siswa</span>
+                    <span className="font-bold text-black">: {studentName}</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-32 font-bold text-slate-700">Kelas / Rombel</span>
+                    <span className="font-bold text-black">: {studentClass}</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-32 font-bold text-slate-700">Nomor Induk (NISN)</span>
+                    <span className="font-mono font-bold text-black">: {studentNis}</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-32 font-bold text-slate-700">Tahun Pelajaran</span>
+                    <span>: 2025/2026 (Semester Ganjil)</span>
+                  </div>
                 </div>
-              </div>
 
-              {/* Data Siswa */}
-              <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs border border-slate-300 p-3.5 rounded-xl bg-slate-50">
-                <div className="flex">
-                  <span className="w-32 text-slate-500">Nama Siswa</span>
-                  <span className="font-bold text-slate-900">: {studentName}</span>
-                </div>
-                <div className="flex">
-                  <span className="w-32 text-slate-500">Kelas / Rombel</span>
-                  <span className="font-bold text-slate-900">: {studentClass}</span>
-                </div>
-                <div className="flex">
-                  <span className="w-32 text-slate-500">Nomor Induk (NISN)</span>
-                  <span className="font-bold text-slate-900">: {studentNis}</span>
-                </div>
-                <div className="flex">
-                  <span className="w-32 text-slate-500">Tahun Ajaran</span>
-                  <span className="font-bold text-slate-900">: 2025/2026</span>
-                </div>
-              </div>
+                {/* 📊 TABEL NILAI RESMI KEDINASAN */}
+                <table className="w-full text-left border-collapse border border-black text-xs">
+                  <thead>
+                    <tr className="bg-slate-200 border-b border-black font-bold text-black text-center tracking-tight">
+                      <th className="py-2.5 px-2 border-r border-black w-10">No</th>
+                      <th className="py-2.5 px-3 border-r border-black text-left">Mata Pelajaran & Paket Ujian</th>
+                      <th className="py-2.5 px-2 border-r border-black w-16">KKM</th>
+                      <th className="py-2.5 px-2 border-r border-black w-20">Nilai CBT</th>
+                      <th className="py-2.5 px-2 border-r border-black w-16">Predikat</th>
+                      <th className="py-2.5 px-3">Status KKM</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-black/40">
+                    {completedExamsList.map((exam, idx) => {
+                      const att = exam.attempts[0];
+                      const score = att?.score || 0;
+                      const isPassed = score >= 75;
+                      let letter = 'C';
+                      if (score >= 90) letter = 'A';
+                      else if (score >= 80) letter = 'B';
+                      else if (score >= 75) letter = 'C+';
+                      else if (score >= 60) letter = 'C';
+                      else letter = 'D';
 
-              {/* Tabel Nilai */}
-              <table className="w-full text-left border-collapse border border-slate-300 text-xs">
-                <thead>
-                  <tr className="bg-slate-100 border-b border-slate-300 font-bold text-slate-800 text-center">
-                    <th className="py-2.5 px-2 border-r border-slate-300 w-10">No</th>
-                    <th className="py-2.5 px-3 border-r border-slate-300 text-left">Mata Pelajaran & Paket Ujian</th>
-                    <th className="py-2.5 px-2 border-r border-slate-300 w-16">KKM</th>
-                    <th className="py-2.5 px-2 border-r border-slate-300 w-20">Nilai CBT</th>
-                    <th className="py-2.5 px-2 border-r border-slate-300 w-16">Predikat</th>
-                    <th className="py-2.5 px-3">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-300">
-                  {completedExamsList.map((exam, idx) => {
-                    const att = exam.attempts[0];
-                    const score = att?.score || 0;
-                    const isPassed = score >= 75;
-                    let letter = 'C';
-                    if (score >= 90) letter = 'A';
-                    else if (score >= 80) letter = 'B';
-                    else if (score >= 75) letter = 'C+';
-                    else if (score >= 60) letter = 'C';
-                    else letter = 'D';
+                      return (
+                        <tr key={exam.id} className="text-center print-avoid-break">
+                          <td className="py-2 px-2 border-r border-black font-bold">{idx + 1}</td>
+                          <td className="py-2 px-3 border-r border-black text-left">
+                            <span className="font-bold text-black block">{exam.subject}</span>
+                            <span className="text-[10px] text-slate-600">{exam.title}</span>
+                          </td>
+                          <td className="py-2 px-2 border-r border-black font-semibold">75.00</td>
+                          <td className="py-2 px-2 border-r border-black font-black text-black text-sm">{Math.round(score)}</td>
+                          <td className="py-2 px-2 border-r border-black font-bold">{letter}</td>
+                          <td className="py-2 px-3 font-bold text-xs">
+                            {isPassed ? (
+                              <span className="text-emerald-800">TUNTAS</span>
+                            ) : (
+                              <span className="text-rose-800">REMEDIAL</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-slate-100 font-bold text-black border-t-2 border-black">
+                      <td colSpan={3} className="py-2.5 px-3 text-right border-r border-black">
+                        Rata-Rata Nilai CBT:
+                      </td>
+                      <td className="py-2.5 px-2 text-center text-sm font-black border-r border-black text-purple-900">
+                        {reportMetrics.avgScore}
+                      </td>
+                      <td className="py-2.5 px-2 text-center border-r border-black">
+                        Grade {reportMetrics.gradeLetter}
+                      </td>
+                      <td className="py-2.5 px-3 text-center text-xs">
+                        {reportMetrics.remedialCount === 0 ? 'LULUS SELURUH MATA PELAJARAN' : `${reportMetrics.passedCount} Tuntas / ${reportMetrics.remedialCount} Remedial`}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
 
-                    return (
-                      <tr key={exam.id} className="text-center">
-                        <td className="py-2 px-2 border-r border-slate-300 font-bold">{idx + 1}</td>
-                        <td className="py-2 px-3 border-r border-slate-300 text-left">
-                          <span className="font-bold text-slate-900 block">{exam.subject}</span>
-                          <span className="text-[10px] text-slate-500">{exam.title}</span>
-                        </td>
-                        <td className="py-2 px-2 border-r border-slate-300 font-semibold">75</td>
-                        <td className="py-2 px-2 border-r border-slate-300 font-black text-slate-900 text-sm">{score}</td>
-                        <td className="py-2 px-2 border-r border-slate-300 font-bold">{letter}</td>
-                        <td className="py-2 px-3 font-bold text-xs">
-                          {isPassed ? (
-                            <span className="text-emerald-700">TUNTAS</span>
-                          ) : (
-                            <span className="text-rose-700">REMEDIAL</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-slate-100 font-bold text-slate-900 border-t-2 border-slate-400">
-                    <td colSpan={3} className="py-2 px-3 text-right border-r border-slate-300">
-                      Rata-Rata Nilai CBT:
-                    </td>
-                    <td className="py-2 px-2 text-center text-sm font-black border-r border-slate-300 text-purple-700">
-                      {reportMetrics.avgScore}
-                    </td>
-                    <td className="py-2 px-2 text-center border-r border-slate-300">
-                      {reportMetrics.gradeLetter}
-                    </td>
-                    <td className="py-2 px-3 text-center text-xs">
-                      {reportMetrics.remedialCount === 0 ? 'LULUS SEMUA' : `${reportMetrics.passedCount} Tuntas / ${reportMetrics.remedialCount} Remedial`}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
+                {/* 🔒 KEABSAHAN SISTEM CBT */}
+                <CbtSecurityValidationBox
+                  examTitle="Transkrip Evaluasi CBT Siswa"
+                />
 
-              {/* Tanda Tangan */}
-              <div className="pt-6 grid grid-cols-2 text-xs text-center text-slate-800">
-                <div>
-                  <div>Mengetahui / Mengesahkan,</div>
-                  <div className="font-bold">Kepala Lab Komputer & CBT</div>
-                  <div className="h-16"></div>
-                  <div className="font-bold underline">Bpk. Ahmad Suhendar, M.Kom</div>
-                  <div className="text-[10px] text-slate-500">NIP. 19850412 201001 1 008</div>
-                </div>
-                <div>
-                  <div>Bekasi, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-                  <div className="font-bold">Wali Kelas {studentClass}</div>
-                  <div className="h-16"></div>
-                  <div className="font-bold underline">Wali Kelas {studentClass}</div>
-                  <div className="text-[10px] text-slate-500">SMK TI GAMA 1 BEKASI</div>
-                </div>
+                {/* 🖋️ TANDA TANGAN RESMI */}
+                <CbtOfficialSignatures
+                  teacherName={`Wali Kelas ${studentClass}`}
+                  classNameTarget={studentClass}
+                  mode="two-column"
+                />
               </div>
             </div>
 
@@ -1188,7 +1174,7 @@ export default function SiswaCbtClient({
                 onClick={handlePrint}
                 className="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-md shadow-emerald-500/25"
               >
-                <Printer size={14} /> Cetak Transkrip Resmi Sekarang
+                <Printer size={14} /> Cetak Transkrip Resmi Sekarang (PDF / Print)
               </button>
             </div>
           </div>
@@ -1199,20 +1185,29 @@ export default function SiswaCbtClient({
       <style jsx global>{`
         @media print {
           body * {
-            visibility: hidden;
+            visibility: hidden !important;
           }
           #printable-cbt-student-report, #printable-cbt-student-report *,
           #printable-single-cbt-card, #printable-single-cbt-card * {
-            visibility: visible;
+            visibility: visible !important;
           }
           #printable-cbt-student-report, #printable-single-cbt-card {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
             background: white !important;
             color: black !important;
-            padding: 24px !important;
+            padding: 10mm 12mm !important;
+            font-size: 10.5pt !important;
+          }
+          @page {
+            size: A4 portrait;
+            margin: 10mm 12mm 12mm 12mm;
+          }
+          .print-avoid-break {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
         }
       `}</style>
