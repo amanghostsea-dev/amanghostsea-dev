@@ -234,9 +234,10 @@ export default function CbtExamRoom({
   useEffect(() => {
     if (!attempt || attempt.status !== 'IN_PROGRESS' || finalResult) return;
 
-    // Calculate remaining time based on attempt startedAt
+    // Calculate remaining time based on attempt startedAt + proctor extra time
     const startTime = new Date(attempt.startedAt).getTime();
-    const totalDurationMs = exam.duration * 60 * 1000;
+    const extraMinutes = (attempt as any)?.extraTimeMinutes || 0;
+    const totalDurationMs = (exam.duration + extraMinutes) * 60 * 1000;
     const elapsedMs = Date.now() - startTime;
     const remainingSeconds = Math.max(0, Math.floor((totalDurationMs - elapsedMs) / 1000));
     setTimeLeft(remainingSeconds);
@@ -422,6 +423,35 @@ export default function CbtExamRoom({
           >
             Kembali ke Daftar Ujian
           </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (attempt && (attempt as any).isBlocked) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-6 font-sans">
+        <div className="max-w-md w-full bg-slate-900 border border-rose-500/40 rounded-3xl p-8 text-center space-y-4 shadow-2xl">
+          <div className="w-16 h-16 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto text-3xl font-black">
+            🚫
+          </div>
+          <h2 className="text-xl font-black text-rose-300">Ujian Ditangguhkan Pengawas</h2>
+          <p className="text-xs text-slate-300 leading-relaxed">
+            Sesi ujian Anda dihentikan sementara oleh Pengawas Ruangan karena pelanggaran tata tertib ujian. Silakan melapor ke meja Pengawas di depan kelas.
+          </p>
+          {(attempt as any).proctorNotes && (
+            <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-800 text-rose-300 text-xs font-mono">
+              Catatan: {(attempt as any).proctorNotes}
+            </div>
+          )}
+          <div className="pt-2">
+            <Link
+              href="/portal/siswa/cbt"
+              className="inline-block px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition"
+            >
+              Kembali ke Beranda Ujian
+            </Link>
+          </div>
         </div>
       </div>
     );

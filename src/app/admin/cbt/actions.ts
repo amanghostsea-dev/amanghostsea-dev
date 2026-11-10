@@ -192,6 +192,12 @@ export async function createExam(data: {
   startTime?: string | Date | null;
   endTime?: string | Date | null;
   allowConflict?: boolean;
+  proctorId?: string | null;
+  proctorName?: string | null;
+  proctorNip?: string | null;
+  proctor2Id?: string | null;
+  proctor2Name?: string | null;
+  roomName?: string | null;
 }) {
   try {
     if (data.startTime && data.endTime && !data.allowConflict) {
@@ -223,12 +229,19 @@ export async function createExam(data: {
         authorName: data.authorName || 'Guru Pengampu',
         startTime: data.startTime ? new Date(data.startTime) : null,
         endTime: data.endTime ? new Date(data.endTime) : null,
+        proctorId: data.proctorId ?? null,
+        proctorName: data.proctorName?.trim() || null,
+        proctorNip: data.proctorNip?.trim() || null,
+        proctor2Id: data.proctor2Id ?? null,
+        proctor2Name: data.proctor2Name?.trim() || null,
+        roomName: data.roomName?.trim() || 'Ruang Utama',
       },
     });
 
     revalidatePath('/admin/cbt');
     revalidatePath('/portal/siswa/cbt');
     revalidatePath('/portal/siswa');
+    revalidatePath('/portal/pengawas/cbt');
     return { success: true, data: exam };
   } catch (error: any) {
     return { error: error.message };
@@ -249,6 +262,12 @@ export async function updateExam(
     startTime?: string | Date | null;
     endTime?: string | Date | null;
     allowConflict?: boolean;
+    proctorId?: string | null;
+    proctorName?: string | null;
+    proctorNip?: string | null;
+    proctor2Id?: string | null;
+    proctor2Name?: string | null;
+    roomName?: string | null;
   }
 ) {
   try {
@@ -287,6 +306,12 @@ export async function updateExam(
         ...(data.shuffleQuestions !== undefined && { shuffleQuestions: data.shuffleQuestions }),
         ...(data.startTime !== undefined && { startTime: data.startTime ? new Date(data.startTime) : null }),
         ...(data.endTime !== undefined && { endTime: data.endTime ? new Date(data.endTime) : null }),
+        ...(data.proctorId !== undefined && { proctorId: data.proctorId }),
+        ...(data.proctorName !== undefined && { proctorName: data.proctorName?.trim() || null }),
+        ...(data.proctorNip !== undefined && { proctorNip: data.proctorNip?.trim() || null }),
+        ...(data.proctor2Id !== undefined && { proctor2Id: data.proctor2Id }),
+        ...(data.proctor2Name !== undefined && { proctor2Name: data.proctor2Name?.trim() || null }),
+        ...(data.roomName !== undefined && { roomName: data.roomName?.trim() || 'Ruang Utama' }),
       },
     });
 
@@ -295,6 +320,7 @@ export async function updateExam(
     revalidatePath('/portal/siswa/cbt');
     revalidatePath(`/portal/siswa/cbt/${id}`);
     revalidatePath('/portal/siswa');
+    revalidatePath('/portal/pengawas/cbt');
     return { success: true, data: updated };
   } catch (error: any) {
     return { error: error.message };
@@ -701,6 +727,232 @@ export async function syncCbtScoresToStudentGradesAction(examId: string, customS
       success: true,
       message: `Berhasil menyinkronkan nilai ${syncedCount} siswa dari ujian "${exam.title}" ke Buku Nilai Siswa / Raport Guru!`,
       syncedCount,
+    };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+// ==========================================
+// 🛡️ FITUR PENGAWAS (PROCTORING) KHUSUS ADMIN
+// ==========================================
+
+export interface AssignProctorInput {
+  proctorId?: string | null;
+  proctorName?: string | null;
+  proctorNip?: string | null;
+  proctor2Id?: string | null;
+  proctor2Name?: string | null;
+  roomName?: string | null;
+}
+
+/**
+ * 🔒 Plotting & Penugasan Pengawas Ruangan oleh Admin Utama
+ */
+export async function assignExamProctorAction(examId: string, input: AssignProctorInput) {
+  try {
+    const updated = await prisma.exam.update({
+      where: { id: examId },
+      data: {
+        proctorId: input.proctorId ?? null,
+        proctorName: input.proctorName?.trim() || null,
+        proctorNip: input.proctorNip?.trim() || null,
+        proctor2Id: input.proctor2Id ?? null,
+        proctor2Name: input.proctor2Name?.trim() || null,
+        roomName: input.roomName?.trim() || 'Ruang Utama',
+      },
+    });
+
+    revalidatePath('/admin/cbt');
+    revalidatePath(`/admin/cbt/${examId}`);
+    revalidatePath('/portal/pengawas/cbt');
+    revalidatePath(`/portal/pengawas/cbt/${examId}`);
+
+    return {
+      success: true,
+      message: `Pengawas untuk ujian "${updated.title}" berhasil di-plotting ke ${updated.roomName} (${updated.proctorName || 'Belum dipilih'})!`,
+      exam: updated,
+    };
+  } catch (error: any) {
+    console.error('Error assigning proctor:', error);
+    return { error: error.message || 'Gagal menyimpan penugasan pengawas.' };
+  }
+}
+
+/**
+ * 🔓 Buka Kunci / Reset Login Siswa oleh Pengawas
+ * Jika siswa logout/mati lampu/ganti HP, pengawas klik ini agar siswa bisa login lagi tanpa hapus jawaban!
+ */
+export async function proctorResetStudentLoginAction(attemptId: string) {
+  try {
+    const attempt = await prisma.examAttempt.findUnique({
+      where: { id: attemptId },
+      include: { exam: true },
+    });
+
+    if (!attempt) {
+      return { error: 'Data pengerjaan siswa tidak ditemukan.' };
+    }
+
+    const updated = await prisma.examAttempt.update({
+      where: { id: attemptId },
+      data: {
+        status: 'IN_PROGRESS',
+        isBlocked: false,
+        proctorNotes: `Login dibuka kembali oleh Pengawas Ruang pada ${new Date().toLocaleTimeString('id-ID')}`,
+      },
+    });
+
+    revalidatePath('/admin/cbt');
+    revalidatePath(`/admin/cbt/${attempt.examId}`);
+    revalidatePath('/portal/pengawas/cbt');
+    revalidatePath(`/portal/pengawas/cbt/${attempt.examId}`);
+    revalidatePath(`/portal/siswa/cbt/${attempt.examId}`);
+
+    return {
+      success: true,
+      message: `Siswa "${attempt.studentName}" berhasil di-reset login. Siswa dapat memasukkan token kembali dan melanjutkan ujian!`,
+      attempt: updated,
+    };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+/**
+ * ⏱️ Tambah Waktu Dispensasi (+5, +10, +15 Menit) oleh Pengawas
+ */
+export async function proctorAddExtraTimeAction(attemptId: string, additionalMinutes: number) {
+  try {
+    const attempt = await prisma.examAttempt.findUnique({
+      where: { id: attemptId },
+    });
+
+    if (!attempt) {
+      return { error: 'Data pengerjaan siswa tidak ditemukan.' };
+    }
+
+    const nextExtra = (attempt.extraTimeMinutes || 0) + additionalMinutes;
+
+    const updated = await prisma.examAttempt.update({
+      where: { id: attemptId },
+      data: {
+        extraTimeMinutes: nextExtra,
+        proctorNotes: `Dispensasi waktu +${additionalMinutes} menit (Total: +${nextExtra}m) oleh Pengawas pada ${new Date().toLocaleTimeString('id-ID')}`,
+      },
+    });
+
+    revalidatePath(`/admin/cbt/${attempt.examId}`);
+    revalidatePath(`/portal/pengawas/cbt/${attempt.examId}`);
+    revalidatePath(`/portal/siswa/cbt/${attempt.examId}`);
+
+    return {
+      success: true,
+      message: `Berhasil menambahkan waktu dispensasi +${additionalMinutes} menit untuk ${attempt.studentName}. Total tambahan: +${nextExtra} menit.`,
+      attempt: updated,
+    };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+/**
+ * 🚫 Tegur / Blokir Siswa oleh Pengawas Ruangan
+ */
+export async function proctorToggleBlockAction(attemptId: string, shouldBlock: boolean, reason?: string) {
+  try {
+    const attempt = await prisma.examAttempt.findUnique({
+      where: { id: attemptId },
+    });
+
+    if (!attempt) {
+      return { error: 'Data pengerjaan siswa tidak ditemukan.' };
+    }
+
+    const updated = await prisma.examAttempt.update({
+      where: { id: attemptId },
+      data: {
+        isBlocked: shouldBlock,
+        proctorNotes: shouldBlock 
+          ? `Diblokir pengawas: ${reason || 'Pelanggaran tata tertib'}` 
+          : 'Blokir dicabut oleh pengawas',
+      },
+    });
+
+    revalidatePath(`/admin/cbt/${attempt.examId}`);
+    revalidatePath(`/portal/pengawas/cbt/${attempt.examId}`);
+    revalidatePath(`/portal/siswa/cbt/${attempt.examId}`);
+
+    return {
+      success: true,
+      message: shouldBlock
+        ? `Siswa "${attempt.studentName}" telah diblokir sementara oleh pengawas!`
+        : `Blokir untuk siswa "${attempt.studentName}" telah dicabut.`,
+      attempt: updated,
+    };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+/**
+ * 📥 Paksa Kumpul Ujian (Force Submit) oleh Pengawas Ruangan
+ */
+export async function proctorForceSubmitAction(attemptId: string) {
+  try {
+    const attempt = await prisma.examAttempt.findUnique({
+      where: { id: attemptId },
+      include: {
+        exam: {
+          include: {
+            questions: true,
+          },
+        },
+      },
+    });
+
+    if (!attempt) {
+      return { error: 'Data pengerjaan siswa tidak ditemukan.' };
+    }
+
+    // Hitung skor dari jawaban yang sudah tersimpan
+    let answersObj: Record<string, string> = {};
+    try {
+      answersObj = JSON.parse(attempt.answers || '{}');
+    } catch {}
+
+    let correctCount = 0;
+    const questions = attempt.exam.questions;
+    questions.forEach((q) => {
+      if (answersObj[q.id] !== undefined && String(answersObj[q.id]) === String(q.correctAnswer)) {
+        correctCount++;
+      }
+    });
+
+    const score = questions.length > 0 ? (correctCount / questions.length) * 100 : 0;
+
+    const updated = await prisma.examAttempt.update({
+      where: { id: attemptId },
+      data: {
+        status: 'SUBMITTED',
+        score,
+        totalQuestions: questions.length,
+        totalCorrect: correctCount,
+        submittedAt: new Date(),
+        proctorNotes: `Dikumpulkan paksa oleh Pengawas Ruang pada ${new Date().toLocaleTimeString('id-ID')}`,
+      },
+    });
+
+    revalidatePath('/admin/cbt');
+    revalidatePath(`/admin/cbt/${attempt.examId}`);
+    revalidatePath('/portal/pengawas/cbt');
+    revalidatePath(`/portal/pengawas/cbt/${attempt.examId}`);
+    revalidatePath(`/portal/siswa/cbt/${attempt.examId}`);
+
+    return {
+      success: true,
+      message: `Lembar ujian siswa "${attempt.studentName}" berhasil dikumpulkan paksa oleh pengawas! Skor terhitung: ${Math.round(score)}.`,
+      attempt: updated,
     };
   } catch (error: any) {
     return { error: error.message };

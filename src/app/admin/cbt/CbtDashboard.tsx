@@ -56,7 +56,9 @@ import {
   toDateTimeLocalInput 
 } from '@/lib/cbt-schedule';
 import CbtReportView from './CbtReportView';
+import CbtProctorPlottingView, { TeacherUserItem } from './CbtProctorPlottingView';
 import { KopSuratConfig } from '@/app/admin/settings/types';
+import { ShieldCheck } from 'lucide-react';
 
 interface ExamItem {
   id: string;
@@ -69,6 +71,12 @@ interface ExamItem {
   status: string;
   shuffleQuestions: boolean;
   authorName: string | null;
+  proctorId?: string | null;
+  proctorName?: string | null;
+  proctorNip?: string | null;
+  proctor2Id?: string | null;
+  proctor2Name?: string | null;
+  roomName?: string | null;
   startTime?: Date | string | null;
   endTime?: Date | string | null;
   createdAt: Date | string;
@@ -86,6 +94,8 @@ interface ExamItem {
     totalCorrect?: number;
     status: string;
     tabSwitchCount?: number;
+    extraTimeMinutes?: number;
+    isBlocked?: boolean;
     startedAt?: Date | string;
     submittedAt?: Date | string | null;
   }[];
@@ -97,10 +107,11 @@ interface CbtDashboardProps {
     name: string;
     role: string;
   };
-  initialTab?: 'exams' | 'schedule' | 'reports';
+  initialTab?: 'exams' | 'schedule' | 'reports' | 'proctors';
   dynamicClassPresets?: string[];
   dynamicSubjectPresets?: string[];
   kopSuratConfig?: KopSuratConfig;
+  teachers?: TeacherUserItem[];
 }
 
 export default function CbtDashboard({
@@ -110,6 +121,7 @@ export default function CbtDashboard({
   dynamicClassPresets,
   dynamicSubjectPresets,
   kopSuratConfig,
+  teachers = [],
 }: CbtDashboardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -129,9 +141,11 @@ export default function CbtDashboard({
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   const teacherName = currentUser?.name || 'Bpk. Ahmad ST';
+  const isSuperAdmin = currentUser?.role === 'Super Admin' || currentUser?.role === 'Admin Utama';
+  const unassignedProctorsCount = exams.filter(e => !e.proctorName).length;
 
-  // Main View Tab: 'exams' (Paket Soal) | 'schedule' (Matriks Penjadwalan) | 'reports' (Laporan Nilai)
-  const [activeMainTab, setActiveMainTab] = useState<'exams' | 'schedule' | 'reports'>(initialTab);
+  // Main View Tab: 'exams' | 'schedule' | 'reports' | 'proctors'
+  const [activeMainTab, setActiveMainTab] = useState<'exams' | 'schedule' | 'reports' | 'proctors'>(initialTab);
   const [selectedClassFilter, setSelectedClassFilter] = useState('ALL');
 
   // Reactively sync active tab with URL search parameter
@@ -141,17 +155,21 @@ export default function CbtDashboard({
       setActiveMainTab('schedule');
     } else if (tabParam === 'laporan' || tabParam === 'reports') {
       setActiveMainTab('reports');
+    } else if (tabParam === 'pengawas' || tabParam === 'proctors') {
+      setActiveMainTab('proctors');
     } else if (tabParam === 'ujian' || !tabParam) {
       setActiveMainTab('exams');
     }
   }, [searchParams]);
 
-  const handleTabSwitch = (tab: 'exams' | 'schedule' | 'reports') => {
+  const handleTabSwitch = (tab: 'exams' | 'schedule' | 'reports' | 'proctors') => {
     setActiveMainTab(tab);
     if (tab === 'schedule') {
       router.replace('/admin/cbt?tab=jadwal', { scroll: false });
     } else if (tab === 'reports') {
       router.replace('/admin/cbt?tab=laporan', { scroll: false });
+    } else if (tab === 'proctors') {
+      router.replace('/admin/cbt?tab=pengawas', { scroll: false });
     } else {
       router.replace('/admin/cbt', { scroll: false });
     }
@@ -976,6 +994,23 @@ export default function CbtDashboard({
           >
             <FileSpreadsheet size={16} /> Laporan Hasil & Rekap Nilai CBT
           </button>
+
+          <button
+            type="button"
+            onClick={() => handleTabSwitch('proctors')}
+            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+              activeMainTab === 'proctors'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 ring-2 ring-blue-400/30'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+            }`}
+          >
+            <ShieldCheck size={16} /> Plotting Pengawas Ruangan
+            {unassignedProctorsCount > 0 && isSuperAdmin && (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white animate-pulse">
+                {unassignedProctorsCount} Belum Di-plot
+              </span>
+            )}
+          </button>
         </div>
 
         <div className="flex items-center gap-2">
@@ -994,7 +1029,17 @@ export default function CbtDashboard({
         </div>
       </div>
 
-      {activeMainTab === 'reports' ? (
+      {activeMainTab === 'proctors' ? (
+        <CbtProctorPlottingView
+          exams={exams as any}
+          teachers={teachers}
+          currentUser={currentUser}
+          kopSuratConfig={kopSuratConfig}
+          onExamsUpdated={(updated) => {
+            setExams(prev => prev.map(e => e.id === updated.id ? ({ ...e, ...updated, _count: e._count } as ExamItem) : e));
+          }}
+        />
+      ) : activeMainTab === 'reports' ? (
         <CbtReportView
           exams={exams as any}
           currentUser={currentUser}

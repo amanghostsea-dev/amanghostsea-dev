@@ -139,6 +139,13 @@ export default async function PortalGuru() {
                     <span>Buka Monitor & Papan Token</span>
                     <ArrowRight size={14} />
                   </Link>
+
+                  <Link
+                    href="/portal/pengawas/cbt"
+                    className="px-4 py-3 bg-emerald-900/40 hover:bg-emerald-900/60 text-white border border-emerald-300/30 rounded-2xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <ShieldCheck size={14} /> Tugas Pengawas
+                  </Link>
                 </div>
               </div>
             </div>
@@ -157,6 +164,12 @@ export default async function PortalGuru() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
+                <Link
+                  href="/portal/pengawas/cbt"
+                  className="px-5 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-2xl font-bold text-xs shadow-md shadow-blue-500/25 transition-all flex items-center gap-2"
+                >
+                  <ShieldCheck size={16} /> Tugas Pengawas CBT
+                </Link>
                 <Link
                   href="/admin/cbt"
                   className="px-5 py-3 bg-white text-purple-800 hover:bg-purple-50 rounded-2xl font-bold text-xs shadow-md transition-all flex items-center gap-2"

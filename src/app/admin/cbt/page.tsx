@@ -13,13 +13,19 @@ export default async function AdminCbtPage({
   searchParams?: Promise<{ tab?: string }>;
 }) {
   const sp = searchParams ? await searchParams : undefined;
-  const initialTab = sp?.tab === 'jadwal' ? 'schedule' : sp?.tab === 'laporan' ? 'reports' : 'exams';
+  const initialTab = sp?.tab === 'jadwal' 
+    ? 'schedule' 
+    : sp?.tab === 'laporan' 
+    ? 'reports' 
+    : sp?.tab === 'pengawas' || sp?.tab === 'proctors'
+    ? 'proctors'
+    : 'exams';
 
   const cookieStore = await cookies();
   const userName = cookieStore.get('auth_name')?.value || 'Guru Mapel';
   const userRole = cookieStore.get('auth_token')?.value || 'Guru';
 
-  const [exams, classTargets, subjects, kopSuratConfig] = await Promise.all([
+  const [exams, classTargets, subjects, kopSuratConfig, teachers] = await Promise.all([
     prisma.exam.findMany({
       include: {
         _count: {
@@ -39,6 +45,8 @@ export default async function AdminCbtPage({
             totalCorrect: true,
             status: true,
             tabSwitchCount: true,
+            extraTimeMinutes: true,
+            isBlocked: true,
             startedAt: true,
             submittedAt: true,
           },
@@ -54,6 +62,20 @@ export default async function AdminCbtPage({
       orderBy: { name: 'asc' },
     }),
     getKopSuratConfig(),
+    prisma.user.findMany({
+      where: {
+        role: { in: ['Guru', 'Super Admin', 'Admin Utama'] },
+        status: 'Aktif',
+      },
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        role: true,
+        nisn: true,
+      },
+      orderBy: { name: 'asc' },
+    }),
   ]);
 
   return (
@@ -65,6 +87,7 @@ export default async function AdminCbtPage({
         dynamicClassPresets={classTargets}
         dynamicSubjectPresets={subjects.map(s => s.name)}
         kopSuratConfig={kopSuratConfig}
+        teachers={teachers}
       />
     </Suspense>
   );
