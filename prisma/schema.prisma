@@ -197,6 +197,12 @@ model Exam {
   status           String         @default("PUBLISHED") // DRAFT, PUBLISHED, ARCHIVED
   shuffleQuestions Boolean        @default(true)
   authorName       String?
+  proctorId        String?        // ID User Guru Pengawas 1 (Plotting Admin)
+  proctorName      String?        // Nama Guru Pengawas 1
+  proctorNip       String?        // NIP Pengawas 1
+  proctor2Id       String?        // ID User Guru Pengawas 2 (Opsional)
+  proctor2Name     String?        // Nama Guru Pengawas 2
+  roomName         String?        @default("Ruang Utama") // Nama Ruangan / Lab
   startTime        DateTime?      // Jadwal Mulai Ujian
   endTime          DateTime?      // Jadwal Selesai Ujian
   createdAt        DateTime       @default(now())
@@ -231,6 +237,9 @@ model ExamAttempt {
   totalCorrect   Int       @default(0)
   status         String    @default("IN_PROGRESS") // IN_PROGRESS, SUBMITTED
   tabSwitchCount Int       @default(0) // Anti-curang hitung buka tab lain
+  extraTimeMinutes Int     @default(0) // Dispensasi tambahan waktu dari pengawas
+  isBlocked        Boolean   @default(false) // Diblokir oleh pengawas karena pelanggaran
+  proctorNotes     String?   // Catatan pengawas
   startedAt      DateTime  @default(now())
   submittedAt    DateTime?
 }
