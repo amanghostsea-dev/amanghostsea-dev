@@ -559,6 +559,58 @@ export async function deleteQuestion(questionId: string, examId: string) {
   }
 }
 
+/**
+ * ⚡ Bagi Rata Nilai Soal Otomatis (Auto-Distribute Question Points)
+ * Contoh: 40 butir soal dengan target nilai total 100 -> otomatis 2.5 poin per butir soal.
+ */
+export async function autoDistributeExamPointsAction(
+  examId: string,
+  targetTotalPoints: number = 100
+) {
+  try {
+    if (!targetTotalPoints || targetTotalPoints <= 0) {
+      return { success: false, error: 'Target nilai total harus lebih besar dari 0.' };
+    }
+
+    const questions = await prisma.examQuestion.findMany({
+      where: { examId },
+      orderBy: { order: 'asc' },
+    });
+
+    if (questions.length === 0) {
+      return { success: false, error: 'Belum ada butir soal dalam ujian ini untuk dibagi nilainya.' };
+    }
+
+    const count = questions.length;
+    // Calculate points per question rounded to 2 decimals (e.g. 100 / 40 = 2.5)
+    const pointsPerQuestion = Math.round((targetTotalPoints / count) * 100) / 100;
+
+    await prisma.$transaction(
+      questions.map((q) =>
+        prisma.examQuestion.update({
+          where: { id: q.id },
+          data: { points: pointsPerQuestion },
+        })
+      )
+    );
+
+    revalidatePath(`/admin/cbt/${examId}`);
+    revalidatePath('/admin/cbt');
+    revalidatePath(`/portal/siswa/cbt/${examId}`);
+
+    return {
+      success: true,
+      pointsPerQuestion,
+      targetTotalPoints,
+      totalQuestions: count,
+      message: `Nilai berhasil dibagi rata! Setiap soal (${count} butir) kini bernilai ${pointsPerQuestion} poin (Total: ${Math.round(pointsPerQuestion * count * 100) / 100} poin).`,
+    };
+  } catch (error: any) {
+    console.error('Error auto-distributing exam points:', error);
+    return { success: false, error: error.message || 'Gagal membagikan nilai soal secara otomatis.' };
+  }
+}
+
 export async function deleteAttempt(attemptId: string, examId: string) {
   try {
     await prisma.examAttempt.delete({ where: { id: attemptId } });

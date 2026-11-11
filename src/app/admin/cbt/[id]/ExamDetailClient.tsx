@@ -36,10 +36,20 @@ import {
   FileUp,
   Layers,
   Info,
-  Calendar
+  Calendar,
+  Calculator
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
-import { createQuestion, deleteQuestion, deleteAttempt, toggleExamSession, createBatchQuestions, updateQuestion, rotateExamToken } from '../actions';
+import { 
+  createQuestion, 
+  deleteQuestion, 
+  deleteAttempt, 
+  toggleExamSession, 
+  createBatchQuestions, 
+  updateQuestion, 
+  rotateExamToken,
+  autoDistributeExamPointsAction
+} from '../actions';
 import { formatExamScheduleRange, getExamScheduleState } from '@/lib/cbt-schedule';
 import { 
   CbtOfficialKopSurat, 
@@ -152,6 +162,12 @@ function parseBulkQuestions(rawText: string, defaultPoints: number = 10): Parsed
       let keyRaw = 'A';
       let pt = defaultPoints;
 
+      const parsePt = (val: any) => {
+        if (!val) return defaultPoints;
+        const p = parseFloat(String(val).replace(',', '.'));
+        return !isNaN(p) && p > 0 ? p : defaultPoints;
+      };
+
       if (hasHeader && colQ !== -1 && colA !== -1) {
         qText = parts[colQ] || '';
         optA = parts[colA] || '';
@@ -160,7 +176,7 @@ function parseBulkQuestions(rawText: string, defaultPoints: number = 10): Parsed
         optD = parts[colD] || '';
         optE = colE !== -1 ? parts[colE] || '' : '';
         keyRaw = colKey !== -1 ? parts[colKey] || 'A' : 'A';
-        pt = colPoints !== -1 && parts[colPoints] ? parseInt(parts[colPoints], 10) || defaultPoints : defaultPoints;
+        pt = colPoints !== -1 && parts[colPoints] ? parsePt(parts[colPoints]) : defaultPoints;
       } else {
         const isFirstColNumber = /^\d+$/.test(parts[0]);
         const offset = isFirstColNumber ? 1 : 0;
@@ -173,10 +189,10 @@ function parseBulkQuestions(rawText: string, defaultPoints: number = 10): Parsed
         if (parts.length >= offset + 7 && !['A', 'B', 'C', 'D', 'E', '0', '1', '2', '3', '4'].includes(parts[offset + 5].toUpperCase())) {
           optE = parts[offset + 5];
           keyRaw = parts[offset + 6] || 'A';
-          pt = parts[offset + 7] ? parseInt(parts[offset + 7], 10) || defaultPoints : defaultPoints;
+          pt = parts[offset + 7] ? parsePt(parts[offset + 7]) : defaultPoints;
         } else {
           keyRaw = parts[offset + 5] || 'A';
-          pt = parts[offset + 6] ? parseInt(parts[offset + 6], 10) || defaultPoints : defaultPoints;
+          pt = parts[offset + 6] ? parsePt(parts[offset + 6]) : defaultPoints;
         }
       }
 
@@ -227,7 +243,7 @@ function parseBulkQuestions(rawText: string, defaultPoints: number = 10): Parsed
 
     const optionRegex = /^(?:(?:\(?([A-Ea-e])[\.\)]|\(([A-Ea-e])\))|\b([A-Ea-e])\.\s+)\s*(.*)/;
     const keyRegex = /^(?:Kunci|Jawaban|Ans|Key|Kunci\s*Jawaban|Jawaban\s*Benar)[\s\:\=\-]+([A-Ea-e]|\d)\b/i;
-    const pointsRegex = /^(?:Poin|Nilai|Bobot|Score|Points)[\s\:\=\-]+(\d+)\b/i;
+    const pointsRegex = /^(?:Poin|Nilai|Bobot|Score|Points)[\s\:\=\-]+([\d\.,]+)\b/i;
 
     for (const bLine of bLines) {
       const kMatch = bLine.match(keyRegex);
@@ -244,7 +260,8 @@ function parseBulkQuestions(rawText: string, defaultPoints: number = 10): Parsed
 
       const pMatch = bLine.match(pointsRegex);
       if (pMatch) {
-        points = parseInt(pMatch[1], 10) || defaultPoints;
+        const parsedVal = parseFloat(pMatch[1].replace(',', '.'));
+        points = !isNaN(parsedVal) && parsedVal > 0 ? parsedVal : defaultPoints;
         continue;
       }
 
@@ -345,6 +362,35 @@ export default function ExamDetailClient({ exam, kopSuratConfig }: ExamDetailPro
   const [isWhiteboardModalOpen, setIsWhiteboardModalOpen] = useState(false);
   const [resultSearch, setResultSearch] = useState('');
   const [isPrintExamModalOpen, setIsPrintExamModalOpen] = useState(false);
+
+  // ⚡ Auto-Distribute Points state (Bagi Rata Nilai Soal Otomatis)
+  const [isAutoDistributeModalOpen, setIsAutoDistributeModalOpen] = useState(false);
+  const [targetTotalPointsInput, setTargetTotalPointsInput] = useState<number>(100);
+  const [distributeLoading, setDistributeLoading] = useState(false);
+  const [distributeToast, setDistributeToast] = useState<string | null>(null);
+
+  const handleAutoDistributePoints = async (targetTotal: number = targetTotalPointsInput) => {
+    if (questions.length === 0) {
+      alert('Belum ada butir soal dalam paket ujian ini.');
+      return;
+    }
+    if (!targetTotal || targetTotal <= 0) {
+      alert('Target nilai total harus lebih besar dari 0.');
+      return;
+    }
+
+    setDistributeLoading(true);
+    const res = await autoDistributeExamPointsAction(exam.id, targetTotal);
+    if (res.success && res.pointsPerQuestion !== undefined) {
+      setQuestions(prev => prev.map(q => ({ ...q, points: res.pointsPerQuestion! })));
+      setIsAutoDistributeModalOpen(false);
+      setDistributeToast(res.message || `Nilai berhasil dibagi rata: ${res.pointsPerQuestion} Poin per butir soal.`);
+      setTimeout(() => setDistributeToast(null), 5000);
+    } else {
+      alert(res.error || 'Gagal membagikan nilai soal secara otomatis.');
+    }
+    setDistributeLoading(false);
+  };
 
   // 🔄 Dynamic 5-minute Rolling Token System (300 seconds)
   const calculateRemainingTokenTime = () => {
@@ -1172,12 +1218,44 @@ Poin: 10
       {/* TAB 1: BANK SOAL */}
       {activeTab === 'questions' && (
         <div className="space-y-6">
+          {/* Toast Notifikasi Distribusi Nilai */}
+          {distributeToast && (
+            <div className="p-4 rounded-2xl bg-emerald-500 text-white font-bold text-xs flex items-center justify-between shadow-lg shadow-emerald-500/20 animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-center gap-2">
+                <CheckCircle size={18} />
+                <span>{distributeToast}</span>
+              </div>
+              <button onClick={() => setDistributeToast(null)} className="text-white/80 hover:text-white font-bold cursor-pointer">✕</button>
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Daftar Butir Soal</h2>
-              <p className="text-xs text-slate-500">Total Nilai Maksimal: {totalPoints} Poin • {questions.length} Butir Soal</p>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">Daftar Butir Soal</h2>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300">
+                  {questions.length} Butir
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Total Nilai Maksimal: <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{Math.round(totalPoints * 100) / 100} Poin</strong>
+                {questions.length > 0 && (
+                  <span> • Rata-rata: <strong className="text-slate-700 dark:text-slate-300 font-semibold">{Math.round((totalPoints / questions.length) * 100) / 100} Poin/Soal</strong></span>
+                )}
+              </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              {questions.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsAutoDistributeModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-sm font-bold shadow-md shadow-amber-500/25 transition-all cursor-pointer"
+                  title="Bagi rata nilai otomatis ke seluruh soal (contoh: 40 soal dengan total 100 = 2.5 poin/soal)"
+                >
+                  <Calculator size={16} />
+                  <span>Bagi Rata Nilai (Otomatis)</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => handleDownloadCsvTemplate('csv')}
@@ -1560,20 +1638,36 @@ Poin: 10
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Bobot Poin
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Bobot Poin Soal <span className="text-red-500">*</span>
+                    </label>
+                    <span className="text-[10px] text-purple-600 dark:text-purple-400 font-bold">
+                      Otomatis / Manual
+                    </span>
+                  </div>
                   <input
                     type="number"
-                    min="1"
-                    max="100"
+                    step="any"
+                    min="0.01"
+                    max="1000"
                     required
                     value={points}
-                    onChange={(e) => setPoints(Number(e.target.value))}
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500"
+                    onChange={(e) => setPoints(parseFloat(e.target.value) || 0)}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500 font-bold"
                   />
+                  <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                    <span className="text-[10px] text-slate-400">Rekomendasi Cepat:</span>
+                    <button
+                      type="button"
+                      onClick={() => setPoints(Math.round((100 / (questions.length + 1)) * 100) / 100)}
+                      className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 transition cursor-pointer"
+                    >
+                      Bagi Rata Total 100 ({Math.round((100 / (questions.length + 1)) * 100) / 100} Poin)
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1800,16 +1894,57 @@ Poin: 15`}
                     <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-900/40">
                       <div className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 uppercase">Total Akumulasi Poin</div>
                       <div className="text-2xl font-black text-emerald-900 dark:text-emerald-100 mt-0.5">
-                        {parsedBatch.reduce((sum, q) => sum + q.points, 0)} Poin
+                        {Math.round(parsedBatch.reduce((sum, q) => sum + q.points, 0) * 100) / 100} Poin
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/40 flex flex-col justify-between">
+                      <div className="flex items-center justify-between">
+                        <div className="text-[11px] font-bold text-amber-800 dark:text-amber-300 uppercase flex items-center gap-1">
+                          <Calculator size={13} />
+                          <span>Bagi Rata Otomatis</span>
+                        </div>
+                        <span className="text-[10px] text-amber-700 dark:text-amber-300 font-bold bg-amber-100 dark:bg-amber-900/50 px-2 py-0.5 rounded-full">
+                          {parsedBatch.length > 0 ? `${Math.round((100 / parsedBatch.length) * 100) / 100} Poin/Soal` : '-'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-2">
+                        <div className="relative flex-1">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">Total:</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="1000"
+                            defaultValue={100}
+                            id="batchTargetTotalInput"
+                            className="w-full pl-11 pr-2 py-1 font-bold text-xs rounded-lg border border-amber-300 bg-white dark:bg-slate-900 dark:border-amber-800 text-slate-900 dark:text-white"
+                            placeholder="100"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const totalVal = Number((document.getElementById('batchTargetTotalInput') as HTMLInputElement)?.value) || 100;
+                            if (parsedBatch.length > 0) {
+                              const autoPt = Math.round((totalVal / parsedBatch.length) * 100) / 100;
+                              handleApplyPointsToAllParsed(autoPt);
+                            }
+                          }}
+                          className="px-3 py-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-lg text-xs font-bold shadow-sm cursor-pointer whitespace-nowrap"
+                          title="Bagi rata target nilai total ke seluruh butir soal"
+                        >
+                          ⚡ Bagi Rata
+                        </button>
                       </div>
                     </div>
 
                     <div className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/40 flex flex-col justify-between">
-                      <div className="text-[11px] font-semibold text-blue-700 dark:text-blue-300 uppercase">Setel Bobot Seragam</div>
+                      <div className="text-[11px] font-semibold text-blue-700 dark:text-blue-300 uppercase">Setel Bobot Manual</div>
                       <div className="flex items-center gap-2 mt-1">
                         <input
                           type="number"
-                          min="1"
+                          step="any"
+                          min="0.01"
                           max="100"
                           defaultValue={batchDefaultPoints}
                           id="bulkPointInput"
@@ -1818,12 +1953,12 @@ Poin: 15`}
                         <button
                           type="button"
                           onClick={() => {
-                            const val = Number((document.getElementById('bulkPointInput') as HTMLInputElement)?.value) || 10;
+                            const val = parseFloat((document.getElementById('bulkPointInput') as HTMLInputElement)?.value) || 10;
                             handleApplyPointsToAllParsed(val);
                           }}
-                          className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold"
+                          className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold cursor-pointer"
                         >
-                          Terapkan ke Semua
+                          Terapkan Manual
                         </button>
                       </div>
                     </div>
@@ -1853,13 +1988,14 @@ Poin: 15`}
                               </label>
                               <input
                                 type="number"
-                                min="1"
-                                max="100"
+                                step="any"
+                                min="0.01"
+                                max="1000"
                                 value={item.points}
-                                onChange={(e) => handleUpdateParsedItemPoints(idx, Number(e.target.value) || 1)}
-                                className="w-14 px-1.5 py-0.5 text-center font-bold text-xs rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 focus:ring-1 focus:ring-emerald-500"
+                                onChange={(e) => handleUpdateParsedItemPoints(idx, parseFloat(e.target.value) || 0)}
+                                className="w-16 px-1.5 py-0.5 text-center font-bold text-xs rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 focus:ring-1 focus:ring-emerald-500"
                               />
-                              <span className="text-[11px] text-slate-500">Poin</span>
+                              <span className="text-[11px] text-slate-500 font-medium">Poin</span>
                             </div>
 
                             <button
@@ -2106,21 +2242,37 @@ Poin: 15`}
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Bobot Nilai / Poin <span className="text-red-500">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Bobot Nilai / Poin <span className="text-red-500">*</span>
+                    </label>
+                    <span className="text-[10px] text-purple-600 dark:text-purple-400 font-bold">
+                      Bisa Manual / Desimal
+                    </span>
+                  </div>
                   <input
                     type="number"
-                    min="1"
-                    max="100"
+                    step="any"
+                    min="0.01"
+                    max="1000"
                     required
                     value={editPoints}
-                    onChange={(e) => setEditPoints(Number(e.target.value) || 1)}
+                    onChange={(e) => setEditPoints(parseFloat(e.target.value) || 0)}
                     className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500 font-bold"
                   />
-                  <p className="text-[11px] text-slate-400 mt-1">Nilai yang didapat siswa jika menjawab benar.</p>
+                  <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                    <span className="text-[10px] text-slate-400">Rekomendasi Rata:</span>
+                    <button
+                      type="button"
+                      onClick={() => setEditPoints(Math.round((100 / (questions.length || 1)) * 100) / 100)}
+                      className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 transition cursor-pointer"
+                    >
+                      Bagi Rata ({Math.round((100 / (questions.length || 1)) * 100) / 100} Poin)
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1">Nilai yang didapat siswa jika menjawab benar pada butir soal ini.</p>
                 </div>
               </div>
 
@@ -2141,6 +2293,169 @@ Poin: 15`}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ⚡ MODAL BAGI RATA NILAI SOAL OTOMATIS */}
+      {isAutoDistributeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in font-sans">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800">
+            {/* Header */}
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-transparent flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-white shadow-lg shadow-amber-500/30">
+                  <Calculator size={24} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg text-slate-900 dark:text-white">
+                    Bagi Rata Nilai Soal Otomatis
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Sistem otomatis membagi total nilai sama rata ke semua butir soal.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAutoDistributeModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-5">
+              {/* Info Statistik Soal Saat Ini */}
+              <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 text-xs">
+                <div>
+                  <span className="text-slate-500 block">Jumlah Butir Soal:</span>
+                  <strong className="text-base text-slate-900 dark:text-white font-black">{questions.length} Soal</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">Total Nilai Saat Ini:</span>
+                  <strong className="text-base text-purple-600 dark:text-purple-400 font-black">{Math.round(totalPoints * 100) / 100} Poin</strong>
+                </div>
+              </div>
+
+              {/* Input Target Total Nilai */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Target Total Nilai Ujian:
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="any"
+                    min="1"
+                    max="1000"
+                    value={targetTotalPointsInput}
+                    onChange={(e) => setTargetTotalPointsInput(parseFloat(e.target.value) || 0)}
+                    className="w-full px-4 py-3 rounded-2xl border-2 border-amber-400/80 bg-white dark:bg-slate-950 text-slate-900 dark:text-white text-xl font-black focus:outline-none focus:ring-4 focus:ring-amber-500/20 shadow-inner"
+                    placeholder="100"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                    Poin Maksimal
+                  </span>
+                </div>
+
+                {/* Preset Pills */}
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <span className="text-[11px] text-slate-400">Preset Nilai:</span>
+                  {[100, 50, 75, 80].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setTargetTotalPointsInput(preset)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        targetTotalPointsInput === preset
+                          ? 'bg-amber-500 text-white shadow-sm'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                      }`}
+                    >
+                      {preset} {preset === 100 ? '(Standar)' : ''}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Hasil Kalkulasi Otomatis */}
+              {questions.length > 0 && targetTotalPointsInput > 0 && (
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100/50 dark:from-amber-950/30 dark:via-orange-950/20 dark:to-slate-900 border border-amber-300/80 dark:border-amber-800/60 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                      <Sparkles size={14} className="text-amber-600" /> Hasil Pembagian Nilai:
+                    </span>
+                    <span className="text-[11px] font-mono text-slate-500">
+                      {targetTotalPointsInput} ÷ {questions.length} Soal
+                    </span>
+                  </div>
+
+                  <div className="flex items-baseline justify-between p-3 rounded-xl bg-white/90 dark:bg-slate-900/90 border border-amber-200 dark:border-amber-900/50 shadow-sm">
+                    <div>
+                      <div className="text-[11px] text-slate-500 font-medium">Nilai per Butir Soal</div>
+                      <div className="text-2xl font-black text-amber-600 dark:text-amber-400">
+                        {Math.round((targetTotalPointsInput / questions.length) * 100) / 100}
+                        <span className="text-xs font-bold text-slate-500 ml-1">Poin / Soal</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[11px] text-slate-500 font-medium">Total Akumulasi</div>
+                      <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                        {Math.round((Math.round((targetTotalPointsInput / questions.length) * 100) / 100) * questions.length * 100) / 100} Poin
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Simulasi Ringkas */}
+                  <div className="grid grid-cols-3 gap-2 text-[10px] text-center text-slate-600 dark:text-slate-400 pt-1">
+                    <div className="p-2 rounded-lg bg-white/60 dark:bg-slate-800/60">
+                      <div>Benar 100% ({questions.length})</div>
+                      <strong className="text-emerald-600 text-xs">{targetTotalPointsInput} Poin</strong>
+                    </div>
+                    <div className="p-2 rounded-lg bg-white/60 dark:bg-slate-800/60">
+                      <div>Benar 75% ({Math.round(questions.length * 0.75)})</div>
+                      <strong className="text-blue-600 text-xs">{(targetTotalPointsInput * 0.75).toFixed(1)} Poin</strong>
+                    </div>
+                    <div className="p-2 rounded-lg bg-white/60 dark:bg-slate-800/60">
+                      <div>Benar 50% ({Math.round(questions.length * 0.5)})</div>
+                      <strong className="text-purple-600 text-xs">{(targetTotalPointsInput * 0.5).toFixed(1)} Poin</strong>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Note Guru */}
+              <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 text-[11px] text-blue-900 dark:text-blue-200 flex items-start gap-2 leading-relaxed">
+                <Info size={15} className="text-blue-500 flex-shrink-0 mt-0.5" />
+                <span>
+                  <strong>Fleksibilitas Penuh:</strong> Setelah nilai dibagi rata secara otomatis, Anda tetap bisa mengedit atau menaikkan bobot butir soal tertentu secara manual (misal soal esai/sulit) lewat tombol edit pada masing-masing butir soal.
+                </span>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-3 bg-slate-50/50 dark:bg-slate-950/40">
+              <button
+                type="button"
+                onClick={() => setIsAutoDistributeModalOpen(false)}
+                className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-semibold hover:bg-slate-100 cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={distributeLoading || questions.length === 0 || targetTotalPointsInput <= 0}
+                onClick={() => handleAutoDistributePoints(targetTotalPointsInput)}
+                className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-sm font-bold shadow-md shadow-amber-500/30 transition cursor-pointer disabled:opacity-50"
+              >
+                <Calculator size={16} />
+                <span>
+                  {distributeLoading ? 'Menerapkan...' : `Terapkan ke Semua (${questions.length}) Soal`}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       )}

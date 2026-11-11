@@ -219,7 +219,7 @@ model ExamQuestion {
   questionText  String   @db.Text
   options       String   @db.Text // JSON string: ["Pilihan A", "Pilihan B", "Pilihan C", "Pilihan D"]
   correctAnswer String   // Index opsi yang benar: "0", "1", "2", "3"
-  points        Int      @default(10)
+  points        Float    @default(10)
   order         Int      @default(0)
   createdAt     DateTime @default(now())
 }
