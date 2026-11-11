@@ -130,6 +130,7 @@ export default function CbtDashboard({
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [mineOnlyFilter, setMineOnlyFilter] = useState(false);
+  const [adminTeacherFilter, setAdminTeacherFilter] = useState('ALL');
   const [sessionLoadingId, setSessionLoadingId] = useState<string | null>(null);
 
   // Modal State
@@ -143,6 +144,14 @@ export default function CbtDashboard({
   const teacherName = currentUser?.name || 'Bpk. Ahmad ST';
   const isSuperAdmin = currentUser?.role === 'Super Admin' || currentUser?.role === 'Admin Utama';
   const unassignedProctorsCount = exams.filter(e => !e.proctorName).length;
+
+  // Helper pencocokan kepemilikan author / guru pengampu
+  const isAuthorMatch = (author?: string | null) => {
+    if (!author || !currentUser?.name) return false;
+    const a = author.trim().toLowerCase();
+    const c = currentUser.name.trim().toLowerCase();
+    return a === c || a.includes(c) || c.includes(a);
+  };
 
   // Main View Tab: 'exams' | 'schedule' | 'reports' | 'proctors'
   const [activeMainTab, setActiveMainTab] = useState<'exams' | 'schedule' | 'reports' | 'proctors'>(initialTab);
@@ -840,13 +849,23 @@ export default function CbtDashboard({
   };
 
   const filteredExams = exams.filter((exam) => {
+    // Hak Akses Tampilan Paket Ujian:
+    // - Jika Guru: HANYA tampilkan paket ujian yang diinput / dimiliki oleh dirinya sendiri.
+    // - Jika Super Admin: Tampilkan seluruhnya untuk monitoring, atau filter sesuai pilihan admin.
+    if (!isSuperAdmin && !isAuthorMatch(exam.authorName)) {
+      return false;
+    }
+    if (isSuperAdmin) {
+      if (mineOnlyFilter && !isAuthorMatch(exam.authorName)) return false;
+      if (adminTeacherFilter !== 'ALL' && exam.authorName !== adminTeacherFilter) return false;
+    }
+
     const matchesSearch =
       exam.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       exam.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
       exam.classTarget.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (exam.authorName && exam.authorName.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = statusFilter === 'ALL' || exam.status === statusFilter;
-    const matchesMine = !mineOnlyFilter || (exam.authorName && exam.authorName.toLowerCase() === teacherName.toLowerCase());
     
     const schedState = getExamScheduleState(exam.startTime, exam.endTime, exam.status);
     const matchesSchedule =
@@ -856,7 +875,7 @@ export default function CbtDashboard({
       (scheduleFilter === 'UPCOMING' && schedState.state === 'UPCOMING') ||
       (scheduleFilter === 'ENDED' && schedState.state === 'ENDED');
 
-    return matchesSearch && matchesStatus && matchesMine && matchesSchedule;
+    return matchesSearch && matchesStatus && matchesSchedule;
   });
 
   // Calculate system-wide schedule conflicts across all exams
@@ -886,6 +905,13 @@ export default function CbtDashboard({
 
   // Filter exams for schedule matrix table
   const scheduledExams = exams.filter((exam) => {
+    if (!isSuperAdmin && !isAuthorMatch(exam.authorName)) {
+      return false;
+    }
+    if (isSuperAdmin && adminTeacherFilter !== 'ALL' && exam.authorName !== adminTeacherFilter) {
+      return false;
+    }
+
     const matchesSearch =
       exam.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       exam.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -909,15 +935,16 @@ export default function CbtDashboard({
     return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
   });
 
-  // Calculate stats
-  const totalExams = exams.length;
-  const totalQuestions = exams.reduce((acc, curr) => acc + curr._count.questions, 0);
-  const totalAttempts = exams.reduce((acc, curr) => acc + curr._count.attempts, 0);
-  const totalSubmitted = exams.flatMap((e) => e.attempts).filter((a) => a.status === 'SUBMITTED');
+  // Calculate stats based on visible exams (guru sees their own stats, admin sees all)
+  const visibleExams = isSuperAdmin ? exams : exams.filter((e) => isAuthorMatch(e.authorName));
+  const totalExams = visibleExams.length;
+  const totalQuestions = visibleExams.reduce((acc, curr) => acc + curr._count.questions, 0);
+  const totalAttempts = visibleExams.reduce((acc, curr) => acc + curr._count.attempts, 0);
+  const totalSubmitted = visibleExams.flatMap((e) => e.attempts).filter((a) => a.status === 'SUBMITTED');
   const avgScore = totalSubmitted.length > 0
     ? Math.round(totalSubmitted.reduce((acc, a) => acc + a.score, 0) / totalSubmitted.length)
     : 0;
-  const unscheduledCount = exams.filter((e) => !e.startTime || !e.endTime).length;
+  const unscheduledCount = visibleExams.filter((e) => !e.startTime || !e.endTime).length;
 
   return (
     <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-8 font-sans">
@@ -930,8 +957,17 @@ export default function CbtDashboard({
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
             Manajemen Ujian Online (CBT)
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">
-            Login sebagai: <strong className="text-purple-600 dark:text-purple-400">{teacherName}</strong>. Susun bank soal, kontrol sesi ujian, rilis token langsung ke kelas, dan pantau nilai siswa.
+          <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm flex items-center flex-wrap gap-2">
+            <span>Login sebagai: <strong className="text-purple-600 dark:text-purple-400">{teacherName}</strong></span>
+            {isSuperAdmin ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-xs font-bold">
+                👑 Admin Utama (Monitoring Seluruh Guru)
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 text-xs font-bold">
+                👤 Paket Ujian Mandiri Guru
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -1542,17 +1578,39 @@ export default function CbtDashboard({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          {/* Ujian Saya Filter Toggle */}
-          <button
-            onClick={() => setMineOnlyFilter(!mineOnlyFilter)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-              mineOnlyFilter
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
-            }`}
-          >
-            <UserCheck size={14} /> Ujian Saya
-          </button>
+          {!isSuperAdmin ? (
+            <div className="px-3 py-1.5 rounded-xl text-xs font-bold bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
+              <UserCheck size={14} className="text-purple-600" /> Paket Ujian Saya ({teacherName})
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setMineOnlyFilter(!mineOnlyFilter)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  mineOnlyFilter
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+                }`}
+                title="Tampilkan hanya paket ujian yang dibuat akun Admin ini"
+              >
+                <UserCheck size={14} /> Ujian Saya
+              </button>
+              {teachers.length > 0 && (
+                <select
+                  value={adminTeacherFilter}
+                  onChange={(e) => setAdminTeacherFilter(e.target.value)}
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="ALL">Semua Guru ({teachers.length})</option>
+                  {teachers.map((t) => (
+                    <option key={t.id} value={t.name}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
 
           {/* Schedule Status Filter */}
           <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
@@ -2120,12 +2178,48 @@ export default function CbtDashboard({
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Guru Pembuat / Pengampu
                 </label>
-                <input
-                  type="text"
-                  value={formData.authorName}
-                  onChange={(e) => setFormData({ ...formData, authorName: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500 outline-none font-medium"
-                />
+                {!isSuperAdmin ? (
+                  <div>
+                    <input
+                      type="text"
+                      disabled
+                      value={teacherName}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-850 text-slate-500 dark:text-slate-400 text-sm font-medium cursor-not-allowed outline-none"
+                    />
+                    <span className="text-[11px] text-purple-600 dark:text-purple-400 mt-1 block font-medium">
+                      🔒 Otomatis terikat pada akun login Anda ({teacherName})
+                    </span>
+                  </div>
+                ) : (
+                  <div>
+                    {teachers && teachers.length > 0 ? (
+                      <div className="space-y-1.5">
+                        <select
+                          value={formData.authorName}
+                          onChange={(e) => setFormData({ ...formData, authorName: e.target.value })}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-purple-500 outline-none font-medium"
+                        >
+                          <option value={teacherName}>-- Saya Sendiri ({teacherName}) --</option>
+                          {teachers.map((t) => (
+                            <option key={t.id} value={t.name}>
+                              {t.name} ({t.username})
+                            </option>
+                          ))}
+                        </select>
+                        <span className="text-[11px] text-slate-400 block">
+                          👑 Mode Admin Utama: Anda dapat menugaskan paket ujian ini ke akun guru pengampu tertentu.
+                        </span>
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        value={formData.authorName}
+                        onChange={(e) => setFormData({ ...formData, authorName: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500 outline-none font-medium"
+                      />
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>

@@ -112,13 +112,32 @@ export default function CbtProctorPlottingView({
   }, [exams]);
 
   // Statistics
-  const totalExams = exams.length;
-  const assignedCount = exams.filter(e => Boolean(e.proctorName)).length;
+  const visibleProctorExams = isSuperAdmin
+    ? exams
+    : exams.filter(e => {
+        const u = currentUser?.name?.toLowerCase().trim() || '';
+        const p1 = e.proctorName?.toLowerCase().trim() || '';
+        const p2 = e.proctor2Name?.toLowerCase().trim() || '';
+        return (p1 && (p1 === u || p1.includes(u) || u.includes(p1))) ||
+               (p2 && (p2 === u || p2.includes(u) || u.includes(p2)));
+      });
+  const totalExams = visibleProctorExams.length;
+  const assignedCount = visibleProctorExams.filter(e => Boolean(e.proctorName)).length;
   const unassignedCount = totalExams - assignedCount;
 
   // Filtered rows
   const filteredExams = useMemo(() => {
     return exams.filter(e => {
+      // Guru / Pengawas hanya melihat ujian di mana namanya di-plotting sebagai pengawas oleh Admin
+      if (!isSuperAdmin) {
+        const u = currentUser?.name?.toLowerCase().trim() || '';
+        const p1 = e.proctorName?.toLowerCase().trim() || '';
+        const p2 = e.proctor2Name?.toLowerCase().trim() || '';
+        const isMyProctoring = (p1 && (p1 === u || p1.includes(u) || u.includes(p1))) ||
+                               (p2 && (p2 === u || p2.includes(u) || u.includes(p2)));
+        if (!isMyProctoring) return false;
+      }
+
       const q = searchQuery.toLowerCase();
       const matchSearch = 
         !q || 

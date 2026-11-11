@@ -24,9 +24,29 @@ export default async function AdminCbtPage({
   const cookieStore = await cookies();
   const userName = cookieStore.get('auth_name')?.value || 'Guru Mapel';
   const userRole = cookieStore.get('auth_token')?.value || 'Guru';
+  const isSuperAdmin = userRole === 'Super Admin' || userRole === 'Admin Utama';
+  const cleanUserName = userName.trim();
+
+  // Filter paket ujian:
+  // - Admin Utama (Super Admin): melihat SELURUH paket ujian sekolah untuk monitoring & kontrol penuh.
+  // - Guru Mapel (misal PABP, TKJ, dll): HANYA melihat paket ujian miliknya sendiri (berdasarkan authorName),
+  //   serta ujian di mana guru tersebut ditugaskan sebagai pengawas (proctorName/proctor2Name) untuk tab pengawasan.
+  const examWhereClause = isSuperAdmin
+    ? undefined
+    : {
+        OR: [
+          { authorName: { equals: cleanUserName, mode: 'insensitive' as const } },
+          { authorName: { contains: cleanUserName, mode: 'insensitive' as const } },
+          { proctorName: { equals: cleanUserName, mode: 'insensitive' as const } },
+          { proctorName: { contains: cleanUserName, mode: 'insensitive' as const } },
+          { proctor2Name: { equals: cleanUserName, mode: 'insensitive' as const } },
+          { proctor2Name: { contains: cleanUserName, mode: 'insensitive' as const } },
+        ],
+      };
 
   const [exams, classTargets, subjects, kopSuratConfig, teachers] = await Promise.all([
     prisma.exam.findMany({
+      where: examWhereClause,
       include: {
         _count: {
           select: {

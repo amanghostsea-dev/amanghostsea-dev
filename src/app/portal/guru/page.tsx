@@ -50,10 +50,22 @@ export default async function PortalGuru() {
       proctorConditions.push({ proctor2Name: { equals: teacherName, mode: 'insensitive' as const } });
     }
 
+    const examFilterForGuru = isSuperAdmin ? {} : {
+      OR: [
+        { authorName: { equals: teacherName, mode: 'insensitive' as const } },
+        { authorName: { contains: teacherName, mode: 'insensitive' as const } },
+      ]
+    };
+
     const [examsCount, activeList, attemptsCount, unreviewedCount, subjectsList, proctorCount] = await Promise.all([
-      prisma.exam.count(),
+      prisma.exam.count({
+        where: isSuperAdmin ? undefined : examFilterForGuru
+      }),
       prisma.exam.findMany({
-        where: { status: 'ACTIVE' },
+        where: { 
+          status: 'ACTIVE',
+          ...(isSuperAdmin ? {} : examFilterForGuru)
+        },
         include: {
           _count: {
             select: { questions: true, attempts: true }
@@ -62,7 +74,11 @@ export default async function PortalGuru() {
         orderBy: { updatedAt: 'desc' },
         take: 2,
       }),
-      prisma.examAttempt.count(),
+      prisma.examAttempt.count({
+        where: isSuperAdmin ? undefined : {
+          exam: examFilterForGuru
+        }
+      }),
       prisma.assignmentSubmission.count({
         where: { grade: null }
       }),

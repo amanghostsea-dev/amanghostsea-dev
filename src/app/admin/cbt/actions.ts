@@ -201,6 +201,16 @@ export async function createExam(data: {
   roomName?: string | null;
 }) {
   try {
+    const cookieStore = await cookies();
+    const userRole = cookieStore.get('auth_token')?.value;
+    const userName = cookieStore.get('auth_name')?.value;
+    const isSuperAdmin = userRole === 'Super Admin' || userRole === 'Admin Utama';
+
+    // Guru otomatis terikat ke nama akun login miliknya sendiri; Super Admin bebas menentukan authorName
+    const finalAuthorName = isSuperAdmin
+      ? (data.authorName?.trim() || userName || 'Admin Utama')
+      : (userName || data.authorName || 'Guru Pengampu');
+
     if (data.startTime && data.endTime && !data.allowConflict) {
       const conflictCheck = await checkExamScheduleConflict({
         classTarget: data.classTarget || 'Semua Kelas',
@@ -227,7 +237,7 @@ export async function createExam(data: {
         description: data.description || null,
         status: data.status || 'PUBLISHED',
         shuffleQuestions: data.shuffleQuestions ?? true,
-        authorName: data.authorName || 'Guru Pengampu',
+        authorName: finalAuthorName,
         startTime: data.startTime ? new Date(data.startTime) : null,
         endTime: data.endTime ? new Date(data.endTime) : null,
         proctorId: data.proctorId ?? null,
@@ -260,6 +270,7 @@ export async function updateExam(
     description?: string;
     status?: string;
     shuffleQuestions?: boolean;
+    authorName?: string;
     startTime?: string | Date | null;
     endTime?: string | Date | null;
     allowConflict?: boolean;
@@ -272,6 +283,25 @@ export async function updateExam(
   }
 ) {
   try {
+    const cookieStore = await cookies();
+    const userRole = cookieStore.get('auth_token')?.value;
+    const userName = cookieStore.get('auth_name')?.value;
+    const isSuperAdmin = userRole === 'Super Admin' || userRole === 'Admin Utama';
+
+    const existingExam = await prisma.exam.findUnique({ where: { id } });
+    if (!existingExam) {
+      return { error: 'Paket ujian tidak ditemukan.' };
+    }
+
+    // Otorisasi: Guru hanya boleh mengubah paket ujian miliknya sendiri
+    if (!isSuperAdmin && existingExam.authorName && userName) {
+      const a = existingExam.authorName.trim().toLowerCase();
+      const u = userName.trim().toLowerCase();
+      if (a !== u && !a.includes(u) && !u.includes(a)) {
+        return { error: 'Akses ditolak: Anda hanya dapat mengubah paket ujian milik Anda sendiri.' };
+      }
+    }
+
     if (data.startTime && data.endTime && !data.allowConflict) {
       const targetClass =
         data.classTarget ||
@@ -304,6 +334,7 @@ export async function updateExam(
         ...(data.token !== undefined && { token: data.token?.trim() || null }),
         ...(data.description !== undefined && { description: data.description }),
         ...(data.status && { status: data.status }),
+        ...(isSuperAdmin && data.authorName && { authorName: data.authorName.trim() }),
         ...(data.shuffleQuestions !== undefined && { shuffleQuestions: data.shuffleQuestions }),
         ...(data.startTime !== undefined && { startTime: data.startTime ? new Date(data.startTime) : null }),
         ...(data.endTime !== undefined && { endTime: data.endTime ? new Date(data.endTime) : null }),
@@ -445,6 +476,25 @@ export async function batchCreateExamsWithSchedule(
 
 export async function deleteExam(id: string) {
   try {
+    const cookieStore = await cookies();
+    const userRole = cookieStore.get('auth_token')?.value;
+    const userName = cookieStore.get('auth_name')?.value;
+    const isSuperAdmin = userRole === 'Super Admin' || userRole === 'Admin Utama';
+
+    const existingExam = await prisma.exam.findUnique({ where: { id } });
+    if (!existingExam) {
+      return { error: 'Paket ujian tidak ditemukan.' };
+    }
+
+    // Otorisasi: Guru hanya boleh menghapus paket ujian miliknya sendiri; Super Admin bebas menghapus ujian apapun
+    if (!isSuperAdmin && existingExam.authorName && userName) {
+      const a = existingExam.authorName.trim().toLowerCase();
+      const u = userName.trim().toLowerCase();
+      if (a !== u && !a.includes(u) && !u.includes(a)) {
+        return { error: 'Akses ditolak: Anda hanya dapat menghapus paket ujian milik Anda sendiri.' };
+      }
+    }
+
     await prisma.exam.delete({ where: { id } });
     revalidatePath('/admin/cbt');
     revalidatePath('/portal/siswa/cbt');

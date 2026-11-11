@@ -148,8 +148,11 @@ export default function CbtReportView({
   // Apply All Active Filters
   const filteredRows = useMemo(() => {
     return allRows.filter((r) => {
-      if (isGuru && onlyMyExams) {
-        if (r.examAuthor.toLowerCase() !== currentUserName.toLowerCase()) {
+      // Guru hanya dapat melihat laporan ujian miliknya sendiri; Super Admin melihat seluruh laporan
+      if (isGuru) {
+        const a = r.examAuthor.toLowerCase().trim();
+        const u = currentUserName.toLowerCase().trim();
+        if (a !== u && !a.includes(u) && !u.includes(a)) {
           return false;
         }
       }

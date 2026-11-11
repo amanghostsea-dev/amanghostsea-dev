@@ -348,9 +348,13 @@ interface ExamDetailProps {
     attempts: AttemptItem[];
   };
   kopSuratConfig?: KopSuratConfig;
+  currentUser?: {
+    name: string;
+    role: string;
+  };
 }
 
-export default function ExamDetailClient({ exam, kopSuratConfig }: ExamDetailProps) {
+export default function ExamDetailClient({ exam, kopSuratConfig, currentUser }: ExamDetailProps) {
   const [activeTab, setActiveTab] = useState<'questions' | 'results'>('questions');
   const [questions, setQuestions] = useState(exam.questions);
   const [attempts, setAttempts] = useState(exam.attempts);
