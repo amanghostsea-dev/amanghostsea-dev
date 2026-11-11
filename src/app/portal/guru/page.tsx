@@ -22,12 +22,14 @@ export default async function PortalGuru() {
             ...(authName ? [{ name: authName }] : []),
           ]
         },
-        select: { id: true, name: true }
+        select: { id: true, name: true, role: true }
       });
       if (dbUser && dbUser.name) teacherName = dbUser.name;
     } catch {}
   }
   if (!teacherName) teacherName = 'Bpk. Ahmad ST';
+
+  const isSuperAdmin = dbUser?.role === 'Super Admin' || dbUser?.role === 'Admin Utama';
 
   // Fetch Live Database Stats
   let totalExams = 0;
@@ -35,9 +37,20 @@ export default async function PortalGuru() {
   let totalAttempts = 0;
   let unreviewedSubmissions = 0;
   let teacherSubjects: any[] = [];
+  let assignedProctorCount = 0;
 
   try {
-    const [examsCount, activeList, attemptsCount, unreviewedCount, subjectsList] = await Promise.all([
+    const proctorConditions: any[] = [];
+    if (dbUser?.id) {
+      proctorConditions.push({ proctorId: dbUser.id });
+      proctorConditions.push({ proctor2Id: dbUser.id });
+    }
+    if (teacherName && teacherName !== 'Bpk. Ahmad ST') {
+      proctorConditions.push({ proctorName: { equals: teacherName, mode: 'insensitive' as const } });
+      proctorConditions.push({ proctor2Name: { equals: teacherName, mode: 'insensitive' as const } });
+    }
+
+    const [examsCount, activeList, attemptsCount, unreviewedCount, subjectsList, proctorCount] = await Promise.all([
       prisma.exam.count(),
       prisma.exam.findMany({
         where: { status: 'ACTIVE' },
@@ -66,13 +79,15 @@ export default async function PortalGuru() {
           _count: { select: { grades: true } },
         },
         orderBy: [{ day: 'asc' }, { time: 'asc' }],
-      })
+      }),
+      proctorConditions.length > 0 ? prisma.exam.count({ where: { OR: proctorConditions } }) : 0,
     ]);
     totalExams = examsCount;
     activeExams = activeList;
     totalAttempts = attemptsCount;
     unreviewedSubmissions = unreviewedCount;
     teacherSubjects = subjectsList;
+    assignedProctorCount = proctorCount;
   } catch (err) {
     console.error('Error fetching guru stats:', err);
   }
@@ -168,20 +183,26 @@ export default async function PortalGuru() {
                   href="/portal/pengawas/cbt"
                   className="px-5 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-2xl font-bold text-xs shadow-md shadow-blue-500/25 transition-all flex items-center gap-2"
                 >
-                  <ShieldCheck size={16} /> Tugas Pengawas CBT
+                  <ShieldCheck size={16} />
+                  <span>Tugas Pengawas CBT {assignedProctorCount > 0 ? `(${assignedProctorCount} Jadwal Terplotting)` : '(0 Jadwal)'}</span>
                 </Link>
-                <Link
-                  href="/admin/cbt"
-                  className="px-5 py-3 bg-white text-purple-800 hover:bg-purple-50 rounded-2xl font-bold text-xs shadow-md transition-all flex items-center gap-2"
-                >
-                  <MonitorPlay size={16} /> Buka Manajemen CBT
-                </Link>
-                <Link
-                  href="/admin/cbt?tab=jadwal"
-                  className="px-5 py-3 bg-purple-900/40 hover:bg-purple-900/60 text-white border border-purple-300/30 rounded-2xl font-bold text-xs shadow-md transition-all flex items-center gap-2"
-                >
-                  <Calendar size={16} /> Atur Jadwal & Anti-Bentrok
-                </Link>
+
+                {isSuperAdmin && (
+                  <>
+                    <Link
+                      href="/admin/cbt"
+                      className="px-5 py-3 bg-white text-purple-800 hover:bg-purple-50 rounded-2xl font-bold text-xs shadow-md transition-all flex items-center gap-2"
+                    >
+                      <MonitorPlay size={16} /> Manajemen CBT
+                    </Link>
+                    <Link
+                      href="/admin/cbt?tab=pengawas"
+                      className="px-5 py-3 bg-purple-900/40 hover:bg-purple-900/60 text-white border border-purple-300/30 rounded-2xl font-bold text-xs shadow-md transition-all flex items-center gap-2"
+                    >
+                      <Users size={16} /> Plotting Pengawas (Admin)
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           )}

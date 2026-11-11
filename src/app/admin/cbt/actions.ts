@@ -2,6 +2,7 @@
 
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 
 // Helper: Generate clean 6-character alphanumeric token without confusing symbols (0, O, 1, I)
 function generateRandomCbtToken(): string {
@@ -751,6 +752,15 @@ export interface AssignProctorInput {
  */
 export async function assignExamProctorAction(examId: string, input: AssignProctorInput) {
   try {
+    const cookieStore = await cookies();
+    const role = cookieStore.get('auth_token')?.value || '';
+    if (role !== 'Super Admin' && role !== 'Admin Utama' && role !== 'ADMIN') {
+      return { 
+        success: false, 
+        error: 'Akses Ditolak: Hanya Admin Utama / Super Admin yang berwenang mem-plotting pengawas ujian!' 
+      };
+    }
+
     const updated = await prisma.exam.update({
       where: { id: examId },
       data: {

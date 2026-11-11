@@ -16,7 +16,12 @@ import {
   BookOpen,
   Sparkles,
   Award,
-  ChevronRight
+  ChevronRight,
+  Eye,
+  ArrowLeft,
+  CalendarX2,
+  ShieldAlert,
+  Play
 } from 'lucide-react';
 import { formatExamScheduleRange, getExamScheduleState } from '@/lib/cbt-schedule';
 
@@ -125,28 +130,39 @@ export default function ProctorScheduleClient({
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              <Link
-                href="/admin/cbt?tab=pengawas"
-                className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs sm:text-sm flex items-center gap-2 transition-all backdrop-blur-md shadow-sm"
-              >
-                <Users size={16} /> Plotting Admin
-              </Link>
-              <Link
-                href="/admin/cbt"
-                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-bold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-md shadow-blue-500/30"
-              >
-                <span>Dashboard CBT</span>
-                <ChevronRight size={16} />
-              </Link>
+              {isSuperAdmin ? (
+                <>
+                  <Link
+                    href="/admin/cbt?tab=pengawas"
+                    className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs sm:text-sm flex items-center gap-2 transition-all backdrop-blur-md shadow-sm"
+                  >
+                    <Users size={16} /> Plotting Pengawas (Admin)
+                  </Link>
+                  <Link
+                    href="/admin/cbt"
+                    className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-bold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-md shadow-blue-500/30"
+                  >
+                    <span>Dashboard CBT</span>
+                    <ChevronRight size={16} />
+                  </Link>
+                </>
+              ) : (
+                <Link
+                  href="/portal/guru"
+                  className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs sm:text-sm flex items-center gap-2 transition-all backdrop-blur-md shadow-sm"
+                >
+                  <ArrowLeft size={16} /> Kembali ke Portal Guru
+                </Link>
+              )}
             </div>
           </div>
         </div>
 
         {/* ℹ️ DISCIPLINE NOTICE */}
-        <div className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200 text-xs flex items-start gap-3">
-          <ShieldCheck size={18} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-3">
+          <ShieldAlert size={18} className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
           <div className="space-y-0.5 leading-relaxed">
-            <span className="font-bold">Keamanan & Ketertiban Pengawasan:</span> Anda hanya dapat mengendalikan token dan memantau siswa pada paket ujian dan ruang kelas yang telah di-plotting oleh Admin Utama. Pastikan Anda berada di ruang ujian sebelum membuka sesi token di layar proyektor kelas.
+            <span className="font-bold">Ketentuan Pengawasan Ujian:</span> Seluruh jadwal dan penempatan ruangan di bawah ini diatur seutuhnya oleh Admin Utama demi ketertiban pelaksanaan. Guru pengawas hanya memiliki tombol <strong>Pratinjau Ruang Ujian</strong> untuk mengawasi siswa, mengumumkan token di proyektor, dan mencetak Berita Acara saat waktu ujian tiba.
           </div>
         </div>
 
@@ -210,18 +226,33 @@ export default function ProctorScheduleClient({
 
         {/* 📋 LIST OF ASSIGNED EXAMS */}
         {filteredExams.length === 0 ? (
-          <div className="p-12 text-center rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
-            <div className="w-14 h-14 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-600 flex items-center justify-center mx-auto">
-              <ShieldCheck size={28} />
+          <div className="p-12 text-center rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm">
+            <div className="w-16 h-16 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto">
+              <CalendarX2 size={32} />
             </div>
-            <h3 className="font-bold text-base text-slate-800 dark:text-slate-200">
-              Tidak Ada Jadwal Tugas Pengawas
-            </h3>
-            <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
-              {exams.length === 0
-                ? 'Anda belum memiliki jadwal tugas pengawasan ujian CBT yang di-plotting oleh Admin Utama. Silakan hubungi Panitia Ujian / Admin Kurikulum.'
-                : 'Tidak ada tugas yang sesuai dengan filter pencarian Anda.'}
-            </p>
+            <div className="space-y-1.5">
+              <h3 className="font-bold text-base text-slate-800 dark:text-slate-200">
+                {exams.length === 0
+                  ? 'Belum Ada Jadwal Pengawasan yang Di-Plotting'
+                  : 'Tidak Ada Tugas yang Sesuai Filter'}
+              </h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+                {exams.length === 0
+                  ? `Nama Anda (${currentUser.name}) belum di-plotting oleh Admin Utama ke sesi ujian CBT manapun. Seluruh penugasan ruangan dan jadwal diatur seutuhnya oleh Admin demi ketertiban. Jadwal ujian akan otomatis muncul di sini begitu Admin Utama menetapkan nama Anda sebagai pengawas.`
+                  : 'Tidak ditemukan jadwal ujian yang sesuai dengan kata kunci pencarian Anda.'}
+              </p>
+            </div>
+            {exams.length === 0 && (
+              <div className="pt-2">
+                <Link
+                  href="/portal/guru"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition shadow-sm"
+                >
+                  <ArrowLeft size={14} />
+                  <span>Kembali ke Portal Guru</span>
+                </Link>
+              </div>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -272,6 +303,11 @@ export default function ProctorScheduleClient({
 
                     {/* Title & Subject */}
                     <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/80">
+                          Plotting Resmi Admin
+                        </span>
+                      </div>
                       <h3 className="text-base font-black text-slate-900 dark:text-white line-clamp-1">
                         {exam.title}
                       </h3>
@@ -301,7 +337,7 @@ export default function ProctorScheduleClient({
                     </div>
                   </div>
 
-                  {/* CTA BUTTON */}
+                  {/* CTA BUTTON - HANYA TOMBOL PRATINJAU RUANG UJIAN / AWASI UJIAN */}
                   <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
                     <span className="text-[11px] text-slate-400 font-medium">
                       {exam._count?.attempts ? `${exam._count.attempts} Siswa Mengerjakan` : 'Siap Diawasi'}
@@ -315,8 +351,17 @@ export default function ProctorScheduleClient({
                           : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25'
                       }`}
                     >
-                      <ShieldCheck size={15} />
-                      <span>Masuk Konsol Pengawas</span>
+                      {isOngoing ? (
+                        <>
+                          <Play size={15} />
+                          <span>Mulai Pengawasan (Live)</span>
+                        </>
+                      ) : (
+                        <>
+                          <Eye size={15} />
+                          <span>Pratinjau Ruang Ujian</span>
+                        </>
+                      )}
                       <ArrowRight size={14} />
                     </Link>
                   </div>

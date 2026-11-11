@@ -234,6 +234,34 @@ export default function CbtProctorPlottingView({
     }
   };
 
+  // Strict access guard: only Admin Utama / Super Admin can plot proctors!
+  if (!isSuperAdmin) {
+    return (
+      <div className="p-8 text-center rounded-3xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 space-y-4 font-sans">
+        <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto text-2xl font-black">
+          🔒
+        </div>
+        <div className="space-y-1">
+          <h3 className="text-lg font-black text-slate-900 dark:text-white">
+            Wewenang Khusus Admin Utama
+          </h3>
+          <p className="text-xs text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+            Fitur Plotting Pengawas Ruangan hanya dapat dikelola langsung oleh Admin Utama / Super Admin demi ketertiban jadwal ujian. Guru dan pengawas tidak dapat memilih atau mengubah jadwal sendiri.
+          </p>
+        </div>
+        <div className="pt-2">
+          <Link
+            href="/portal/pengawas/cbt"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-blue-500/20"
+          >
+            <ShieldCheck size={16} />
+            <span>Lihat Jadwal Tugas Pengawasan Saya</span>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in font-sans">
       {/* 🚀 HEADER BANNER */}

@@ -66,30 +66,38 @@ export default async function ProctorLiveConsolePage({
 
   const isSuperAdmin = currentUser.role === 'Super Admin' || currentUser.role === 'Admin Utama';
   const isAssignedProctor =
-    exam.proctorName === currentUser.name ||
-    exam.proctorId === currentUser.id ||
-    exam.proctor2Name === currentUser.name ||
-    exam.proctor2Id === currentUser.id ||
-    exam.authorName === currentUser.name;
+    Boolean(exam.proctorId && currentUser.id && exam.proctorId === currentUser.id) ||
+    Boolean(exam.proctor2Id && currentUser.id && exam.proctor2Id === currentUser.id) ||
+    Boolean(exam.proctorName && currentUser.name && exam.proctorName.toLowerCase().trim() === currentUser.name.toLowerCase().trim()) ||
+    Boolean(exam.proctor2Name && currentUser.name && exam.proctor2Name.toLowerCase().trim() === currentUser.name.toLowerCase().trim());
 
-  // Strict check: Guru who is NOT assigned by Admin cannot access this room!
-  if (!isSuperAdmin && !isAssignedProctor && exam.proctorName) {
+  // Strict check: Only Admin Utama or the specifically plotted proctor can access this room!
+  if (!isSuperAdmin && !isAssignedProctor) {
     return (
       <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-6 font-sans">
         <div className="max-w-md w-full bg-slate-900 border border-rose-500/30 rounded-3xl p-8 text-center space-y-4 shadow-2xl">
           <div className="w-14 h-14 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto text-2xl font-black">
             🔒
           </div>
-          <h2 className="text-xl font-black text-rose-300">Akses Ruang Pengawas Ditolak</h2>
+          <h2 className="text-xl font-black text-rose-300">Akses Pengawas Terbatas</h2>
           <p className="text-xs text-slate-300 leading-relaxed">
-            Anda tidak terdaftar sebagai pengawas resmi untuk ruang ujian <strong>"{exam.title}"</strong> ({exam.classTarget}). Sesi ini secara resmi ditugaskan kepada <strong>{exam.proctorName}</strong> oleh Admin Utama.
+            {exam.proctorName ? (
+              <>
+                Sesi ujian <strong>"{exam.title}"</strong> ({exam.classTarget}) telah di-plotting oleh Admin Utama kepada <strong>{exam.proctorName}</strong>{exam.proctor2Name ? ` dan ${exam.proctor2Name}` : ''}.<br /><br />
+                Akun Anda (<strong>{currentUser.name}</strong>) tidak tercantum sebagai pengawas resmi untuk ruangan ini.
+              </>
+            ) : (
+              <>
+                Sesi ujian <strong>"{exam.title}"</strong> ({exam.classTarget}) belum di-plotting oleh Admin Utama. Hanya Admin Utama yang berwenang menetapkan pengawas ruangan.
+              </>
+            )}
           </p>
           <div className="pt-2">
             <a
               href="/portal/pengawas/cbt"
-              className="inline-block px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition"
+              className="inline-block px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition"
             >
-              Kembali ke Jadwal Tugas Saya
+              Lihat Jadwal Tugas Saya
             </a>
           </div>
         </div>

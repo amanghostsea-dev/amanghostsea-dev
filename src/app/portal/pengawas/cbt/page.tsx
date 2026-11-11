@@ -44,17 +44,31 @@ export default async function ProctorSchedulePage() {
   const isSuperAdmin = currentUser.role === 'Super Admin' || currentUser.role === 'Admin Utama';
 
   // If Super Admin, fetch all exams so they can supervise any room as Chief Proctor
-  // If regular teacher, strictly filter ONLY the exams plotted to them by Admin
-  const whereCondition = isSuperAdmin
-    ? {}
-    : {
-        OR: [
-          { proctorName: currentUser.name },
-          { proctorId: currentUser.id || 'none' },
-          { proctor2Name: currentUser.name },
-          { proctor2Id: currentUser.id || 'none' },
-        ],
-      };
+  // If regular teacher / proctor, STRICTLY filter ONLY the exams plotted to them by Admin Utama
+  let whereCondition: any;
+  if (isSuperAdmin) {
+    whereCondition = {};
+  } else {
+    const proctorConditions: any[] = [];
+    if (currentUser.id) {
+      proctorConditions.push({ proctorId: currentUser.id });
+      proctorConditions.push({ proctor2Id: currentUser.id });
+    }
+    if (currentUser.name && currentUser.name !== 'Guru Pengawas') {
+      proctorConditions.push({ proctorName: { equals: currentUser.name, mode: 'insensitive' } });
+      proctorConditions.push({ proctor2Name: { equals: currentUser.name, mode: 'insensitive' } });
+    }
+    if (currentUser.username && currentUser.username !== 'pengawas') {
+      proctorConditions.push({ proctorName: { contains: currentUser.username, mode: 'insensitive' } });
+    }
+
+    // Only matches if teacher was specifically plotted by Admin Utama
+    if (proctorConditions.length > 0) {
+      whereCondition = { OR: proctorConditions };
+    } else {
+      whereCondition = { id: '__UNASSIGNED_NO_EXAMS__' };
+    }
+  }
 
   const exams = await prisma.exam.findMany({
     where: whereCondition,
