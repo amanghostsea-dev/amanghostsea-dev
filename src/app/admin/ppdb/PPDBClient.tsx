@@ -21,7 +21,7 @@ import {
   Download,
   QrCode
 } from 'lucide-react';
-import { updateSubmissionStatus, verifyPayment } from './actions';
+import { updateSubmissionStatus, verifyPayment } from '@/app/admin/ppdb/actions';
 
 function parseDocumentUrls(docStr: string | null | undefined): string[] {
   if (!docStr) return [];
@@ -104,7 +104,7 @@ export default function PPDBClient({ initialSubmissions }: { initialSubmissions:
     try {
       const res = await updateSubmissionStatus(id, status);
       if (res?.success && res.applicant) {
-        setSubmissions(submissions.map(s => s.id === id ? { ...s, status } : s));
+        setSubmissions(submissions.map((s: PpdbApplicant) => s.id === id ? { ...s, status } : s));
       }
     } finally {
       setLoadingId(null);
@@ -117,7 +117,7 @@ export default function PPDBClient({ initialSubmissions }: { initialSubmissions:
     try {
       const res = await verifyPayment(selectedPaymentApplicant.id, status, verifyingNotes);
       if (res?.success && res.applicant) {
-        setSubmissions(submissions.map(s => s.id === selectedPaymentApplicant.id ? { ...s, ...res.applicant } : s));
+        setSubmissions(submissions.map((s: PpdbApplicant) => s.id === selectedPaymentApplicant.id ? { ...s, ...res.applicant } : s));
         setSelectedPaymentApplicant(null);
         setVerifyingNotes('');
       } else {

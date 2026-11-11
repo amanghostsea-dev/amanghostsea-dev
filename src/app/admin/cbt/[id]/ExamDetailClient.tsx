@@ -11,6 +11,7 @@ import {
   FileText, 
   Award, 
   AlertTriangle, 
+  AlertCircle,
   Clock, 
   Key, 
   HelpCircle,
@@ -1245,17 +1246,15 @@ Poin: 10
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {questions.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setIsAutoDistributeModalOpen(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-sm font-bold shadow-md shadow-amber-500/25 transition-all cursor-pointer"
-                  title="Bagi rata nilai otomatis ke seluruh soal (contoh: 40 soal dengan total 100 = 2.5 poin/soal)"
-                >
-                  <Calculator size={16} />
-                  <span>Bagi Rata Nilai (Otomatis)</span>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setIsAutoDistributeModalOpen(true)}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-sm font-bold shadow-md shadow-amber-500/25 transition-all cursor-pointer"
+                title="Bagi rata nilai otomatis ke seluruh butir soal (contoh: 40 soal dengan total 100 = 2.5 poin/soal)"
+              >
+                <Calculator size={16} />
+                <span>Bagi Rata Nilai (Otomatis)</span>
+              </button>
               <button
                 type="button"
                 onClick={() => handleDownloadCsvTemplate('csv')}
@@ -2299,16 +2298,16 @@ Poin: 15`}
 
       {/* ⚡ MODAL BAGI RATA NILAI SOAL OTOMATIS */}
       {isAutoDistributeModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in font-sans">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800">
-            {/* Header */}
-            <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-transparent flex items-start justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in font-sans overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-lg max-h-[88vh] sm:max-h-[85vh] flex flex-col overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 my-auto">
+            {/* Header (Sticky / Flex-Shrink-0) */}
+            <div className="px-5 py-3.5 sm:py-4 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-transparent flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-white shadow-lg shadow-amber-500/30">
-                  <Calculator size={24} />
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-white shadow-md shadow-amber-500/30 flex-shrink-0">
+                  <Calculator size={20} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg text-slate-900 dark:text-white">
+                  <h3 className="font-bold text-base sm:text-lg text-slate-900 dark:text-white leading-tight">
                     Bagi Rata Nilai Soal Otomatis
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -2319,29 +2318,42 @@ Poin: 15`}
               <button
                 type="button"
                 onClick={() => setIsAutoDistributeModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                title="Tutup Modal"
               >
                 ✕
               </button>
             </div>
 
-            {/* Body */}
-            <div className="p-6 space-y-5">
+            {/* Body (Scrollable with overflow-y-auto) */}
+            <div className="p-4 sm:p-5 space-y-3.5 overflow-y-auto flex-1">
+              {/* Notifikasi jika soal masih 0 */}
+              {questions.length === 0 && (
+                <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-xs text-amber-900 dark:text-amber-200 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
+                    <AlertCircle size={15} /> Belum Ada Butir Soal
+                  </div>
+                  <p>
+                    Paket ujian ini belum memiliki butir soal. Silakan tambahkan soal terlebih dahulu melalui <strong>Input Kolektif (Batch)</strong> atau <strong>Tambah Soal Manual</strong> agar sistem dapat menghitung dan membagi nilai secara otomatis.
+                  </p>
+                </div>
+              )}
+
               {/* Info Statistik Soal Saat Ini */}
-              <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 text-xs">
+              <div className="grid grid-cols-2 gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 text-xs">
                 <div>
-                  <span className="text-slate-500 block">Jumlah Butir Soal:</span>
-                  <strong className="text-base text-slate-900 dark:text-white font-black">{questions.length} Soal</strong>
+                  <span className="text-slate-500 block text-[11px]">Jumlah Butir Soal:</span>
+                  <strong className="text-sm sm:text-base text-slate-900 dark:text-white font-black">{questions.length} Soal</strong>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Total Nilai Saat Ini:</span>
-                  <strong className="text-base text-purple-600 dark:text-purple-400 font-black">{Math.round(totalPoints * 100) / 100} Poin</strong>
+                  <span className="text-slate-500 block text-[11px]">Total Nilai Saat Ini:</span>
+                  <strong className="text-sm sm:text-base text-purple-600 dark:text-purple-400 font-black">{Math.round(totalPoints * 100) / 100} Poin</strong>
                 </div>
               </div>
 
               {/* Input Target Total Nilai */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Target Total Nilai Ujian:
                 </label>
                 <div className="relative">
@@ -2352,23 +2364,23 @@ Poin: 15`}
                     max="1000"
                     value={targetTotalPointsInput}
                     onChange={(e) => setTargetTotalPointsInput(parseFloat(e.target.value) || 0)}
-                    className="w-full px-4 py-3 rounded-2xl border-2 border-amber-400/80 bg-white dark:bg-slate-950 text-slate-900 dark:text-white text-xl font-black focus:outline-none focus:ring-4 focus:ring-amber-500/20 shadow-inner"
+                    className="w-full px-3.5 py-2.5 rounded-xl border-2 border-amber-400/80 bg-white dark:bg-slate-950 text-slate-900 dark:text-white text-lg font-black focus:outline-none focus:ring-3 focus:ring-amber-500/20 shadow-inner"
                     placeholder="100"
                   />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
                     Poin Maksimal
                   </span>
                 </div>
 
                 {/* Preset Pills */}
-                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                   <span className="text-[11px] text-slate-400">Preset Nilai:</span>
                   {[100, 50, 75, 80].map((preset) => (
                     <button
                       key={preset}
                       type="button"
                       onClick={() => setTargetTotalPointsInput(preset)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      className={`px-2 py-0.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                         targetTotalPointsInput === preset
                           ? 'bg-amber-500 text-white shadow-sm'
                           : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
@@ -2382,7 +2394,7 @@ Poin: 15`}
 
               {/* Hasil Kalkulasi Otomatis */}
               {questions.length > 0 && targetTotalPointsInput > 0 && (
-                <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100/50 dark:from-amber-950/30 dark:via-orange-950/20 dark:to-slate-900 border border-amber-300/80 dark:border-amber-800/60 space-y-3">
+                <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100/50 dark:from-amber-950/30 dark:via-orange-950/20 dark:to-slate-900 border border-amber-300/80 dark:border-amber-800/60 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
                       <Sparkles size={14} className="text-amber-600" /> Hasil Pembagian Nilai:
@@ -2392,33 +2404,33 @@ Poin: 15`}
                     </span>
                   </div>
 
-                  <div className="flex items-baseline justify-between p-3 rounded-xl bg-white/90 dark:bg-slate-900/90 border border-amber-200 dark:border-amber-900/50 shadow-sm">
+                  <div className="flex items-baseline justify-between p-2.5 rounded-xl bg-white/90 dark:bg-slate-900/90 border border-amber-200 dark:border-amber-900/50 shadow-sm">
                     <div>
-                      <div className="text-[11px] text-slate-500 font-medium">Nilai per Butir Soal</div>
-                      <div className="text-2xl font-black text-amber-600 dark:text-amber-400">
+                      <div className="text-[10px] text-slate-500 font-medium">Nilai per Butir Soal</div>
+                      <div className="text-xl font-black text-amber-600 dark:text-amber-400">
                         {Math.round((targetTotalPointsInput / questions.length) * 100) / 100}
                         <span className="text-xs font-bold text-slate-500 ml-1">Poin / Soal</span>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-[11px] text-slate-500 font-medium">Total Akumulasi</div>
-                      <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                      <div className="text-[10px] text-slate-500 font-medium">Total Akumulasi</div>
+                      <div className="text-base font-bold text-emerald-600 dark:text-emerald-400">
                         {Math.round((Math.round((targetTotalPointsInput / questions.length) * 100) / 100) * questions.length * 100) / 100} Poin
                       </div>
                     </div>
                   </div>
 
                   {/* Simulasi Ringkas */}
-                  <div className="grid grid-cols-3 gap-2 text-[10px] text-center text-slate-600 dark:text-slate-400 pt-1">
-                    <div className="p-2 rounded-lg bg-white/60 dark:bg-slate-800/60">
+                  <div className="grid grid-cols-3 gap-1.5 text-[10px] text-center text-slate-600 dark:text-slate-400">
+                    <div className="p-1.5 rounded-lg bg-white/60 dark:bg-slate-800/60">
                       <div>Benar 100% ({questions.length})</div>
                       <strong className="text-emerald-600 text-xs">{targetTotalPointsInput} Poin</strong>
                     </div>
-                    <div className="p-2 rounded-lg bg-white/60 dark:bg-slate-800/60">
+                    <div className="p-1.5 rounded-lg bg-white/60 dark:bg-slate-800/60">
                       <div>Benar 75% ({Math.round(questions.length * 0.75)})</div>
                       <strong className="text-blue-600 text-xs">{(targetTotalPointsInput * 0.75).toFixed(1)} Poin</strong>
                     </div>
-                    <div className="p-2 rounded-lg bg-white/60 dark:bg-slate-800/60">
+                    <div className="p-1.5 rounded-lg bg-white/60 dark:bg-slate-800/60">
                       <div>Benar 50% ({Math.round(questions.length * 0.5)})</div>
                       <strong className="text-purple-600 text-xs">{(targetTotalPointsInput * 0.5).toFixed(1)} Poin</strong>
                     </div>
@@ -2427,20 +2439,20 @@ Poin: 15`}
               )}
 
               {/* Note Guru */}
-              <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 text-[11px] text-blue-900 dark:text-blue-200 flex items-start gap-2 leading-relaxed">
-                <Info size={15} className="text-blue-500 flex-shrink-0 mt-0.5" />
+              <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 text-[11px] text-blue-900 dark:text-blue-200 flex items-start gap-2 leading-relaxed">
+                <Info size={14} className="text-blue-500 flex-shrink-0 mt-0.5" />
                 <span>
                   <strong>Fleksibilitas Penuh:</strong> Setelah nilai dibagi rata secara otomatis, Anda tetap bisa mengedit atau menaikkan bobot butir soal tertentu secara manual (misal soal esai/sulit) lewat tombol edit pada masing-masing butir soal.
                 </span>
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="p-5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-3 bg-slate-50/50 dark:bg-slate-950/40">
+            {/* Footer (Sticky / Flex-Shrink-0) */}
+            <div className="px-5 py-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5 bg-slate-50/70 dark:bg-slate-950/50 flex-shrink-0">
               <button
                 type="button"
                 onClick={() => setIsAutoDistributeModalOpen(false)}
-                className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-semibold hover:bg-slate-100 cursor-pointer"
+                className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
               >
                 Batal
               </button>
@@ -2448,11 +2460,15 @@ Poin: 15`}
                 type="button"
                 disabled={distributeLoading || questions.length === 0 || targetTotalPointsInput <= 0}
                 onClick={() => handleAutoDistributePoints(targetTotalPointsInput)}
-                className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-sm font-bold shadow-md shadow-amber-500/30 transition cursor-pointer disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-sm font-bold shadow-md shadow-amber-500/30 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Calculator size={16} />
                 <span>
-                  {distributeLoading ? 'Menerapkan...' : `Terapkan ke Semua (${questions.length}) Soal`}
+                  {distributeLoading
+                    ? 'Menerapkan...'
+                    : questions.length === 0
+                      ? 'Tambahkan Soal Dulu'
+                      : `Terapkan ke Semua (${questions.length}) Soal`}
                 </span>
               </button>
             </div>
