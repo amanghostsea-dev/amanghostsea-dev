@@ -199,3 +199,220 @@ export function toDateTimeLocalInput(date?: Date | string | null): string {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
+/**
+ * Extract academic level from a class name or target string ('X' | 'XI' | 'XII')
+ */
+export function extractClassLevel(className?: string | null): 'X' | 'XI' | 'XII' | null {
+  if (!className) return null;
+  const clean = className.trim().toUpperCase();
+
+  // Explicit check for XII first
+  if (
+    /\bXII\b/.test(clean) ||
+    /\b12\b/.test(clean) ||
+    clean.startsWith('XII ') ||
+    clean.startsWith('XII-') ||
+    clean.includes('TINGKAT XII') ||
+    clean.includes('KELAS XII')
+  ) {
+    return 'XII';
+  }
+
+  // Explicit check for XI second
+  if (
+    /\bXI\b/.test(clean) ||
+    /\b11\b/.test(clean) ||
+    clean.startsWith('XI ') ||
+    clean.startsWith('XI-') ||
+    clean.includes('TINGKAT XI') ||
+    clean.includes('KELAS XI')
+  ) {
+    return 'XI';
+  }
+
+  // Explicit check for X third
+  if (
+    /\bX\b/.test(clean) ||
+    /\b10\b/.test(clean) ||
+    clean.startsWith('X ') ||
+    clean.startsWith('X-') ||
+    clean.includes('TINGKAT X') ||
+    clean.includes('KELAS X')
+  ) {
+    return 'X';
+  }
+
+  return null;
+}
+
+/**
+ * Check if a target string represents a level-wide or school-wide preset
+ */
+export function isAllLevelTarget(target?: string | null): 'X' | 'XI' | 'XII' | 'ALL' | null {
+  if (!target) return null;
+  const clean = target.trim().toUpperCase();
+
+  if (
+    clean === 'SEMUA KELAS' ||
+    clean === 'SEMUA SISWA' ||
+    clean === 'ALL' ||
+    clean === 'SELURUH KELAS'
+  ) {
+    return 'ALL';
+  }
+
+  if (
+    clean.includes('SEMUA KELAS XII') ||
+    clean.includes('SEMUA JURUSAN TINGKAT XII') ||
+    clean.includes('SELURUH JURUSAN TINGKAT XII') ||
+    clean === 'TINGKAT XII'
+  ) {
+    return 'XII';
+  }
+
+  if (
+    clean.includes('SEMUA KELAS XI') ||
+    clean.includes('SEMUA JURUSAN TINGKAT XI') ||
+    clean.includes('SELURUH JURUSAN TINGKAT XI') ||
+    clean === 'TINGKAT XI'
+  ) {
+    return 'XI';
+  }
+
+  if (
+    clean.includes('SEMUA KELAS X') ||
+    clean.includes('SEMUA JURUSAN TINGKAT X') ||
+    clean.includes('SELURUH JURUSAN TINGKAT X') ||
+    clean === 'TINGKAT X'
+  ) {
+    return 'X';
+  }
+
+  return null;
+}
+
+/**
+ * Parse a potentially comma-separated or multi-class target string into an array of class strings
+ */
+export function parseClassTargets(target?: string | null): string[] {
+  if (!target || !target.trim()) return ['Semua Kelas'];
+  return target
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Check if an exam target matches a student's class
+ */
+export function isClassTargetMatch(
+  examClassTarget?: string | null,
+  studentClass?: string | null
+): boolean {
+  if (!examClassTarget || examClassTarget.trim() === 'Semua Kelas') {
+    return true;
+  }
+  if (!studentClass || !studentClass.trim()) {
+    return true; // fallback if student class is undetermined
+  }
+
+  const levelTarget = isAllLevelTarget(examClassTarget);
+  if (levelTarget === 'ALL') {
+    return true;
+  }
+
+  const studentLevel = extractClassLevel(studentClass);
+
+  if (levelTarget) {
+    return studentLevel === levelTarget;
+  }
+
+  const targetList = parseClassTargets(examClassTarget);
+  const normalizedStudent = studentClass.trim().toLowerCase();
+
+  for (const t of targetList) {
+    const tClean = t.trim().toLowerCase();
+    if (tClean === 'semua kelas') return true;
+    if (tClean === normalizedStudent) return true;
+    if (tClean.replace(/\s+/g, '') === normalizedStudent.replace(/\s+/g, '')) return true;
+
+    // In case target list contains a level-wide element e.g. "Semua Kelas X"
+    const tLevel = isAllLevelTarget(t);
+    if (tLevel && studentLevel === tLevel) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Anti-Bentrok Conflict Overlap Matcher:
+ * Checks whether two class target strings have any overlapping students/classes
+ */
+export function isClassOverlap(
+  targetA?: string | null,
+  targetB?: string | null
+): boolean {
+  if (!targetA || !targetB) return false;
+  const aTrim = targetA.trim();
+  const bTrim = targetB.trim();
+
+  // If either targets all classes across the school
+  if (aTrim === 'Semua Kelas' || bTrim === 'Semua Kelas') {
+    return true;
+  }
+
+  const lvlA = isAllLevelTarget(aTrim);
+  const lvlB = isAllLevelTarget(bTrim);
+
+  // Both are level-wide
+  if (lvlA && lvlB) {
+    if (lvlA === 'ALL' || lvlB === 'ALL') return true;
+    return lvlA === lvlB;
+  }
+
+  // targetA is level-wide, targetB is specific class(es)
+  if (lvlA) {
+    if (lvlA === 'ALL') return true;
+    const classesB = parseClassTargets(bTrim);
+    return classesB.some((c) => extractClassLevel(c) === lvlA);
+  }
+
+  // targetB is level-wide, targetA is specific class(es)
+  if (lvlB) {
+    if (lvlB === 'ALL') return true;
+    const classesA = parseClassTargets(aTrim);
+    return classesA.some((c) => extractClassLevel(c) === lvlB);
+  }
+
+  // Neither is level-wide, check individual/multi-class intersection
+  const listA = parseClassTargets(aTrim).map((c) => c.toLowerCase().replace(/\s+/g, ''));
+  const listB = parseClassTargets(bTrim).map((c) => c.toLowerCase().replace(/\s+/g, ''));
+
+  return listA.some((itemA) => listB.includes(itemA));
+}
+
+/**
+ * Prettify Class Target for clean display in badges, cards, and tables
+ */
+export function formatClassTargetDisplay(target?: string | null): string {
+  if (!target || !target.trim() || target.trim() === 'Semua Kelas') {
+    return '🌐 Semua Kelas (Semua Siswa)';
+  }
+
+  const clean = target.trim();
+  const lvl = isAllLevelTarget(clean);
+  if (lvl === 'X') return '🎯 Semua Kelas X (Semua Jurusan)';
+  if (lvl === 'XI') return '🎯 Semua Kelas XI (Semua Jurusan)';
+  if (lvl === 'XII') return '🎯 Semua Kelas XII (Semua Jurusan)';
+  if (lvl === 'ALL') return '🌐 Semua Kelas (Semua Siswa)';
+
+  const parsed = parseClassTargets(clean);
+  if (parsed.length > 1) {
+    return `👥 ${parsed.length} Kelas: ${parsed.slice(0, 2).join(', ')}${parsed.length > 2 ? '...' : ''}`;
+  }
+
+  return clean;
+}
+

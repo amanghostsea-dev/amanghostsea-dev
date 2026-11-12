@@ -2,16 +2,16 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { 
-  Clock, 
-  AlertTriangle, 
-  CheckCircle2, 
-  Maximize2, 
-  Minimize2, 
-  ArrowLeft, 
-  ArrowRight, 
-  Send, 
-  HelpCircle, 
+import {
+  Clock,
+  AlertTriangle,
+  CheckCircle2,
+  Maximize2,
+  Minimize2,
+  ArrowLeft,
+  ArrowRight,
+  Send,
+  HelpCircle,
   ShieldAlert,
   Award,
   BookOpen,
@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import { startOrResumeAttempt, saveProgress, submitExam, getExamSessionStatus } from '../actions';
-import { formatExamScheduleRange, getExamScheduleState } from '@/lib/cbt-schedule';
+import { formatExamScheduleRange, getExamScheduleState, formatClassTargetDisplay } from '@/lib/cbt-schedule';
 
 interface QuestionItem {
   id: string;
@@ -105,7 +105,7 @@ export default function CbtExamRoom({
           setIsSessionOpen(res.isSessionOpen);
         }
       }
-    } catch {}
+    } catch { }
     setCheckingStatus(false);
   }, [exam.id]);
 
@@ -140,11 +140,11 @@ export default function CbtExamRoom({
   } | null>(
     existingAttempt?.status === 'SUBMITTED'
       ? {
-          score: existingAttempt.score,
-          totalCorrect: existingAttempt.totalCorrect,
-          totalQuestions: existingAttempt.totalQuestions,
-          tabSwitchCount: existingAttempt.tabSwitchCount,
-        }
+        score: existingAttempt.score,
+        totalCorrect: existingAttempt.totalCorrect,
+        totalQuestions: existingAttempt.totalQuestions,
+        tabSwitchCount: existingAttempt.tabSwitchCount,
+      }
       : null
   );
 
@@ -186,7 +186,7 @@ export default function CbtExamRoom({
             storageKey,
             JSON.stringify({ ...saved, tabSwitchCount: next })
           );
-        } catch {}
+        } catch { }
 
         // Background sync to server
         saveProgress(attempt.id, answers, next).catch(console.error);
@@ -308,7 +308,7 @@ export default function CbtExamRoom({
           tabSwitchCount,
         })
       );
-    } catch {}
+    } catch { }
 
     // Background sync to DB
     if (attempt) {
@@ -336,16 +336,16 @@ export default function CbtExamRoom({
           tabSwitchCount,
         })
       );
-    } catch {}
+    } catch { }
   };
 
   // Toggle Fullscreen
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
+      document.documentElement.requestFullscreen().catch(() => { });
       setIsFullscreen(true);
     } else {
-      document.exitFullscreen().catch(() => {});
+      document.exitFullscreen().catch(() => { });
       setIsFullscreen(false);
     }
   };
@@ -476,7 +476,7 @@ export default function CbtExamRoom({
                 {exam.subject}
               </span>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
-                Kelas: {exam.classTarget}
+                Target: {formatClassTargetDisplay(exam.classTarget)}
               </span>
             </div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{exam.title}</h1>
@@ -600,8 +600,8 @@ export default function CbtExamRoom({
                   {sessionStatus === 'ACTIVE' ? 'Sesi Ujian Telah Diaktifkan Pengawas!' : 'Sesi Ujian Sesuai Jadwal Resmi Dibuka!'}
                 </div>
                 <p className="text-xs text-emerald-700 dark:text-emerald-300">
-                  {sessionStatus === 'ACTIVE' 
-                    ? 'Pengawas telah membuka sesi ujian kelas ini. Silakan lihat kode token di papan tulis ruangan dan masukkan di bawah ini:' 
+                  {sessionStatus === 'ACTIVE'
+                    ? 'Pengawas telah membuka sesi ujian kelas ini. Silakan lihat kode token di papan tulis ruangan dan masukkan di bawah ini:'
                     : 'Ujian telah memasuki waktu pelaksanaan resmi. Silakan masukkan token ujian dari guru pengawas untuk mulai mengerjakan:'}
                 </p>
               </div>
@@ -668,11 +668,10 @@ export default function CbtExamRoom({
         {/* Center: Countdown Timer */}
         <div className="flex items-center gap-2">
           <div
-            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-mono font-bold text-sm transition-all ${
-              timeLeft < 300
+            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-mono font-bold text-sm transition-all ${timeLeft < 300
                 ? 'bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400 animate-pulse border border-red-300'
                 : 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
-            }`}
+              }`}
           >
             <Clock size={16} />
             <span>{formatTime(timeLeft)}</span>
@@ -706,7 +705,7 @@ export default function CbtExamRoom({
 
       {/* Main Examination Layout */}
       <div className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
-        
+
         {/* Left Column: Current Question & Options */}
         <div className="lg:col-span-3 flex flex-col justify-between bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 md:p-8">
           <div>
@@ -717,11 +716,10 @@ export default function CbtExamRoom({
               </span>
               <button
                 onClick={toggleDoubtful}
-                className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
-                  isCurrentDoubtful
+                className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${isCurrentDoubtful
                     ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/50 dark:text-amber-300'
                     : 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300'
-                }`}
+                  }`}
               >
                 {isCurrentDoubtful ? '★ Status: Ragu-Ragu' : 'Tandai Ragu-Ragu'}
               </button>
@@ -743,18 +741,16 @@ export default function CbtExamRoom({
                     key={idx}
                     type="button"
                     onClick={() => handleSelectOption(idx)}
-                    className={`w-full text-left p-4 rounded-2xl border transition-all flex items-start gap-4 ${
-                      isSelected
+                    className={`w-full text-left p-4 rounded-2xl border transition-all flex items-start gap-4 ${isSelected
                         ? 'border-purple-600 bg-purple-50/70 dark:bg-purple-950/30 ring-2 ring-purple-500/20 text-purple-950 dark:text-purple-200 font-semibold'
                         : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200'
-                    }`}
+                      }`}
                   >
                     <span
-                      className={`w-8 h-8 rounded-xl font-bold text-sm flex items-center justify-center flex-shrink-0 transition-colors ${
-                        isSelected
+                      className={`w-8 h-8 rounded-xl font-bold text-sm flex items-center justify-center flex-shrink-0 transition-colors ${isSelected
                           ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30'
                           : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                      }`}
+                        }`}
                     >
                       {label}
                     </span>
@@ -825,9 +821,8 @@ export default function CbtExamRoom({
                   <button
                     key={q.id}
                     onClick={() => setCurrentIndex(idx)}
-                    className={`h-10 rounded-xl font-bold text-xs flex items-center justify-center transition-all ${bgClass} ${
-                      isCurrent ? 'ring-2 ring-purple-600 ring-offset-2 dark:ring-offset-slate-900 scale-105' : 'hover:opacity-80'
-                    }`}
+                    className={`h-10 rounded-xl font-bold text-xs flex items-center justify-center transition-all ${bgClass} ${isCurrent ? 'ring-2 ring-purple-600 ring-offset-2 dark:ring-offset-slate-900 scale-105' : 'hover:opacity-80'
+                      }`}
                   >
                     {idx + 1}
                   </button>

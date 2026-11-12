@@ -28,7 +28,7 @@ import {
   ChevronRight,
   FileText
 } from 'lucide-react';
-import { formatExamScheduleRange, getExamScheduleState, ScheduleState } from '@/lib/cbt-schedule';
+import { formatExamScheduleRange, getExamScheduleState, ScheduleState, formatClassTargetDisplay, isClassTargetMatch } from '@/lib/cbt-schedule';
 import { 
   CbtOfficialKopSurat, 
   CbtOfficialSignatures, 
@@ -126,12 +126,15 @@ export default function SiswaCbtClient({
   };
 
   const filteredExams = exams.filter((exam) => {
+    const attempt = exam.attempts[0];
+    const isSubmitted = attempt?.status === 'SUBMITTED';
+    const isMatched = !!attempt || isClassTargetMatch(exam.classTarget, studentClass);
+    if (!isMatched) return false;
+
     const matchesSearch =
       exam.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       exam.subject.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const attempt = exam.attempts[0];
-    const isSubmitted = attempt?.status === 'SUBMITTED';
     const schedState = getExamScheduleState(exam.startTime, exam.endTime, exam.status, currentTime);
 
     if (!matchesSearch) return false;
@@ -532,9 +535,9 @@ export default function SiswaCbtClient({
                             <FileCheck2 size={14} className="text-emerald-500" />
                             <span>{exam._count.questions} Butir Soal</span>
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            <Users size={14} className="text-blue-500" />
-                            <span>{exam.classTarget}</span>
+                          <div className="flex items-center gap-1.5" title={exam.classTarget}>
+                            <Users size={14} className="text-blue-500 shrink-0" />
+                            <span className="truncate">{formatClassTargetDisplay(exam.classTarget)}</span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <Key size={14} className="text-amber-500" />
@@ -809,7 +812,7 @@ export default function SiswaCbtClient({
                               <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
                                 <span className="font-semibold text-purple-600 dark:text-purple-400">{exam.subject}</span>
                                 <span>•</span>
-                                <span>Target: {exam.classTarget}</span>
+                                <span>Target: {formatClassTargetDisplay(exam.classTarget)}</span>
                                 <span>•</span>
                                 <span>Durasi: {exam.duration}m</span>
                               </div>
@@ -957,7 +960,7 @@ export default function SiswaCbtClient({
                     {selectedExamForModal.title}
                   </div>
                   <div className="flex items-center gap-3 text-xs text-slate-700 pt-0.5">
-                    <span>Target: <strong>{selectedExamForModal.classTarget}</strong></span>
+                    <span>Target: <strong>{formatClassTargetDisplay(selectedExamForModal.classTarget)}</strong></span>
                     <span>•</span>
                     <span>KKM: <strong>75.00</strong></span>
                     <span>•</span>

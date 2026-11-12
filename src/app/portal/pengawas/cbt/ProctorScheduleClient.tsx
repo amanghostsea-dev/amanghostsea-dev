@@ -2,16 +2,16 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { 
-  ShieldCheck, 
-  Clock, 
-  MapPin, 
-  Users, 
-  ArrowRight, 
-  Search, 
-  Calendar, 
-  CheckCircle2, 
-  AlertCircle, 
+import {
+  ShieldCheck,
+  Clock,
+  MapPin,
+  Users,
+  ArrowRight,
+  Search,
+  Calendar,
+  CheckCircle2,
+  AlertCircle,
   ExternalLink,
   BookOpen,
   Sparkles,
@@ -23,7 +23,7 @@ import {
   ShieldAlert,
   Play
 } from 'lucide-react';
-import { formatExamScheduleRange, getExamScheduleState } from '@/lib/cbt-schedule';
+import { formatExamScheduleRange, getExamScheduleState, formatClassTargetDisplay } from '@/lib/cbt-schedule';
 
 export interface AssignedExamItem {
   id: string;
@@ -171,42 +171,38 @@ export default function ProctorScheduleClient({
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <button
               onClick={() => setFilterTab('ALL')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                filterTab === 'ALL'
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${filterTab === 'ALL'
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
-              }`}
+                }`}
             >
               Semua Tugas ({exams.length})
             </button>
             <button
               onClick={() => setFilterTab('ACTIVE_TODAY')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                filterTab === 'ACTIVE_TODAY'
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${filterTab === 'ACTIVE_TODAY'
                   ? 'bg-emerald-600 text-white shadow-sm'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
-              }`}
+                }`}
             >
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
               <span>Sedang Berlangsung ({ongoingCount})</span>
             </button>
             <button
               onClick={() => setFilterTab('UPCOMING')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                filterTab === 'UPCOMING'
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${filterTab === 'UPCOMING'
                   ? 'bg-indigo-600 text-white shadow-sm'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
-              }`}
+                }`}
             >
               Mendatang
             </button>
             <button
               onClick={() => setFilterTab('FINISHED')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                filterTab === 'FINISHED'
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${filterTab === 'FINISHED'
                   ? 'bg-slate-700 text-white shadow-sm'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
-              }`}
+                }`}
             >
               Selesai
             </button>
@@ -264,20 +260,19 @@ export default function ProctorScheduleClient({
               return (
                 <div
                   key={exam.id}
-                  className={`rounded-3xl p-6 bg-white dark:bg-slate-900 border transition-all duration-300 flex flex-col justify-between space-y-4 shadow-sm hover:shadow-md ${
-                    isOngoing
+                  className={`rounded-3xl p-6 bg-white dark:bg-slate-900 border transition-all duration-300 flex flex-col justify-between space-y-4 shadow-sm hover:shadow-md ${isOngoing
                       ? 'border-emerald-500 ring-2 ring-emerald-400/20 shadow-emerald-500/10'
                       : isEnded
-                      ? 'border-slate-200 dark:border-slate-800 opacity-75'
-                      : 'border-slate-200 dark:border-slate-800'
-                  }`}
+                        ? 'border-slate-200 dark:border-slate-800 opacity-75'
+                        : 'border-slate-200 dark:border-slate-800'
+                    }`}
                 >
                   <div className="space-y-3">
                     {/* Top status line */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300">
-                          {exam.classTarget}
+                          {formatClassTargetDisplay(exam.classTarget)}
                         </span>
                         <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center gap-1">
                           <MapPin size={12} className="text-blue-500" />
@@ -345,11 +340,10 @@ export default function ProctorScheduleClient({
 
                     <Link
                       href={`/portal/pengawas/cbt/${exam.id}`}
-                      className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer ${
-                        isOngoing
+                      className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer ${isOngoing
                           ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/25 ring-2 ring-emerald-400/40'
                           : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25'
-                      }`}
+                        }`}
                     >
                       {isOngoing ? (
                         <>

@@ -3,6 +3,7 @@
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
+import { isClassOverlap } from '@/lib/cbt-schedule';
 
 // Helper: Generate clean 6-character alphanumeric token without confusing symbols (0, O, 1, I)
 function generateRandomCbtToken(): string {
@@ -133,27 +134,13 @@ export async function checkExamScheduleConflict(params: {
     }
 
     // Overlap condition: existing.startTime < newEnd && existing.endTime > newStart
-    const classFilter =
-      params.classTarget === 'Semua Kelas'
-        ? {}
-        : {
-            OR: [
-              { classTarget: params.classTarget },
-              { classTarget: 'Semua Kelas' },
-            ],
-          };
-
-    const conflicting = await prisma.exam.findMany({
+    // Ambil seluruh kandidat ujian aktif pada rentang waktu ini, lalu uji overlap kelas & jurusan secara cerdas
+    const timeCandidates = await prisma.exam.findMany({
       where: {
         ...(params.examId ? { id: { not: params.examId } } : {}),
         status: { not: 'ARCHIVED' },
-        startTime: { not: null },
-        endTime: { not: null },
-        ...classFilter,
-        AND: [
-          { startTime: { lt: end } },
-          { endTime: { gt: start } },
-        ],
+        startTime: { not: null, lt: end },
+        endTime: { not: null, gt: start },
       },
       select: {
         id: true,
@@ -165,6 +152,10 @@ export async function checkExamScheduleConflict(params: {
         duration: true,
       },
     });
+
+    const conflicting = timeCandidates.filter((c) =>
+      isClassOverlap(c.classTarget, params.classTarget)
+    );
 
     if (conflicting.length > 0) {
       return {

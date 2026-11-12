@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import ProctorLiveConsole from './ProctorLiveConsole';
 import { getKopSuratConfig } from '@/lib/settings';
+import { isAllLevelTarget, parseClassTargets } from '@/lib/cbt-schedule';
 
 export const dynamic = 'force-dynamic';
 
@@ -128,13 +129,33 @@ export default async function ProctorLiveConsolePage({
     orderBy: { startedAt: 'desc' },
   });
 
-  // Query scheduled students for this class target
+  // Query scheduled students for this class target (mendukung target 1 rombel, banyak rombel, maupun tingkat/semua jurusan)
   let scheduledStudents: Array<{ studentName: string; studentNis: string; studentClass: string }> = [];
   try {
+    let classWhereCondition: any = { studentClass: exam.classTarget };
+    if (exam.classTarget === 'Semua Kelas') {
+      classWhereCondition = {};
+    } else {
+      const level = isAllLevelTarget(exam.classTarget);
+      if (level) {
+        classWhereCondition = {
+          OR: [
+            { studentClass: { startsWith: `${level} ` } },
+            { studentClass: { startsWith: `${level}-` } },
+          ],
+        };
+      } else {
+        const parsed = parseClassTargets(exam.classTarget);
+        if (parsed.length > 1) {
+          classWhereCondition = {
+            studentClass: { in: parsed },
+          };
+        }
+      }
+    }
+
     const grades = await prisma.studentGrade.findMany({
-      where: {
-        studentClass: exam.classTarget,
-      },
+      where: classWhereCondition,
       select: {
         studentName: true,
         studentNis: true,

@@ -70,11 +70,18 @@ export async function ensureDefaultJurusans(): Promise<JurusanItem[]> {
  * Menghasilkan daftar target kelas yang sinkron dengan Manajemen Kelas & Rombel.
  */
 export async function getDynamicClassTargets(): Promise<string[]> {
+  const levelPresets = [
+    'Semua Kelas',
+    'Semua Kelas X (Semua Jurusan)',
+    'Semua Kelas XI (Semua Jurusan)',
+    'Semua Kelas XII (Semua Jurusan)',
+  ];
+
   try {
     const managedClasses = await getManagedClasses();
     if (managedClasses && managedClasses.length > 0) {
       const names = managedClasses.map((c) => c.name);
-      return Array.from(new Set(['Semua Kelas', ...names]));
+      return Array.from(new Set([...levelPresets, ...names]));
     }
   } catch (err) {
     console.error('Error fetching managed classes in getDynamicClassTargets:', err);
@@ -82,7 +89,7 @@ export async function getDynamicClassTargets(): Promise<string[]> {
 
   // Fallback ke generator berbasis Jurusan
   const jurusans = await ensureDefaultJurusans();
-  const classList: string[] = ['Semua Kelas'];
+  const classList: string[] = [...levelPresets];
   const levels = ['X', 'XI', 'XII'];
 
   for (const j of jurusans) {

@@ -18,6 +18,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { quickJoinExamAction } from './actions';
+import { formatClassTargetDisplay } from '@/lib/cbt-schedule';
 
 interface ExamItem {
   id: string;
@@ -243,9 +244,9 @@ export default function UjianGatewayClient({
                         <FileCheck2 size={12} className="text-emerald-400" />
                         <span>{exam._count.questions} Soal</span>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Users size={12} className="text-sky-400" />
-                        <span className="truncate">{exam.classTarget}</span>
+                      <div className="flex items-center gap-1 min-w-0" title={exam.classTarget}>
+                        <Users size={12} className="text-sky-400 shrink-0" />
+                        <span className="truncate">{formatClassTargetDisplay(exam.classTarget)}</span>
                       </div>
                     </div>
                   </div>

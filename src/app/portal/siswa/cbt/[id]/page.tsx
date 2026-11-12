@@ -2,6 +2,7 @@ import prisma from '@/lib/prisma';
 import { notFound } from 'next/navigation';
 import { cookies } from 'next/headers';
 import CbtExamRoom from './CbtExamRoom';
+import { extractClassLevel } from '@/lib/cbt-schedule';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,7 +27,11 @@ export default async function SiswaExamRoomPage({ params }: { params: Promise<{ 
 
   let studentName = authName;
   let studentNis = authUser || '';
-  let studentClass = exam.classTarget !== 'Semua Kelas' ? exam.classTarget : 'XI RPL 1';
+  const examLevel = extractClassLevel(exam.classTarget);
+  let studentClass = examLevel === 'X' ? 'X RPL 1' : examLevel === 'XII' ? 'XII RPL 1' : 'XI RPL 1';
+  if (exam.classTarget && !exam.classTarget.includes(',') && !exam.classTarget.toLowerCase().includes('semua')) {
+    studentClass = exam.classTarget;
+  }
 
   if (authUser) {
     try {

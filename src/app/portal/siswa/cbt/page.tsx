@@ -2,6 +2,7 @@ import prisma from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import SiswaCbtClient from './SiswaCbtClient';
 import { getKopSuratConfig } from '@/lib/settings';
+import { isClassTargetMatch } from '@/lib/cbt-schedule';
 
 export const dynamic = 'force-dynamic';
 
@@ -104,9 +105,17 @@ export default async function SiswaCbtListPage() {
     ],
   });
 
+  // Filter ujian yang relevan:
+  // 1. Siswa telah memiliki attempt (agar riwayat nilai dan transkrip tetap dapat diakses di portal)
+  // 2. ATAU Target kelas ujian cocok dengan kelas aktual siswa (Semua Kelas, Tingkat Lintas Jurusan, atau Rombel spesifik)
+  const relevantExams = exams.filter((exam) => {
+    if (exam.attempts && exam.attempts.length > 0) return true;
+    return isClassTargetMatch(exam.classTarget, studentClass);
+  });
+
   return (
     <SiswaCbtClient
-      exams={exams as any}
+      exams={relevantExams as any}
       studentName={studentName}
       studentNis={studentNis}
       studentClass={studentClass}

@@ -53,7 +53,10 @@ import {
 import { 
   formatExamScheduleRange, 
   getExamScheduleState, 
-  toDateTimeLocalInput 
+  toDateTimeLocalInput,
+  formatClassTargetDisplay,
+  isClassOverlap,
+  parseClassTargets
 } from '@/lib/cbt-schedule';
 import CbtReportView from './CbtReportView';
 import CbtProctorPlottingView, { TeacherUserItem } from './CbtProctorPlottingView';
@@ -137,6 +140,7 @@ export default function CbtDashboard({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExam, setEditingExam] = useState<ExamItem | null>(null);
   const [isCustomClassTarget, setIsCustomClassTarget] = useState(false);
+  const [classTargetMode, setClassTargetMode] = useState<'preset' | 'multi' | 'custom'>('preset');
   const [loading, setLoading] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -267,7 +271,12 @@ export default function CbtDashboard({
   }, [dynamicSubjectPresets]);
 
   const groupedClassOptions = useMemo(() => {
-    const onlyClasses = classPresets.filter((c: string) => c !== 'Semua Kelas');
+    const onlyClasses = classPresets.filter(
+      (c: string) =>
+        c !== 'Semua Kelas' &&
+        !c.toLowerCase().includes('semua jurusan') &&
+        !c.toLowerCase().includes('semua kelas')
+    );
     const xClasses = onlyClasses.filter((c: string) => c.startsWith('X ') || c.startsWith('X-') || c === 'X');
     const xiClasses = onlyClasses.filter((c: string) => c.startsWith('XI ') || c.startsWith('XI-') || c === 'XI');
     const xiiClasses = onlyClasses.filter((c: string) => c.startsWith('XII ') || c.startsWith('XII-') || c === 'XII');
@@ -316,6 +325,36 @@ export default function CbtDashboard({
       }
     } catch {}
     setCheckingConflict(false);
+  };
+
+  // Multi-select toggle helper for class targeting
+  const handleToggleMultiClass = (className: string) => {
+    const currentList = parseClassTargets(formData.classTarget).filter(
+      (c) => c !== 'Semua Kelas' && !c.toLowerCase().includes('semua jurusan')
+    );
+    let nextList: string[];
+    if (currentList.includes(className)) {
+      nextList = currentList.filter((c) => c !== className);
+    } else {
+      nextList = [...currentList, className];
+    }
+    const nextVal = nextList.length > 0 ? nextList.join(', ') : 'Semua Kelas';
+    setFormData((prev) => ({ ...prev, classTarget: nextVal }));
+    if (formData.startTime && formData.endTime) {
+      runConflictCheck(formData.startTime, formData.endTime, nextVal);
+    }
+  };
+
+  const handleSelectAllLevel = (levelClasses: string[]) => {
+    const currentList = parseClassTargets(formData.classTarget).filter(
+      (c) => c !== 'Semua Kelas' && !c.toLowerCase().includes('semua jurusan')
+    );
+    const nextSet = new Set([...currentList, ...levelClasses]);
+    const nextVal = Array.from(nextSet).join(', ');
+    setFormData((prev) => ({ ...prev, classTarget: nextVal }));
+    if (formData.startTime && formData.endTime) {
+      runConflictCheck(formData.startTime, formData.endTime, nextVal);
+    }
   };
 
   // ==========================================
@@ -705,6 +744,7 @@ export default function CbtDashboard({
   const handleOpenCreate = () => {
     setEditingExam(null);
     setIsCustomClassTarget(false);
+    setClassTargetMode('preset');
     const randomToken = 'CBT' + Math.floor(100 + Math.random() * 900);
     const now = new Date();
     const startStr = toDateTimeLocalInput(now);
@@ -737,6 +777,16 @@ export default function CbtDashboard({
   const handleOpenEdit = (exam: ExamItem) => {
     setEditingExam(exam);
     setIsCustomClassTarget(!classPresets.includes(exam.classTarget));
+    if (exam.classTarget.includes(',')) {
+      setClassTargetMode('multi');
+    } else if (
+      !classPresets.includes(exam.classTarget) &&
+      !exam.classTarget.toLowerCase().includes('semua kelas')
+    ) {
+      setClassTargetMode('custom');
+    } else {
+      setClassTargetMode('preset');
+    }
     const startStr = toDateTimeLocalInput(exam.startTime);
     const endStr = toDateTimeLocalInput(exam.endTime);
 
@@ -891,10 +941,7 @@ export default function CbtDashboard({
       const start2 = new Date(e2.startTime).getTime();
       const end2 = new Date(e2.endTime).getTime();
 
-      const classOverlap =
-        e1.classTarget === 'Semua Kelas' ||
-        e2.classTarget === 'Semua Kelas' ||
-        e1.classTarget === e2.classTarget;
+      const classOverlap = isClassOverlap(e1.classTarget, e2.classTarget);
       const timeOverlap = start1 < end2 && end1 > start2;
 
       if (classOverlap && timeOverlap) {
@@ -918,7 +965,10 @@ export default function CbtDashboard({
       exam.classTarget.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (exam.authorName && exam.authorName.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    const matchesClass = selectedClassFilter === 'ALL' || exam.classTarget === selectedClassFilter;
+    const matchesClass =
+      selectedClassFilter === 'ALL' ||
+      exam.classTarget === selectedClassFilter ||
+      isClassOverlap(exam.classTarget, selectedClassFilter);
 
     const schedState = getExamScheduleState(exam.startTime, exam.endTime, exam.status);
     const matchesSchedule =
@@ -1172,6 +1222,11 @@ export default function CbtDashboard({
                 className="px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
               >
                 <option value="ALL">Semua Kelas ({exams.length} Ujian)</option>
+                <optgroup label="🌟 Lintas Jurusan (Tingkat)">
+                  <option value="Semua Kelas X (Semua Jurusan)">🎯 Semua Kelas X (Semua Jurusan)</option>
+                  <option value="Semua Kelas XI (Semua Jurusan)">🎯 Semua Kelas XI (Semua Jurusan)</option>
+                  <option value="Semua Kelas XII (Semua Jurusan)">🎯 Semua Kelas XII (Semua Jurusan)</option>
+                </optgroup>
                 {groupedClassOptions.xClasses.length > 0 && (
                   <optgroup label="Tingkat X">
                     {groupedClassOptions.xClasses.map((c: string) => (
@@ -1428,8 +1483,11 @@ export default function CbtDashboard({
                             <span className="text-[11px] text-purple-600 dark:text-purple-400 font-medium">{exam.subject}</span>
                           </td>
                           <td className="py-3.5 px-4">
-                            <span className="px-2.5 py-1 rounded-lg font-bold text-[11px] bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                              {exam.classTarget}
+                            <span 
+                              className="px-2.5 py-1 rounded-lg font-bold text-[11px] bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 inline-block max-w-[200px] truncate"
+                              title={exam.classTarget}
+                            >
+                              {formatClassTargetDisplay(exam.classTarget)}
                             </span>
                           </td>
                           <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300 font-medium">
@@ -1738,9 +1796,9 @@ export default function CbtDashboard({
                       <Clock size={14} className="text-purple-500" />
                       <span>{exam.duration} Menit</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <Users size={14} className="text-blue-500" />
-                      <span>{exam.classTarget}</span>
+                    <div className="flex items-center gap-1.5 min-w-0" title={exam.classTarget}>
+                      <Users size={14} className="text-blue-500 shrink-0" />
+                      <span className="truncate">{formatClassTargetDisplay(exam.classTarget)}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <FileCheck2 size={14} className="text-emerald-500" />
@@ -1829,7 +1887,7 @@ export default function CbtDashboard({
       {/* Modal Buat / Edit Ujian */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-xl overflow-hidden max-h-[90vh] flex flex-col">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col">
             <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30">
               <h3 className="font-bold text-lg text-slate-900 dark:text-white">
                 {editingExam ? 'Edit Paket Ujian' : 'Buat Paket Ujian Baru (CBT Guru)'}
@@ -1879,35 +1937,151 @@ export default function CbtDashboard({
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Target Kelas & Rombel <span className="text-red-500">*</span>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Durasi Pengerjaan (Menit) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="5"
+                    max="300"
+                    required
+                    value={formData.duration}
+                    onChange={(e) => setFormData({ ...formData, duration: Number(e.target.value) })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* 🎯 TARGET KELAS & JURUSAN (LINTAS JURUSAN & MULTI-ROMBEL) */}
+              <div className="p-4 rounded-2xl bg-slate-50/70 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <label className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <Users size={14} className="text-purple-600" />
+                      Target Kelas & Jurusan Siswa <span className="text-red-500">*</span>
                     </label>
+                    <span className="text-[11px] text-slate-500 block">
+                      Pilih seluruh jurusan dalam 1 tingkat, beberapa rombel, atau 1 kelas spesifik
+                    </span>
+                  </div>
+                  
+                  {/* Mode switcher tabs */}
+                  <div className="flex items-center gap-1 bg-white dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-[11px]">
                     <button
                       type="button"
-                      onClick={() => setIsCustomClassTarget(!isCustomClassTarget)}
-                      className="text-[11px] text-purple-600 dark:text-purple-400 hover:underline font-medium cursor-pointer"
+                      onClick={() => setClassTargetMode('preset')}
+                      className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                        classTargetMode === 'preset'
+                          ? 'bg-purple-600 text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-purple-600'
+                      }`}
                     >
-                      {isCustomClassTarget ? '← Pilih dari Rombel' : '+ Ketik Bebas'}
+                      🎯 Tingkat / Dropdown
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setClassTargetMode('multi')}
+                      className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                        classTargetMode === 'multi'
+                          ? 'bg-purple-600 text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-purple-600'
+                      }`}
+                    >
+                      👥 Multi-Jurusan
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setClassTargetMode('custom')}
+                      className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                        classTargetMode === 'custom'
+                          ? 'bg-purple-600 text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-purple-600'
+                      }`}
+                    >
+                      ✏️ Manual
                     </button>
                   </div>
+                </div>
 
-                  {isCustomClassTarget ? (
-                    <input
-                      type="text"
-                      required
-                      placeholder="Contoh: XI RPL 1 atau Gabungan Kelas"
-                      value={formData.classTarget}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setFormData({ ...formData, classTarget: val });
-                        if (formData.startTime && formData.endTime) {
-                          runConflictCheck(formData.startTime, formData.endTime, val);
-                        }
-                      }}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-semibold focus:ring-2 focus:ring-purple-500 outline-none"
-                    />
-                  ) : (
+                {/* 1. PRESET & SINGLE DROPDOWN MODE */}
+                {classTargetMode === 'preset' && (
+                  <div className="space-y-2.5">
+                    {/* Fast 1-click level target pills */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const val = 'Semua Kelas X (Semua Jurusan)';
+                          setFormData({ ...formData, classTarget: val });
+                          if (formData.startTime && formData.endTime) {
+                            runConflictCheck(formData.startTime, formData.endTime, val);
+                          }
+                        }}
+                        className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border transition-all text-left flex items-center justify-between cursor-pointer ${
+                          formData.classTarget === 'Semua Kelas X (Semua Jurusan)'
+                            ? 'bg-purple-600 text-white border-purple-600 shadow-xs ring-2 ring-purple-400/30'
+                            : 'bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-purple-300'
+                        }`}
+                      >
+                        <span className="truncate">🎯 Tingkat X (Semua)</span>
+                        {formData.classTarget === 'Semua Kelas X (Semua Jurusan)' && <Check size={13} className="shrink-0 ml-1" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const val = 'Semua Kelas XI (Semua Jurusan)';
+                          setFormData({ ...formData, classTarget: val });
+                          if (formData.startTime && formData.endTime) {
+                            runConflictCheck(formData.startTime, formData.endTime, val);
+                          }
+                        }}
+                        className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border transition-all text-left flex items-center justify-between cursor-pointer ${
+                          formData.classTarget === 'Semua Kelas XI (Semua Jurusan)'
+                            ? 'bg-purple-600 text-white border-purple-600 shadow-xs ring-2 ring-purple-400/30'
+                            : 'bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-purple-300'
+                        }`}
+                      >
+                        <span className="truncate">🎯 Tingkat XI (Semua)</span>
+                        {formData.classTarget === 'Semua Kelas XI (Semua Jurusan)' && <Check size={13} className="shrink-0 ml-1" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const val = 'Semua Kelas XII (Semua Jurusan)';
+                          setFormData({ ...formData, classTarget: val });
+                          if (formData.startTime && formData.endTime) {
+                            runConflictCheck(formData.startTime, formData.endTime, val);
+                          }
+                        }}
+                        className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border transition-all text-left flex items-center justify-between cursor-pointer ${
+                          formData.classTarget === 'Semua Kelas XII (Semua Jurusan)'
+                            ? 'bg-purple-600 text-white border-purple-600 shadow-xs ring-2 ring-purple-400/30'
+                            : 'bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-purple-300'
+                        }`}
+                      >
+                        <span className="truncate">🎯 Tingkat XII (Semua)</span>
+                        {formData.classTarget === 'Semua Kelas XII (Semua Jurusan)' && <Check size={13} className="shrink-0 ml-1" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const val = 'Semua Kelas';
+                          setFormData({ ...formData, classTarget: val });
+                          if (formData.startTime && formData.endTime) {
+                            runConflictCheck(formData.startTime, formData.endTime, val);
+                          }
+                        }}
+                        className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border transition-all text-left flex items-center justify-between cursor-pointer ${
+                          formData.classTarget === 'Semua Kelas'
+                            ? 'bg-purple-600 text-white border-purple-600 shadow-xs ring-2 ring-purple-400/30'
+                            : 'bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-purple-300'
+                        }`}
+                      >
+                        <span className="truncate">🌐 Seluruh Sekolah</span>
+                        {formData.classTarget === 'Semua Kelas' && <Check size={13} className="shrink-0 ml-1" />}
+                      </button>
+                    </div>
+
                     <select
                       required
                       value={formData.classTarget}
@@ -1920,8 +2094,13 @@ export default function CbtDashboard({
                       }}
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-semibold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
                     >
-                      <option value="" disabled>-- Pilih Target Kelas / Rombel --</option>
-                      <option value="Semua Kelas">🌐 Semua Kelas (Terbuka untuk Semua Siswa)</option>
+                      <option value="" disabled>-- Atau Pilih 1 Rombel / Tingkat dari Dropdown --</option>
+                      <optgroup label="🌟 Lintas Jurusan (Tingkat)">
+                        <option value="Semua Kelas">🌐 Semua Kelas (Terbuka untuk Semua Siswa)</option>
+                        <option value="Semua Kelas X (Semua Jurusan)">🎯 Semua Kelas X (Seluruh Jurusan Tingkat X)</option>
+                        <option value="Semua Kelas XI (Semua Jurusan)">🎯 Semua Kelas XI (Seluruh Jurusan Tingkat XI)</option>
+                        <option value="Semua Kelas XII (Semua Jurusan)">🎯 Semua Kelas XII (Seluruh Jurusan Tingkat XII)</option>
+                      </optgroup>
                       {groupedClassOptions.xClasses.length > 0 && (
                         <optgroup label="📚 Tingkat X (Kelas 10)">
                           {groupedClassOptions.xClasses.map((c: string) => (
@@ -1956,49 +2135,216 @@ export default function CbtDashboard({
                         </optgroup>
                       )}
                     </select>
-                  )}
-                  <span className="text-[10px] text-slate-400 mt-1 block">
-                    Data sinkron otomatis dengan Manajemen Jurusan & Rombel Kelas
+                  </div>
+                )}
+
+                {/* 2. MULTI-JURUSAN CHECKLIST MODE */}
+                {classTargetMode === 'multi' && (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        Centang Rombel yang Diikutsertakan:
+                      </span>
+                      <div className="flex items-center gap-1.5 text-[10px]">
+                        {groupedClassOptions.xClasses.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleSelectAllLevel(groupedClassOptions.xClasses)}
+                            className="px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 font-bold hover:bg-purple-200 cursor-pointer"
+                          >
+                            + Semua X
+                          </button>
+                        )}
+                        {groupedClassOptions.xiClasses.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleSelectAllLevel(groupedClassOptions.xiClasses)}
+                            className="px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 font-bold hover:bg-purple-200 cursor-pointer"
+                          >
+                            + Semua XI
+                          </button>
+                        )}
+                        {groupedClassOptions.xiiClasses.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleSelectAllLevel(groupedClassOptions.xiiClasses)}
+                            className="px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 font-bold hover:bg-purple-200 cursor-pointer"
+                          >
+                            + Semua XII
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData({ ...formData, classTarget: 'Semua Kelas' });
+                            if (formData.startTime && formData.endTime) {
+                              runConflictCheck(formData.startTime, formData.endTime, 'Semua Kelas');
+                            }
+                          }}
+                          className="px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold hover:bg-slate-300 cursor-pointer"
+                        >
+                          Bersihkan
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Checklist badges */}
+                    <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
+                      {groupedClassOptions.xClasses.length > 0 && (
+                        <div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Tingkat X</div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {groupedClassOptions.xClasses.map((c) => {
+                              const isChecked = parseClassTargets(formData.classTarget).includes(c);
+                              return (
+                                <button
+                                  key={c}
+                                  type="button"
+                                  onClick={() => handleToggleMultiClass(c)}
+                                  className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                                    isChecked
+                                      ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                                      : 'bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-purple-300'
+                                  }`}
+                                >
+                                  <div className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] ${
+                                    isChecked ? 'bg-white text-purple-600 font-black' : 'border border-slate-300 dark:border-slate-700'
+                                  }`}>
+                                    {isChecked && '✓'}
+                                  </div>
+                                  <span>{c}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {groupedClassOptions.xiClasses.length > 0 && (
+                        <div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Tingkat XI</div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {groupedClassOptions.xiClasses.map((c) => {
+                              const isChecked = parseClassTargets(formData.classTarget).includes(c);
+                              return (
+                                <button
+                                  key={c}
+                                  type="button"
+                                  onClick={() => handleToggleMultiClass(c)}
+                                  className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                                    isChecked
+                                      ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                                      : 'bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-purple-300'
+                                  }`}
+                                >
+                                  <div className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] ${
+                                    isChecked ? 'bg-white text-purple-600 font-black' : 'border border-slate-300 dark:border-slate-700'
+                                  }`}>
+                                    {isChecked && '✓'}
+                                  </div>
+                                  <span>{c}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {groupedClassOptions.xiiClasses.length > 0 && (
+                        <div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Tingkat XII</div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {groupedClassOptions.xiiClasses.map((c) => {
+                              const isChecked = parseClassTargets(formData.classTarget).includes(c);
+                              return (
+                                <button
+                                  key={c}
+                                  type="button"
+                                  onClick={() => handleToggleMultiClass(c)}
+                                  className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                                    isChecked
+                                      ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                                      : 'bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-purple-300'
+                                  }`}
+                                >
+                                  <div className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] ${
+                                    isChecked ? 'bg-white text-purple-600 font-black' : 'border border-slate-300 dark:border-slate-700'
+                                  }`}>
+                                    {isChecked && '✓'}
+                                  </div>
+                                  <span>{c}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Selected summary */}
+                    <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/50 text-xs font-semibold text-purple-800 dark:text-purple-300 flex items-center justify-between">
+                      <span>🎯 Rombel Terpilih: <strong>{formatClassTargetDisplay(formData.classTarget)}</strong></span>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. CUSTOM TEXT INPUT MODE */}
+                {classTargetMode === 'custom' && (
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: X DKV 1, X MPLB 1 atau Tingkat X"
+                    value={formData.classTarget}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData({ ...formData, classTarget: val });
+                      if (formData.startTime && formData.endTime) {
+                        runConflictCheck(formData.startTime, formData.endTime, val);
+                      }
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-semibold focus:ring-2 focus:ring-purple-500 outline-none"
+                  />
+                )}
+
+                {/* Dynamic Helper Pill based on target */}
+                <div className="p-2.5 rounded-xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/70 dark:border-blue-800/50 text-[11px] text-blue-800 dark:text-blue-300 flex items-center gap-2 leading-relaxed">
+                  <Sparkles size={14} className="text-blue-600 shrink-0" />
+                  <span>
+                    {formData.classTarget.includes('Semua Kelas X') || formData.classTarget === 'Tingkat X' ? (
+                      <>Ujian otomatis dapat diakses oleh <strong>SEMUA siswa di seluruh jurusan Tingkat X</strong> (DKV, RPL, MPLB, TJKT, dll). Guru cukup upload 1 kali!</>
+                    ) : formData.classTarget.includes('Semua Kelas XI') || formData.classTarget === 'Tingkat XI' ? (
+                      <>Ujian otomatis dapat diakses oleh <strong>SEMUA siswa di seluruh jurusan Tingkat XI</strong>. Guru cukup upload 1 kali!</>
+                    ) : formData.classTarget.includes('Semua Kelas XII') || formData.classTarget === 'Tingkat XII' ? (
+                      <>Ujian otomatis dapat diakses oleh <strong>SEMUA siswa di seluruh jurusan Tingkat XII</strong>. Guru cukup upload 1 kali!</>
+                    ) : formData.classTarget === 'Semua Kelas' ? (
+                      <>Ujian terbuka untuk <strong>seluruh siswa di semua tingkatan & jurusan</strong>.</>
+                    ) : (
+                      <>Ujian ditargetkan khusus untuk: <strong>{formatClassTargetDisplay(formData.classTarget)}</strong>.</>
+                    )}
                   </span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Durasi Pengerjaan (Menit) <span className="text-red-500">*</span>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Token Masuk Ujian
                   </label>
-                  <input
-                    type="number"
-                    min="5"
-                    max="300"
-                    required
-                    value={formData.duration}
-                    onChange={(e) => setFormData({ ...formData, duration: Number(e.target.value) })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setFormData(p => ({ ...p, token: 'CBT' + Math.floor(100 + Math.random() * 900) }))}
+                    className="text-[10px] text-purple-600 font-bold hover:underline"
+                  >
+                    Acak Token
+                  </button>
                 </div>
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Token Masuk Ujian
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setFormData(p => ({ ...p, token: 'CBT' + Math.floor(100 + Math.random() * 900) }))}
-                      className="text-[10px] text-purple-600 font-bold hover:underline"
-                    >
-                      Acak Token
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Contoh: CBT889"
-                    value={formData.token}
-                    onChange={(e) => setFormData({ ...formData, token: e.target.value.toUpperCase() })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-mono font-bold focus:ring-2 focus:ring-purple-500 outline-none uppercase"
-                  />
-                </div>
+                <input
+                  type="text"
+                  placeholder="Contoh: CBT889"
+                  value={formData.token}
+                  onChange={(e) => setFormData({ ...formData, token: e.target.value.toUpperCase() })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-mono font-bold focus:ring-2 focus:ring-purple-500 outline-none uppercase"
+                />
               </div>
 
               {/* 📅 PENGATURAN JADWAL UJIAN & ANTI-BENTROK */}
@@ -2534,7 +2880,7 @@ export default function CbtDashboard({
                               <div>
                                 <strong className="text-slate-900 dark:text-white block">{item.exam.title}</strong>
                                 <span className="text-[11px] text-purple-600 dark:text-purple-400 font-medium">
-                                  Kelas: {item.exam.classTarget}
+                                  Kelas: {formatClassTargetDisplay(item.exam.classTarget)}
                                 </span>
                               </div>
                             </div>
@@ -2641,7 +2987,7 @@ export default function CbtDashboard({
                           <span className="font-bold text-slate-900 dark:text-white block">{r.title}</span>
                           <span className="text-[11px] text-purple-600 dark:text-purple-400">{r.subject}</span>
                         </td>
-                        <td className="py-2.5 px-3 font-semibold text-blue-600">{r.classTarget}</td>
+                        <td className="py-2.5 px-3 font-semibold text-blue-600">{formatClassTargetDisplay(r.classTarget)}</td>
                         <td className="py-2.5 px-3 font-mono font-bold text-slate-700 dark:text-slate-200">
                           {new Date(r.startTime).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })} WIB
                         </td>
