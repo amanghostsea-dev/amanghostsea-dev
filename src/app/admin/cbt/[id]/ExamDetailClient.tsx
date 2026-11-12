@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { 
   ArrowLeft, 
@@ -339,6 +339,17 @@ interface AttemptItem {
   submittedAt: Date | string | null;
 }
 
+interface JurusanOption {
+  code: string;
+  name: string;
+  count: number;
+}
+
+interface ClassOption {
+  className: string;
+  count: number;
+}
+
 interface ExamDetailProps {
   exam: {
     id: string;
@@ -478,12 +489,12 @@ export default function ExamDetailClient({ exam, kopSuratConfig, currentUser }: 
   // 🎓 Filter Cerdas Nilai Per Jurusan & Per Rombel
   const availableJurusans = useMemo(() => {
     const map = new Map<string, number>();
-    attempts.forEach((a) => {
+    attempts.forEach((a: AttemptItem) => {
       const code = extractJurusanCode(a.studentClass) || 'LAINNYA';
       map.set(code, (map.get(code) || 0) + 1);
     });
     return Array.from(map.entries())
-      .map(([code, count]) => ({
+      .map(([code, count]): JurusanOption => ({
         code,
         name: getJurusanFullName(code === 'LAINNYA' ? null : code),
         count,
@@ -493,12 +504,12 @@ export default function ExamDetailClient({ exam, kopSuratConfig, currentUser }: 
 
   const availableClasses = useMemo(() => {
     const map = new Map<string, number>();
-    attempts.forEach((a) => {
+    attempts.forEach((a: AttemptItem) => {
       const cls = a.studentClass || 'Tanpa Kelas';
       map.set(cls, (map.get(cls) || 0) + 1);
     });
     return Array.from(map.entries())
-      .map(([className, count]) => ({
+      .map(([className, count]): ClassOption => ({
         className,
         count,
       }))
@@ -506,7 +517,7 @@ export default function ExamDetailClient({ exam, kopSuratConfig, currentUser }: 
   }, [attempts]);
 
   const filteredAttempts = useMemo(() => {
-    return attempts.filter((att) => {
+    return attempts.filter((att: AttemptItem) => {
       if (resultJurusanFilter !== 'ALL') {
         const jur = extractJurusanCode(att.studentClass) || 'LAINNYA';
         if (jur !== resultJurusanFilter) return false;
@@ -538,7 +549,7 @@ export default function ExamDetailClient({ exam, kopSuratConfig, currentUser }: 
     let passed = 0;
     let tabSwitchTotal = 0;
 
-    filteredAttempts.forEach((a) => {
+    filteredAttempts.forEach((a: AttemptItem) => {
       scoreSum += a.score;
       if (a.score >= 75) passed++;
       tabSwitchTotal += a.tabSwitchCount || 0;
@@ -578,7 +589,7 @@ export default function ExamDetailClient({ exam, kopSuratConfig, currentUser }: 
       'Tanggal Selesai'
     ];
 
-    const rows = dataToExport.map((att, index) => {
+    const rows = dataToExport.map((att: AttemptItem, index: number) => {
       const jur = extractJurusanCode(att.studentClass) || '-';
       const statusKetuntasan = att.status === 'SUBMITTED' 
         ? (att.score >= 75 ? 'TUNTAS' : 'REMEDIAL') 
@@ -603,7 +614,7 @@ export default function ExamDetailClient({ exam, kopSuratConfig, currentUser }: 
     });
 
     // Tambahkan UTF-8 BOM (\uFEFF) agar Microsoft Excel membuka karakter & koma dengan tepat
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r: (string | number)[]) => r.join(','))].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -636,8 +647,8 @@ export default function ExamDetailClient({ exam, kopSuratConfig, currentUser }: 
     }
 
     let downloadCount = 0;
-    availableJurusans.forEach((j, index) => {
-      const jurAttempts = attempts.filter((a) => {
+    availableJurusans.forEach((j: JurusanOption, index: number) => {
+      const jurAttempts = attempts.filter((a: AttemptItem) => {
         const code = extractJurusanCode(a.studentClass) || 'LAINNYA';
         return code === j.code;
       });
@@ -1577,48 +1588,150 @@ Poin: 10
       {/* TAB 2: REKAP HASIL & NILAI SISWA */}
       {activeTab === 'results' && (
         <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Rekap Nilai Siswa</h2>
-              <p className="text-xs text-slate-500">
-                Memantau nilai akhir, durasi pengerjaan, dan catatan pelanggaran anti-curang (tab-switch).
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">Rekap Nilai Siswa</h2>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
+                  {formatClassTargetDisplay(exam.classTarget)}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Nilai otomatis dikelompokkan per jurusan & rombel untuk ujian 1 angkatan
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="relative w-full sm:w-64">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsDownloadModalOpen(true)}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+              >
+                <Download size={15} />
+                <span>Unduh Nilai Excel / CSV</span>
+                {resultJurusanFilter !== 'ALL' && (
+                  <span className="px-1.5 py-0.5 rounded bg-white/20 text-[10px]">
+                    {resultJurusanFilter}
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsPrintExamModalOpen(true)}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+              >
+                <Printer size={15} />
+                <span>Cetak Lembar Nilai</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 🔍 FILTER BAR PER JURUSAN & ROMBEL */}
+          <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Search */}
+              <div className="relative">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
                 <input
                   type="text"
                   placeholder="Cari siswa atau NIS..."
                   value={resultSearch}
                   onChange={(e) => setResultSearch(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                  className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs focus:ring-2 focus:ring-purple-500 outline-none"
                 />
               </div>
 
-              <button
-                type="button"
-                onClick={handleExportCsv}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
-              >
-                <Download size={14} /> Unduh CSV / Excel
-              </button>
+              {/* Filter Jurusan */}
+              <div className="relative">
+                <select
+                  value={resultJurusanFilter}
+                  onChange={(e) => {
+                    setResultJurusanFilter(e.target.value);
+                    setResultClassFilter('ALL');
+                  }}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
+                >
+                  <option value="ALL">🏢 Semua Jurusan ({attempts.length} Siswa)</option>
+                  {availableJurusans.map((j: JurusanOption) => (
+                    <option key={j.code} value={j.code}>
+                      🎯 Jurusan {j.code} ({j.count} Siswa)
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-              <button
-                type="button"
-                onClick={() => setIsPrintExamModalOpen(true)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
-              >
-                <Printer size={14} /> Cetak Nilai Resmi
-              </button>
+              {/* Filter Rombel / Kelas */}
+              <div className="relative">
+                <select
+                  value={resultClassFilter}
+                  onChange={(e) => setResultClassFilter(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
+                >
+                  <option value="ALL">📚 Semua Rombel ({attempts.length})</option>
+                  {availableClasses.map((c: ClassOption) => (
+                    <option key={c.className} value={c.className}>
+                      {c.className} ({c.count} Siswa)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Quick Reset / Filter Summary */}
+              <div className="flex items-center justify-between sm:justify-end gap-2 text-xs">
+                {(resultJurusanFilter !== 'ALL' || resultClassFilter !== 'ALL' || resultSearch) ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResultJurusanFilter('ALL');
+                      setResultClassFilter('ALL');
+                      setResultSearch('');
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 font-bold transition-all text-xs cursor-pointer"
+                  >
+                    Reset Filter
+                  </button>
+                ) : (
+                  <span className="text-[11px] text-slate-400 font-medium">
+                    Menampilkan seluruh peserta
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Metrics Bar */}
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs">
+              <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/40">
+                <span className="text-slate-400 block text-[10px]">Total Siswa</span>
+                <strong className="text-slate-900 dark:text-white font-black text-sm">{resultStats.total}</strong>
+              </div>
+              <div className="p-2 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/30">
+                <span className="text-indigo-600 dark:text-indigo-400 block text-[10px]">Rata-Rata</span>
+                <strong className="text-indigo-700 dark:text-indigo-300 font-black text-sm">{resultStats.avg}</strong>
+              </div>
+              <div className="p-2 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30">
+                <span className="text-emerald-600 dark:text-emerald-400 block text-[10px]">Tuntas (≥75)</span>
+                <strong className="text-emerald-700 dark:text-emerald-300 font-black text-sm">{resultStats.passed}</strong>
+              </div>
+              <div className="p-2 rounded-xl bg-amber-50/70 dark:bg-amber-950/30">
+                <span className="text-amber-600 dark:text-amber-400 block text-[10px]">Remedial</span>
+                <strong className="text-amber-700 dark:text-amber-300 font-black text-sm">{resultStats.remedial}</strong>
+              </div>
+              <div className="p-2 rounded-xl bg-rose-50/70 dark:bg-rose-950/30 col-span-2 sm:col-span-1">
+                <span className="text-rose-600 dark:text-rose-400 block text-[10px]">Tab Switch</span>
+                <strong className="text-rose-700 dark:text-rose-300 font-black text-sm">{resultStats.tabSwitchTotal}x</strong>
+              </div>
             </div>
           </div>
 
-          {attempts.length === 0 ? (
+          {filteredAttempts.length === 0 ? (
             <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
               <Users className="mx-auto text-slate-300 dark:text-slate-600 mb-3" size={48} />
-              <p className="text-slate-500 font-medium">Belum ada siswa yang mengerjakan ujian ini.</p>
+              <p className="text-slate-500 font-medium">
+                {attempts.length === 0 
+                  ? 'Belum ada siswa yang mengerjakan ujian ini.' 
+                  : 'Tidak ada siswa yang sesuai dengan filter yang dipilih.'}
+              </p>
             </div>
           ) : (
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
@@ -1627,7 +1740,8 @@ Poin: 10
                   <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-800">
                     <tr>
                       <th className="py-3.5 px-6">Nama Siswa</th>
-                      <th className="py-3.5 px-6">NIS & Kelas</th>
+                      <th className="py-3.5 px-4">Jurusan</th>
+                      <th className="py-3.5 px-6">NIS & Rombel</th>
                       <th className="py-3.5 px-6">Skor Akhir</th>
                       <th className="py-3.5 px-6">Benar / Soal</th>
                       <th className="py-3.5 px-6">Anti-Curang (Tab Switch)</th>
@@ -1636,19 +1750,20 @@ Poin: 10
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {attempts
-                      .filter((att) =>
-                        att.studentName.toLowerCase().includes(resultSearch.toLowerCase()) ||
-                        (att.studentNis && att.studentNis.toLowerCase().includes(resultSearch.toLowerCase())) ||
-                        (att.studentClass && att.studentClass.toLowerCase().includes(resultSearch.toLowerCase()))
-                      )
-                      .map((att) => (
+                    {filteredAttempts.map((att: AttemptItem) => {
+                      const jur = extractJurusanCode(att.studentClass) || '-';
+                      return (
                       <tr key={att.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                         <td className="py-4 px-6 font-bold text-slate-900 dark:text-white">
                           {att.studentName}
                         </td>
+                        <td className="py-4 px-4">
+                          <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
+                            {jur}
+                          </span>
+                        </td>
                         <td className="py-4 px-6 text-slate-500">
-                          {att.studentNis || '-'} • {att.studentClass || '-'}
+                          {att.studentNis || '-'} • <strong className="text-slate-700 dark:text-slate-300">{att.studentClass || '-'}</strong>
                         </td>
                         <td className="py-4 px-6">
                           <span className={`inline-flex px-3 py-1 rounded-full font-bold text-sm ${
@@ -1688,14 +1803,15 @@ Poin: 10
                               setDeleteAttemptId(att.id);
                               setIsDeleteAttemptModal(true);
                             }}
-                            className="p-1.5 text-slate-400 hover:text-red-600 transition-colors rounded-lg"
+                            className="p-1.5 text-slate-400 hover:text-red-600 transition-colors rounded-lg cursor-pointer"
                             title="Reset / Hapus Pengerjaan"
                           >
                             <Trash2 size={16} />
                           </button>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -2839,8 +2955,8 @@ Poin: 15`}
                     <span>: <strong>{exam.subject}</strong></span>
                   </div>
                   <div className="flex">
-                    <span className="w-32 font-bold text-slate-700">Target Rombel</span>
-                    <span>: <strong>{exam.classTarget}</strong></span>
+                    <span className="w-32 font-bold text-slate-700">Target / Rombel</span>
+                    <span>: <strong>{resultJurusanFilter !== 'ALL' ? `${getJurusanFullName(resultJurusanFilter)} (${resultJurusanFilter})` : formatClassTargetDisplay(exam.classTarget)}{resultClassFilter !== 'ALL' ? ` • Kelas: ${resultClassFilter}` : ''}</strong></span>
                   </div>
                   <div className="flex">
                     <span className="w-32 font-bold text-slate-700">Paket Ujian CBT</span>
@@ -2876,14 +2992,14 @@ Poin: 15`}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-black/40">
-                    {attempts.length === 0 ? (
+                    {filteredAttempts.length === 0 ? (
                       <tr>
                         <td colSpan={9} className="py-6 text-center text-slate-500 italic">
-                          Belum ada data pengerjaan ujian oleh siswa.
+                          Belum ada data pengerjaan siswa yang sesuai dengan filter yang dipilih.
                         </td>
                       </tr>
                     ) : (
-                      attempts.map((att, idx) => {
+                      filteredAttempts.map((att: AttemptItem, idx: number) => {
                         const isTuntas = att.score >= 75;
                         let grade = 'C';
                         if (att.score >= 90) grade = 'A';
@@ -2916,23 +3032,23 @@ Poin: 15`}
                       })
                     )}
                   </tbody>
-                  {attempts.length > 0 && (
+                  {filteredAttempts.length > 0 && (
                     <tfoot>
                       <tr className="bg-slate-100 font-bold border-t-2 border-black text-[10px] sm:text-xs">
                         <td colSpan={4} className="py-2 px-3 text-right border-r border-black">
-                          Statistik Nilai ({attempts.length} Siswa):
+                          Statistik Nilai ({filteredAttempts.length} Siswa):
                         </td>
                         <td className="py-2 px-2 text-center border-r border-black">
                           Rata-rata:
                         </td>
                         <td className="py-2 px-2 text-center border-r border-black font-black text-sm text-purple-900">
-                          {Math.round((attempts.reduce((a, b) => a + b.score, 0) / attempts.length) * 10) / 10}
+                          {Math.round((filteredAttempts.reduce((a: number, b: AttemptItem) => a + b.score, 0) / filteredAttempts.length) * 10) / 10}
                         </td>
                         <td className="py-2 px-2 text-center border-r border-black font-black">
-                          {Math.round((attempts.reduce((a, b) => a + b.score, 0) / attempts.length)) >= 75 ? 'TUNTAS' : 'REMED'}
+                          {Math.round((filteredAttempts.reduce((a: number, b: AttemptItem) => a + b.score, 0) / filteredAttempts.length)) >= 75 ? 'TUNTAS' : 'REMED'}
                         </td>
                         <td colSpan={2} className="py-2 px-2 text-center font-bold">
-                          {Math.round((attempts.filter(a => a.score >= 75).length / attempts.length) * 100)}% Kelulusan ({attempts.filter(a => a.score >= 75).length} Tuntas / {attempts.filter(a => a.score < 75).length} Remedial)
+                          {Math.round((filteredAttempts.filter((a: AttemptItem) => a.score >= 75).length / filteredAttempts.length) * 100)}% Kelulusan ({filteredAttempts.filter((a: AttemptItem) => a.score >= 75).length} Tuntas / {filteredAttempts.filter((a: AttemptItem) => a.score < 75).length} Remedial)
                         </td>
                       </tr>
                     </tfoot>
@@ -2958,16 +3074,173 @@ Poin: 15`}
               <button
                 type="button"
                 onClick={() => setIsPrintExamModalOpen(false)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer"
               >
                 Tutup
               </button>
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="px-5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white flex items-center gap-1.5 shadow-md shadow-purple-500/25"
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white flex items-center gap-1.5 shadow-md shadow-purple-500/25 cursor-pointer"
               >
                 <Printer size={15} /> Cetak Rekap Nilai Resmi (PDF / Print)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 📥 MODAL OPSI UNDUH NILAI EXCEL / CSV PER JURUSAN & ROMBEL */}
+      {isDownloadModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-6">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+                  <Download size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                    Unduh Rekap Nilai Siswa
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Pilih format pengunduhan nilai per jurusan atau per rombel
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDownloadModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+              {/* Opsi 1: Unduh Tampilan Aktif Saat Ini */}
+              <div className="p-4 rounded-2xl border-2 border-emerald-500/40 bg-emerald-50/50 dark:bg-emerald-950/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                      Unduh Sesuai Filter Layar
+                    </h4>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-600 text-white">
+                    {filteredAttempts.length} Siswa
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-300">
+                  {resultJurusanFilter !== 'ALL' ? (
+                    <>Jurusan terpilih: <strong>{getJurusanFullName(resultJurusanFilter)} ({resultJurusanFilter})</strong></>
+                  ) : (
+                    <>Mencakup <strong>Semua Jurusan</strong></>
+                  )}
+                  {resultClassFilter !== 'ALL' && <> • Rombel: <strong>{resultClassFilter}</strong></>}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleExportCsv();
+                    setIsDownloadModalOpen(false);
+                  }}
+                  className="w-full mt-2 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <FileDown size={14} /> Unduh CSV Sesuai Filter ({filteredAttempts.length} Siswa)
+                </button>
+              </div>
+
+              {/* Opsi 2: Batch Download Semua Jurusan Terpisah */}
+              {availableJurusans.length > 1 && (
+                <div className="p-4 rounded-2xl border border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/20 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FolderDown className="text-purple-600 dark:text-purple-400" size={16} />
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                        ⚡ Unduh Terpisah Semua Jurusan Sekaligus
+                      </h4>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-600 text-white">
+                      {availableJurusans.length} Jurusan
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-300">
+                    Sistem akan otomatis mengunduh <strong>{availableJurusans.length} file CSV terpisah</strong> (masing-masing jurusan 1 file) secara berurutan. Cocok untuk laporan per program keahlian.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleBatchDownloadAllJurusans}
+                    className="w-full mt-2 py-2.5 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <FolderDown size={14} /> Unduh Terpisah ({availableJurusans.length} File Sekaligus)
+                  </button>
+                </div>
+              )}
+
+              {/* Opsi 3: Unduh Cepat 1-Klik Khusus Jurusan Tertentu */}
+              {availableJurusans.length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                    Unduh Satuan Per Jurusan (1-Klik):
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {availableJurusans.map((jur: JurusanOption) => {
+                      const jurAttempts = attempts.filter((a: AttemptItem) => {
+                        const code = extractJurusanCode(a.studentClass) || 'LAINNYA';
+                        return code === jur.code;
+                      });
+
+                      return (
+                        <button
+                          key={jur.code}
+                          type="button"
+                          onClick={() => {
+                            handleExportCsv(jurAttempts, `_Jurusan_${jur.code}`);
+                            setIsDownloadModalOpen(false);
+                          }}
+                          className="p-3 text-left rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:border-purple-500 hover:bg-purple-50/30 dark:hover:bg-purple-950/20 transition flex items-center justify-between group cursor-pointer"
+                        >
+                          <div>
+                            <span className="font-bold text-xs text-slate-900 dark:text-white block group-hover:text-purple-600 transition">
+                              {jur.code}
+                            </span>
+                            <span className="text-[11px] text-slate-500 truncate block max-w-[170px]">
+                              {jur.name}
+                            </span>
+                          </div>
+                          <span className="px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 group-hover:bg-purple-100 group-hover:text-purple-700 transition">
+                            {jurAttempts.length} Siswa
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Opsi 4: Unduh Seluruh 1 Angkatan Penuh */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleExportCsv(attempts, '_Semua_Siswa_Satu_Angkatan');
+                    setIsDownloadModalOpen(false);
+                  }}
+                  className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <FileSpreadsheet size={14} /> Unduh Gabungan Seluruh 1 Angkatan ({attempts.length} Siswa)
+                </button>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsDownloadModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                Batal
               </button>
             </div>
           </div>

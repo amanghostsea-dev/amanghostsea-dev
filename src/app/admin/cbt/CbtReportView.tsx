@@ -33,6 +33,7 @@ import {
   CbtSecurityValidationBox, 
   CbtDigitalStamp 
 } from '@/components/cbt/CbtOfficialPrintComponents';
+import { extractJurusanCode, getJurusanFullName } from '@/lib/cbt-schedule';
 
 export interface ReportAttemptItem {
   id: string;
@@ -85,6 +86,7 @@ export default function CbtReportView({
 
   // Filter States
   const [examFilter, setExamFilter] = useState('ALL');
+  const [jurusanFilter, setJurusanFilter] = useState<'ALL' | string>('ALL');
   const [classFilter, setClassFilter] = useState('ALL');
   const [subjectFilter, setSubjectFilter] = useState('ALL');
   const [passingFilter, setPassingFilter] = useState<'ALL' | 'PASSED' | 'REMEDIAL' | 'IN_PROGRESS'>('ALL');
@@ -145,6 +147,22 @@ export default function CbtReportView({
     return list;
   }, [exams]);
 
+  // List jurusan unik yang tersedia di hasil ujian siswa
+  const availableJurusans = useMemo(() => {
+    const map = new Map<string, number>();
+    allRows.forEach((r) => {
+      const code = extractJurusanCode(r.studentClass) || 'LAINNYA';
+      map.set(code, (map.get(code) || 0) + 1);
+    });
+    return Array.from(map.entries())
+      .map(([code, count]) => ({
+        code,
+        name: getJurusanFullName(code === 'LAINNYA' ? null : code),
+        count,
+      }))
+      .sort((a, b) => a.code.localeCompare(b.code));
+  }, [allRows]);
+
   // Apply All Active Filters
   const filteredRows = useMemo(() => {
     return allRows.filter((r) => {
@@ -157,6 +175,10 @@ export default function CbtReportView({
         }
       }
       if (examFilter !== 'ALL' && r.examId !== examFilter) return false;
+      if (jurusanFilter !== 'ALL') {
+        const jur = extractJurusanCode(r.studentClass) || 'LAINNYA';
+        if (jur !== jurusanFilter) return false;
+      }
       if (classFilter !== 'ALL' && r.studentClass !== classFilter) return false;
       if (subjectFilter !== 'ALL' && r.subject !== subjectFilter) return false;
       if (passingFilter === 'PASSED' && (r.score < kkmScore || r.status !== 'SUBMITTED')) return false;
@@ -175,7 +197,7 @@ export default function CbtReportView({
       }
       return true;
     });
-  }, [allRows, isGuru, onlyMyExams, currentUserName, examFilter, classFilter, subjectFilter, passingFilter, searchQuery, kkmScore]);
+  }, [allRows, isGuru, onlyMyExams, currentUserName, examFilter, jurusanFilter, classFilter, subjectFilter, passingFilter, searchQuery, kkmScore]);
 
   // Analytics Metrics
   const totalAttempts = filteredRows.length;
@@ -244,31 +266,55 @@ export default function CbtReportView({
       return;
     }
 
-    const headers = ['No', 'Nama Siswa', 'NISN', 'Kelas / Rombel', 'Mata Pelajaran', 'Paket Ujian', 'Skor Nilai', 'Status Ketuntasan', 'Jawaban Benar', 'Total Soal', 'Pelanggaran Tab Switch', 'Tanggal Submit'];
-    const rows = filteredRows.map((r, i) => [
-      i + 1,
-      `"${r.studentName.replace(/"/g, '""')}"`,
-      `"${r.studentNis}"`,
-      `"${r.studentClass}"`,
-      `"${r.subject}"`,
-      `"${r.examTitle.replace(/"/g, '""')}"`,
-      r.score,
-      r.status === 'SUBMITTED' ? (r.score >= kkmScore ? 'TUNTAS' : 'REMEDIAL') : 'SEDANG DIKERJAKAN',
-      r.totalCorrect,
-      r.totalQuestions,
-      r.tabSwitchCount,
-      r.submittedAt ? new Date(r.submittedAt).toLocaleString('id-ID') : '-'
-    ]);
+    const headers = [
+      'No', 
+      'Nama Siswa', 
+      'NISN', 
+      'Jurusan',
+      'Kelas / Rombel', 
+      'Mata Pelajaran', 
+      'Paket Ujian', 
+      'Skor Nilai', 
+      'Status Ketuntasan', 
+      'Jawaban Benar', 
+      'Total Soal', 
+      'Pelanggaran Tab Switch', 
+      'Tanggal Submit'
+    ];
+    const rows = filteredRows.map((r, i) => {
+      const jur = extractJurusanCode(r.studentClass) || '-';
+      return [
+        i + 1,
+        `"${r.studentName.replace(/"/g, '""')}"`,
+        `"${r.studentNis}"`,
+        `"${jur}"`,
+        `"${r.studentClass}"`,
+        `"${r.subject}"`,
+        `"${r.examTitle.replace(/"/g, '""')}"`,
+        r.score,
+        r.status === 'SUBMITTED' ? (r.score >= kkmScore ? 'TUNTAS' : 'REMEDIAL') : 'SEDANG DIKERJAKAN',
+        r.totalCorrect,
+        r.totalQuestions,
+        r.tabSwitchCount,
+        r.submittedAt ? new Date(r.submittedAt).toLocaleString('id-ID') : '-'
+      ];
+    });
 
-    const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `Laporan_Hasil_CBT_${new Date().toISOString().slice(0, 10)}.csv`);
+
+    let fileSuffix = '';
+    if (jurusanFilter !== 'ALL') fileSuffix += `_Jurusan_${jurusanFilter}`;
+    if (classFilter !== 'ALL') fileSuffix += `_Kelas_${classFilter.replace(/\s+/g, '_')}`;
+
+    link.setAttribute('download', `Laporan_Hasil_CBT${fileSuffix}_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   // Print view
@@ -424,7 +470,7 @@ export default function CbtReportView({
         </div>
 
         {/* Detailed Dropdown Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
           {/* Filter Paket Ujian */}
           <div>
             <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">
@@ -439,6 +485,25 @@ export default function CbtReportView({
               {exams.map((ex) => (
                 <option key={ex.id} value={ex.id}>
                   {ex.title} ({ex.subject})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Filter Jurusan Keahlian */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">
+              Program / Jurusan:
+            </label>
+            <select
+              value={jurusanFilter}
+              onChange={(e) => setJurusanFilter(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none cursor-pointer"
+            >
+              <option value="ALL">Semua Jurusan ({availableJurusans.length})</option>
+              {availableJurusans.map((jur) => (
+                <option key={jur.code} value={jur.code}>
+                  {jur.code} - {jur.name} ({jur.count} Siswa)
                 </option>
               ))}
             </select>
@@ -619,9 +684,14 @@ export default function CbtReportView({
                       </td>
 
                       <td className="p-4">
-                        <span className="px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 font-bold border border-blue-200 dark:border-blue-900/50 text-[11px] font-mono">
-                          {row.studentClass}
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 font-bold text-[10px]">
+                            {extractJurusanCode(row.studentClass) || 'UMUM'}
+                          </span>
+                          <span className="px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 font-bold border border-blue-200 dark:border-blue-900/50 text-[11px] font-mono">
+                            {row.studentClass}
+                          </span>
+                        </div>
                       </td>
 
                       <td className="p-4">
