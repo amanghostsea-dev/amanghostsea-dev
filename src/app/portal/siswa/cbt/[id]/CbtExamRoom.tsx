@@ -77,6 +77,26 @@ interface CbtExamRoomProps {
   existingAttempt: AttemptItem | null;
 }
 
+// Acak soal secara deterministik per siswa (konsisten saat refresh, berbeda antar teman sebangku)
+function seededShuffle<T>(array: T[], seedStr: string): T[] {
+  if (array.length <= 1) return array;
+  let hash = 0;
+  for (let i = 0; i < seedStr.length; i++) {
+    hash = (hash << 5) - hash + seedStr.charCodeAt(i);
+    hash |= 0;
+  }
+  const seededRandom = () => {
+    hash = (hash * 9301 + 49297) % 233280;
+    return Math.abs(hash) / 233280;
+  };
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(seededRandom() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
 export default function CbtExamRoom({
   exam,
   studentName,
@@ -120,8 +140,13 @@ export default function CbtExamRoom({
     return () => clearInterval(interval);
   }, [attempt, isSessionOpen, refreshSessionStatus]);
 
-  // Exam engine state
-  const [questions, setQuestions] = useState<QuestionItem[]>(exam.questions);
+  // Exam engine state (Acak urutan butir soal per siswa jika fitur shuffle diaktifkan guru)
+  const [questions, setQuestions] = useState<QuestionItem[]>(() => {
+    if (exam.shuffleQuestions && exam.questions?.length > 1) {
+      return seededShuffle(exam.questions, `${studentName}_${studentNis || ''}_${exam.id}`);
+    }
+    return exam.questions;
+  });
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [doubtful, setDoubtful] = useState<Record<string, boolean>>({});
@@ -259,6 +284,38 @@ export default function CbtExamRoom({
     return () => clearInterval(timer);
   }, [attempt, finalResult, exam.duration, handleFinalSubmit]);
 
+  // Periodic background heartbeat to sync answers & check proctor directives (extra time, block, force submit)
+  useEffect(() => {
+    if (!attempt || attempt.status !== 'IN_PROGRESS' || finalResult) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await saveProgress(attempt.id, answers, tabSwitchCount);
+        if (res && res.success) {
+          if (res.isBlocked) {
+            setAttempt((prev) => prev ? { ...prev, isBlocked: true } : prev);
+          }
+          if (typeof res.extraTimeMinutes === 'number' && res.extraTimeMinutes !== (attempt as any).extraTimeMinutes) {
+            setAttempt((prev) => prev ? { ...prev, extraTimeMinutes: res.extraTimeMinutes } : prev);
+          }
+          if (res.status === 'SUBMITTED') {
+            setFinalResult({
+              score: res.score || 0,
+              totalCorrect: res.totalCorrect || 0,
+              totalQuestions: res.totalQuestions || questions.length,
+              tabSwitchCount,
+            });
+            localStorage.removeItem(storageKey);
+          }
+        }
+      } catch (err) {
+        // silent fail for heartbeat
+      }
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [attempt, answers, tabSwitchCount, finalResult, questions.length, storageKey]);
+
   // Handle Start Attempt
   const handleStartExam = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -275,7 +332,13 @@ export default function CbtExamRoom({
 
     if (res.success && res.attempt) {
       setAttempt(res.attempt);
-      if (res.questions) setQuestions(res.questions);
+      if (res.questions) {
+        const processedQ =
+          exam.shuffleQuestions && res.questions.length > 1
+            ? seededShuffle(res.questions, `${studentName}_${studentNis || ''}_${exam.id}`)
+            : res.questions;
+        setQuestions(processedQ);
+      }
       if (res.attempt.status === 'SUBMITTED') {
         setFinalResult({
           score: res.attempt.score,
@@ -315,7 +378,16 @@ export default function CbtExamRoom({
 
     // Background sync to DB
     if (attempt) {
-      saveProgress(attempt.id, newAnswers, tabSwitchCount).catch(console.error);
+      saveProgress(attempt.id, newAnswers, tabSwitchCount).then((res) => {
+        if (res && res.success) {
+          if (res.isBlocked) {
+            setAttempt((prev) => (prev ? { ...prev, isBlocked: true } : prev));
+          }
+          if (typeof res.extraTimeMinutes === 'number' && res.extraTimeMinutes !== (attempt as any).extraTimeMinutes) {
+            setAttempt((prev) => (prev ? { ...prev, extraTimeMinutes: res.extraTimeMinutes } : prev));
+          }
+        }
+      }).catch(console.error);
     }
   };
 

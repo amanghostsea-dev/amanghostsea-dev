@@ -140,14 +140,31 @@ export async function saveProgress(
   tabSwitchCount: number
 ) {
   try {
-    await prisma.examAttempt.update({
+    const updated = await prisma.examAttempt.update({
       where: { id: attemptId },
       data: {
         answers: JSON.stringify(answers),
         tabSwitchCount,
       },
+      select: {
+        id: true,
+        status: true,
+        isBlocked: true,
+        extraTimeMinutes: true,
+        score: true,
+        totalCorrect: true,
+        totalQuestions: true,
+      },
     });
-    return { success: true };
+    return {
+      success: true,
+      status: updated.status,
+      isBlocked: updated.isBlocked,
+      extraTimeMinutes: updated.extraTimeMinutes,
+      score: updated.score,
+      totalCorrect: updated.totalCorrect,
+      totalQuestions: updated.totalQuestions,
+    };
   } catch (error: any) {
     return { error: error.message };
   }
