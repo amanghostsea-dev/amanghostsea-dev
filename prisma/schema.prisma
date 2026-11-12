@@ -217,6 +217,7 @@ model ExamQuestion {
   examId        String
   exam          Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
   questionText  String   @db.Text
+  imageUrl      String?  @db.Text // Tautan atau path gambar visualisasi soal
   options       String   @db.Text // JSON string: ["Pilihan A", "Pilihan B", "Pilihan C", "Pilihan D"]
   correctAnswer String   // Index opsi yang benar: "0", "1", "2", "3"
   points        Float    @default(10)

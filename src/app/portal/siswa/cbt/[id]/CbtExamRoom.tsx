@@ -26,11 +26,14 @@ import {
 import ConfirmModal from '@/components/ConfirmModal';
 import { startOrResumeAttempt, saveProgress, submitExam, getExamSessionStatus } from '../actions';
 import { formatExamScheduleRange, getExamScheduleState, formatClassTargetDisplay } from '@/lib/cbt-schedule';
+import CbtRichText from '@/components/cbt/CbtRichText';
+import CbtQuestionImageViewer from '@/components/cbt/CbtQuestionImageViewer';
 
 interface QuestionItem {
   id: string;
   examId: string;
   questionText: string;
+  imageUrl?: string | null;
   options: string;
   correctAnswer: string;
   points: number;
@@ -725,13 +728,21 @@ export default function CbtExamRoom({
               </button>
             </div>
 
-            {/* Question Text */}
-            <div className="text-base md:text-lg font-medium text-slate-900 dark:text-white leading-relaxed whitespace-pre-wrap mb-8">
-              {currentQ?.questionText}
+            {/* Question Text & Math Formulas */}
+            <div className="text-base md:text-lg font-medium text-slate-900 dark:text-white leading-relaxed mb-4">
+              <CbtRichText text={currentQ?.questionText || ''} />
             </div>
 
+            {/* Dedicated Question Image Visualizer (with Zoom Lightbox) */}
+            {currentQ?.imageUrl && (
+              <CbtQuestionImageViewer 
+                imageUrl={currentQ.imageUrl} 
+                alt={`Visualisasi Gambar Soal No. ${currentIndex + 1}`} 
+              />
+            )}
+
             {/* Multiple Choice Options */}
-            <div className="space-y-3">
+            <div className="space-y-3 mt-6">
               {parsedOptions.map((opt, idx) => {
                 const label = String.fromCharCode(65 + idx);
                 const isSelected = selectedOption === String(idx);
@@ -754,7 +765,9 @@ export default function CbtExamRoom({
                     >
                       {label}
                     </span>
-                    <span className="flex-1 pt-1 text-sm md:text-base leading-snug">{opt}</span>
+                    <span className="flex-1 pt-1 text-sm md:text-base leading-snug">
+                      <CbtRichText text={opt} />
+                    </span>
                     {isSelected && (
                       <Check className="text-purple-600 flex-shrink-0 mt-1" size={18} />
                     )}

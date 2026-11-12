@@ -41,7 +41,11 @@ import {
   Calculator,
   Filter,
   FolderDown,
-  FileDown
+  FileDown,
+  Image as ImageIcon,
+  Upload,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import { 
@@ -68,9 +72,13 @@ import {
   CbtDigitalStamp 
 } from '@/components/cbt/CbtOfficialPrintComponents';
 import { KopSuratConfig } from '@/app/admin/settings/types';
+import CbtRichText from '@/components/cbt/CbtRichText';
+import CbtQuestionImageViewer from '@/components/cbt/CbtQuestionImageViewer';
+import CbtMathToolbar from '@/components/cbt/CbtMathToolbar';
 
 interface ParsedQuestion {
   questionText: string;
+  imageUrl?: string | null;
   options: string[];
   correctAnswer: string;
   points: number;
@@ -132,6 +140,7 @@ function parseBulkQuestions(rawText: string, defaultPoints: number = 10): Parsed
     let colE = -1;
     let colKey = -1;
     let colPoints = -1;
+    let colImg = -1;
     let hasHeader = false;
 
     for (let i = 0; i < lines.length; i++) {
@@ -159,6 +168,7 @@ function parseBulkQuestions(rawText: string, defaultPoints: number = 10): Parsed
           else if (s === 'e' || s.includes('pilihan e') || s.includes('opsi e')) colE = idx;
           else if (s.includes('kunci') || s.includes('jawaban') || s.includes('ans') || s.includes('key')) colKey = idx;
           else if (s.includes('poin') || s.includes('nilai') || s.includes('bobot') || s.includes('skor')) colPoints = idx;
+          else if (s.includes('gambar') || s.includes('image') || s.includes('foto') || s.includes('url')) colImg = idx;
         });
         continue;
       }
@@ -171,6 +181,7 @@ function parseBulkQuestions(rawText: string, defaultPoints: number = 10): Parsed
       let optE = '';
       let keyRaw = 'A';
       let pt = defaultPoints;
+      let imgUrl = colImg !== -1 && parts[colImg] ? parts[colImg].trim() : undefined;
 
       const parsePt = (val: any) => {
         if (!val) return defaultPoints;
@@ -224,6 +235,7 @@ function parseBulkQuestions(rawText: string, defaultPoints: number = 10): Parsed
 
       results.push({
         questionText: qText,
+        imageUrl: imgUrl || null,
         options: opts,
         correctAnswer: String(kIdx),
         points: pt,
@@ -250,10 +262,12 @@ function parseBulkQuestions(rawText: string, defaultPoints: number = 10): Parsed
     let options: string[] = [];
     let correctAnswer = '0';
     let points = defaultPoints;
+    let imageUrl: string | null = null;
 
     const optionRegex = /^(?:(?:\(?([A-Ea-e])[\.\)]|\(([A-Ea-e])\))|\b([A-Ea-e])\.\s+)\s*(.*)/;
     const keyRegex = /^(?:Kunci|Jawaban|Ans|Key|Kunci\s*Jawaban|Jawaban\s*Benar)[\s\:\=\-]+([A-Ea-e]|\d)\b/i;
     const pointsRegex = /^(?:Poin|Nilai|Bobot|Score|Points)[\s\:\=\-]+([\d\.,]+)\b/i;
+    const imageRegex = /^(?:Gambar|Image|Foto|Pic|Picture)[\s\:\=\-]+(.*)/i;
 
     for (const bLine of bLines) {
       const kMatch = bLine.match(keyRegex);
@@ -272,6 +286,12 @@ function parseBulkQuestions(rawText: string, defaultPoints: number = 10): Parsed
       if (pMatch) {
         const parsedVal = parseFloat(pMatch[1].replace(',', '.'));
         points = !isNaN(parsedVal) && parsedVal > 0 ? parsedVal : defaultPoints;
+        continue;
+      }
+
+      const imgMatch = bLine.match(imageRegex);
+      if (imgMatch) {
+        imageUrl = imgMatch[1].trim();
         continue;
       }
 
@@ -303,6 +323,7 @@ function parseBulkQuestions(rawText: string, defaultPoints: number = 10): Parsed
       if (rawQ) {
         parsedResults.push({
           questionText: rawQ,
+          imageUrl,
           options,
           correctAnswer,
           points,
@@ -318,6 +339,7 @@ interface QuestionItem {
   id: string;
   examId: string;
   questionText: string;
+  imageUrl?: string | null;
   options: string;
   correctAnswer: string;
   points: number;
@@ -670,9 +692,48 @@ export default function ExamDetailClient({ exam, kopSuratConfig, currentUser }: 
   const [isAddQuestionModal, setIsAddQuestionModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [questionText, setQuestionText] = useState('');
+  const [questionImageUrl, setQuestionImageUrl] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [showLivePreview, setShowLivePreview] = useState(true);
   const [options, setOptions] = useState(['', '', '', '']);
   const [correctAnswer, setCorrectAnswer] = useState('0');
   const [points, setPoints] = useState(10);
+
+  // Upload handler for question visual images
+  const handleUploadQuestionImage = async (file: File, isEdit: boolean = false) => {
+    if (!file) return;
+    if (isEdit) {
+      setEditUploadingImage(true);
+    } else {
+      setUploadingImage(true);
+    }
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        if (isEdit) {
+          setEditImageUrl(data.url);
+        } else {
+          setQuestionImageUrl(data.url);
+        }
+      } else {
+        alert(data.error || 'Gagal mengunggah gambar soal.');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Terjadi kesalahan jaringan saat mengunggah gambar.');
+    } finally {
+      if (isEdit) {
+        setEditUploadingImage(false);
+      } else {
+        setUploadingImage(false);
+      }
+    }
+  };
 
   // Delete Question state
   const [deleteQId, setDeleteQId] = useState<string | null>(null);
@@ -727,6 +788,7 @@ export default function ExamDetailClient({ exam, kopSuratConfig, currentUser }: 
     const res = await createQuestion({
       examId: exam.id,
       questionText,
+      imageUrl: questionImageUrl.trim() || null,
       options,
       correctAnswer,
       points,
@@ -736,6 +798,7 @@ export default function ExamDetailClient({ exam, kopSuratConfig, currentUser }: 
       setQuestions([...questions, res.data]);
       setIsAddQuestionModal(false);
       setQuestionText('');
+      setQuestionImageUrl('');
       setOptions(['', '', '', '']);
       setCorrectAnswer('0');
       setPoints(10);
@@ -1100,6 +1163,9 @@ Poin: 10
   const [isEditQModal, setIsEditQModal] = useState(false);
   const [editingQId, setEditingQId] = useState<string | null>(null);
   const [editQuestionText, setEditQuestionText] = useState('');
+  const [editImageUrl, setEditImageUrl] = useState('');
+  const [editUploadingImage, setEditUploadingImage] = useState(false);
+  const [showEditPreview, setShowEditPreview] = useState(true);
   const [editOptions, setEditOptions] = useState(['', '', '', '']);
   const [editCorrectAnswer, setEditCorrectAnswer] = useState('0');
   const [editPoints, setEditPoints] = useState(10);
@@ -1107,6 +1173,7 @@ Poin: 10
   const handleOpenEditModal = (q: QuestionItem) => {
     setEditingQId(q.id);
     setEditQuestionText(q.questionText);
+    setEditImageUrl(q.imageUrl || '');
     try {
       const parsed = JSON.parse(q.options);
       setEditOptions(Array.isArray(parsed) && parsed.length >= 2 ? parsed : ['', '', '', '']);
@@ -1157,6 +1224,7 @@ Poin: 10
     setLoading(true);
     const res = await updateQuestion(editingQId, exam.id, {
       questionText: editQuestionText,
+      imageUrl: editImageUrl.trim() || null,
       options: editOptions,
       correctAnswer: editCorrectAnswer,
       points: editPoints,
@@ -1166,6 +1234,7 @@ Poin: 10
       setQuestions(questions.map(q => q.id === editingQId ? res.data : q));
       setIsEditQModal(false);
       setEditingQId(null);
+      setEditImageUrl('');
     } else {
       alert(res.error || 'Gagal memperbarui butir soal.');
     }
@@ -1542,8 +1611,15 @@ Poin: 10
                       </div>
                     </div>
 
-                    <div className="mt-4 text-slate-900 dark:text-white font-medium text-base whitespace-pre-wrap">
-                      {q.questionText}
+                    {/* Visualisasi Gambar Soal (Jika Ada) */}
+                    {q.imageUrl && (
+                      <div className="mt-3">
+                        <CbtQuestionImageViewer imageUrl={q.imageUrl} alt={`Visualisasi Gambar Soal No. ${idx + 1}`} compact />
+                      </div>
+                    )}
+
+                    <div className="mt-4 text-slate-900 dark:text-white font-medium text-base">
+                      <CbtRichText text={q.questionText} />
                     </div>
 
                     {/* Options Grid */}
@@ -1569,7 +1645,9 @@ Poin: 10
                             >
                               {label}
                             </span>
-                            <span className="flex-1">{opt}</span>
+                            <span className="flex-1">
+                              <CbtRichText text={opt} />
+                            </span>
                             {isCorrect && (
                               <CheckCircle size={16} className="text-emerald-600 flex-shrink-0" />
                             )}
@@ -1823,32 +1901,143 @@ Poin: 10
       {/* Modal Tambah Soal Pilihan Ganda */}
       {isAddQuestionModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800">
             <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-              <h3 className="font-bold text-lg text-slate-900 dark:text-white">
-                Tambah Butir Soal Pilihan Ganda
+              <h3 className="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                <Plus size={18} className="text-purple-600 dark:text-purple-400" />
+                Tambah Butir Soal (Teks, Rumus MTK & Gambar)
               </h3>
               <button
+                type="button"
                 onClick={() => setIsAddQuestionModal(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleAddQuestion} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+            <form onSubmit={handleAddQuestion} className="p-6 space-y-4 max-h-[82vh] overflow-y-auto">
+              {/* Toolbar Rumus MTK & KaTeX */}
+              <div>
+                <CbtMathToolbar
+                  onInsert={(snippet) => setQuestionText((prev) => prev ? `${prev} ${snippet}` : snippet)}
+                  targetLabel="soal ujian"
+                />
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Pertanyaan / Isi Soal <span className="text-red-500">*</span>
+                  Pertanyaan / Isi Soal (Mendukung Rumus KaTeX $...$) <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   rows={4}
                   required
-                  placeholder="Tuliskan pertanyaan soal ujian di sini..."
+                  placeholder="Tuliskan pertanyaan soal ujian di sini... Contoh rumus: $x^2 + 5x + 6 = 0$ atau gunakan tombol rumus di atas."
                   value={questionText}
                   onChange={(e) => setQuestionText(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500 outline-none font-sans"
                 />
+              </div>
+
+              {/* Upload Gambar / Tautan Gambar Visualisasi Soal */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <ImageIcon size={14} className="text-purple-600 dark:text-purple-400" />
+                    <span>Gambar / Visualisasi Soal (Opsional)</span>
+                  </label>
+                  {questionImageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setQuestionImageUrl('')}
+                      className="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer"
+                    >
+                      Hapus Gambar
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <label className="px-3.5 py-2 rounded-xl bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/40 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer flex-shrink-0">
+                    <Upload size={14} />
+                    <span>{uploadingImage ? 'Mengunggah...' : 'Pilih / Unggah Gambar'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={uploadingImage}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleUploadQuestionImage(f, false);
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+
+                  <span className="text-xs text-slate-400 text-center sm:text-left">atau</span>
+
+                  <input
+                    type="text"
+                    placeholder="Tempel tautan URL gambar (https://...)"
+                    value={questionImageUrl}
+                    onChange={(e) => setQuestionImageUrl(e.target.value)}
+                    className="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                {questionImageUrl && (
+                  <div className="mt-2 p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={questionImageUrl}
+                      alt="Pratinjau Gambar Soal"
+                      className="h-16 w-24 object-contain rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block truncate">
+                        Gambar Siap Ditampilkan
+                      </span>
+                      <span className="text-[11px] text-slate-400 block truncate font-mono">
+                        {questionImageUrl}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Live Preview Realtime Tampilan Siswa */}
+              <div className="p-3.5 rounded-2xl bg-purple-50/40 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-800/40 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
+                    <Sparkles size={14} className="text-purple-600 dark:text-purple-400" />
+                    <span>Pratinjau Tampilan Siswa (Realtime):</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowLivePreview(!showLivePreview)}
+                    className="text-[11px] font-semibold text-purple-600 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    {showLivePreview ? <EyeOff size={12} /> : <Eye size={12} />}
+                    <span>{showLivePreview ? 'Sembunyikan' : 'Tampilkan'}</span>
+                  </button>
+                </div>
+
+                {showLivePreview && (
+                  <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs space-y-2">
+                    {questionText ? (
+                      <div className="text-slate-900 dark:text-white font-medium text-sm">
+                        <CbtRichText text={questionText} />
+                      </div>
+                    ) : (
+                      <span className="text-slate-400 italic">Ketikkan pertanyaan di atas untuk melihat preview rumus matematika...</span>
+                    )}
+
+                    {questionImageUrl && (
+                      <div className="pt-2">
+                        <CbtQuestionImageViewer imageUrl={questionImageUrl} compact />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3">
@@ -2421,34 +2610,143 @@ Poin: 15`}
       {/* ✏️ MODAL EDIT BUTIR SOAL & BOBOT NILAI */}
       {isEditQModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800">
             <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
               <h3 className="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
                 <Edit3 size={18} className="text-purple-600 dark:text-purple-400" />
-                Edit Butir Soal & Bobot Nilai
+                Edit Butir Soal (Teks, Rumus MTK & Gambar)
               </h3>
               <button
                 type="button"
                 onClick={() => setIsEditQModal(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleSaveEditQuestion} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+            <form onSubmit={handleSaveEditQuestion} className="p-6 space-y-4 max-h-[82vh] overflow-y-auto">
+              {/* Toolbar Rumus MTK & KaTeX */}
+              <div>
+                <CbtMathToolbar
+                  onInsert={(snippet) => setEditQuestionText((prev) => prev ? `${prev} ${snippet}` : snippet)}
+                  targetLabel="soal ujian"
+                />
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Pertanyaan / Isi Soal <span className="text-red-500">*</span>
+                  Pertanyaan / Isi Soal (Mendukung Rumus KaTeX $...$) <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   rows={4}
                   required
-                  placeholder="Tuliskan pertanyaan soal ujian di sini..."
+                  placeholder="Tuliskan pertanyaan soal ujian di sini... Contoh rumus: $x^2 + 5x + 6 = 0$ atau gunakan tombol rumus di atas."
                   value={editQuestionText}
                   onChange={(e) => setEditQuestionText(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500 outline-none font-sans"
                 />
+              </div>
+
+              {/* Upload Gambar / Tautan Gambar Visualisasi Soal */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <ImageIcon size={14} className="text-purple-600 dark:text-purple-400" />
+                    <span>Gambar / Visualisasi Soal (Opsional)</span>
+                  </label>
+                  {editImageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setEditImageUrl('')}
+                      className="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer"
+                    >
+                      Hapus Gambar
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <label className="px-3.5 py-2 rounded-xl bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/40 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer flex-shrink-0">
+                    <Upload size={14} />
+                    <span>{editUploadingImage ? 'Mengunggah...' : 'Pilih / Unggah Gambar'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={editUploadingImage}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleUploadQuestionImage(f, true);
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+
+                  <span className="text-xs text-slate-400 text-center sm:text-left">atau</span>
+
+                  <input
+                    type="text"
+                    placeholder="Tempel tautan URL gambar (https://...)"
+                    value={editImageUrl}
+                    onChange={(e) => setEditImageUrl(e.target.value)}
+                    className="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                {editImageUrl && (
+                  <div className="mt-2 p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={editImageUrl}
+                      alt="Pratinjau Gambar Soal"
+                      className="h-16 w-24 object-contain rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block truncate">
+                        Gambar Siap Ditampilkan
+                      </span>
+                      <span className="text-[11px] text-slate-400 block truncate font-mono">
+                        {editImageUrl}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Live Preview Realtime Tampilan Siswa */}
+              <div className="p-3.5 rounded-2xl bg-purple-50/40 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-800/40 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
+                    <Sparkles size={14} className="text-purple-600 dark:text-purple-400" />
+                    <span>Pratinjau Tampilan Siswa (Realtime):</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowEditPreview(!showEditPreview)}
+                    className="text-[11px] font-semibold text-purple-600 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    {showEditPreview ? <EyeOff size={12} /> : <Eye size={12} />}
+                    <span>{showEditPreview ? 'Sembunyikan' : 'Tampilkan'}</span>
+                  </button>
+                </div>
+
+                {showEditPreview && (
+                  <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs space-y-2">
+                    {editQuestionText ? (
+                      <div className="text-slate-900 dark:text-white font-medium text-sm">
+                        <CbtRichText text={editQuestionText} />
+                      </div>
+                    ) : (
+                      <span className="text-slate-400 italic">Ketikkan pertanyaan di atas untuk melihat preview rumus matematika...</span>
+                    )}
+
+                    {editImageUrl && (
+                      <div className="pt-2">
+                        <CbtQuestionImageViewer imageUrl={editImageUrl} compact />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3">

@@ -498,6 +498,7 @@ export async function deleteExam(id: string) {
 export async function createQuestion(data: {
   examId: string;
   questionText: string;
+  imageUrl?: string | null;
   options: string[];
   correctAnswer: string;
   points?: number;
@@ -507,6 +508,7 @@ export async function createQuestion(data: {
       data: {
         examId: data.examId,
         questionText: data.questionText,
+        imageUrl: data.imageUrl?.trim() || null,
         options: JSON.stringify(data.options),
         correctAnswer: data.correctAnswer,
         points: Number(data.points) || 10,
@@ -524,6 +526,7 @@ export async function createBatchQuestions(
   examId: string,
   questions: Array<{
     questionText: string;
+    imageUrl?: string | null;
     options: string[];
     correctAnswer: string;
     points?: number;
@@ -544,6 +547,7 @@ export async function createBatchQuestions(
           data: {
             examId,
             questionText: q.questionText.trim(),
+            imageUrl: q.imageUrl?.trim() || null,
             options: JSON.stringify(q.options),
             correctAnswer: q.correctAnswer,
             points: Number(q.points) || 10,
@@ -567,6 +571,7 @@ export async function updateQuestion(
   examId: string,
   data: {
     questionText?: string;
+    imageUrl?: string | null;
     options?: string[];
     correctAnswer?: string;
     points?: number;
@@ -577,6 +582,7 @@ export async function updateQuestion(
       where: { id: questionId },
       data: {
         ...(data.questionText !== undefined && { questionText: data.questionText.trim() }),
+        ...(data.imageUrl !== undefined && { imageUrl: data.imageUrl?.trim() || null }),
         ...(data.options !== undefined && { options: JSON.stringify(data.options) }),
         ...(data.correctAnswer !== undefined && { correctAnswer: data.correctAnswer }),
         ...(data.points !== undefined && { points: Number(data.points) }),
