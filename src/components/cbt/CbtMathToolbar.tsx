@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Calculator, 
   HelpCircle, 
@@ -81,9 +81,33 @@ const ADVANCED_FORMULAS: { category: string; items: FormulaItem[] }[] = [
 ];
 
 export default function CbtMathToolbar({ onInsert, targetLabel = 'kolom soal' }: CbtMathToolbarProps) {
+  // Default autohide (tertutup) agar rapi untuk guru mapel non-matematika
+  const [isOpen, setIsOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [lastInserted, setLastInserted] = useState<string | null>(null);
+
+  // Membaca preferensi guru apakah menyukai toolbar terbuka atau tertutup
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('cbt_math_toolbar_open');
+      if (saved !== null) {
+        setIsOpen(saved === 'true');
+      }
+    } catch {
+      // Abaikan jika SSR atau localStorage tidak tersedia
+    }
+  }, []);
+
+  const toggleOpen = () => {
+    setIsOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('cbt_math_toolbar_open', String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   const handleInsertSnippet = (latex: string) => {
     // Sisipkan dalam format $ ... $ untuk inline KaTeX
@@ -93,8 +117,32 @@ export default function CbtMathToolbar({ onInsert, targetLabel = 'kolom soal' }:
     setTimeout(() => setLastInserted(null), 1800);
   };
 
+  // Tampilan Ringkas / Autohide (Hanya 1 baris tombol rapi, sangat ramah untuk guru non-matematika)
+  if (!isOpen) {
+    return (
+      <div className="flex items-center justify-between py-1">
+        <button
+          type="button"
+          onClick={toggleOpen}
+          className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold bg-purple-50/90 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800/60 transition shadow-2xs hover:shadow cursor-pointer"
+        >
+          <Calculator size={14} className="text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform" />
+          <span>Sisipkan Rumus Matematika (KaTeX)</span>
+          <span className="text-[10px] text-purple-600/80 dark:text-purple-400/80 font-normal bg-purple-100/70 dark:bg-purple-900/50 px-1.5 py-0.5 rounded-md">
+            Opsional
+          </span>
+          <ChevronDown size={13} className="text-purple-500 group-hover:translate-y-0.5 transition-transform" />
+        </button>
+
+        <span className="text-[11px] text-slate-400 dark:text-slate-500 italic hidden sm:inline">
+          (Klik untuk membuka tombol rumus MTK / Eksak)
+        </span>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-2.5 rounded-2xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-200/70 dark:border-purple-800/50 space-y-2">
+    <div className="p-2.5 rounded-2xl bg-purple-50/70 dark:bg-purple-950/25 border border-purple-200/80 dark:border-purple-800/60 space-y-2 animate-in fade-in-50 duration-200">
       {/* Header Bar Toolbar */}
       <div className="flex items-center justify-between text-xs">
         <div className="flex items-center gap-1.5 font-bold text-purple-900 dark:text-purple-200">
@@ -107,14 +155,14 @@ export default function CbtMathToolbar({ onInsert, targetLabel = 'kolom soal' }:
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <button
             type="button"
             onClick={() => setShowHelp(!showHelp)}
             className="text-[11px] font-semibold text-purple-700 dark:text-purple-300 hover:underline flex items-center gap-1 cursor-pointer"
           >
             <HelpCircle size={12} />
-            <span>Panduan Format</span>
+            <span className="hidden sm:inline">Panduan Format</span>
           </button>
 
           <button
@@ -122,8 +170,18 @@ export default function CbtMathToolbar({ onInsert, targetLabel = 'kolom soal' }:
             onClick={() => setShowAdvanced(!showAdvanced)}
             className="px-2 py-1 rounded-lg text-[11px] font-bold bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition flex items-center gap-1 cursor-pointer"
           >
-            <span>{showAdvanced ? 'Tutup Rumus Lanjutan' : '+ Rumus Lengkap'}</span>
+            <span>{showAdvanced ? 'Tutup Lanjutan' : '+ Rumus Lengkap'}</span>
             {showAdvanced ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+          </button>
+
+          <button
+            type="button"
+            onClick={toggleOpen}
+            className="px-2 py-1 rounded-lg text-[11px] font-bold bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 transition flex items-center gap-1 cursor-pointer"
+            title="Sembunyikan toolbar rumus agar tampilan kembali ringkas"
+          >
+            <ChevronUp size={12} />
+            <span>Sembunyikan</span>
           </button>
         </div>
       </div>
