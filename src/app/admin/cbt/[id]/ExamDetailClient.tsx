@@ -38,7 +38,10 @@ import {
   Layers,
   Info,
   Calendar,
-  Calculator
+  Calculator,
+  Filter,
+  FolderDown,
+  FileDown
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import { 
@@ -51,7 +54,13 @@ import {
   rotateExamToken,
   autoDistributeExamPointsAction
 } from '../actions';
-import { formatExamScheduleRange, getExamScheduleState } from '@/lib/cbt-schedule';
+import { 
+  formatExamScheduleRange, 
+  getExamScheduleState, 
+  extractJurusanCode, 
+  getJurusanFullName, 
+  formatClassTargetDisplay 
+} from '@/lib/cbt-schedule';
 import { 
   CbtOfficialKopSurat, 
   CbtOfficialSignatures, 
@@ -367,6 +376,9 @@ export default function ExamDetailClient({ exam, kopSuratConfig, currentUser }: 
   const [isWhiteboardModalOpen, setIsWhiteboardModalOpen] = useState(false);
   const [resultSearch, setResultSearch] = useState('');
   const [isPrintExamModalOpen, setIsPrintExamModalOpen] = useState(false);
+  const [resultJurusanFilter, setResultJurusanFilter] = useState<'ALL' | string>('ALL');
+  const [resultClassFilter, setResultClassFilter] = useState<'ALL' | string>('ALL');
+  const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
 
   // ⚡ Auto-Distribute Points state (Bagi Rata Nilai Soal Otomatis)
   const [isAutoDistributeModalOpen, setIsAutoDistributeModalOpen] = useState(false);
@@ -463,32 +475,184 @@ export default function ExamDetailClient({ exam, kopSuratConfig, currentUser }: 
     setTimeout(() => setCopiedToken(false), 2000);
   };
 
-  const handleExportCsv = () => {
-    if (attempts.length === 0) {
-      alert('Belum ada data nilai siswa untuk diunduh.');
+  // 🎓 Filter Cerdas Nilai Per Jurusan & Per Rombel
+  const availableJurusans = useMemo(() => {
+    const map = new Map<string, number>();
+    attempts.forEach((a) => {
+      const code = extractJurusanCode(a.studentClass) || 'LAINNYA';
+      map.set(code, (map.get(code) || 0) + 1);
+    });
+    return Array.from(map.entries())
+      .map(([code, count]) => ({
+        code,
+        name: getJurusanFullName(code === 'LAINNYA' ? null : code),
+        count,
+      }))
+      .sort((a, b) => a.code.localeCompare(b.code));
+  }, [attempts]);
+
+  const availableClasses = useMemo(() => {
+    const map = new Map<string, number>();
+    attempts.forEach((a) => {
+      const cls = a.studentClass || 'Tanpa Kelas';
+      map.set(cls, (map.get(cls) || 0) + 1);
+    });
+    return Array.from(map.entries())
+      .map(([className, count]) => ({
+        className,
+        count,
+      }))
+      .sort((a, b) => a.className.localeCompare(b.className));
+  }, [attempts]);
+
+  const filteredAttempts = useMemo(() => {
+    return attempts.filter((att) => {
+      if (resultJurusanFilter !== 'ALL') {
+        const jur = extractJurusanCode(att.studentClass) || 'LAINNYA';
+        if (jur !== resultJurusanFilter) return false;
+      }
+
+      if (resultClassFilter !== 'ALL') {
+        const cls = att.studentClass || 'Tanpa Kelas';
+        if (cls !== resultClassFilter) return false;
+      }
+
+      if (resultSearch.trim()) {
+        const q = resultSearch.toLowerCase().trim();
+        const matchName = att.studentName.toLowerCase().includes(q);
+        const matchNis = (att.studentNis || '').toLowerCase().includes(q);
+        const matchClass = (att.studentClass || '').toLowerCase().includes(q);
+        if (!matchName && !matchNis && !matchClass) return false;
+      }
+
+      return true;
+    });
+  }, [attempts, resultJurusanFilter, resultClassFilter, resultSearch]);
+
+  const resultStats = useMemo(() => {
+    const total = filteredAttempts.length;
+    if (total === 0) {
+      return { total: 0, avg: 0, passed: 0, remedial: 0, tabSwitchTotal: 0 };
+    }
+    let scoreSum = 0;
+    let passed = 0;
+    let tabSwitchTotal = 0;
+
+    filteredAttempts.forEach((a) => {
+      scoreSum += a.score;
+      if (a.score >= 75) passed++;
+      tabSwitchTotal += a.tabSwitchCount || 0;
+    });
+
+    return {
+      total,
+      avg: Math.round((scoreSum / total) * 10) / 10,
+      passed,
+      remedial: total - passed,
+      tabSwitchTotal,
+    };
+  }, [filteredAttempts]);
+
+  // Export to CSV / Excel: Mendukung export seluruh siswa, per jurusan, atau per rombel
+  const handleExportCsv = (customAttempts?: AttemptItem[], customLabel?: string) => {
+    const dataToExport = customAttempts || filteredAttempts;
+    if (dataToExport.length === 0) {
+      alert('Tidak ada data nilai siswa untuk diunduh.');
       return;
     }
-    const headers = ['No', 'Nama Siswa', 'NIS', 'Kelas', 'Nilai Akhir', 'Benar', 'Total Soal', 'Pelanggaran Tab Switch', 'Status'];
-    const rows = attempts.map((att, index) => [
-      index + 1,
-      `"${att.studentName.replace(/"/g, '""')}"`,
-      `"${(att.studentNis || '').replace(/"/g, '""')}"`,
-      `"${(att.studentClass || '').replace(/"/g, '""')}"`,
-      att.score,
-      att.totalCorrect,
-      att.totalQuestions,
-      att.tabSwitchCount,
-      att.status === 'SUBMITTED' ? 'Selesai' : 'Sedang Ujian',
-    ]);
-    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+
+    const headers = [
+      'No',
+      'Nama Siswa',
+      'NIS / NISN',
+      'Kelas / Rombel',
+      'Jurusan',
+      'Mata Pelajaran',
+      'Paket Ujian',
+      'Nilai Akhir',
+      'Status Ketuntasan',
+      'Jawaban Benar',
+      'Total Soal',
+      'Pelanggaran Tab Switch',
+      'Status Pengerjaan',
+      'Tanggal Selesai'
+    ];
+
+    const rows = dataToExport.map((att, index) => {
+      const jur = extractJurusanCode(att.studentClass) || '-';
+      const statusKetuntasan = att.status === 'SUBMITTED' 
+        ? (att.score >= 75 ? 'TUNTAS' : 'REMEDIAL') 
+        : 'SEDANG UJIAN';
+
+      return [
+        index + 1,
+        `"${att.studentName.replace(/"/g, '""')}"`,
+        `"${(att.studentNis || '').replace(/"/g, '""')}"`,
+        `"${(att.studentClass || '').replace(/"/g, '""')}"`,
+        `"${jur}"`,
+        `"${exam.subject.replace(/"/g, '""')}"`,
+        `"${exam.title.replace(/"/g, '""')}"`,
+        att.score,
+        `"${statusKetuntasan}"`,
+        att.totalCorrect,
+        att.totalQuestions,
+        att.tabSwitchCount,
+        att.status === 'SUBMITTED' ? 'Selesai' : 'Sedang Mengerjakan',
+        att.submittedAt ? new Date(att.submittedAt).toLocaleString('id-ID') : '-'
+      ];
+    });
+
+    // Tambahkan UTF-8 BOM (\uFEFF) agar Microsoft Excel membuka karakter & koma dengan tepat
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Rekap_Nilai_${exam.title.replace(/[^a-zA-Z0-9]/g, '_')}.csv`;
+
+    let fileSuffix = customLabel || '';
+    if (!fileSuffix) {
+      if (resultJurusanFilter !== 'ALL') {
+        fileSuffix = `_Jurusan_${resultJurusanFilter}`;
+      } else if (resultClassFilter !== 'ALL') {
+        fileSuffix = `_Kelas_${resultClassFilter.replace(/\s+/g, '_')}`;
+      } else {
+        fileSuffix = '_Semua_Siswa';
+      }
+    }
+
+    const cleanTitle = exam.title.replace(/[^a-zA-Z0-9]/g, '_');
+    link.download = `Rekap_Nilai_${cleanTitle}${fileSuffix}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Unduh Terpisah Semua Jurusan Sekaligus (Multi-File otomatis)
+  const handleBatchDownloadAllJurusans = () => {
+    if (availableJurusans.length === 0) {
+      alert('Tidak ada jurusan yang terdeteksi pada daftar nilai.');
+      return;
+    }
+
+    let downloadCount = 0;
+    availableJurusans.forEach((j, index) => {
+      const jurAttempts = attempts.filter((a) => {
+        const code = extractJurusanCode(a.studentClass) || 'LAINNYA';
+        return code === j.code;
+      });
+
+      if (jurAttempts.length > 0) {
+        downloadCount++;
+        setTimeout(() => {
+          handleExportCsv(jurAttempts, `_Jurusan_${j.code}`);
+        }, index * 350);
+      }
+    });
+
+    if (downloadCount > 0) {
+      setIsDownloadModalOpen(false);
+    }
   };
 
   // Modal Create Question

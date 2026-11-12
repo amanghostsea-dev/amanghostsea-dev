@@ -416,3 +416,61 @@ export function formatClassTargetDisplay(target?: string | null): string {
   return clean;
 }
 
+/**
+ * Extract Jurusan / Major code from a class name (e.g. "X DKV 1" -> "DKV", "XI RPL 2" -> "RPL")
+ */
+export function extractJurusanCode(className?: string | null): string | null {
+  if (!className) return null;
+  const clean = className.trim().toUpperCase();
+
+  // If the string is a general level preset or "Semua Kelas"
+  if (clean === 'SEMUA KELAS' || clean === 'SEMUA SISWA' || clean === 'ALL' || clean === 'SELURUH KELAS') {
+    return null;
+  }
+
+  // 1. Direct match with common vocational school major codes
+  const commonMatch = clean.match(
+    /\b(DKV|RPL|MPLB|TJKT|TKJ|AKL|OTKP|BDP|TBSM|TKRO|MM|SIJA|PPLG|TO|TP|TB|PH|ULW|KULINER)\b/i
+  );
+  if (commonMatch && commonMatch[1]) {
+    return commonMatch[1].toUpperCase();
+  }
+
+  // 2. Generic pattern: (X|XI|XII)[ -]+([A-Za-z]+)(?:[ -]+\d+)?
+  const genericMatch = clean.match(
+    /(?:X|XI|XII|10|11|12)[\s\-_]+([A-Za-z]{2,10})(?:[\s\-_]+\d+)?/i
+  );
+  if (genericMatch && genericMatch[1]) {
+    const code = genericMatch[1].toUpperCase();
+    if (!['KELAS', 'TINGKAT', 'SEMUA', 'JURUSAN', 'SISWA'].includes(code)) {
+      return code;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Get human-readable full title of a vocational major
+ */
+export function getJurusanFullName(code?: string | null): string {
+  if (!code) return 'Umum / Semua Jurusan';
+  const c = code.trim().toUpperCase();
+  const map: Record<string, string> = {
+    DKV: 'Desain Komunikasi Visual (DKV)',
+    RPL: 'Pengembangan Perangkat Lunak & Gim (RPL)',
+    PPLG: 'Pengembangan Perangkat Lunak & Gim (PPLG)',
+    MPLB: 'Manajemen Perkantoran & Layanan Bisnis (MPLB)',
+    TJKT: 'Teknik Jaringan Komputer & Telekomunikasi (TJKT)',
+    TKJ: 'Teknik Komputer & Jaringan (TKJ)',
+    AKL: 'Akuntansi & Keuangan Lembaga (AKL)',
+    OTKP: 'Otomatisasi & Tata Kelola Perkantoran (OTKP)',
+    BDP: 'Bisnis Daring & Pemasaran (BDP)',
+    TBSM: 'Teknik & Bisnis Sepeda Motor (TBSM)',
+    TKRO: 'Teknik Kendaraan Ringan Otomotif (TKRO)',
+    MM: 'Multimedia (MM)',
+  };
+
+  return map[c] || `Jurusan ${c}`;
+}
+
