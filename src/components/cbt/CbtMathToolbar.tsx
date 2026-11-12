@@ -25,9 +25,13 @@ interface FormulaItem {
 
 const COMMON_FORMULAS: FormulaItem[] = [
   { label: 'Pecahan', display: 'a/b', latex: '\\frac{a}{b}', desc: 'Pecahan bertingkat pembilang/penyebut' },
-  { label: 'Akar', display: '√x', latex: '\\sqrt{x}', desc: 'Akar kuadrat' },
-  { label: 'Akar n', display: 'ⁿ√x', latex: '\\sqrt[n]{x}', desc: 'Akar pangkat n' },
   { label: 'Pangkat', display: 'x²', latex: 'x^{2}', desc: 'Eksponen / Pangkat atas' },
+  { label: 'Pangkat -n', display: 'x⁻ⁿ', latex: 'x^{-n}', desc: 'Pangkat bilangan negatif (misal x⁻³)' },
+  { label: 'Kurung Pangkat', display: '(a/b)ⁿ', latex: '\\left(\\frac{a}{b}\\right)^{n}', desc: 'Kurung besar proporsional berpangkat n' },
+  { label: 'Akar', display: '√x', latex: '\\sqrt{x}', desc: 'Akar kuadrat' },
+  { label: 'Akar Pecahan', display: '√(a/b)', latex: '\\sqrt{\\frac{a}{b}}', desc: 'Akar kuadrat dari pecahan' },
+  { label: 'Akar Kurung ⁿ', display: '(√a/b)ⁿ', latex: '\\left(\\sqrt{\\frac{a}{b}}\\right)^{n}', desc: 'Akar pecahan dalam kurung berpangkat n' },
+  { label: 'Akar n', display: 'ⁿ√x', latex: '\\sqrt[n]{x}', desc: 'Akar pangkat n' },
   { label: 'Indeks', display: 'x₁', latex: 'x_{1}', desc: 'Subskrip / Indeks bawah' },
   { label: 'Kali', display: '×', latex: '\\times', desc: 'Tanda kali silang' },
   { label: 'Bagi', display: '÷', latex: '\\div', desc: 'Tanda bagi titik dua' },
@@ -38,8 +42,12 @@ const COMMON_FORMULAS: FormulaItem[] = [
 
 const ADVANCED_FORMULAS: { category: string; items: FormulaItem[] }[] = [
   {
-    category: '📐 Aljabar & Fungsi',
+    category: '📐 Aljabar, Eksponen & Bentuk Akar',
     items: [
+      { label: 'Pecahan Pangkat Negatif', display: '4a⁵ / 2a⁻³', latex: '\\frac{4a^5}{2a^{-3}}', desc: 'Contoh aljabar pecahan dengan eksponen negatif' },
+      { label: 'Pecahan Multi-Variabel', display: 'x⁷ 10y⁵ / 9x⁻³y⁻²', latex: '\\frac{x^7 10y^5}{9x^{-3}y^{-2}}', desc: 'Pecahan variabel x dan y dengan pangkat campuran' },
+      { label: 'Kurung Pangkat Pecahan', display: '(3k²/5l³)¹/⁶', latex: '\\left(\\frac{3k^2}{5l^3}\\right)^{1/6}', desc: 'Pecahan aljabar di dalam kurung berpangkat 1/6' },
+      { label: 'Akar Pecahan Berpangkat', display: '(√(2x²/y⁴))⁵', latex: '\\left(\\sqrt{\\frac{2x^2}{y^4}}\\right)^5', desc: 'Akar kuadrat pecahan di dalam kurung berpangkat 5' },
       { label: 'Rumus ABC', display: 'x = (-b ± √D)/2a', latex: 'x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}', desc: 'Akar persamaan kuadrat' },
       { label: 'Nilai Mutlak', display: '|x|', latex: '|x|', desc: 'Nilai absolut' },
       { label: 'Logaritma', display: 'ᵃlog b', latex: '\\log_{a}(b)', desc: 'Logaritma basis a' },
