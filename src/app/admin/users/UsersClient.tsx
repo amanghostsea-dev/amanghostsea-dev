@@ -23,7 +23,8 @@ import {
   Sparkles, 
   CheckCircle2,
   GraduationCap,
-  Layers
+  Layers,
+  Copy
 } from 'lucide-react';
 import { createUser, updateUser, deleteUser, createBulkStudents, BulkStudentItem } from './actions';
 import ConfirmModal from '@/components/ConfirmModal';
@@ -32,6 +33,7 @@ interface ParsedBulkStudent {
   name: string;
   nisn: string;
   studentClass?: string;
+  isClassRecognized?: boolean;
   username: string;
   password?: string;
   isValid: boolean;
@@ -67,6 +69,67 @@ function parseDelimitedLine(line: string): string[] {
   }
   tokens.push(current.trim().replace(/^["']|["']$/g, ''));
   return tokens;
+}
+
+// Helper: Normalisasi penulisan kelas & jurusan agar kebal typo (misal: "10 rpl 1" -> "X RPL 1", "x-tjkt-1" -> "X TJKT 1", dll.)
+function normalizeStudentClass(
+  rawClass: string,
+  validClasses: string[],
+  jurusans: JurusanOption[]
+): { normalized: string; isRecognized: boolean } {
+  if (!rawClass || !rawClass.trim()) {
+    return { normalized: '', isRecognized: false };
+  }
+
+  const cleaned = rawClass.trim();
+
+  // 1. Cek pencocokan langsung (case-insensitive)
+  const exactMatch = validClasses.find((c) => c.toLowerCase() === cleaned.toLowerCase());
+  if (exactMatch) {
+    return { normalized: exactMatch, isRecognized: true };
+  }
+
+  // 2. Normalisasi format: ubah angka 10/11/12 ke Romawi X/XI/XII, ganti pemisah strip/titik dengan spasi
+  let formatted = cleaned.toUpperCase().replace(/[-_.]+/g, ' ');
+
+  // Ubah 10 -> X, 11 -> XI, 12 -> XII jika di awal kata
+  formatted = formatted.replace(/^10\b/i, 'X');
+  formatted = formatted.replace(/^11\b/i, 'XI');
+  formatted = formatted.replace(/^12\b/i, 'XII');
+
+  // Pisahkan jika huruf tingkat menempel dengan kode jurusan: "XRPL" -> "X RPL", "XIIRPL" -> "XII RPL"
+  formatted = formatted.replace(/\b(XII|XI|X)([A-Z]+)\b/i, '$1 $2');
+  // Pisahkan jika kode jurusan menempel dengan angka rombel: "RPL1" -> "RPL 1"
+  formatted = formatted.replace(/\b([A-Z]+)(\d+)\b/i, '$1 $2');
+  formatted = formatted.replace(/\s+/g, ' ').trim();
+
+  // Cek apakah hasil perbaikan cocok dengan kelas resmi
+  const reformattedMatch = validClasses.find((c) => c.toUpperCase() === formatted);
+  if (reformattedMatch) {
+    return { normalized: reformattedMatch, isRecognized: true };
+  }
+
+  // 3. Jika hanya kode jurusan dan rombel (misal "RPL 1" atau "TJKT 1"), cocokkan dengan kelas yang ada
+  const parts = formatted.split(' ');
+  if (parts.length === 2 && /^\d+$/.test(parts[1])) {
+    const code = parts[0];
+    const rombel = parts[1];
+    const foundWithLevel = validClasses.find((c) => c.toUpperCase().includes(`${code} ${rombel}`));
+    if (foundWithLevel) {
+      return { normalized: foundWithLevel, isRecognized: true };
+    }
+  }
+
+  // 4. Cek apakah ada kode jurusan yang cocok
+  const matchedJurusan = jurusans.find((j) => {
+    const code = (j.code || '').trim().toUpperCase();
+    return code && formatted.includes(code);
+  });
+
+  return {
+    normalized: formatted,
+    isRecognized: !!matchedJurusan,
+  };
 }
 
 export interface JurusanOption {
@@ -123,6 +186,15 @@ export default function UsersCRUD({
     errors: string[];
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [copiedClass, setCopiedClass] = useState<string | null>(null);
+
+  const handleCopyClass = (className: string) => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(className);
+      setCopiedClass(className);
+      setTimeout(() => setCopiedClass(null), 2500);
+    }
+  };
 
   // Available classes for selected jurusan
   const availableClassesForJurusan = useMemo(() => {
@@ -266,6 +338,11 @@ export default function UsersCRUD({
 
     for (let index = startIndex; index < lines.length; index++) {
       const line = lines[index];
+      // Abaikan baris komentar panduan yang diawali #, //, ===, ---
+      if (line.startsWith('#') || line.startsWith('//') || line.startsWith('===') || line.startsWith('---')) {
+        continue;
+      }
+
       const parts = parseDelimitedLine(line);
       if (parts.length === 0 || (parts.length === 1 && !parts[0])) continue;
 
@@ -321,9 +398,17 @@ export default function UsersCRUD({
         }
       }
 
-      // Bersihkan dan tetapkan nilai default fallback
+      // Bersihkan dan normalisasi nama kelas dengan auto-corrector anti typo
       nisn = nisn.replace(/[^\d]/g, '');
-      if (!studentClass) studentClass = bulkClass;
+      let isClassRecognized = true;
+      if (studentClass && studentClass.trim()) {
+        const norm = normalizeStudentClass(studentClass, classTargets, jurusans);
+        studentClass = norm.normalized || studentClass.trim();
+        isClassRecognized = norm.isRecognized;
+      } else {
+        studentClass = bulkClass;
+      }
+
       if (!username) username = nisn || name.toLowerCase().replace(/\s+/g, '');
       if (!password) {
         password = bulkPasswordMode === 'nisn' ? (nisn || 'siswa123') : bulkDefaultPassword;
@@ -356,6 +441,7 @@ export default function UsersCRUD({
         name,
         nisn,
         studentClass,
+        isClassRecognized,
         username,
         password,
         isValid,
@@ -364,7 +450,7 @@ export default function UsersCRUD({
     }
 
     return results;
-  }, [bulkText, bulkClass, bulkPasswordMode, bulkDefaultPassword]);
+  }, [bulkText, bulkClass, bulkPasswordMode, bulkDefaultPassword, classTargets, jurusans]);
 
   const validStudentsCount = parsedBulkStudents.filter(s => s.isValid).length;
   const invalidStudentsCount = parsedBulkStudents.length - validStudentsCount;
@@ -386,25 +472,80 @@ export default function UsersCRUD({
     e.target.value = '';
   };
 
-  // Unduh template CSV resmi sesuai kriteria lengkap data Siswa SMK
+  // Unduh template CSV resmi sesuai kriteria lengkap data Siswa SMK dengan contoh per jurusan
   const handleDownloadCsvTemplate = () => {
-    const defaultSampleClass = classTargets.find(c => c !== 'Semua Kelas') || 'XI RPL 1';
-    const sampleClass2 = classTargets.find(c => c !== 'Semua Kelas' && c !== defaultSampleClass) || 'XI TJKT 1';
-    const sampleClass3 = classTargets.find(c => c !== 'Semua Kelas' && c !== defaultSampleClass && c !== sampleClass2) || 'X DKV 1';
+    const validSpecificClasses = classTargets.filter(c => !c.toLowerCase().startsWith('semua'));
+    
+    // Ambil daftar jurusan resmi sekolah
+    const activeJurusans = jurusans.length > 0 ? jurusans : [
+      { id: '1', code: 'RPL', name: 'Pengembangan Perangkat Lunak & Gim', kuota: 36, description: '' },
+      { id: '2', code: 'TJKT', name: 'Teknik Jaringan Komputer & Telekomunikasi', kuota: 36, description: '' },
+      { id: '3', code: 'DKV', name: 'Desain Komunikasi Visual', kuota: 36, description: '' },
+      { id: '4', code: 'MPLB', name: 'Manajemen Perkantoran & Layanan Bisnis', kuota: 36, description: '' },
+    ];
+
+    const sampleRows: string[][] = [];
+    const sampleNames = [
+      'Ahmad Fauzi Pratama',
+      'Budi Santoso',
+      'Citra Dewi Lestari',
+      'Dwi Kurniawan',
+      'Eka Putri Rahayu',
+      'Fajar Ramadhan Saputra',
+      'Gita Maya Anggraini',
+      'Hendra Saputra Jaya',
+      'Indah Permata Sari',
+      'Joko Wicaksono',
+    ];
+
+    let nisnCounter = 81234501;
+
+    activeJurusans.forEach((j, jIdx) => {
+      const code = (j.code || '').trim().toUpperCase();
+      // Cari kelas resmi untuk jurusan ini
+      const matching = validSpecificClasses.filter(c => c.toUpperCase().includes(code));
+      const targetClass1 = matching[0] || `X ${code} 1`;
+      const targetClass2 = matching[1] || `XI ${code} 1`;
+
+      const nisn1 = `00${nisnCounter++}`;
+      const name1 = sampleNames[(jIdx * 2) % sampleNames.length];
+      sampleRows.push([nisn1, name1, targetClass1, nisn1, 'siswa123']);
+
+      if (sampleRows.length < 8) {
+        const nisn2 = `00${nisnCounter++}`;
+        const name2 = sampleNames[(jIdx * 2 + 1) % sampleNames.length];
+        sampleRows.push([nisn2, name2, targetClass2, nisn2, 'siswa123']);
+      }
+    });
 
     const headers = ['NISN', 'Nama Lengkap', 'Kelas', 'Username', 'Password'];
-    const rows = [
-      ['0081234501', 'Ahmad Fauzi Pratama', defaultSampleClass, '0081234501', 'siswa123'],
-      ['0081234502', 'Budi Santoso', defaultSampleClass, '0081234502', 'siswa123'],
-      ['0081234503', 'Citra Dewi Lestari', sampleClass2, '0081234503', 'siswa123'],
-      ['0081234504', 'Dwi Kurniawan', sampleClass2, '0081234504', 'siswa123'],
-      ['0081234505', 'Eka Putri Rahayu', sampleClass3, '0081234505', 'siswa123'],
+
+    // Panduan & Contoh Format Resmi di bawah file CSV (diawali tanda # sehingga otomatis diabaikan sistem impor)
+    const guideLines = [
+      '',
+      '# =========================================================================================',
+      '# PANDUAN PENULISAN FORMAT JURUSAN & KELAS RESMI (MENCEGAH TYPO / SALAH KETIK):',
+      '# Format Standar Penulisan: [Tingkat: X / XI / XII] [KODE JURUSAN] [Nomor Rombel]',
+      '# Contoh Format Resmi Berdasarkan Jurusan Yang Terdaftar di Sekolah:',
+      ...activeJurusans.map(j => `# - ${j.code} (${j.name}) -> Contoh: X ${j.code} 1, XI ${j.code} 1, XII ${j.code} 1`),
+      '#',
+      '# CONTOH PENULISAN ANTI-TYPO (SISTEM OTOMATIS MEMPERBAIKI FORMAT):',
+      '# - "x rpl 1" atau "10 rpl 1" atau "x-rpl-1" -> Otomatis dinormalisasi menjadi "X RPL 1"',
+      '# - "11 tjkt 1" atau "xi-tjkt-1"              -> Otomatis dinormalisasi menjadi "XI TJKT 1"',
+      '# - "12 dkv 1" atau "xii-dkv-1"              -> Otomatis dinormalisasi menjadi "XII DKV 1"',
+      '#',
+      '# CATATAN PENTING:',
+      '# 1. Baris yang diawali tanda pagar (#) adalah catatan panduan dan otomatis dilewati saat impor.',
+      '# 2. Kolom Kelas opsional: jika kosong, siswa otomatis mengikuti "Target Kelas Cadangan".',
+      '# 3. Kolom Username & Password opsional: jika kosong, otomatis memakai NISN / password default.',
+      '# =========================================================================================',
     ];
 
     // Gunakan UTF-8 BOM (\uFEFF) agar Microsoft Excel di Windows langsung membuka CSV dengan kolom terpisah rapi
     const csvContent = '\uFEFF' + [
       headers.join(','),
-      ...rows.map(r => r.map(val => val.includes(',') ? `"${val}"` : val).join(','))
+      ...sampleRows.map(r => r.map(val => val.includes(',') ? `"${val}"` : val).join(',')),
+      ...guideLines
     ].join('\r\n') + '\r\n';
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -417,19 +558,37 @@ export default function UsersCRUD({
     document.body.removeChild(link);
   };
 
-  // Muat contoh data demo
+  // Muat contoh data demo dengan aneka jurusan
   const handleLoadSampleData = () => {
-    const defaultSampleClass = classTargets.find(c => c !== 'Semua Kelas') || 'XI RPL 1';
-    const sampleClass2 = classTargets.find(c => c !== 'Semua Kelas' && c !== defaultSampleClass) || 'XI TJKT 1';
-    const sampleClass3 = classTargets.find(c => c !== 'Semua Kelas' && c !== defaultSampleClass && c !== sampleClass2) || 'X DKV 1';
+    const validSpecificClasses = classTargets.filter(c => !c.toLowerCase().startsWith('semua'));
+    const activeJurusans = jurusans.length > 0 ? jurusans : [
+      { id: '1', code: 'RPL', name: 'Pengembangan Perangkat Lunak & Gim', kuota: 36, description: '' },
+      { id: '2', code: 'TJKT', name: 'Teknik Jaringan Komputer & Telekomunikasi', kuota: 36, description: '' },
+      { id: '3', code: 'DKV', name: 'Desain Komunikasi Visual', kuota: 36, description: '' },
+      { id: '4', code: 'MPLB', name: 'Manajemen Perkantoran & Layanan Bisnis', kuota: 36, description: '' },
+    ];
 
-    const sample = `NISN\tNama Lengkap\tKelas\tUsername\tPassword
-0081122331\tAditia Pratama Putra\t${defaultSampleClass}\t0081122331\tsiswa123
-0081122332\tAnnisa Bella Safitri\t${defaultSampleClass}\t0081122332\tsiswa123
-0081122333\tBagas Arya Yudha\t${sampleClass2}\t0081122333\tsiswa123
-0081122334\tCantika Putri Wulandari\t${sampleClass2}\t0081122334\tsiswa123
-0081122335\tDimas Wahyu Nugroho\t${sampleClass3}\t0081122335\tsiswa123`;
-    setBulkText(sample);
+    const lines: string[] = ['NISN\tNama Lengkap\tKelas\tUsername\tPassword'];
+    const sampleNames = [
+      'Aditia Pratama Putra',
+      'Annisa Bella Safitri',
+      'Bagas Arya Yudha',
+      'Cantika Putri Wulandari',
+      'Dimas Wahyu Nugroho',
+      'Fani Rahmawati',
+    ];
+
+    let nisnCounter = 81122331;
+    activeJurusans.forEach((j, idx) => {
+      const code = (j.code || '').trim().toUpperCase();
+      const matching = validSpecificClasses.filter(c => c.toUpperCase().includes(code));
+      const targetClass = matching[idx % (matching.length || 1)] || `XI ${code} 1`;
+      const nisn = `00${nisnCounter++}`;
+      const name = sampleNames[idx % sampleNames.length];
+      lines.push(`${nisn}\t${name}\t${targetClass}\t${nisn}\tsiswa123`);
+    });
+
+    setBulkText(lines.join('\n'));
     setBulkResult(null);
   };
 
@@ -920,6 +1079,73 @@ export default function UsersCRUD({
                   </div>
                 </div>
 
+                {/* 🏫 PANDUAN & CONTOH FORMAT JURUSAN & KELAS (ANTI-TYPO) */}
+                <div className="p-3.5 bg-gradient-to-br from-purple-50 via-indigo-50/50 to-purple-50 dark:from-purple-950/30 dark:via-indigo-950/20 dark:to-purple-950/30 rounded-2xl border border-purple-200 dark:border-purple-800/60 text-xs space-y-2.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                    <div className="font-bold text-purple-950 dark:text-purple-200 flex items-center gap-1.5">
+                      <Sparkles size={15} className="text-purple-600" />
+                      <span>Contoh Format Penulisan Jurusan & Kelas (Bebas Typo):</span>
+                    </div>
+                    <span className="text-[11px] text-purple-700/80 dark:text-purple-400 font-medium">
+                      Standar: <strong className="font-mono text-purple-900 dark:text-purple-200">[Tingkat] [Kode] [Rombel]</strong> • Klik untuk salin
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                    {jurusans.map((j) => {
+                      const code = j.code.trim().toUpperCase();
+                      const sampleClasses = classTargets
+                        .filter(c => !c.toLowerCase().startsWith('semua') && c.toUpperCase().includes(code))
+                        .slice(0, 3);
+                      const fallbackClasses = sampleClasses.length > 0 ? sampleClasses : [`X ${code} 1`, `XI ${code} 1`, `XII ${code} 1`];
+
+                      return (
+                        <div key={j.id} className="p-2.5 rounded-xl bg-white dark:bg-gray-900 border border-purple-100 dark:border-purple-900/50 space-y-1.5 shadow-2xs">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="font-bold text-gray-900 dark:text-white flex items-center gap-1">
+                              <span className="px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 font-mono text-[10px]">
+                                {code}
+                              </span>
+                              <span className="truncate max-w-[200px]" title={j.name}>{j.name}</span>
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {fallbackClasses.map((cls) => (
+                              <button
+                                key={cls}
+                                type="button"
+                                onClick={() => handleCopyClass(cls)}
+                                className={`px-2 py-0.5 rounded-lg border text-[10.5px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 ${
+                                  copiedClass === cls
+                                    ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 border-emerald-300'
+                                    : 'bg-slate-50 dark:bg-slate-800 hover:bg-purple-100 dark:hover:bg-purple-900/40 text-purple-900 dark:text-purple-300 border-slate-200 dark:border-slate-700'
+                                }`}
+                                title={`Klik untuk menyalin "${cls}"`}
+                              >
+                                <span>{cls}</span>
+                                {copiedClass === cls ? (
+                                  <Check size={11} className="text-emerald-600" />
+                                ) : (
+                                  <Copy size={10} className="text-slate-400" />
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 text-[11px] text-purple-700 dark:text-purple-300 border-t border-purple-200/60 dark:border-purple-900/40">
+                    <span>💡 <em>Sistem memiliki auto-normalizer yang otomatis mengoreksi huruf kecil, tanda hubung, atau angka romawi (misal: &quot;10 rpl 1&quot; atau &quot;x-rpl-1&quot; otomatis menjadi &quot;X RPL 1&quot;).</em></span>
+                    {copiedClass && (
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 shrink-0 ml-2">
+                        <Check size={12} /> Disalin: {copiedClass}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
                 {/* Pilihan Target Kelas untuk Impor Massal */}
                 <div className="p-3.5 bg-purple-50/70 dark:bg-purple-950/30 rounded-2xl border border-purple-200 dark:border-purple-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
@@ -1046,9 +1272,20 @@ export default function UsersCRUD({
                               <td className="p-2.5 font-semibold text-gray-900 dark:text-white">{s.name || '-'}</td>
                               <td className="p-2.5 font-mono text-gray-700 dark:text-gray-300">{s.nisn || '-'}</td>
                               <td className="p-2.5">
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded font-bold bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[10px]">
-                                  {s.studentClass || bulkClass}
-                                </span>
+                                <div className="inline-flex items-center gap-1">
+                                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded font-bold text-[10px] border ${
+                                    s.isClassRecognized !== false
+                                      ? 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                                      : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                                  }`}>
+                                    {s.studentClass || bulkClass}
+                                  </span>
+                                  {s.isClassRecognized !== false ? (
+                                    <span className="text-[10px] text-emerald-600 font-bold" title="Format kelas valid & terdaftar di sistem">✓</span>
+                                  ) : (
+                                    <span className="text-[10px] text-amber-600 font-bold" title="Format kelas tidak terdaftar di jurusan resmi, mohon periksa">⚠️</span>
+                                  )}
+                                </div>
                               </td>
                               <td className="p-2.5 font-mono text-gray-700 dark:text-gray-300">{s.username || '-'}</td>
                               <td className="p-2.5 font-mono text-gray-500 dark:text-gray-400">{s.password || '-'}</td>
