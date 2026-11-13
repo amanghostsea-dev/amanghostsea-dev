@@ -31,10 +31,42 @@ import ConfirmModal from '@/components/ConfirmModal';
 interface ParsedBulkStudent {
   name: string;
   nisn: string;
+  studentClass?: string;
   username: string;
   password?: string;
   isValid: boolean;
   error?: string;
+}
+
+// Helper: Parser baris CSV / TSV yang mendukung tanda kutip dan aneka delimiter (tab, koma, titik koma)
+function parseDelimitedLine(line: string): string[] {
+  const trimmed = line.trim();
+  if (!trimmed) return [];
+
+  // Prioritas pemisah tab jika hasil copy-paste dari spreadsheet (Excel / Google Sheets)
+  if (trimmed.includes('\t')) {
+    return trimmed.split('\t').map((c) => c.trim().replace(/^["']|["']$/g, ''));
+  }
+
+  // Tentukan pemisah (titik koma atau koma)
+  const sep = trimmed.includes(';') ? ';' : ',';
+  const tokens: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < trimmed.length; i++) {
+    const char = trimmed[i];
+    if (char === '"' || char === "'") {
+      inQuotes = !inQuotes;
+    } else if (char === sep && !inQuotes) {
+      tokens.push(current.trim().replace(/^["']|["']$/g, ''));
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  tokens.push(current.trim().replace(/^["']|["']$/g, ''));
+  return tokens;
 }
 
 export interface JurusanOption {
@@ -203,54 +235,98 @@ export default function UsersCRUD({
     if (!bulkText.trim()) return [];
 
     const lines = bulkText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) return [];
+
     const results: ParsedBulkStudent[] = [];
     const seenNisns = new Set<string>();
+    const seenUsernames = new Set<string>();
 
-    for (let index = 0; index < lines.length; index++) {
+    let nisnCol = -1;
+    let nameCol = -1;
+    let classCol = -1;
+    let userCol = -1;
+    let passCol = -1;
+    let startIndex = 0;
+
+    // Deteksi jika baris pertama adalah baris header (NISN, Nama, Kelas, Username, Password)
+    const line0Tokens = parseDelimitedLine(lines[0]);
+    const lowerTokens = line0Tokens.map(t => t.toLowerCase());
+
+    const hasHeaderNisn = lowerTokens.some(t => t.includes('nisn'));
+    const hasHeaderName = lowerTokens.some(t => t.includes('nama') || t.includes('name'));
+
+    if (hasHeaderNisn || hasHeaderName) {
+      startIndex = 1;
+      nisnCol = lowerTokens.findIndex(t => t.includes('nisn'));
+      nameCol = lowerTokens.findIndex(t => t.includes('nama') || t.includes('name'));
+      classCol = lowerTokens.findIndex(t => t.includes('kelas') || t.includes('class') || t.includes('rombel'));
+      userCol = lowerTokens.findIndex(t => t.includes('user'));
+      passCol = lowerTokens.findIndex(t => t.includes('pass'));
+    }
+
+    for (let index = startIndex; index < lines.length; index++) {
       const line = lines[index];
-      
-      // Skip header lines like "NISN,Nama" or "Nama,NISN"
-      if (index === 0 && (line.toLowerCase().includes('nisn') || line.toLowerCase().includes('nama'))) {
-        continue;
-      }
-
-      // Support tab, comma, semicolon, or multiple spaces as delimiters
-      let parts: string[] = [];
-      if (line.includes('\t')) {
-        parts = line.split('\t');
-      } else if (line.includes(';')) {
-        parts = line.split(';');
-      } else if (line.includes(',')) {
-        parts = line.split(',');
-      } else {
-        // Match 10-digit number followed by name
-        const match = line.match(/^(\d{8,12})\s+(.+)$/);
-        if (match) {
-          parts = [match[1], match[2]];
-        } else {
-          parts = [line];
-        }
-      }
-
-      parts = parts.map(p => p.trim()).filter(Boolean);
+      const parts = parseDelimitedLine(line);
+      if (parts.length === 0 || (parts.length === 1 && !parts[0])) continue;
 
       let nisn = '';
       let name = '';
+      let studentClass = '';
+      let username = '';
+      let password = '';
 
-      if (parts.length >= 2) {
-        // Detect which part is the NISN (numeric)
-        if (/^\d+$/.test(parts[0])) {
-          nisn = parts[0];
-          name = parts.slice(1).join(' ');
-        } else if (/^\d+$/.test(parts[parts.length - 1])) {
-          nisn = parts[parts.length - 1];
-          name = parts.slice(0, -1).join(' ');
-        } else {
+      if (startIndex === 1) {
+        // Ambil data berdasarkan indeks kolom header yang terdeteksi
+        if (nisnCol !== -1 && parts[nisnCol]) nisn = parts[nisnCol];
+        if (nameCol !== -1 && parts[nameCol]) name = parts[nameCol];
+        if (classCol !== -1 && parts[classCol]) studentClass = parts[classCol];
+        if (userCol !== -1 && parts[userCol]) username = parts[userCol];
+        if (passCol !== -1 && parts[passCol]) password = parts[passCol];
+      } else {
+        // Pemetaan posisi jika tanpa baris header
+        if (parts.length >= 5) {
           nisn = parts[0];
           name = parts[1];
+          studentClass = parts[2];
+          username = parts[3];
+          password = parts[4];
+        } else if (parts.length === 4) {
+          nisn = parts[0];
+          name = parts[1];
+          studentClass = parts[2];
+          username = parts[3];
+        } else if (parts.length === 3) {
+          nisn = parts[0];
+          name = parts[1];
+          studentClass = parts[2];
+        } else if (parts.length === 2) {
+          if (/^\d+$/.test(parts[0])) {
+            nisn = parts[0];
+            name = parts[1];
+          } else if (/^\d+$/.test(parts[1])) {
+            nisn = parts[1];
+            name = parts[0];
+          } else {
+            nisn = parts[0];
+            name = parts[1];
+          }
+        } else if (parts.length === 1) {
+          const match = parts[0].match(/^(\d{8,12})\s+(.+)$/);
+          if (match) {
+            nisn = match[1];
+            name = match[2];
+          } else {
+            name = parts[0];
+          }
         }
-      } else if (parts.length === 1) {
-        name = parts[0];
+      }
+
+      // Bersihkan dan tetapkan nilai default fallback
+      nisn = nisn.replace(/[^\d]/g, '');
+      if (!studentClass) studentClass = bulkClass;
+      if (!username) username = nisn || name.toLowerCase().replace(/\s+/g, '');
+      if (!password) {
+        password = bulkPasswordMode === 'nisn' ? (nisn || 'siswa123') : bulkDefaultPassword;
       }
 
       let isValid = true;
@@ -267,24 +343,28 @@ export default function UsersCRUD({
         error = 'NISN harus 8-12 angka';
       } else if (seenNisns.has(nisn)) {
         isValid = false;
-        error = 'Duplikat dalam daftar impor';
+        error = 'Duplikat NISN dalam daftar impor';
+      } else if (seenUsernames.has(username.toLowerCase())) {
+        isValid = false;
+        error = `Username "${username}" duplikat dalam daftar`;
       }
 
-      if (nisn) {
-        seenNisns.add(nisn);
-      }
+      if (nisn) seenNisns.add(nisn);
+      if (username) seenUsernames.add(username.toLowerCase());
 
       results.push({
         name,
         nisn,
-        username: nisn,
+        studentClass,
+        username,
+        password,
         isValid,
         error,
       });
     }
 
     return results;
-  }, [bulkText]);
+  }, [bulkText, bulkClass, bulkPasswordMode, bulkDefaultPassword]);
 
   const validStudentsCount = parsedBulkStudents.filter(s => s.isValid).length;
   const invalidStudentsCount = parsedBulkStudents.length - validStudentsCount;
@@ -303,14 +383,31 @@ export default function UsersCRUD({
       }
     };
     reader.readAsText(file);
-    // Reset file input value to allow re-uploading the same file
     e.target.value = '';
   };
 
-  // Download sample CSV template
+  // Unduh template CSV resmi sesuai kriteria lengkap data Siswa SMK
   const handleDownloadCsvTemplate = () => {
-    const templateContent = "NISN,Nama Lengkap\n0071234501,Ahmad Fauzi Pratama\n0071234502,Budi Santoso\n0071234503,Citra Dewi Lestari\n0071234504,Dwi Kurniawan\n0071234505,Eka Putri Rahayu\n";
-    const blob = new Blob([templateContent], { type: 'text/csv;charset=utf-8;' });
+    const defaultSampleClass = classTargets.find(c => c !== 'Semua Kelas') || 'XI RPL 1';
+    const sampleClass2 = classTargets.find(c => c !== 'Semua Kelas' && c !== defaultSampleClass) || 'XI TJKT 1';
+    const sampleClass3 = classTargets.find(c => c !== 'Semua Kelas' && c !== defaultSampleClass && c !== sampleClass2) || 'X DKV 1';
+
+    const headers = ['NISN', 'Nama Lengkap', 'Kelas', 'Username', 'Password'];
+    const rows = [
+      ['0081234501', 'Ahmad Fauzi Pratama', defaultSampleClass, '0081234501', 'siswa123'],
+      ['0081234502', 'Budi Santoso', defaultSampleClass, '0081234502', 'siswa123'],
+      ['0081234503', 'Citra Dewi Lestari', sampleClass2, '0081234503', 'siswa123'],
+      ['0081234504', 'Dwi Kurniawan', sampleClass2, '0081234504', 'siswa123'],
+      ['0081234505', 'Eka Putri Rahayu', sampleClass3, '0081234505', 'siswa123'],
+    ];
+
+    // Gunakan UTF-8 BOM (\uFEFF) agar Microsoft Excel di Windows langsung membuka CSV dengan kolom terpisah rapi
+    const csvContent = '\uFEFF' + [
+      headers.join(','),
+      ...rows.map(r => r.map(val => val.includes(',') ? `"${val}"` : val).join(','))
+    ].join('\r\n') + '\r\n';
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -320,18 +417,18 @@ export default function UsersCRUD({
     document.body.removeChild(link);
   };
 
-  // Load demo dummy data
+  // Muat contoh data demo
   const handleLoadSampleData = () => {
-    const sample = `0081122331\tAditia Pratama Putra
-0081122332\tAnnisa Bella Safitri
-0081122333\tBagas Arya Yudha
-0081122334\tCantika Putri Wulandari
-0081122335\tDimas Wahyu Nugroho
-0081122336\tFajar Ramadhan Saputra
-0081122337\tGita Maya Anggraini
-0081122338\tHendra Saputra Jaya
-0081122339\tIndah Permata Sari
-0081122340\tJoko Wicaksono`;
+    const defaultSampleClass = classTargets.find(c => c !== 'Semua Kelas') || 'XI RPL 1';
+    const sampleClass2 = classTargets.find(c => c !== 'Semua Kelas' && c !== defaultSampleClass) || 'XI TJKT 1';
+    const sampleClass3 = classTargets.find(c => c !== 'Semua Kelas' && c !== defaultSampleClass && c !== sampleClass2) || 'X DKV 1';
+
+    const sample = `NISN\tNama Lengkap\tKelas\tUsername\tPassword
+0081122331\tAditia Pratama Putra\t${defaultSampleClass}\t0081122331\tsiswa123
+0081122332\tAnnisa Bella Safitri\t${defaultSampleClass}\t0081122332\tsiswa123
+0081122333\tBagas Arya Yudha\t${sampleClass2}\t0081122333\tsiswa123
+0081122334\tCantika Putri Wulandari\t${sampleClass2}\t0081122334\tsiswa123
+0081122335\tDimas Wahyu Nugroho\t${sampleClass3}\t0081122335\tsiswa123`;
     setBulkText(sample);
     setBulkResult(null);
   };
@@ -353,12 +450,13 @@ export default function UsersCRUD({
         nisn: s.nisn,
         username: s.username,
         password: s.password || (bulkPasswordMode === 'nisn' ? s.nisn : bulkDefaultPassword),
+        studentClass: s.studentClass || bulkClass,
       }));
 
       const res = await createBulkStudents(payload, {
         defaultPassword: bulkDefaultPassword,
         useNisnAsPassword: bulkPasswordMode === 'nisn',
-        useNisnAsUsername: true,
+        useNisnAsUsername: false,
         studentClass: bulkClass,
       });
 
@@ -371,10 +469,11 @@ export default function UsersCRUD({
           errors: res.errors || [],
         });
         if (res.createdUsers && res.createdUsers.length > 0) {
-          setUsers(prev => [...(res.createdUsers as User[]), ...prev]);
+          setUsers(prev => [...(res.createdUsers as unknown as User[]), ...prev]);
           for (const u of res.createdUsers) {
-            studentClassMap[u.name] = bulkClass;
-            if (u.nisn) studentClassMap[u.nisn] = bulkClass;
+            const assignedClass = (u as any).studentClass || bulkClass;
+            studentClassMap[u.name] = assignedClass;
+            if (u.nisn) studentClassMap[u.nisn] = assignedClass;
           }
         }
       } else {
@@ -716,7 +815,7 @@ export default function UsersCRUD({
                   <div>
                     <h3 className="text-lg font-bold text-gray-900 dark:text-white">Tambah Siswa Kolektif (Massal)</h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Import puluhan akun siswa sekaligus dalam hitungan detik menggunakan NISN
+                      Import puluhan akun siswa sekaligus menggunakan format template standar Dapodik & CBT
                     </p>
                   </div>
                 </div>
@@ -767,14 +866,14 @@ export default function UsersCRUD({
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="px-3.5 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
+                      className="px-3.5 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm cursor-pointer"
                     >
                       <Upload size={14} /> Upload File CSV
                     </button>
                     <button
                       type="button"
                       onClick={handleDownloadCsvTemplate}
-                      className="px-3.5 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
+                      className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm shadow-purple-600/25 cursor-pointer"
                     >
                       <Download size={14} /> Unduh Format Template
                     </button>
@@ -783,10 +882,42 @@ export default function UsersCRUD({
                   <button
                     type="button"
                     onClick={handleLoadSampleData}
-                    className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-bold flex items-center gap-1"
+                    className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-bold flex items-center gap-1 cursor-pointer"
                   >
                     <Sparkles size={14} /> Muat Contoh Data
                   </button>
+                </div>
+
+                {/* Panduan Format Kolom */}
+                <div className="p-3.5 bg-blue-50/70 dark:bg-blue-950/30 rounded-2xl border border-blue-200/80 dark:border-blue-900/40 text-xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-blue-950 dark:text-blue-300 flex items-center gap-1.5">
+                      <FileSpreadsheet size={15} className="text-blue-600" /> Kriteria Data Kolom Tambah User Siswa:
+                    </span>
+                    <span className="text-[10px] bg-blue-200/70 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded-full font-bold">5 Kolom Standar</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[11px]">
+                    <div className="p-2 rounded-xl bg-white dark:bg-gray-900 border border-blue-100 dark:border-blue-900/40">
+                      <span className="block font-bold text-gray-900 dark:text-white">1. NISN</span>
+                      <span className="text-gray-500 text-[10px]">Wajib (8-12 angka)</span>
+                    </div>
+                    <div className="p-2 rounded-xl bg-white dark:bg-gray-900 border border-blue-100 dark:border-blue-900/40">
+                      <span className="block font-bold text-gray-900 dark:text-white">2. Nama Lengkap</span>
+                      <span className="text-gray-500 text-[10px]">Wajib (Nama Siswa)</span>
+                    </div>
+                    <div className="p-2 rounded-xl bg-white dark:bg-gray-900 border border-blue-100 dark:border-blue-900/40">
+                      <span className="block font-bold text-gray-900 dark:text-white">3. Kelas</span>
+                      <span className="text-gray-500 text-[10px]">Misal: XI RPL 1</span>
+                    </div>
+                    <div className="p-2 rounded-xl bg-white dark:bg-gray-900 border border-blue-100 dark:border-blue-900/40">
+                      <span className="block font-bold text-gray-900 dark:text-white">4. Username</span>
+                      <span className="text-gray-500 text-[10px]">Opsional (Otomatis NISN)</span>
+                    </div>
+                    <div className="p-2 rounded-xl bg-white dark:bg-gray-900 border border-blue-100 dark:border-blue-900/40">
+                      <span className="block font-bold text-gray-900 dark:text-white">5. Password</span>
+                      <span className="text-gray-500 text-[10px]">Opsional (Default: siswa123)</span>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Pilihan Target Kelas untuk Impor Massal */}
@@ -794,10 +925,10 @@ export default function UsersCRUD({
                   <div>
                     <label className="text-xs font-bold text-purple-950 dark:text-purple-300 flex items-center gap-1.5">
                       <Layers size={14} className="text-purple-600" />
-                      Jurusan & Kelas Siswa Impor Kolektif:
+                      Target Kelas Cadangan (Fallback):
                     </label>
                     <p className="text-[11px] text-purple-700/80 dark:text-purple-400">
-                      Seluruh siswa yang diimpor akan langsung terdaftar di kelas jurusan ini
+                      Digunakan jika kolom Kelas pada file/paste kosong. Siswa yang memiliki kolom Kelas di file akan otomatis terdaftar sesuai kelasnya masing-masing.
                     </p>
                   </div>
                   <select
@@ -813,18 +944,18 @@ export default function UsersCRUD({
 
                 {/* Textarea Input */}
                 <div>
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-2">
                     <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
                       <FileText size={16} className="text-indigo-600" />
-                      Paste Data Siswa (Format: NISN [Tab/Koma] Nama Lengkap)
+                      Data Siswa: NISN, Nama Lengkap, Kelas, Username, Password
                     </label>
-                    <span className="text-xs text-gray-500">Bisa copy langsung dari kolom Excel / Google Sheets</span>
+                    <span className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold">Bisa copy langsung dari Excel / CSV</span>
                   </div>
                   <textarea
                     rows={6}
                     value={bulkText}
                     onChange={e => setBulkText(e.target.value)}
-                    placeholder="Contoh:&#10;0071234501	Ahmad Fauzi Pratama&#10;0071234502	Budi Santoso&#10;0071234503	Citra Dewi Lestari"
+                    placeholder="Contoh format CSV / Excel:&#10;NISN,Nama Lengkap,Kelas,Username,Password&#10;0081234501,Ahmad Fauzi Pratama,XI RPL 1,0081234501,siswa123&#10;0081234502,Budi Santoso,XI RPL 1,0081234502,siswa123&#10;0081234503,Citra Dewi Lestari,XI TJKT 1,0081234503,siswa123"
                     className="w-full p-4 rounded-2xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 font-mono text-xs text-gray-900 dark:text-white placeholder:text-gray-400 focus:bg-white dark:focus:bg-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none transition-all leading-relaxed"
                   />
                 </div>
@@ -833,7 +964,7 @@ export default function UsersCRUD({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40">
                   <div>
                     <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">
-                      Pengaturan Password Akun:
+                      Pengaturan Password Akun (Jika Kolom Password Kosong):
                     </label>
                     <div className="space-y-2">
                       <label className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300 cursor-pointer">
@@ -899,10 +1030,12 @@ export default function UsersCRUD({
                       <table className="w-full text-left text-xs border-collapse">
                         <thead className="bg-gray-50 dark:bg-gray-800/80 sticky top-0 text-gray-500 font-semibold border-b border-gray-200 dark:border-gray-800">
                           <tr>
-                            <th className="p-2.5 pl-4 w-12 text-center">No</th>
+                            <th className="p-2.5 pl-4 w-10 text-center">No</th>
                             <th className="p-2.5">Nama Siswa</th>
                             <th className="p-2.5 font-mono">NISN</th>
+                            <th className="p-2.5">Kelas</th>
                             <th className="p-2.5 font-mono">Username</th>
+                            <th className="p-2.5 font-mono">Password</th>
                             <th className="p-2.5 pr-4 text-right">Status</th>
                           </tr>
                         </thead>
@@ -912,7 +1045,13 @@ export default function UsersCRUD({
                               <td className="p-2.5 pl-4 text-center text-gray-400 font-mono">{idx + 1}</td>
                               <td className="p-2.5 font-semibold text-gray-900 dark:text-white">{s.name || '-'}</td>
                               <td className="p-2.5 font-mono text-gray-700 dark:text-gray-300">{s.nisn || '-'}</td>
-                              <td className="p-2.5 font-mono text-gray-500 dark:text-gray-400">{s.username || '-'}</td>
+                              <td className="p-2.5">
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded font-bold bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[10px]">
+                                  {s.studentClass || bulkClass}
+                                </span>
+                              </td>
+                              <td className="p-2.5 font-mono text-gray-700 dark:text-gray-300">{s.username || '-'}</td>
+                              <td className="p-2.5 font-mono text-gray-500 dark:text-gray-400">{s.password || '-'}</td>
                               <td className="p-2.5 pr-4 text-right">
                                 {s.isValid ? (
                                   <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center justify-end gap-1">

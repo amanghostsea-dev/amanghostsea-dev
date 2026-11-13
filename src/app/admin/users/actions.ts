@@ -215,6 +215,7 @@ export interface BulkStudentItem {
   nisn: string;
   username?: string;
   password?: string;
+  studentClass?: string;
 }
 
 export async function createBulkStudents(
@@ -235,7 +236,7 @@ export async function createBulkStudents(
     const defaultPwd = options?.defaultPassword?.trim() || 'siswa123';
     const useNisnAsPassword = !!options?.useNisnAsPassword;
     const useNisnAsUsername = options?.useNisnAsUsername ?? true;
-    const studentClass = options?.studentClass?.trim() || 'XI RPL 1';
+    const fallbackClass = options?.studentClass?.trim() || 'XI RPL 1';
 
     // Fetch existing users to check duplicates quickly in memory
     const existingUsers = await prisma.user.findMany({
@@ -244,7 +245,7 @@ export async function createBulkStudents(
     const takenUsernames = new Set(existingUsers.map(u => u.username.toLowerCase()));
     const takenNisns = new Set(existingUsers.filter(u => u.nisn).map(u => u.nisn!.toLowerCase()));
 
-    const createdUsers = [];
+    const createdUsers: any[] = [];
     const skipped: { name: string; nisn: string; reason: string }[] = [];
     const errors: string[] = [];
 
@@ -256,6 +257,7 @@ export async function createBulkStudents(
       const s = students[i];
       const name = s.name?.trim();
       const nisn = s.nisn?.toString().trim();
+      const assignedClass = s.studentClass?.trim() || fallbackClass;
       
       if (!name) {
         skipped.push({ name: s.name || `Baris ${i + 1}`, nisn: nisn || '-', reason: 'Nama siswa wajib diisi' });
@@ -300,7 +302,10 @@ export async function createBulkStudents(
             status: 'Aktif',
           }
         });
-        createdUsers.push(created);
+        createdUsers.push({
+          ...created,
+          studentClass: assignedClass,
+        });
         takenUsernames.add(lowerUsername);
         takenNisns.add(lowerNisn);
         batchUsernames.add(lowerUsername);
@@ -311,8 +316,8 @@ export async function createBulkStudents(
       }
     }
 
-    // Auto-sync StudentGrade untuk siswa yang baru dibuat massal
-    if (createdUsers.length > 0 && studentClass) {
+    // Auto-sync StudentGrade untuk siswa yang baru dibuat massal sesuai kelas masing-masing
+    if (createdUsers.length > 0) {
       try {
         const activeSubjects = await prisma.subject.findMany({
           where: { status: 'ACTIVE' },
@@ -327,7 +332,7 @@ export async function createBulkStudents(
                 subjectId: subj.id,
                 studentName: u.name,
                 studentNis: u.nisn || u.username,
-                studentClass: studentClass,
+                studentClass: u.studentClass,
                 assignment: 85,
                 midExam: 80,
                 finalExam: 85,
@@ -348,6 +353,8 @@ export async function createBulkStudents(
 
     revalidatePath('/admin/users');
     revalidatePath('/portal/guru/kelas');
+    revalidatePath('/portal/guru/nilai');
+    revalidatePath('/admin/cbt');
     return {
       success: true,
       totalSubmitted: students.length,
