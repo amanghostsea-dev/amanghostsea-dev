@@ -4,6 +4,9 @@ import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { isClassOverlap } from '@/lib/cbt-schedule';
+import { getKopSuratConfig } from '@/lib/settings';
+import { getDynamicClassTargets } from '@/lib/jurusan-service';
+import type { KopSuratConfig } from '@/app/admin/settings/types';
 
 // Helper: Generate clean 6-character alphanumeric token without confusing symbols (0, O, 1, I)
 function generateRandomCbtToken(): string {
@@ -1062,6 +1065,165 @@ export async function proctorForceSubmitAction(attemptId: string) {
       success: true,
       message: `Lembar ujian siswa "${attempt.studentName}" berhasil dikumpulkan paksa oleh pengawas! Skor terhitung: ${Math.round(score)}.`,
       attempt: updated,
+    };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+/**
+ * 🪪 CBT STUDENT PARTICIPANT & LOGIN CARD (KHUSUS ADMIN UTAMA)
+ */
+export interface CbtStudentCardItem {
+  id: string;
+  name: string;
+  username: string;
+  password: string;
+  nisn: string | null;
+  studentClass: string;
+  major: string;
+  gradeLevel: string;
+}
+
+export interface GetCbtStudentCardsOptions {
+  classTarget?: string;
+  search?: string;
+  examId?: string;
+}
+
+export async function getCbtStudentCardsDataAction(options?: GetCbtStudentCardsOptions) {
+  try {
+    const cookieStore = await cookies();
+    const userRole = cookieStore.get('auth_token')?.value;
+    const isSuperAdmin = userRole === 'Super Admin' || userRole === 'Admin Utama';
+
+    if (!isSuperAdmin) {
+      return {
+        error: 'Akses Ditolak: Fitur cetak kartu login peserta CBT ini khusus dan hanya dapat diakses oleh Admin Utama.',
+      };
+    }
+
+    const [rawStudents, studentGrades, examAttempts, kopSuratConfig, dynamicClasses, exams] = await Promise.all([
+      prisma.user.findMany({
+        where: {
+          role: 'Siswa',
+          status: 'Aktif',
+        },
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          password: true,
+          nisn: true,
+          createdAt: true,
+        },
+        orderBy: [{ name: 'asc' }],
+      }),
+      prisma.studentGrade.findMany({
+        select: {
+          studentName: true,
+          studentNis: true,
+          studentClass: true,
+        },
+      }),
+      prisma.examAttempt.findMany({
+        where: { studentClass: { not: '' } },
+        select: {
+          studentName: true,
+          studentNis: true,
+          studentClass: true,
+        },
+      }),
+      getKopSuratConfig(),
+      getDynamicClassTargets(),
+      prisma.exam.findMany({
+        select: {
+          id: true,
+          title: true,
+          subject: true,
+          classTarget: true,
+          roomName: true,
+          startTime: true,
+          endTime: true,
+          token: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    const studentClassMap: Record<string, string> = {};
+    for (const sg of studentGrades) {
+      if (sg.studentName && sg.studentClass) {
+        studentClassMap[sg.studentName.trim().toLowerCase()] = sg.studentClass.trim();
+      }
+      if (sg.studentNis && sg.studentClass) {
+        studentClassMap[sg.studentNis.trim().toLowerCase()] = sg.studentClass.trim();
+      }
+    }
+
+    for (const att of examAttempts) {
+      if (att.studentName && att.studentClass) {
+        const key = att.studentName.trim().toLowerCase();
+        if (!studentClassMap[key]) studentClassMap[key] = att.studentClass.trim();
+      }
+      if (att.studentNis && att.studentClass) {
+        const key = att.studentNis.trim().toLowerCase();
+        if (!studentClassMap[key]) studentClassMap[key] = att.studentClass.trim();
+      }
+    }
+
+    let students: CbtStudentCardItem[] = rawStudents.map((s) => {
+      const assignedClass =
+        (s.nisn ? studentClassMap[s.nisn.trim().toLowerCase()] : null) ||
+        studentClassMap[s.name.trim().toLowerCase()] ||
+        studentClassMap[s.username.trim().toLowerCase()] ||
+        'XI RPL 1';
+
+      let gradeLevel = 'XI';
+      if (assignedClass.startsWith('XII')) gradeLevel = 'XII';
+      else if (assignedClass.startsWith('X') && !assignedClass.startsWith('XI') && !assignedClass.startsWith('XII')) gradeLevel = 'X';
+      else if (assignedClass.startsWith('XI')) gradeLevel = 'XI';
+
+      const parts = assignedClass.split(' ');
+      const major = parts.length >= 2 ? parts[1] : 'Umum';
+
+      return {
+        id: s.id,
+        name: s.name,
+        username: s.username,
+        password: s.password || 'siswa123',
+        nisn: s.nisn,
+        studentClass: assignedClass,
+        major,
+        gradeLevel,
+      };
+    });
+
+    if (options?.classTarget && options.classTarget !== 'ALL' && options.classTarget !== 'Semua Kelas') {
+      students = students.filter(s => s.studentClass.toLowerCase() === options.classTarget!.toLowerCase());
+    }
+
+    if (options?.search) {
+      const q = options.search.trim().toLowerCase();
+      students = students.filter(
+        s =>
+          s.name.toLowerCase().includes(q) ||
+          s.username.toLowerCase().includes(q) ||
+          (s.nisn && s.nisn.toLowerCase().includes(q)) ||
+          s.studentClass.toLowerCase().includes(q)
+      );
+    }
+
+    return {
+      success: true,
+      students,
+      kopSuratConfig,
+      availableClasses: dynamicClasses,
+      exams: exams.map(e => ({
+        ...e,
+        startTime: e.startTime ? e.startTime.toISOString() : null,
+        endTime: e.endTime ? e.endTime.toISOString() : null,
+      })),
     };
   } catch (error: any) {
     return { error: error.message };

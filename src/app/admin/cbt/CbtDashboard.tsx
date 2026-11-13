@@ -37,9 +37,11 @@ import {
   FileSpreadsheet,
   CheckCheck,
   Zap,
-  RotateCcw
+  RotateCcw,
+  CreditCard
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
+import CbtParticipantCardModal from '@/components/cbt/CbtParticipantCardModal';
 import { 
   createExam, 
   updateExam, 
@@ -144,6 +146,7 @@ export default function CbtDashboard({
   const [loading, setLoading] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isParticipantCardModalOpen, setIsParticipantCardModalOpen] = useState(false);
 
   const teacherName = currentUser?.name || 'Bpk. Ahmad ST';
   const isSuperAdmin = currentUser?.role === 'Super Admin' || currentUser?.role === 'Admin Utama';
@@ -1021,6 +1024,15 @@ export default function CbtDashboard({
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {isSuperAdmin && (
+            <button
+              onClick={() => setIsParticipantCardModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md shadow-orange-500/25 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+              title="Cetak Kartu Login & Peserta Ujian CBT Siswa (Khusus Admin Utama)"
+            >
+              <CreditCard size={18} /> Cetak Kartu Peserta
+            </button>
+          )}
           <Link
             href="/portal/siswa/cbt"
             target="_blank"
@@ -3027,6 +3039,16 @@ export default function CbtDashboard({
             </div>
           </div>
         </div>
+      )}
+
+      {/* 🪪 Modal Studio Cetak Kartu Peserta & Login CBT (Khusus Admin Utama) */}
+      {isSuperAdmin && (
+        <CbtParticipantCardModal
+          isOpen={isParticipantCardModalOpen}
+          onClose={() => setIsParticipantCardModalOpen(false)}
+          kopSuratConfig={kopSuratConfig}
+          initialClasses={classPresets}
+        />
       )}
 
       {/* Modal Hapus Ujian */}
