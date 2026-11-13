@@ -75,6 +75,7 @@ import { KopSuratConfig } from '@/app/admin/settings/types';
 import CbtRichText from '@/components/cbt/CbtRichText';
 import CbtQuestionImageViewer from '@/components/cbt/CbtQuestionImageViewer';
 import CbtMathToolbar from '@/components/cbt/CbtMathToolbar';
+import CbtOptionInputItem from '@/components/cbt/CbtOptionInputItem';
 
 interface ParsedQuestion {
   questionText: string;
@@ -1086,7 +1087,8 @@ Poin: 10
       '# 1. Buka file ini menggunakan Microsoft Excel, WPS Office, atau Google Sheets.',
       '# 2. Kolom "Kunci Jawaban" WAJIB diisi salah satu huruf kapital: A, B, C, D, atau E.',
       '# 3. Kolom "Bobot Poin" diisi angka nilai (contoh: 10, 15, 20). Total skor siswa dihitung proporsional skala 100.',
-      '# 4. TIPS CEPAT: Setelah selesai mengisi di Excel, Anda bisa langsung blok tabelnya (Ctrl+A), tekan Copy (Ctrl+C), lalu Paste (Ctrl+V) ke kotak teks di web CBT!',
+      '# 4. RUMUS & FOTO DI OPSI JAWABAN: Pilihan jawaban mendukung rumus matematika KaTeX (diapit tanda $, misal "$2a^8$") dan foto/grafik.',
+      '# 5. TIPS CEPAT: Setelah selesai mengisi di Excel, Anda bisa langsung blok tabelnya (Ctrl+A), tekan Copy (Ctrl+C), lalu Paste (Ctrl+V) ke kotak teks di web CBT!',
     ];
 
     const headers = [
@@ -2055,47 +2057,19 @@ Poin: 10
                   const isChecked = correctAnswer === String(idx);
 
                   return (
-                    <div
+                    <CbtOptionInputItem
                       key={idx}
-                      className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
-                        isChecked
-                          ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20'
-                          : 'border-slate-200 dark:border-slate-800'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="correctAnswerOption"
-                        checked={isChecked}
-                        onChange={() => setCorrectAnswer(String(idx))}
-                        className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                        title={`Pilih ${label} sebagai kunci jawaban benar`}
-                      />
-                      <span className="font-bold text-sm w-5">{label}.</span>
-                      <input
-                        type="text"
-                        required
-                        placeholder={`Teks pilihan jawaban ${label}...`}
-                        value={opt}
-                        onChange={(e) => handleOptionChange(idx, e.target.value)}
-                        className="flex-1 bg-transparent text-sm focus:outline-none"
-                      />
-                      {isChecked && (
-                        <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
-                          <CheckCircle size={14} /> Kunci Jawaban
-                        </span>
-                      )}
-                      {options.length > 2 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveOption(idx)}
-                          className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition cursor-pointer"
-                          title={`Hapus pilihan ${label}`}
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      )}
-                    </div>
+                      index={idx}
+                      label={label}
+                      value={opt}
+                      isChecked={isChecked}
+                      canDelete={options.length > 2}
+                      radioName="correctAnswerOption"
+                      placeholder={`Pilihan ${label} (teks biasa, rumus KaTeX $...$, atau lampirkan foto)`}
+                      onSelectCorrect={() => setCorrectAnswer(String(idx))}
+                      onChangeText={(text) => handleOptionChange(idx, text)}
+                      onDelete={() => handleRemoveOption(idx)}
+                    />
                   );
                 })}
 
@@ -2481,8 +2455,8 @@ Poin: 15`}
                           </div>
                         </div>
 
-                        <div className="text-sm font-medium text-slate-900 dark:text-white whitespace-pre-wrap pl-9">
-                          {item.questionText}
+                        <div className="text-sm font-medium text-slate-900 dark:text-white pl-9">
+                          <CbtRichText text={item.questionText} />
                         </div>
 
                         {/* Options */}
@@ -2513,13 +2487,20 @@ Poin: 15`}
                                     {label}
                                   </button>
 
-                                  <input
-                                    type="text"
-                                    value={opt}
-                                    onChange={(e) => handleUpdateParsedOptionText(idx, oIdx, e.target.value)}
-                                    className="flex-1 bg-transparent text-xs focus:outline-none min-w-0"
-                                    placeholder={`Pilihan ${label}...`}
-                                  />
+                                  <div className="flex-1 flex flex-col min-w-0">
+                                    <input
+                                      type="text"
+                                      value={opt}
+                                      onChange={(e) => handleUpdateParsedOptionText(idx, oIdx, e.target.value)}
+                                      className="bg-transparent text-xs focus:outline-none min-w-0 font-sans"
+                                      placeholder={`Pilihan ${label}...`}
+                                    />
+                                    {(opt.includes('$') || opt.includes('![')) && (
+                                      <div className="text-[11px] pt-1 text-purple-700 dark:text-purple-300 font-medium">
+                                        <CbtRichText text={opt} />
+                                      </div>
+                                    )}
+                                  </div>
 
                                   {isCorrect && (
                                     <span className="text-[10px] bg-emerald-600 text-white font-bold px-1.5 py-0.5 rounded flex items-center gap-1 flex-shrink-0">
@@ -2764,51 +2745,23 @@ Poin: 15`}
                   const isChecked = editCorrectAnswer === String(idx);
 
                   return (
-                    <div
+                    <CbtOptionInputItem
                       key={idx}
-                      className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
-                        isChecked
-                          ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20'
-                          : 'border-slate-200 dark:border-slate-800'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="editCorrectAnswerOption"
-                        checked={isChecked}
-                        onChange={() => setEditCorrectAnswer(String(idx))}
-                        className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                        title={`Pilih ${label} sebagai kunci jawaban benar`}
-                      />
-                      <span className="font-bold text-sm w-5">{label}.</span>
-                      <input
-                        type="text"
-                        required
-                        placeholder={`Teks pilihan jawaban ${label}...`}
-                        value={opt}
-                        onChange={(e) => {
-                          const updated = [...editOptions];
-                          updated[idx] = e.target.value;
-                          setEditOptions(updated);
-                        }}
-                        className="flex-1 bg-transparent text-sm focus:outline-none"
-                      />
-                      {isChecked && (
-                        <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
-                          <CheckCircle size={14} /> Kunci Jawaban
-                        </span>
-                      )}
-                      {editOptions.length > 2 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveEditOption(idx)}
-                          className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition cursor-pointer"
-                          title={`Hapus pilihan ${label}`}
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      )}
-                    </div>
+                      index={idx}
+                      label={label}
+                      value={opt}
+                      isChecked={isChecked}
+                      canDelete={editOptions.length > 2}
+                      radioName="editCorrectAnswerOption"
+                      placeholder={`Pilihan ${label} (teks biasa, rumus KaTeX $...$, atau lampirkan foto)`}
+                      onSelectCorrect={() => setEditCorrectAnswer(String(idx))}
+                      onChangeText={(text) => {
+                        const updated = [...editOptions];
+                        updated[idx] = text;
+                        setEditOptions(updated);
+                      }}
+                      onDelete={() => handleRemoveEditOption(idx)}
+                    />
                   );
                 })}
 

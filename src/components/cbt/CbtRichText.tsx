@@ -145,16 +145,20 @@ export default function CbtRichText({ text, className = '', displayMode = false 
 
           if (seg.type === 'image') {
             return (
-              <span key={idx} className="block my-3">
+              <span key={idx} className="block my-2">
                 <span
-                  onClick={() => handleOpenZoom(seg.src)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOpenZoom(seg.src);
+                  }}
                   className="relative group inline-block max-w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm cursor-zoom-in bg-slate-100 dark:bg-slate-900 transition-all hover:ring-2 hover:ring-purple-500/40"
+                  title="Klik untuk memperbesar gambar (Lightbox Zoom)"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={seg.src}
                     alt={seg.alt}
-                    className="max-h-80 w-auto object-contain mx-auto transition-transform group-hover:scale-[1.01]"
+                    className="max-h-56 w-auto object-contain mx-auto transition-transform group-hover:scale-[1.01]"
                     loading="lazy"
                   />
                   <span className="absolute bottom-2 right-2 px-2.5 py-1 rounded-full text-[10px] font-bold bg-black/75 text-white backdrop-blur-xs flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
