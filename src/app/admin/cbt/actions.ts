@@ -4,7 +4,7 @@ import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { isClassOverlap } from '@/lib/cbt-schedule';
-import { getKopSuratConfig } from '@/lib/settings';
+import { getKopSuratConfig, getWebSettings } from '@/lib/settings';
 import { getDynamicClassTargets } from '@/lib/jurusan-service';
 import type { KopSuratConfig } from '@/app/admin/settings/types';
 
@@ -1224,6 +1224,66 @@ export async function getCbtStudentCardsDataAction(options?: GetCbtStudentCardsO
         startTime: e.startTime ? e.startTime.toISOString() : null,
         endTime: e.endTime ? e.endTime.toISOString() : null,
       })),
+    };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+/**
+ * 🖋️ SIMPAN STEMPEL & TANDA TANGAN RESMI SEKOLAH
+ */
+export async function saveSchoolStampAndSignatureAction(data: {
+  stampUrl?: string | null;
+  signatureUrl?: string | null;
+  headmasterName?: string;
+  headmasterNip?: string;
+  city?: string;
+}) {
+  try {
+    const cookieStore = await cookies();
+    const userRole = cookieStore.get('auth_token')?.value;
+    const isSuperAdmin = userRole === 'Super Admin' || userRole === 'Admin Utama';
+
+    if (!isSuperAdmin) {
+      return {
+        error: 'Akses Ditolak: Hanya Admin Utama yang berhak menyimpan stempel dan tanda tangan resmi sekolah.',
+      };
+    }
+
+    const currentSettings = (await getWebSettings()) || {};
+    const currentKopSurat = currentSettings.kopSurat || {};
+
+    const updatedKopSurat = {
+      ...currentKopSurat,
+      ...(data.stampUrl !== undefined ? { stampUrl: data.stampUrl } : {}),
+      ...(data.signatureUrl !== undefined ? { signatureUrl: data.signatureUrl } : {}),
+      ...(data.headmasterName ? { headmasterName: data.headmasterName } : {}),
+      ...(data.headmasterNip !== undefined ? { headmasterNip: data.headmasterNip } : {}),
+      ...(data.city ? { city: data.city } : {}),
+    };
+
+    const merged = { ...currentSettings, kopSurat: updatedKopSurat };
+    const value = JSON.stringify(merged);
+
+    await prisma.setting.upsert({
+      where: { key: 'webSettings' },
+      update: { value },
+      create: {
+        key: 'webSettings',
+        value,
+        description: 'Web Settings (Logo, Name, Tagline, Themes, Kop Surat, Payment)',
+      },
+    });
+
+    revalidatePath('/admin/cbt');
+    revalidatePath('/admin/settings');
+    revalidatePath('/portal/siswa/cbt');
+
+    return {
+      success: true,
+      message: 'Stempel dan tanda tangan resmi sekolah berhasil disimpan permanen!',
+      kopSuratConfig: updatedKopSurat,
     };
   } catch (error: any) {
     return { error: error.message };

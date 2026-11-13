@@ -15,6 +15,7 @@ import {
   FileText,
   Award,
   Shield,
+  ShieldCheck,
   MapPin,
   Phone,
   Mail,
@@ -685,6 +686,110 @@ export default function SettingsClient(props: { initialData: any }) {
                       className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-mono focus:ring-2 focus:ring-blue-500 outline-none"
                       placeholder="19850412 201001 1 008"
                     />
+                  </div>
+                </div>
+
+                {/* Upload Stempel Resmi & TTD Kepala Sekolah */}
+                <div className="pt-4 border-t border-gray-100 dark:border-gray-800 space-y-3">
+                  <h4 className="text-xs font-bold text-gray-900 dark:text-white flex items-center gap-1.5 uppercase tracking-wide">
+                    <ShieldCheck size={15} className="text-purple-600" /> Stempel Basah Resmi & Tanda Tangan Sekolah
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Upload Stempel */}
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center gap-4">
+                      <div className="w-16 h-16 rounded-full border-2 border-dashed border-indigo-400 flex items-center justify-center p-1 bg-white dark:bg-slate-900 flex-shrink-0 overflow-hidden">
+                        {kopSurat.stampUrl ? (
+                          <img src={kopSurat.stampUrl} alt="Stempel Sekolah" className="w-full h-full object-contain" />
+                        ) : (
+                          <span className="text-[9px] font-bold text-gray-400 text-center">Cap Vektor</span>
+                        )}
+                      </div>
+                      <div className="space-y-1.5 flex-1">
+                        <span className="block text-xs font-bold text-gray-800 dark:text-gray-200">
+                          Stempel Resmi Sekolah (PNG Transparan)
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-bold hover:bg-gray-50 cursor-pointer shadow-xs">
+                            <Upload size={13} /> Unggah Stempel
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onloadend = () => {
+                                    setKopSurat(prev => ({ ...prev, stampUrl: reader.result as string }));
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                              className="hidden"
+                            />
+                          </label>
+                          {kopSurat.stampUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setKopSurat(prev => ({ ...prev, stampUrl: null }))}
+                              className="text-xs text-red-500 hover:underline font-semibold cursor-pointer"
+                            >
+                              Hapus
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-gray-500">
+                          Dicetak pada Kartu Peserta CBT, Surat Kelulusan, Rapor, dan Dokumen Resmi.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Upload Tanda Tangan */}
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center gap-4">
+                      <div className="w-20 h-16 rounded-xl border-2 border-dashed border-indigo-400 flex items-center justify-center p-1 bg-white dark:bg-slate-900 flex-shrink-0 overflow-hidden">
+                        {kopSurat.signatureUrl ? (
+                          <img src={kopSurat.signatureUrl} alt="TTD Kepala Sekolah" className="w-full h-full object-contain filter contrast-125" />
+                        ) : (
+                          <span className="text-[9px] font-bold text-gray-400 text-center">TTD Vektor</span>
+                        )}
+                      </div>
+                      <div className="space-y-1.5 flex-1">
+                        <span className="block text-xs font-bold text-gray-800 dark:text-gray-200">
+                          Tanda Tangan Kepala Sekolah (PNG Transparan)
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-bold hover:bg-gray-50 cursor-pointer shadow-xs">
+                            <Upload size={13} /> Unggah TTD
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onloadend = () => {
+                                    setKopSurat(prev => ({ ...prev, signatureUrl: reader.result as string }));
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                              className="hidden"
+                            />
+                          </label>
+                          {kopSurat.signatureUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setKopSurat(prev => ({ ...prev, signatureUrl: null }))}
+                              className="text-xs text-red-500 hover:underline font-semibold cursor-pointer"
+                            >
+                              Hapus
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-gray-500">
+                          Coretan tanda tangan asli transparan Kepala Sekolah untuk pengesahan otomatis.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

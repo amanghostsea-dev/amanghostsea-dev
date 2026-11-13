@@ -183,8 +183,19 @@ export function CbtOfficialSignatures({
             <div>Mengetahui,</div>
             <div className="font-bold">Kepala Sekolah / Ka. Laboratorium CBT</div>
             <div className="relative h-20 flex items-center justify-center">
-              {/* Cap Digital */}
-              <CbtDigitalStamp schoolName={cfg.schoolName} yayasanName={cfg.yayasanName} />
+              {/* Cap Stempel Resmi / Digital */}
+              <div className="absolute -left-2 top-0 pointer-events-none z-10">
+                <CbtDigitalStamp 
+                  schoolName={cfg.schoolName} 
+                  yayasanName={cfg.yayasanName} 
+                  stampUrl={cfg.stampUrl}
+                  size={76} 
+                />
+              </div>
+              {/* Tanda Tangan Kepala Sekolah */}
+              <div className="z-20">
+                <HeadmasterSignatureStroke signatureUrl={cfg.signatureUrl} size={{ width: 120, height: 48 }} />
+              </div>
             </div>
             <div className="font-bold underline">{hName}</div>
             <div className="text-[10px] text-slate-600">NIP. {hNip}</div>
@@ -196,7 +207,7 @@ export function CbtOfficialSignatures({
               {classNameTarget ? `Wali Kelas ${classNameTarget}` : 'Guru Pengampu / Proktor'}
             </div>
             <div className="h-20 flex items-center justify-center">
-              <div className="text-[10px] text-slate-400 italic font-sans">[ Tanda Tangan Sah ]</div>
+              <HeadmasterSignatureStroke size={{ width: 110, height: 42 }} />
             </div>
             <div className="font-bold underline">{teacherName}</div>
             <div className="text-[10px] text-slate-600">
@@ -216,8 +227,19 @@ export function CbtOfficialSignatures({
           <div>Mengetahui,</div>
           <div className="font-bold">Kepala Sekolah</div>
           <div className="relative h-20 flex items-center justify-center">
-            {/* Cap Digital */}
-            <CbtDigitalStamp schoolName={cfg.schoolName} yayasanName={cfg.yayasanName} />
+            {/* Cap Stempel Resmi / Digital */}
+            <div className="absolute -left-2 top-0 pointer-events-none z-10">
+              <CbtDigitalStamp 
+                schoolName={cfg.schoolName} 
+                yayasanName={cfg.yayasanName} 
+                stampUrl={cfg.stampUrl}
+                size={74} 
+              />
+            </div>
+            {/* Tanda Tangan Kepala Sekolah */}
+            <div className="z-20">
+              <HeadmasterSignatureStroke signatureUrl={cfg.signatureUrl} size={{ width: 115, height: 45 }} />
+            </div>
           </div>
           <div className="font-bold underline text-xs">{hName}</div>
           <div className="text-[10px] text-slate-600">NIP. {hNip}</div>
@@ -228,7 +250,7 @@ export function CbtOfficialSignatures({
           <div>Diperiksa & Diverifikasi,</div>
           <div className="font-bold">Koordinator Proktor CBT</div>
           <div className="h-20 flex items-center justify-center">
-            <div className="text-[10px] text-slate-400 italic font-sans">[ Paraf Pengawas ]</div>
+            <HeadmasterSignatureStroke size={{ width: 100, height: 40 }} />
           </div>
           <div className="font-bold underline text-xs">{pName}</div>
           <div className="text-[10px] text-slate-600">NIP. {pNip}</div>
@@ -239,7 +261,7 @@ export function CbtOfficialSignatures({
           <div>{cityName}, {currentDate}</div>
           <div className="font-bold">Guru Mata Pelajaran</div>
           <div className="h-20 flex items-center justify-center">
-            <div className="text-[10px] text-slate-400 italic font-sans">[ Tanda Tangan Pengampu ]</div>
+            <HeadmasterSignatureStroke size={{ width: 110, height: 42 }} />
           </div>
           <div className="font-bold underline text-xs">{teacherName}</div>
           <div className="text-[10px] text-slate-600">
@@ -252,25 +274,134 @@ export function CbtOfficialSignatures({
 }
 
 /**
- * 🛡️ STEMPEL CAP DIGITAL RESMI SEKOLAH
+ * 🖋️ TANDA TANGAN RESMI KEPALA SEKOLAH (STROKE VECTOR / GAMBAR UPLOAD)
+ */
+export function HeadmasterSignatureStroke({
+  signatureUrl,
+  className = '',
+  size = { width: 100, height: 38 },
+}: {
+  signatureUrl?: string | null;
+  className?: string;
+  size?: { width: number; height: number };
+}) {
+  if (signatureUrl) {
+    return (
+      <div 
+        className={`pointer-events-none select-none flex items-center justify-center ${className}`}
+        style={{ width: size.width, height: size.height }}
+      >
+        <img 
+          src={signatureUrl} 
+          alt="Tanda Tangan Kepala Sekolah" 
+          className="w-full h-full object-contain filter contrast-125 drop-shadow-xs"
+        />
+      </div>
+    );
+  }
+
+  // Realistic dynamic calligraphic pen signature path
+  return (
+    <svg
+      viewBox="0 0 160 55"
+      width={size.width}
+      height={size.height}
+      className={`pointer-events-none select-none text-slate-900 ${className}`}
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M10 38 C 22 20, 28 8, 38 12 C 45 15, 32 44, 48 35 C 58 29, 65 18, 72 26 C 78 32, 70 42, 85 36 C 96 32, 102 24, 114 28 C 122 31, 116 42, 130 36 C 142 30, 148 22, 155 18 M 28 42 C 60 40, 105 38, 145 42 M 18 28 C 35 32, 60 28, 80 34"
+        stroke="#1e293b"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        opacity="0.95"
+      />
+    </svg>
+  );
+}
+
+/**
+ * 🛡️ STEMPEL CAP RESMI SEKOLAH (MENDUKUNG GAMBAR ASLI UPLOAD & VECTOR DINAMIS)
  */
 export function CbtDigitalStamp({
-  schoolName = 'SMK TI GAMA 1',
-  yayasanName = 'YAYASAN GAMA BEKASI',
+  schoolName = 'SMK GARUDA MAHADHIKA',
+  yayasanName = 'YAYASAN GARUDA MAHADHIKA',
+  stampUrl,
+  size = 80,
+  className = '',
 }: {
   schoolName?: string;
   yayasanName?: string;
+  stampUrl?: string | null;
+  size?: number;
+  className?: string;
 }) {
-  return (
-    <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-85 rotate-[-8deg]">
-      <div className="w-24 h-24 rounded-full border-2 border-dashed border-blue-900 flex flex-col items-center justify-center p-1 text-center text-blue-900 bg-blue-50/20 backdrop-blur-[0.5px]">
-        <div className="w-20 h-20 rounded-full border border-blue-800 flex flex-col items-center justify-center p-1">
-          <div className="text-[6px] font-black uppercase tracking-tight line-clamp-1">{yayasanName.slice(0, 20)}</div>
-          <div className="text-[8px] font-black my-0.5 text-blue-950">★ TERTUTUP ★</div>
-          <div className="text-[7.5px] font-black tracking-tighter text-blue-900 line-clamp-1">{schoolName.slice(0, 18)}</div>
-          <div className="text-[5.5px] font-bold text-blue-800 uppercase mt-0.5">TERVALIDASI SISTEM CBT</div>
-        </div>
+  if (stampUrl) {
+    return (
+      <div 
+        className={`pointer-events-none select-none flex items-center justify-center rotate-[-6deg] opacity-90 ${className}`}
+        style={{ width: size, height: size }}
+      >
+        <img 
+          src={stampUrl} 
+          alt="Stempel Resmi Sekolah" 
+          className="w-full h-full object-contain filter contrast-110 drop-shadow-xs" 
+        />
       </div>
+    );
+  }
+
+  const cleanSchool = (schoolName || 'SMK GARUDA').toUpperCase();
+  const cleanYayasan = (yayasanName || 'YAYASAN PENDIDIKAN').toUpperCase();
+
+  return (
+    <div 
+      className={`pointer-events-none select-none flex items-center justify-center rotate-[-7deg] opacity-85 ${className}`}
+      style={{ width: size, height: size }}
+    >
+      <svg viewBox="0 0 100 100" className="w-full h-full" fill="currentColor">
+        {/* Lingkaran Luar Ganda Standar Cap Dinas */}
+        <circle cx="50" cy="50" r="47" fill="none" stroke="#3730a3" strokeWidth="2.5" />
+        <circle cx="50" cy="50" r="43" fill="none" stroke="#3730a3" strokeWidth="1" strokeDasharray="3 1.5" />
+        <circle cx="50" cy="50" r="28" fill="none" stroke="#3730a3" strokeWidth="1.2" />
+
+        {/* Busur Teks Melingkar Atas & Bawah */}
+        <path id="stamp-arc-top" d="M 12 50 A 38 38 0 0 1 88 50" fill="none" />
+        <path id="stamp-arc-bottom" d="M 88 50 A 38 38 0 0 1 12 50" fill="none" />
+
+        <text fontSize="7.5" fontWeight="900" fill="#3730a3" letterSpacing="0.8">
+          <textPath href="#stamp-arc-top" startOffset="50%" textAnchor="middle">
+            {cleanYayasan.length > 22 ? cleanYayasan.slice(0, 22) : cleanYayasan}
+          </textPath>
+        </text>
+
+        <text fontSize="7" fontWeight="900" fill="#3730a3" letterSpacing="0.8">
+          <textPath href="#stamp-arc-bottom" startOffset="50%" textAnchor="middle">
+            {cleanSchool.length > 20 ? cleanSchool.slice(0, 20) : cleanSchool}
+          </textPath>
+        </text>
+
+        {/* Bintang Ornamen Kiri & Kanan */}
+        <polygon points="12,50 14,46 18,48 16,52 18,56 14,54" fill="#3730a3" />
+        <polygon points="88,50 86,46 82,48 84,52 82,56 86,54" fill="#3730a3" />
+
+        {/* Pusat Segel Cap */}
+        <g transform="translate(50, 50)" textAnchor="middle">
+          <text y="-7" fontSize="5.5" fontWeight="900" fill="#3730a3" letterSpacing="0.5">
+            ★ RESMI ★
+          </text>
+          <line x1="-22" y1="-3" x2="22" y2="-3" stroke="#3730a3" strokeWidth="1" />
+          <text y="5" fontSize="7" fontWeight="950" fill="#312e81" letterSpacing="0.5">
+            TERVALIDASI
+          </text>
+          <line x1="-22" y1="8" x2="22" y2="8" stroke="#3730a3" strokeWidth="1" />
+          <text y="14" fontSize="4.5" fontWeight="800" fill="#3730a3" letterSpacing="0.5">
+            CBT INDONESIA
+          </text>
+        </g>
+      </svg>
     </div>
   );
 }

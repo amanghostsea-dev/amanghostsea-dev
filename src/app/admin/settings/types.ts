@@ -175,6 +175,8 @@ export interface KopSuratConfig {
   email: string;
   logoLeftUrl?: string | null;
   logoRightUrl?: string | null;
+  stampUrl?: string | null;
+  signatureUrl?: string | null;
   headmasterName: string;
   headmasterNip: string;
   proctorName: string;
@@ -196,6 +198,8 @@ export const DEFAULT_KOP_SURAT_CONFIG: KopSuratConfig = {
   email: 'info@smkgama.sch.id',
   logoLeftUrl: null,
   logoRightUrl: null,
+  stampUrl: null,
+  signatureUrl: null,
   headmasterName: 'Drs. H. M. Syarifudin, M.M.',
   headmasterNip: '19680514 199403 1 003',
   proctorName: 'Ahmad Suhendar, M.Kom',

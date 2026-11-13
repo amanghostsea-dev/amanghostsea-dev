@@ -24,12 +24,21 @@ import {
   MapPin,
   Clock,
   Sparkles,
-  FileText
+  FileText,
+  Upload,
+  Trash2,
+  Save,
+  Check,
+  Image as ImageIcon
 } from 'lucide-react';
 import { KopSuratConfig, DEFAULT_KOP_SURAT_CONFIG } from '@/app/admin/settings/types';
-import { CbtDigitalStamp } from './CbtOfficialPrintComponents';
+import { CbtDigitalStamp, HeadmasterSignatureStroke } from './CbtOfficialPrintComponents';
 import { generateQrSvg } from '@/lib/pure-qr';
-import { getCbtStudentCardsDataAction, CbtStudentCardItem } from '@/app/admin/cbt/actions';
+import { 
+  getCbtStudentCardsDataAction, 
+  saveSchoolStampAndSignatureAction,
+  CbtStudentCardItem 
+} from '@/app/admin/cbt/actions';
 
 interface CbtParticipantCardModalProps {
   isOpen: boolean;
@@ -57,6 +66,12 @@ export default function CbtParticipantCardModal({
     ...DEFAULT_KOP_SURAT_CONFIG,
     ...initialKopConfig,
   });
+
+  // Stempel & TTD Upload States
+  const [stampPreview, setStampPreview] = useState<string | null>(initialKopConfig?.stampUrl || null);
+  const [signaturePreview, setSignaturePreview] = useState<string | null>(initialKopConfig?.signatureUrl || null);
+  const [isSavingStamp, setIsSavingStamp] = useState<boolean>(false);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
 
   // Filter States
   const [selectedClass, setSelectedClass] = useState<string>('ALL');
@@ -107,10 +122,13 @@ export default function CbtParticipantCardModal({
             setAvailableClasses(res.availableClasses);
           }
           if (res.kopSuratConfig) {
-            setKopConfig({
+            const cfg = {
               ...DEFAULT_KOP_SURAT_CONFIG,
               ...res.kopSuratConfig,
-            });
+            };
+            setKopConfig(cfg);
+            setStampPreview(cfg.stampUrl || null);
+            setSignaturePreview(cfg.signatureUrl || null);
           }
           if (res.exams) {
             setAvailableExams(res.exams);
@@ -146,6 +164,68 @@ export default function CbtParticipantCardModal({
       if (found.classTarget && found.classTarget !== 'Semua Kelas') {
         setSelectedClass(found.classTarget);
       }
+    }
+  };
+
+  // Upload Handlers
+  const handleStampUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        setStampPreview(base64);
+        setKopConfig(prev => ({ ...prev, stampUrl: base64 }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        setSignaturePreview(base64);
+        setKopConfig(prev => ({ ...prev, signatureUrl: base64 }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveStamp = () => {
+    setStampPreview(null);
+    setKopConfig(prev => ({ ...prev, stampUrl: null }));
+  };
+
+  const handleRemoveSignature = () => {
+    setSignaturePreview(null);
+    setKopConfig(prev => ({ ...prev, signatureUrl: null }));
+  };
+
+  // Simpan Stempel & TTD Permanen ke Database Profil Sekolah
+  const handleSaveStampPermanent = async () => {
+    setIsSavingStamp(true);
+    setSaveSuccessMsg(null);
+    try {
+      const res = await saveSchoolStampAndSignatureAction({
+        stampUrl: stampPreview,
+        signatureUrl: signaturePreview,
+        headmasterName: kopConfig.headmasterName,
+        headmasterNip: kopConfig.headmasterNip,
+        city: kopConfig.city,
+      });
+      if (res.error) {
+        alert(res.error);
+      } else {
+        setSaveSuccessMsg('Stempel & Tanda Tangan resmi sekolah berhasil disimpan permanen ke database!');
+        setTimeout(() => setSaveSuccessMsg(null), 4000);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Gagal menyimpan stempel ke database.');
+    } finally {
+      setIsSavingStamp(false);
     }
   };
 
@@ -237,7 +317,7 @@ export default function CbtParticipantCardModal({
               </span>
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Tiap lembar A4 terisi tepat 6 kartu (2 kolom × 3 baris) secara presisi dengan garis potong rapi dan anti-duplikat halaman.
+              Tiap lembar A4 terisi tepat 6 kartu (2 kolom × 3 baris) secara presisi dengan stempel & tanda tangan rapi tanpa ada duplikasi halaman.
             </p>
           </div>
 
@@ -250,7 +330,7 @@ export default function CbtParticipantCardModal({
                   : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50'
               }`}
             >
-              <Settings2 size={16} /> Kustomisasi Teks & Opsi
+              <Settings2 size={16} /> Kustomisasi Teks, Stempel & TTD
             </button>
 
             <button
@@ -271,9 +351,10 @@ export default function CbtParticipantCardModal({
           </div>
         </div>
 
-        {/* 🎛️ ACCORDION KUSTOMISASI DETAIL UJIAN & LAYOUT */}
+        {/* 🎛️ ACCORDION KUSTOMISASI DETAIL UJIAN, STEMPEL, TTD & LAYOUT */}
         {isOptionsOpen && (
-          <div className="mt-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="mt-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-5 animate-in fade-in slide-in-from-top-2 duration-200">
+            {/* Bagian 1: Detail Teks Ujian */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
               <div>
                 <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -359,8 +440,164 @@ export default function CbtParticipantCardModal({
               </div>
             </div>
 
-            {/* Toggle Switches */}
-            <div className="flex flex-wrap items-center gap-4 pt-3 border-t border-slate-200 dark:border-slate-700/60 text-xs">
+            {/* Bagian 2: FITUR UPLOAD STEMPEL RESMI & TANDA TANGAN KEPALA SEKOLAH */}
+            <div className="p-3.5 bg-purple-50/70 dark:bg-purple-950/30 rounded-xl border border-purple-200 dark:border-purple-800 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h4 className="text-xs font-black text-purple-900 dark:text-purple-300 flex items-center gap-1.5 uppercase tracking-wide">
+                    <ShieldCheck size={16} className="text-purple-600" /> Stempel Basah Resmi & Tanda Tangan Kepala Sekolah
+                  </h4>
+                  <p className="text-[11px] text-purple-700/80 dark:text-purple-400">
+                    Unggah stempel sekolah (PNG transparan) & tanda tangan kepala sekolah untuk dicetak pada kartu ujian dan keperluan dokumen resmi lainnya.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSaveStampPermanent}
+                  disabled={isSavingStamp}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all cursor-pointer disabled:opacity-50 self-start sm:self-auto"
+                  title="Simpan permanen ke database profil sekolah agar otomatis dipakai seterusnya"
+                >
+                  {isSavingStamp ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />}
+                  <span>{isSavingStamp ? 'Menyimpan...' : 'Simpan Permanen ke Profil'}</span>
+                </button>
+              </div>
+
+              {saveSuccessMsg && (
+                <div className="p-2 bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 rounded-lg text-xs font-bold flex items-center gap-2 animate-in fade-in">
+                  <CheckCircle2 size={15} className="text-emerald-600" />
+                  <span>{saveSuccessMsg}</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                {/* Uploader Stempel Sekolah */}
+                <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-purple-200/70 dark:border-purple-800/70 flex items-center gap-3">
+                  <div className="w-16 h-16 rounded-full border-2 border-dashed border-indigo-400 flex items-center justify-center p-1 bg-slate-50 dark:bg-slate-800 flex-shrink-0 overflow-hidden relative">
+                    {stampPreview ? (
+                      <img src={stampPreview} alt="Stempel Sekolah" className="w-full h-full object-contain" />
+                    ) : (
+                      <div className="scale-[0.55] origin-center">
+                        <CbtDigitalStamp schoolName={kopConfig.schoolName} yayasanName={kopConfig.yayasanName} size={80} />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <span className="block text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                      Stempel Sekolah: {stampPreview ? <strong className="text-emerald-600">(Gambar Upload)</strong> : <span className="text-slate-400">(Cap Vektor Otomatis)</span>}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <label className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 rounded-md text-[11px] font-bold border border-indigo-200 dark:border-indigo-800 cursor-pointer transition-all">
+                        <Upload size={12} /> Unggah Stempel (PNG)
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                          onChange={handleStampUpload}
+                          className="hidden"
+                        />
+                      </label>
+                      {stampPreview && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveStamp}
+                          className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded text-[11px] font-bold flex items-center gap-0.5 cursor-pointer"
+                          title="Hapus gambar stempel upload (gunakan cap default)"
+                        >
+                          <Trash2 size={12} /> Hapus
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-slate-500">Disarankan format PNG transparan agar menempel alami.</p>
+                  </div>
+                </div>
+
+                {/* Uploader Tanda Tangan Kepala Sekolah */}
+                <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-purple-200/70 dark:border-purple-800/70 flex items-center gap-3">
+                  <div className="w-20 h-16 rounded-lg border-2 border-dashed border-indigo-400 flex items-center justify-center p-1 bg-slate-50 dark:bg-slate-800 flex-shrink-0 overflow-hidden relative">
+                    {signaturePreview ? (
+                      <img src={signaturePreview} alt="TTD Kepala Sekolah" className="w-full h-full object-contain filter contrast-125" />
+                    ) : (
+                      <HeadmasterSignatureStroke size={{ width: 70, height: 28 }} />
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <span className="block text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                      Tanda Tangan Kepsek: {signaturePreview ? <strong className="text-emerald-600">(Gambar Upload)</strong> : <span className="text-slate-400">(Kaligrafi Pen Otomatis)</span>}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <label className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 rounded-md text-[11px] font-bold border border-indigo-200 dark:border-indigo-800 cursor-pointer transition-all">
+                        <Upload size={12} /> Unggah TTD (PNG)
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                          onChange={handleSignatureUpload}
+                          className="hidden"
+                        />
+                      </label>
+                      {signaturePreview && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveSignature}
+                          className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded text-[11px] font-bold flex items-center gap-0.5 cursor-pointer"
+                          title="Hapus tanda tangan upload (gunakan kaligrafi otomatis)"
+                        >
+                          <Trash2 size={12} /> Hapus
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-slate-500">Gunakan coretan tanda tangan asli berlatar belakang transparan.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Data Identitas Kepala Sekolah */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-xs">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Nama Kepala Sekolah:
+                  </label>
+                  <input
+                    type="text"
+                    value={kopConfig.headmasterName}
+                    onChange={(e) => setKopConfig({ ...kopConfig, headmasterName: e.target.value })}
+                    placeholder="Muhammad Irham Habibie, S.Pd"
+                    className="w-full px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    NIP Kepala Sekolah:
+                  </label>
+                  <input
+                    type="text"
+                    value={kopConfig.headmasterNip}
+                    onChange={(e) => setKopConfig({ ...kopConfig, headmasterNip: e.target.value })}
+                    placeholder="19780512 200312 1 004 atau -"
+                    className="w-full px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Kota Penerbitan Kartu:
+                  </label>
+                  <input
+                    type="text"
+                    value={kopConfig.city}
+                    onChange={(e) => setKopConfig({ ...kopConfig, city: e.target.value })}
+                    placeholder="Banjarbaru atau Kota Bekasi"
+                    className="w-full px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-medium"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Bagian 3: Toggle Switches Layout & Kertas */}
+            <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-slate-200 dark:border-slate-700/60 text-xs">
               <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                 <Layers size={14} className="text-purple-600" /> Mode Kertas:
               </span>
@@ -421,7 +658,7 @@ export default function CbtParticipantCardModal({
                   className="rounded text-purple-600 focus:ring-purple-500 w-4 h-4"
                 />
                 <span className="text-slate-700 dark:text-slate-300 font-semibold flex items-center gap-1">
-                  <ShieldCheck size={13} className="text-emerald-500" /> Cap Stempel Digital
+                  <ShieldCheck size={13} className="text-emerald-500" /> Cap Stempel Basah
                 </span>
               </label>
 
@@ -694,7 +931,7 @@ export default function CbtParticipantCardModal({
 }
 
 /**
- * 🪪 SINGLE PARTICIPANT CARD COMPONENT (Ultra-Clean, Precision 6-Cards-per-A4 Ready)
+ * 🪪 SINGLE PARTICIPANT CARD COMPONENT (Ultra-Clean, Authentic Official Signature & Wet Stamp Ready)
  */
 function SingleParticipantCard({
   student,
@@ -771,7 +1008,7 @@ function SingleParticipantCard({
         {/* School Name & Title */}
         <div className="flex-1 min-w-0 pr-1">
           <div className="text-[7.5px] font-bold text-slate-500 uppercase tracking-wider truncate leading-tight">
-            {kopConfig.yayasanName || 'YAYASAN PENDIDIKAN GARUDA'}
+            {kopConfig.yayasanName || 'YAYASAN GARUDA MAHADHIKA'}
           </div>
           <div className="text-[11px] font-black text-slate-950 uppercase tracking-tight truncate leading-tight">
             {kopConfig.schoolName}
@@ -894,35 +1131,45 @@ function SingleParticipantCard({
           </div>
         </div>
 
-        {/* Headmaster Signature & Stamp */}
-        <div className="relative text-right flex flex-col items-end">
-          <div className="text-[6.5px] text-slate-600 font-medium leading-none">
+        {/* Headmaster Signature & Stamp (Authentic Placement & Wet Stamp Overlap) */}
+        <div className="relative text-right flex flex-col items-end min-w-[125px]">
+          <div className="text-[6.5px] text-slate-600 font-medium leading-tight">
             {kopConfig.city || 'Kota Bekasi'}, {currentDateFormatted}
           </div>
-          <div className="text-[7px] font-bold text-slate-800 leading-tight">
+          <div className="text-[7px] font-bold text-slate-800 leading-tight mt-0.5">
             Kepala Sekolah,
           </div>
 
-          {/* Digital Stamp Overlay */}
-          <div className="relative h-6 w-24 flex items-center justify-center my-0.2">
+          {/* Signature & Stamp Overlapping Area */}
+          <div className="relative h-8 w-28 flex items-center justify-center my-0.5">
+            {/* Stempel Basah Resmi Sekolah: Diposisikan di sisi KIRI tanda tangan dan sedikit overlap */}
             {showStamp && (
-              <div className="absolute right-2 -top-3 opacity-80 scale-[0.26] pointer-events-none transform origin-center">
+              <div className="absolute -left-6 -top-2.5 pointer-events-none z-10">
                 <CbtDigitalStamp
                   schoolName={kopConfig.schoolName}
                   yayasanName={kopConfig.yayasanName}
+                  stampUrl={kopConfig.stampUrl}
+                  size={46}
                 />
               </div>
             )}
-            <div className="text-[6px] text-slate-400 italic">
-              [ Tanda Tangan Sah ]
+
+            {/* Coretan Tanda Tangan Kepala Sekolah (Gambar Transparan / Vektor Kaligrafi Pen Basah) */}
+            <div className="z-20">
+              <HeadmasterSignatureStroke
+                signatureUrl={kopConfig.signatureUrl}
+                size={{ width: 85, height: 32 }}
+              />
             </div>
           </div>
 
-          <div className="font-bold underline text-slate-900 text-[7.5px] leading-none">
-            {kopConfig.headmasterName || 'H. Ahmad Fauzi, M.Pd'}
+          <div className="font-bold underline text-slate-900 text-[7.5px] leading-tight max-w-[135px] truncate">
+            {kopConfig.headmasterName || 'Muhammad Irham Habibie, S.Pd'}
           </div>
-          <div className="text-[6px] text-slate-500 font-mono leading-none">
-            NIP. {kopConfig.headmasterNip || '19780512 200312 1 004'}
+          <div className="text-[6px] text-slate-500 font-mono leading-tight mt-0.5">
+            {kopConfig.headmasterNip && kopConfig.headmasterNip !== '-'
+              ? `NIP. ${kopConfig.headmasterNip}`
+              : 'NIP. -'}
           </div>
         </div>
       </div>
