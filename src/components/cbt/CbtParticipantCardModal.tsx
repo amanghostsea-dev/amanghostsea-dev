@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Printer, 
   X, 
@@ -43,6 +44,9 @@ export default function CbtParticipantCardModal({
   kopSuratConfig: initialKopConfig,
   initialClasses = [],
 }: CbtParticipantCardModalProps) {
+  // Client mount state for React Portal
+  const [mounted, setMounted] = useState<boolean>(false);
+
   // Data States
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -76,8 +80,8 @@ export default function CbtParticipantCardModal({
   const [showCuttingGuide, setShowCuttingGuide] = useState<boolean>(true);
   const [isOptionsOpen, setIsOptionsOpen] = useState<boolean>(false);
 
-  // Set default portalUrl based on browser origin once mounted
   useEffect(() => {
+    setMounted(true);
     if (typeof window !== 'undefined') {
       setPortalUrl(`${window.location.origin}/ujian`);
     }
@@ -154,9 +158,13 @@ export default function CbtParticipantCardModal({
     return Array.from(set).sort();
   }, [students]);
 
-  // Filtered Students List
+  // Filtered Students List with ID deduplication safeguard
   const filteredStudents = useMemo(() => {
+    const seen = new Set<string>();
     return students.filter((s) => {
+      if (seen.has(s.id)) return false;
+      seen.add(s.id);
+
       // Filter Kelas
       if (selectedClass !== 'ALL' && s.studentClass !== selectedClass) return false;
       // Filter Tingkat (X, XI, XII)
@@ -204,10 +212,13 @@ export default function CbtParticipantCardModal({
     window.print();
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
-  return (
-    <div className="fixed inset-0 z-[9999] overflow-y-auto bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-start p-0 sm:p-4 print:p-0 print:bg-white print:overflow-visible">
+  const modalContent = (
+    <div 
+      id="cbt-modal-portal"
+      className="fixed inset-0 z-[9999] overflow-y-auto bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-start p-0 sm:p-4 print:static print:inset-auto print:p-0 print:m-0 print:w-full print:h-auto print:overflow-visible print:bg-white"
+    >
       {/* 🛠️ TOP CONTROL BAR (HIDDEN IN PRINT) */}
       <div className="w-full max-w-7xl bg-white dark:bg-slate-900 rounded-b-2xl sm:rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 mb-4 sticky top-0 z-50 print:hidden transition-all">
         {/* Title & Close */}
@@ -222,11 +233,11 @@ export default function CbtParticipantCardModal({
                 {filteredStudents.length} Siswa Terpilih
               </span>
               <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 flex items-center gap-1">
-                <FileText size={12} /> {a4Pages.length} Lembar Kertas A4 ({layoutMode === '6-per-page' ? '6 Kartu/Lembar' : '4 Kartu/Lembar'})
+                <FileText size={12} /> {a4Pages.length} Lembar Kertas A4 (Tepat {layoutMode === '6-per-page' ? '6 Kartu/Lembar' : '4 Kartu/Lembar'} • Tanpa Duplikat)
               </span>
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Tiap lembar A4 terisi tepat 6 kartu (2 kolom × 3 baris) secara presisi dengan garis potong rapi dan anti-terpotong halaman.
+              Tiap lembar A4 terisi tepat 6 kartu (2 kolom × 3 baris) secara presisi dengan garis potong rapi dan anti-duplikat halaman.
             </p>
           </div>
 
@@ -543,15 +554,21 @@ export default function CbtParticipantCardModal({
 
       {/* 📄 PRINTABLE A4 SHEETS CONTAINER */}
       {!loading && !errorMsg && filteredStudents.length > 0 && (
-        <div className="w-full max-w-6xl pb-20 print:pb-0 print:w-full print:max-w-none space-y-8 print:space-y-0">
+        <div 
+          id="cbt-cards-printable-wrapper"
+          className="w-full max-w-6xl pb-20 print:pb-0 print:w-full print:max-w-none space-y-8 print:space-y-0"
+        >
           {a4Pages.map((pageCards, pageIdx) => {
+            const isLastPage = pageIdx === a4Pages.length - 1;
             const startIdx = pageIdx * cardsPerPage + 1;
             const endIdx = startIdx + pageCards.length - 1;
 
             return (
               <div
                 key={pageIdx}
-                className="a4-sheet-container bg-white dark:bg-slate-900/90 border border-slate-300 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl print:shadow-none print:border-none print:p-0 print:m-0 print:bg-white"
+                className={`a4-sheet-container bg-white dark:bg-slate-900/90 border border-slate-300 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl print:shadow-none print:border-none print:p-0 print:m-0 print:bg-white ${
+                  isLastPage ? 'print-last-sheet' : 'print-page-break'
+                }`}
               >
                 {/* Screen Sheet Header Indicator (Hidden on Print) */}
                 <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-500 dark:text-slate-400 print:hidden">
@@ -616,9 +633,33 @@ export default function CbtParticipantCardModal({
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          .a4-sheet-container {
+          /* 1. Sembunyikan SEMUA elemen website lain di belakang modal saat cetak */
+          body > *:not(#cbt-modal-portal) {
+            display: none !important;
+          }
+          /* 2. Jadikan modal container sebagai static root murni (bukan fixed) */
+          #cbt-modal-portal {
+            position: static !important;
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            overflow: visible !important;
+            z-index: auto !important;
+          }
+          /* 3. Hanya lembar sebelum lembar terakhir yang berpindah halaman */
+          .print-page-break {
             page-break-after: always !important;
             break-after: page !important;
+          }
+          /* 4. Lembar terakhir DILARANG membuat halaman baru agar tidak terjadi duplikat/halaman kosong */
+          .print-last-sheet {
+            page-break-after: avoid !important;
+            break-after: avoid !important;
+          }
+          .a4-sheet-container {
             margin: 0 !important;
             padding: 0 !important;
             border: none !important;
@@ -626,18 +667,12 @@ export default function CbtParticipantCardModal({
             width: 100% !important;
             box-shadow: none !important;
           }
-          .a4-sheet-container:last-child {
-            page-break-after: auto !important;
-            break-after: auto !important;
-          }
           .print-page-sheet {
             display: grid !important;
             grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
             grid-template-rows: ${layoutMode === '6-per-page' ? 'repeat(3, minmax(0, 1fr))' : 'repeat(2, minmax(0, 1fr))'} !important;
-            gap: 3.5mm !important;
+            gap: 3mm !important;
             width: 198mm !important;
-            height: 283mm !important;
-            max-height: 283mm !important;
             box-sizing: border-box !important;
             margin: 0 auto !important;
             padding: 0 !important;
@@ -647,13 +682,15 @@ export default function CbtParticipantCardModal({
             break-inside: avoid !important;
             box-sizing: border-box !important;
             height: 100% !important;
-            max-height: ${layoutMode === '6-per-page' ? '91mm' : '138mm'} !important;
+            max-height: ${layoutMode === '6-per-page' ? '88mm' : '136mm'} !important;
             overflow: hidden !important;
           }
         }
       `}</style>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }
 
 /**
