@@ -22,7 +22,8 @@ import {
   Calendar,
   MapPin,
   Clock,
-  Sparkles
+  Sparkles,
+  FileText
 } from 'lucide-react';
 import { KopSuratConfig, DEFAULT_KOP_SURAT_CONFIG } from '@/app/admin/settings/types';
 import { CbtDigitalStamp } from './CbtOfficialPrintComponents';
@@ -67,8 +68,8 @@ export default function CbtParticipantCardModal({
   const [portalUrl, setPortalUrl] = useState<string>('https://smk-web.vercel.app/ujian');
   const [selectedExamId, setSelectedExamId] = useState<string>('custom');
 
-  // Display Options
-  const [layoutMode, setLayoutMode] = useState<'4-per-page' | '6-per-page'>('4-per-page');
+  // Display Options - DEFAULT: 6 Kartu / Halaman A4 Presisi
+  const [layoutMode, setLayoutMode] = useState<'6-per-page' | '4-per-page'>('6-per-page');
   const [showPassword, setShowPassword] = useState<boolean>(true);
   const [showQr, setShowQr] = useState<boolean>(true);
   const [showStamp, setShowStamp] = useState<boolean>(true);
@@ -175,11 +176,21 @@ export default function CbtParticipantCardModal({
     });
   }, [students, selectedClass, selectedGrade, selectedMajor, searchQuery]);
 
+  // Group cards into A4 sheets of 6 (or 4) cards per sheet for exact page-break precision
+  const cardsPerPage = layoutMode === '6-per-page' ? 6 : 4;
+  const a4Pages = useMemo(() => {
+    const pages: CbtStudentCardItem[][] = [];
+    for (let i = 0; i < filteredStudents.length; i += cardsPerPage) {
+      pages.push(filteredStudents.slice(i, i + cardsPerPage));
+    }
+    return pages;
+  }, [filteredStudents, cardsPerPage]);
+
   // Generate vector QR SVG string once for the portal URL
   const qrSvg = useMemo(() => {
     try {
       return generateQrSvg(portalUrl || 'https://smk-web.vercel.app/ujian', {
-        size: layoutMode === '4-per-page' ? 84 : 70,
+        size: layoutMode === '6-per-page' ? 56 : 76,
         padding: 1,
         darkColor: '#0f172a',
       });
@@ -203,16 +214,19 @@ export default function CbtParticipantCardModal({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700/60 text-amber-800 dark:text-amber-300 text-xs font-bold mb-1.5 shadow-sm">
-              <ShieldCheck size={14} className="text-amber-600" /> 👑 Fitur Resmi Admin Utama: Cetak Kartu Login Peserta CBT
+              <ShieldCheck size={14} className="text-amber-600" /> 👑 Fitur Resmi Admin Utama: Cetak Kartu Peserta Ujian CBT (A4 Presisi 6 Kartu)
             </div>
-            <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
+            <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center flex-wrap gap-2.5">
               <span>Studio Kartu Login Peserta Ujian</span>
               <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">
                 {filteredStudents.length} Siswa Terpilih
               </span>
+              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 flex items-center gap-1">
+                <FileText size={12} /> {a4Pages.length} Lembar Kertas A4 ({layoutMode === '6-per-page' ? '6 Kartu/Lembar' : '4 Kartu/Lembar'})
+              </span>
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Kartu resmi berisi akun login (Username & Password) untuk dibagikan kepada siswa sebelum ujian dimulai.
+              Tiap lembar A4 terisi tepat 6 kartu (2 kolom × 3 baris) secara presisi dengan garis potong rapi dan anti-terpotong halaman.
             </p>
           </div>
 
@@ -225,7 +239,7 @@ export default function CbtParticipantCardModal({
                   : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50'
               }`}
             >
-              <Settings2 size={16} /> Kustomisasi Teks & Tata Letak
+              <Settings2 size={16} /> Kustomisasi Teks & Opsi
             </button>
 
             <button
@@ -233,7 +247,7 @@ export default function CbtParticipantCardModal({
               disabled={loading || filteredStudents.length === 0}
               className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl font-black text-xs sm:text-sm shadow-lg shadow-orange-500/25 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
             >
-              <Printer size={18} /> Cetak Kartu Sekarang (A4)
+              <Printer size={18} /> Cetak Sekarang (A4 - {a4Pages.length} Lembar)
             </button>
 
             <button
@@ -342,17 +356,6 @@ export default function CbtParticipantCardModal({
               <div className="inline-flex rounded-lg border border-slate-300 dark:border-slate-700 p-0.5 bg-white dark:bg-slate-900">
                 <button
                   type="button"
-                  onClick={() => setLayoutMode('4-per-page')}
-                  className={`px-3 py-1 rounded-md font-bold transition-all ${
-                    layoutMode === '4-per-page'
-                      ? 'bg-purple-600 text-white shadow-sm'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                  }`}
-                >
-                  4 Kartu / Hal A4 (Besar & Lega)
-                </button>
-                <button
-                  type="button"
                   onClick={() => setLayoutMode('6-per-page')}
                   className={`px-3 py-1 rounded-md font-bold transition-all ${
                     layoutMode === '6-per-page'
@@ -360,7 +363,18 @@ export default function CbtParticipantCardModal({
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                   }`}
                 >
-                  6 Kartu / Hal A4 (Hemat Kertas)
+                  6 Kartu / Hal A4 (Presisi & Hemat Kertas) ✨
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLayoutMode('4-per-page')}
+                  className={`px-3 py-1 rounded-md font-bold transition-all ${
+                    layoutMode === '4-per-page'
+                      ? 'bg-purple-600 text-white shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  }`}
+                >
+                  4 Kartu / Hal A4 (Ukuran Besar)
                 </button>
               </div>
 
@@ -527,60 +541,114 @@ export default function CbtParticipantCardModal({
         </div>
       )}
 
-      {/* 📄 PRINTABLE CARDS CONTAINER */}
+      {/* 📄 PRINTABLE A4 SHEETS CONTAINER */}
       {!loading && !errorMsg && filteredStudents.length > 0 && (
-        <div className="w-full max-w-7xl pb-16 print:pb-0 print:w-full print:max-w-none">
-          {/* Printable Grid */}
-          <div
-            className={`grid gap-4 print:gap-2 print:p-0 ${
-              layoutMode === '4-per-page'
-                ? 'grid-cols-1 md:grid-cols-2 print:grid-cols-2'
-                : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 print:grid-cols-2'
-            }`}
-          >
-            {filteredStudents.map((student, idx) => (
-              <SingleParticipantCard
-                key={student.id}
-                student={student}
-                kopConfig={kopConfig}
-                examTitle={examTitle}
-                academicYear={academicYear}
-                examRoom={examRoom}
-                examSession={examSession}
-                portalUrl={portalUrl}
-                qrSvg={qrSvg}
-                showPassword={showPassword}
-                showQr={showQr}
-                showStamp={showStamp}
-                showCuttingGuide={showCuttingGuide}
-                layoutMode={layoutMode}
-                cardIndex={idx}
-              />
-            ))}
-          </div>
+        <div className="w-full max-w-6xl pb-20 print:pb-0 print:w-full print:max-w-none space-y-8 print:space-y-0">
+          {a4Pages.map((pageCards, pageIdx) => {
+            const startIdx = pageIdx * cardsPerPage + 1;
+            const endIdx = startIdx + pageCards.length - 1;
+
+            return (
+              <div
+                key={pageIdx}
+                className="a4-sheet-container bg-white dark:bg-slate-900/90 border border-slate-300 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl print:shadow-none print:border-none print:p-0 print:m-0 print:bg-white"
+              >
+                {/* Screen Sheet Header Indicator (Hidden on Print) */}
+                <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-500 dark:text-slate-400 print:hidden">
+                  <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
+                    <FileText size={15} className="text-purple-600" />
+                    <span>Lembar Kertas A4 Ke-{pageIdx + 1} dari {a4Pages.length}</span>
+                    <span className="text-[11px] font-semibold text-slate-400">
+                      (Kartu Siswa #{startIdx} s/d #{endIdx} • Terisi {pageCards.length} Kartu)
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/50 px-2 py-0.5 rounded-md border border-purple-200 dark:border-purple-800">
+                    Format Presisi: {layoutMode === '6-per-page' ? '2 Kolom × 3 Baris (6 Kartu)' : '2 Kolom × 2 Baris (4 Kartu)'}
+                  </span>
+                </div>
+
+                {/* Exact A4 Grid (2 Columns x 3 Rows for 6 cards/page) */}
+                <div
+                  className={`print-page-sheet grid grid-cols-1 md:grid-cols-2 gap-3 print:gap-[3mm] ${
+                    layoutMode === '6-per-page' ? 'print:grid-rows-3' : 'print:grid-rows-2'
+                  }`}
+                >
+                  {pageCards.map((student, idx) => (
+                    <div key={student.id} className="print-card-item">
+                      <SingleParticipantCard
+                        student={student}
+                        kopConfig={kopConfig}
+                        examTitle={examTitle}
+                        academicYear={academicYear}
+                        examRoom={examRoom}
+                        examSession={examSession}
+                        portalUrl={portalUrl}
+                        qrSvg={qrSvg}
+                        showPassword={showPassword}
+                        showQr={showQr}
+                        showStamp={showStamp}
+                        showCuttingGuide={showCuttingGuide}
+                        layoutMode={layoutMode}
+                        cardIndex={startIdx + idx - 1}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* 🖨️ NATIVE PRINT MEDIA STYLES */}
+      {/* 🖨️ NATIVE PRINT MEDIA STYLES (CALCULATED MATHEMATICALLY FOR A4 210mm x 297mm) */}
       <style jsx global>{`
         @media print {
           @page {
             size: A4 portrait;
-            margin: 8mm 6mm 8mm 6mm;
+            margin: 6mm 6mm 6mm 6mm;
           }
-          body {
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
             background-color: #ffffff !important;
             color: #000000 !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          .print-avoid-break {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-          }
-          .print-page-break {
+          .a4-sheet-container {
             page-break-after: always !important;
             break-after: page !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            background: transparent !important;
+            width: 100% !important;
+            box-shadow: none !important;
+          }
+          .a4-sheet-container:last-child {
+            page-break-after: auto !important;
+            break-after: auto !important;
+          }
+          .print-page-sheet {
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            grid-template-rows: ${layoutMode === '6-per-page' ? 'repeat(3, minmax(0, 1fr))' : 'repeat(2, minmax(0, 1fr))'} !important;
+            gap: 3.5mm !important;
+            width: 198mm !important;
+            height: 283mm !important;
+            max-height: 283mm !important;
+            box-sizing: border-box !important;
+            margin: 0 auto !important;
+            padding: 0 !important;
+          }
+          .print-card-item {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            box-sizing: border-box !important;
+            height: 100% !important;
+            max-height: ${layoutMode === '6-per-page' ? '91mm' : '138mm'} !important;
+            overflow: hidden !important;
           }
         }
       `}</style>
@@ -589,7 +657,7 @@ export default function CbtParticipantCardModal({
 }
 
 /**
- * 🪪 SINGLE PARTICIPANT CARD COMPONENT (Ultra-Clean, Official, Modern)
+ * 🪪 SINGLE PARTICIPANT CARD COMPONENT (Ultra-Clean, Precision 6-Cards-per-A4 Ready)
  */
 function SingleParticipantCard({
   student,
@@ -619,18 +687,10 @@ function SingleParticipantCard({
   showQr: boolean;
   showStamp: boolean;
   showCuttingGuide: boolean;
-  layoutMode: '4-per-page' | '6-per-page';
+  layoutMode: '6-per-page' | '4-per-page';
   cardIndex: number;
 }) {
   const isCompact = layoutMode === '6-per-page';
-
-  // Get initials for modern avatar
-  const initials = student.name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0].toUpperCase())
-    .join('');
 
   const currentDateFormatted = new Date().toLocaleDateString('id-ID', {
     day: 'numeric',
@@ -640,32 +700,32 @@ function SingleParticipantCard({
 
   return (
     <div
-      className={`relative bg-white text-slate-900 border-2 border-slate-800 rounded-xl shadow-md overflow-hidden print-avoid-break print:shadow-none font-sans ${
-        isCompact ? 'p-3' : 'p-4'
+      className={`relative bg-white text-slate-900 border border-slate-800 rounded-xl shadow-xs overflow-hidden print-avoid-break print:shadow-none font-sans flex flex-col justify-between h-full ${
+        isCompact ? 'p-2 sm:p-2.5' : 'p-3.5'
       }`}
       style={{
         boxSizing: 'border-box',
       }}
     >
-      {/* ✂️ OPTIONAL CUTTING GUIDES */}
+      {/* ✂️ CUTTING GUIDE INDICATOR */}
       {showCuttingGuide && (
-        <div className="absolute top-1 right-2 text-[9px] text-slate-400 flex items-center gap-1 font-mono select-none print:text-slate-500">
-          <Scissors size={10} /> <span>✂ Potong di sini</span>
+        <div className="absolute top-1 right-1.5 text-[8px] text-slate-400 flex items-center gap-0.5 font-mono select-none print:text-slate-500">
+          <Scissors size={9} /> <span className="tracking-tighter">✂ Potong</span>
         </div>
       )}
 
       {/* 🏛️ CARD HEADER */}
-      <div className="flex items-center gap-2.5 pb-2 border-b-2 border-slate-900">
+      <div className="flex items-center gap-2 pb-1.5 border-b border-slate-900">
         {/* School Logo */}
-        <div className="w-12 h-12 flex-shrink-0 flex items-center justify-center">
+        <div className="w-9 h-9 flex-shrink-0 flex items-center justify-center">
           {kopConfig.logoLeftUrl ? (
             <img
               src={kopConfig.logoLeftUrl}
               alt={kopConfig.schoolName}
-              className="max-w-[44px] max-h-[44px] object-contain"
+              className="max-w-[34px] max-h-[34px] object-contain"
             />
           ) : (
-            <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-blue-900 to-indigo-900 text-white flex items-center justify-center font-black text-sm shadow-sm border border-amber-400">
+            <div className="w-8 h-8 rounded-md bg-gradient-to-br from-blue-900 to-indigo-900 text-white flex items-center justify-center font-black text-xs shadow-xs border border-amber-400">
               SMK
             </div>
           )}
@@ -673,63 +733,65 @@ function SingleParticipantCard({
 
         {/* School Name & Title */}
         <div className="flex-1 min-w-0 pr-1">
-          <div className="text-[9px] font-bold text-slate-600 uppercase tracking-wider truncate leading-tight">
-            {kopConfig.yayasanName || 'YAYASAN PENDIDIKAN NUSANTARA'}
+          <div className="text-[7.5px] font-bold text-slate-500 uppercase tracking-wider truncate leading-tight">
+            {kopConfig.yayasanName || 'YAYASAN PENDIDIKAN GARUDA'}
           </div>
-          <div className="text-xs sm:text-sm font-black text-slate-950 uppercase tracking-tight truncate leading-tight">
+          <div className="text-[11px] font-black text-slate-950 uppercase tracking-tight truncate leading-tight">
             {kopConfig.schoolName}
           </div>
-          <div className="text-[10px] font-black text-blue-900 uppercase tracking-wide leading-tight mt-0.5">
+          <div className="text-[9px] font-black text-blue-900 uppercase tracking-wide leading-tight mt-0.5">
             KARTU LOGIN & PESERTA UJIAN CBT
           </div>
-          <div className="text-[8px] text-slate-500 font-semibold truncate leading-tight">
+          <div className="text-[7.5px] text-slate-600 font-semibold truncate leading-tight">
             {examTitle} • {academicYear}
           </div>
         </div>
 
         {/* Accreditation / Badge */}
-        <div className="hidden sm:flex flex-col items-center justify-center px-2 py-1 rounded-md bg-slate-100 border border-slate-300 text-center flex-shrink-0">
-          <span className="text-[7px] font-bold text-slate-500 uppercase leading-none">AKREDITASI</span>
-          <span className="text-xs font-black text-blue-900 leading-tight">
+        <div className="hidden sm:flex flex-col items-center justify-center px-1.5 py-0.5 rounded bg-slate-100 border border-slate-300 text-center flex-shrink-0">
+          <span className="text-[6px] font-bold text-slate-500 uppercase leading-none">AKREDITASI</span>
+          <span className="text-[10px] font-black text-blue-900 leading-tight">
             {kopConfig.akreditasi ? kopConfig.akreditasi.charAt(0) : 'A'}
           </span>
         </div>
       </div>
 
       {/* 👤 CARD BODY: STUDENT IDENTITY & LOGIN BOX */}
-      <div className="mt-2.5 grid grid-cols-12 gap-2.5 items-stretch">
+      <div className="my-1.5 grid grid-cols-12 gap-2 items-stretch flex-1">
         {/* Left Column: Student Details */}
-        <div className="col-span-7 flex flex-col justify-between space-y-2">
+        <div className="col-span-7 flex flex-col justify-between space-y-1">
           {/* Top Info */}
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             {/* Student Name */}
             <div>
-              <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Nama Peserta Ujian:</span>
-              <div className="text-xs sm:text-sm font-black text-slate-900 tracking-tight leading-tight line-clamp-1">
+              <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider leading-none block">
+                Nama Peserta Ujian:
+              </span>
+              <div className="text-[11px] font-black text-slate-900 tracking-tight leading-tight line-clamp-1">
                 {student.name}
               </div>
             </div>
 
             {/* Table of Info */}
-            <div className="text-[9px] sm:text-[9.5px] space-y-0.5 font-medium text-slate-700">
+            <div className="text-[8px] space-y-0.5 font-medium text-slate-700">
               <div className="flex items-center gap-1">
-                <span className="w-16 font-semibold text-slate-500">NISN / NIS:</span>
+                <span className="w-14 font-semibold text-slate-500">NISN / NIS:</span>
                 <span className="font-mono font-bold text-slate-900">
                   {student.nisn || student.username}
                 </span>
               </div>
               <div className="flex items-center gap-1">
-                <span className="w-16 font-semibold text-slate-500">Kelas / Rombel:</span>
-                <span className="inline-flex items-center px-1.5 py-0.2 rounded font-bold bg-purple-50 text-purple-900 border border-purple-200 text-[9px]">
+                <span className="w-14 font-semibold text-slate-500">Kelas:</span>
+                <span className="inline-flex items-center px-1 py-0.2 rounded font-bold bg-purple-50 text-purple-900 border border-purple-200 text-[8px]">
                   {student.studentClass}
                 </span>
               </div>
               <div className="flex items-center gap-1">
-                <span className="w-16 font-semibold text-slate-500">Jurusan:</span>
-                <span className="font-bold text-slate-800">{student.major}</span>
+                <span className="w-14 font-semibold text-slate-500">Jurusan:</span>
+                <span className="font-bold text-slate-800 truncate">{student.major}</span>
               </div>
               <div className="flex items-center gap-1">
-                <span className="w-16 font-semibold text-slate-500">Ruang & Sesi:</span>
+                <span className="w-14 font-semibold text-slate-500">Ruang/Sesi:</span>
                 <span className="font-semibold text-slate-800 truncate">
                   {examRoom.split('/')[0].trim()} • {examSession.split('(')[0].trim()}
                 </span>
@@ -738,31 +800,31 @@ function SingleParticipantCard({
           </div>
 
           {/* Mini Rules */}
-          <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-[7.5px] text-slate-600 leading-tight">
-            <strong>Perhatian:</strong> Kartu wajib dibawa & ditaruh di meja saat ujian. Jaga kerahasiaan password Anda!
+          <div className="p-1 rounded bg-slate-50 border border-slate-200 text-[6.5px] text-slate-600 leading-tight">
+            <strong>Perhatian:</strong> Kartu wajib ditaruh di meja ujian. Jaga kerahasiaan password Anda!
           </div>
         </div>
 
         {/* Right Column: Credentials Box & QR */}
-        <div className="col-span-5 flex flex-col justify-between items-center text-center space-y-1.5">
+        <div className="col-span-5 flex flex-col justify-between items-center text-center space-y-1">
           {/* Highlighted Login Credential Box */}
-          <div className="w-full bg-slate-900 text-white rounded-lg p-2 shadow-sm border border-slate-950 flex flex-col justify-center">
-            <div className="text-[7.5px] font-bold text-amber-300 uppercase tracking-wider mb-1 flex items-center justify-center gap-1">
-              <KeyRound size={9} /> Kredensial Login CBT
+          <div className="w-full bg-slate-900 text-white rounded-md p-1.5 shadow-xs border border-slate-950 flex flex-col justify-center">
+            <div className="text-[6.5px] font-bold text-amber-300 uppercase tracking-wider mb-0.5 flex items-center justify-center gap-0.5">
+              <KeyRound size={8} /> Kredensial Login CBT
             </div>
 
             {/* Username */}
-            <div className="text-left bg-slate-800/80 px-1.5 py-0.5 rounded border border-slate-700 mb-1">
-              <div className="text-[6.5px] text-slate-400 uppercase font-semibold">Username:</div>
-              <div className="font-mono font-black text-[11px] sm:text-xs text-emerald-400 tracking-wide truncate">
+            <div className="text-left bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 mb-0.5">
+              <div className="text-[5.5px] text-slate-400 uppercase font-semibold leading-none">Username:</div>
+              <div className="font-mono font-black text-[10px] text-emerald-400 tracking-wide truncate leading-tight">
                 {student.username}
               </div>
             </div>
 
             {/* Password */}
-            <div className="text-left bg-slate-800/80 px-1.5 py-0.5 rounded border border-slate-700">
-              <div className="text-[6.5px] text-slate-400 uppercase font-semibold">Password:</div>
-              <div className="font-mono font-black text-[11px] sm:text-xs text-amber-300 tracking-wide">
+            <div className="text-left bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+              <div className="text-[5.5px] text-slate-400 uppercase font-semibold leading-none">Password:</div>
+              <div className="font-mono font-black text-[10px] text-amber-300 tracking-wide leading-tight">
                 {showPassword ? student.password : '••••••••'}
               </div>
             </div>
@@ -772,10 +834,10 @@ function SingleParticipantCard({
           {showQr && qrSvg && (
             <div className="flex flex-col items-center">
               <div
-                className="w-16 h-16 sm:w-20 sm:h-20 bg-white p-0.5 border border-slate-300 rounded-md shadow-xs flex items-center justify-center overflow-hidden"
+                className="w-13 h-13 bg-white p-0.5 border border-slate-300 rounded shadow-xs flex items-center justify-center overflow-hidden"
                 dangerouslySetInnerHTML={{ __html: qrSvg }}
               />
-              <span className="text-[6.5px] font-bold text-slate-600 mt-0.5 uppercase tracking-tighter">
+              <span className="text-[6px] font-bold text-slate-500 uppercase tracking-tighter leading-none mt-0.5">
                 Scan Masuk Ujian
               </span>
             </div>
@@ -784,45 +846,45 @@ function SingleParticipantCard({
       </div>
 
       {/* 🖋️ CARD FOOTER: SIGNATURE & OFFICIAL DIGITAL STAMP */}
-      <div className="mt-2.5 pt-1.5 border-t border-slate-200 flex items-end justify-between text-[8px] text-slate-600">
+      <div className="pt-1 border-t border-slate-200 flex items-end justify-between text-[7px] text-slate-600">
         <div className="text-left leading-tight">
-          <div className="font-semibold text-slate-500">Portal Ujian Siswa:</div>
-          <div className="font-mono font-bold text-blue-900 text-[8.5px] truncate max-w-[150px]">
+          <div className="font-semibold text-slate-500">Portal CBT Siswa:</div>
+          <div className="font-mono font-bold text-blue-900 text-[7.5px] truncate max-w-[130px]">
             {portalUrl.replace(/^https?:\/\//, '')}
           </div>
-          <div className="text-[6.5px] text-slate-400 mt-0.5 font-mono">
-            ID: {student.id.slice(-6).toUpperCase()} • {student.studentClass}
+          <div className="text-[6px] text-slate-400 font-mono">
+            #{cardIndex + 1} • {student.id.slice(-6).toUpperCase()} • {student.studentClass}
           </div>
         </div>
 
         {/* Headmaster Signature & Stamp */}
         <div className="relative text-right flex flex-col items-end">
-          <div className="text-[7.5px] text-slate-600 font-medium">
+          <div className="text-[6.5px] text-slate-600 font-medium leading-none">
             {kopConfig.city || 'Kota Bekasi'}, {currentDateFormatted}
           </div>
-          <div className="text-[8px] font-bold text-slate-800">
+          <div className="text-[7px] font-bold text-slate-800 leading-tight">
             Kepala Sekolah,
           </div>
 
           {/* Digital Stamp Overlay */}
-          <div className="relative h-9 w-28 flex items-center justify-center my-0.5">
+          <div className="relative h-6 w-24 flex items-center justify-center my-0.2">
             {showStamp && (
-              <div className="absolute right-3 -top-2 opacity-85 scale-[0.38] pointer-events-none transform origin-center">
+              <div className="absolute right-2 -top-3 opacity-80 scale-[0.26] pointer-events-none transform origin-center">
                 <CbtDigitalStamp
                   schoolName={kopConfig.schoolName}
                   yayasanName={kopConfig.yayasanName}
                 />
               </div>
             )}
-            <div className="text-[6.5px] text-slate-400 italic">
-              [ Tanda Tangan Resmi ]
+            <div className="text-[6px] text-slate-400 italic">
+              [ Tanda Tangan Sah ]
             </div>
           </div>
 
-          <div className="font-bold underline text-slate-900 text-[8.5px] leading-none">
+          <div className="font-bold underline text-slate-900 text-[7.5px] leading-none">
             {kopConfig.headmasterName || 'H. Ahmad Fauzi, M.Pd'}
           </div>
-          <div className="text-[7px] text-slate-500 font-mono">
+          <div className="text-[6px] text-slate-500 font-mono leading-none">
             NIP. {kopConfig.headmasterNip || '19780512 200312 1 004'}
           </div>
         </div>
@@ -830,4 +892,3 @@ function SingleParticipantCard({
     </div>
   );
 }
-
