@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { isClassOverlap } from '@/lib/cbt-schedule';
 import { getKopSuratConfig, getWebSettings } from '@/lib/settings';
-import { getDynamicClassTargets } from '@/lib/jurusan-service';
+import { getDynamicClassTargets, ensureDefaultJurusans } from '@/lib/jurusan-service';
 import type { KopSuratConfig } from '@/app/admin/settings/types';
 
 // Helper: Generate clean 6-character alphanumeric token without confusing symbols (0, O, 1, I)
@@ -1082,7 +1082,14 @@ export interface CbtStudentCardItem {
   nisn: string | null;
   studentClass: string;
   major: string;
+  majorName?: string;
   gradeLevel: string;
+}
+
+export interface CbtMasterJurusanItem {
+  id: string;
+  name: string;
+  code: string;
 }
 
 export interface GetCbtStudentCardsOptions {
@@ -1103,7 +1110,7 @@ export async function getCbtStudentCardsDataAction(options?: GetCbtStudentCardsO
       };
     }
 
-    const [rawStudents, studentGrades, examAttempts, kopSuratConfig, dynamicClasses, exams] = await Promise.all([
+    const [rawStudents, studentGrades, examAttempts, kopSuratConfig, dynamicClasses, exams, jurusans] = await Promise.all([
       prisma.user.findMany({
         where: {
           role: 'Siswa',
@@ -1149,6 +1156,7 @@ export async function getCbtStudentCardsDataAction(options?: GetCbtStudentCardsO
         },
         orderBy: { createdAt: 'desc' },
       }),
+      ensureDefaultJurusans(),
     ]);
 
     const studentClassMap: Record<string, string> = {};
@@ -1184,8 +1192,27 @@ export async function getCbtStudentCardsDataAction(options?: GetCbtStudentCardsO
       else if (assignedClass.startsWith('X') && !assignedClass.startsWith('XI') && !assignedClass.startsWith('XII')) gradeLevel = 'X';
       else if (assignedClass.startsWith('XI')) gradeLevel = 'XI';
 
+      // Pencocokan presisi dengan master database Jurusan yang di-input Admin Utama
+      const upperClass = assignedClass.toUpperCase();
+      let matchedJurusan = jurusans.find((j) => {
+        const code = (j.code || '').trim().toUpperCase();
+        if (!code) return false;
+        const regex = new RegExp(`(^|[^A-Z0-9])${code}([^A-Z0-9]|$)`, 'i');
+        return regex.test(upperClass);
+      });
+
+      if (!matchedJurusan) {
+        matchedJurusan = jurusans.find((j) => {
+          const name = (j.name || '').trim().toLowerCase();
+          return name && assignedClass.toLowerCase().includes(name);
+        });
+      }
+
       const parts = assignedClass.split(' ');
-      const major = parts.length >= 2 ? parts[1] : 'Umum';
+      const fallbackCode = parts.length >= 2 ? parts[1].toUpperCase() : 'Umum';
+
+      const major = matchedJurusan ? matchedJurusan.code : fallbackCode;
+      const majorName = matchedJurusan ? matchedJurusan.name : (major !== 'Umum' ? major : 'Semua Jurusan');
 
       return {
         id: s.id,
@@ -1195,6 +1222,7 @@ export async function getCbtStudentCardsDataAction(options?: GetCbtStudentCardsO
         nisn: s.nisn,
         studentClass: assignedClass,
         major,
+        majorName,
         gradeLevel,
       };
     });
@@ -1219,6 +1247,11 @@ export async function getCbtStudentCardsDataAction(options?: GetCbtStudentCardsO
       students,
       kopSuratConfig,
       availableClasses: dynamicClasses,
+      jurusans: jurusans.map((j) => ({
+        id: j.id,
+        name: j.name,
+        code: j.code,
+      })),
       exams: exams.map(e => ({
         ...e,
         startTime: e.startTime ? e.startTime.toISOString() : null,

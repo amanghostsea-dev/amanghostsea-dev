@@ -78,6 +78,7 @@ export default function CbtParticipantCardModal({
   const [selectedGrade, setSelectedGrade] = useState<string>('ALL');
   const [selectedMajor, setSelectedMajor] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [masterJurusans, setMasterJurusans] = useState<Array<{ id: string; name: string; code: string }>>([]);
 
   // Customization States
   const [examTitle, setExamTitle] = useState<string>('ASESMEN SUMATIF AKHIR SEMESTER (ASAS) GANJIL');
@@ -132,6 +133,9 @@ export default function CbtParticipantCardModal({
           }
           if (res.exams) {
             setAvailableExams(res.exams);
+          }
+          if (res.jurusans && res.jurusans.length > 0) {
+            setMasterJurusans(res.jurusans);
           }
         }
       } catch (err: any) {
@@ -229,14 +233,49 @@ export default function CbtParticipantCardModal({
     }
   };
 
-  // Extract unique majors from students & available classes
-  const uniqueMajors = useMemo(() => {
-    const set = new Set<string>();
-    students.forEach((s) => {
-      if (s.major && s.major !== 'Umum') set.add(s.major);
+  // 🎓 Sinkronisasi opsi Filter Jurusan langsung dari master database Jurusan yang di-input Admin Utama
+  const jurusanFilterOptions = useMemo(() => {
+    const list: Array<{ code: string; name: string; count: number }> = [];
+    const addedCodes = new Set<string>();
+
+    // 1. Prioritas dari master Jurusan resmi Admin Utama
+    masterJurusans.forEach((j) => {
+      const code = (j.code || '').trim().toUpperCase();
+      if (code && !addedCodes.has(code)) {
+        addedCodes.add(code);
+        const count = students.filter((s) => {
+          const sMajor = (s.major || '').trim().toUpperCase();
+          const sClass = (s.studentClass || '').trim().toUpperCase();
+          return sMajor === code || new RegExp(`(^|[^A-Z0-9])${code}([^A-Z0-9]|$)`, 'i').test(sClass);
+        }).length;
+        list.push({
+          code,
+          name: j.name,
+          count,
+        });
+      }
     });
-    return Array.from(set).sort();
-  }, [students]);
+
+    // 2. Tambahkan jika ada data jurusan dari siswa yang belum terdaftar di master
+    students.forEach((s) => {
+      const code = (s.major || '').trim().toUpperCase();
+      if (code && code !== 'UMUM' && !addedCodes.has(code)) {
+        addedCodes.add(code);
+        const count = students.filter((st) => {
+          const stMajor = (st.major || '').trim().toUpperCase();
+          const stClass = (st.studentClass || '').trim().toUpperCase();
+          return stMajor === code || new RegExp(`(^|[^A-Z0-9])${code}([^A-Z0-9]|$)`, 'i').test(stClass);
+        }).length;
+        list.push({
+          code,
+          name: s.majorName || code,
+          count,
+        });
+      }
+    });
+
+    return list;
+  }, [masterJurusans, students]);
 
   // Filtered Students List with ID deduplication safeguard
   const filteredStudents = useMemo(() => {
@@ -249,8 +288,15 @@ export default function CbtParticipantCardModal({
       if (selectedClass !== 'ALL' && s.studentClass !== selectedClass) return false;
       // Filter Tingkat (X, XI, XII)
       if (selectedGrade !== 'ALL' && s.gradeLevel !== selectedGrade) return false;
-      // Filter Jurusan
-      if (selectedMajor !== 'ALL' && s.major !== selectedMajor) return false;
+      // Filter Jurusan (Tersinkronisasi dengan Master Jurusan Admin Utama)
+      if (selectedMajor !== 'ALL') {
+        const sel = selectedMajor.toUpperCase();
+        const studentMajor = (s.major || '').toUpperCase();
+        const studentClass = (s.studentClass || '').toUpperCase();
+        const matchesMajor = studentMajor === sel;
+        const matchesClass = new RegExp(`(^|[^A-Z0-9])${sel}([^A-Z0-9]|$)`, 'i').test(studentClass);
+        if (!matchesMajor && !matchesClass) return false;
+      }
       // Search Query
       if (searchQuery.trim()) {
         const q = searchQuery.trim().toLowerCase();
@@ -718,20 +764,25 @@ export default function CbtParticipantCardModal({
             </select>
           </div>
 
-          {/* Filter Jurusan */}
+          {/* Filter Jurusan (Sinkron dengan Database Master Jurusan Admin Utama) */}
           <div>
-            <label className="block text-slate-500 dark:text-slate-400 font-semibold mb-1">
-              Filter Jurusan:
+            <label className="block text-slate-500 dark:text-slate-400 font-semibold mb-1 flex items-center justify-between">
+              <span>Filter Jurusan:</span>
+              <span className="text-[10px] text-purple-600 dark:text-purple-400 font-bold">
+                ✓ Sinkron Admin
+              </span>
             </label>
             <select
               value={selectedMajor}
               onChange={(e) => setSelectedMajor(e.target.value)}
               className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-semibold text-slate-800 dark:text-slate-200 cursor-pointer focus:ring-2 focus:ring-purple-500"
             >
-              <option value="ALL">Semua Jurusan</option>
-              {uniqueMajors.map((m) => (
-                <option key={m} value={m}>
-                  Jurusan {m}
+              <option value="ALL">
+                Semua Jurusan {masterJurusans.length > 0 ? `(${masterJurusans.length} Terdaftar)` : ''}
+              </option>
+              {jurusanFilterOptions.map((opt) => (
+                <option key={opt.code} value={opt.code}>
+                  Jurusan {opt.code} - {opt.name} ({opt.count} Siswa)
                 </option>
               ))}
             </select>
@@ -1062,7 +1113,14 @@ function SingleParticipantCard({
               </div>
               <div className="flex items-center gap-1">
                 <span className="w-14 font-semibold text-slate-500">Jurusan:</span>
-                <span className="font-bold text-slate-800 truncate">{student.major}</span>
+                <span
+                  className="font-bold text-slate-800 truncate"
+                  title={student.majorName ? `${student.major} - ${student.majorName}` : student.major}
+                >
+                  {student.majorName && student.majorName !== student.major && student.major !== 'Umum'
+                    ? `${student.major} (${student.majorName})`
+                    : student.major}
+                </span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="w-14 font-semibold text-slate-500">Ruang/Sesi:</span>
