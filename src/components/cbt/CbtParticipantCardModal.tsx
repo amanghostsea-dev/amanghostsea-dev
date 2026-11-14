@@ -34,6 +34,7 @@ import {
 import { KopSuratConfig, DEFAULT_KOP_SURAT_CONFIG } from '@/app/admin/settings/types';
 import { CbtDigitalStamp, HeadmasterSignatureStroke } from './CbtOfficialPrintComponents';
 import { generateQrSvg } from '@/lib/pure-qr';
+import { CbtTimezone, DEFAULT_CBT_TIMEZONE, formatScheduleTime } from '@/lib/cbt-schedule';
 import { 
   getCbtStudentCardsDataAction, 
   saveSchoolStampAndSignatureAction,
@@ -45,6 +46,7 @@ interface CbtParticipantCardModalProps {
   onClose: () => void;
   kopSuratConfig?: Partial<KopSuratConfig>;
   initialClasses?: string[];
+  cbtTimezone?: CbtTimezone;
 }
 
 export default function CbtParticipantCardModal({
@@ -52,6 +54,7 @@ export default function CbtParticipantCardModal({
   onClose,
   kopSuratConfig: initialKopConfig,
   initialClasses = [],
+  cbtTimezone = DEFAULT_CBT_TIMEZONE,
 }: CbtParticipantCardModalProps) {
   // Client mount state for React Portal
   const [mounted, setMounted] = useState<boolean>(false);
@@ -80,11 +83,13 @@ export default function CbtParticipantCardModal({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [masterJurusans, setMasterJurusans] = useState<Array<{ id: string; name: string; code: string }>>([]);
 
+  const [activeTz, setActiveTz] = useState<CbtTimezone>(cbtTimezone || DEFAULT_CBT_TIMEZONE);
+
   // Customization States
   const [examTitle, setExamTitle] = useState<string>('ASESMEN SUMATIF AKHIR SEMESTER (ASAS) GANJIL');
   const [academicYear, setAcademicYear] = useState<string>('TAHUN AJARAN 2026/2027 • SEMESTER GANJIL');
   const [examRoom, setExamRoom] = useState<string>('Lab Komputer 1 / Ruang CBT');
-  const [examSession, setExamSession] = useState<string>('Sesi 1 (07:30 - 09:30 WIB)');
+  const [examSession, setExamSession] = useState<string>(`Sesi 1 (07:30 - 09:30 ${cbtTimezone || DEFAULT_CBT_TIMEZONE})`);
   const [portalUrl, setPortalUrl] = useState<string>('https://smk-web.vercel.app/ujian');
   const [selectedExamId, setSelectedExamId] = useState<string>('custom');
 
@@ -131,6 +136,9 @@ export default function CbtParticipantCardModal({
             setStampPreview(cfg.stampUrl || null);
             setSignaturePreview(cfg.signatureUrl || null);
           }
+          if (res.cbtTimezone) {
+            setActiveTz(res.cbtTimezone);
+          }
           if (res.exams) {
             setAvailableExams(res.exams);
           }
@@ -161,9 +169,8 @@ export default function CbtParticipantCardModal({
       setExamTitle(found.title.toUpperCase());
       if (found.roomName) setExamRoom(found.roomName);
       if (found.startTime) {
-        const dateObj = new Date(found.startTime);
-        const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-        setExamSession(`Sesi Ujian (${timeStr} WIB)`);
+        const timeStr = formatScheduleTime(found.startTime, activeTz);
+        setExamSession(`Sesi Ujian (${timeStr})`);
       }
       if (found.classTarget && found.classTarget !== 'Semua Kelas') {
         setSelectedClass(found.classTarget);
@@ -467,7 +474,7 @@ export default function CbtParticipantCardModal({
                   type="text"
                   value={examSession}
                   onChange={(e) => setExamSession(e.target.value)}
-                  placeholder="Misal: Sesi 1 (07:30 - 09:30 WIB)"
+                  placeholder={`Misal: Sesi 1 (07:30 - 09:30 ${activeTz})`}
                   className="w-full px-3 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-medium"
                 />
               </div>

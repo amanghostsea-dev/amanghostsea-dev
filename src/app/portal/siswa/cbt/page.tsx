@@ -1,15 +1,16 @@
 import prisma from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import SiswaCbtClient from './SiswaCbtClient';
-import { getKopSuratConfig } from '@/lib/settings';
+import { getKopSuratConfig, getCbtTimezone } from '@/lib/settings';
 import { isClassTargetMatch } from '@/lib/cbt-schedule';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SiswaCbtListPage() {
-  const [cookieStore, kopSuratConfig] = await Promise.all([
+  const [cookieStore, kopSuratConfig, cbtTimezone] = await Promise.all([
     cookies(),
     getKopSuratConfig(),
+    getCbtTimezone(),
   ]);
   const authName = cookieStore.get('auth_name')?.value;
   const authUser = cookieStore.get('auth_user')?.value;
@@ -121,6 +122,7 @@ export default async function SiswaCbtListPage() {
       studentClass={studentClass}
       initials={initials}
       kopSuratConfig={kopSuratConfig}
+      timezone={cbtTimezone}
     />
   );
 }

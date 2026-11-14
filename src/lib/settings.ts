@@ -10,6 +10,8 @@ import {
   DEFAULT_KOP_SURAT_CONFIG
 } from '@/app/admin/settings/types';
 
+import { CbtTimezone, DEFAULT_CBT_TIMEZONE } from '@/lib/cbt-schedule';
+
 export async function getWebSettings() {
   try {
     const setting = await prisma.setting.findUnique({
@@ -105,4 +107,12 @@ export async function getKopSuratConfig(): Promise<KopSuratConfig> {
     ...DEFAULT_KOP_SURAT_CONFIG,
     logoLeftUrl: settings?.logoUrl || null,
   };
+}
+
+export async function getCbtTimezone(): Promise<CbtTimezone> {
+  const settings = await getWebSettings();
+  if (settings?.cbtTimezone && ['WIB', 'WITA', 'WIT'].includes(settings.cbtTimezone)) {
+    return settings.cbtTimezone as CbtTimezone;
+  }
+  return DEFAULT_CBT_TIMEZONE;
 }

@@ -3,7 +3,7 @@ import prisma from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import CbtDashboard from './CbtDashboard';
 import { getDynamicClassTargets } from '@/lib/jurusan-service';
-import { getKopSuratConfig } from '@/lib/settings';
+import { getKopSuratConfig, getCbtTimezone } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,7 +44,7 @@ export default async function AdminCbtPage({
         ],
       };
 
-  const [exams, classTargets, subjects, kopSuratConfig, teachers] = await Promise.all([
+  const [exams, classTargets, subjects, kopSuratConfig, teachers, cbtTimezone] = await Promise.all([
     prisma.exam.findMany({
       where: examWhereClause,
       include: {
@@ -96,6 +96,7 @@ export default async function AdminCbtPage({
       },
       orderBy: { name: 'asc' },
     }),
+    getCbtTimezone(),
   ]);
 
   return (
@@ -108,6 +109,7 @@ export default async function AdminCbtPage({
         dynamicSubjectPresets={subjects.map(s => s.name)}
         kopSuratConfig={kopSuratConfig}
         teachers={teachers}
+        initialTimezone={cbtTimezone}
       />
     </Suspense>
   );

@@ -3,8 +3,8 @@
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
-import { isClassOverlap } from '@/lib/cbt-schedule';
-import { getKopSuratConfig, getWebSettings } from '@/lib/settings';
+import { isClassOverlap, CbtTimezone, DEFAULT_CBT_TIMEZONE } from '@/lib/cbt-schedule';
+import { getKopSuratConfig, getWebSettings, getCbtTimezone } from '@/lib/settings';
 import { getDynamicClassTargets, ensureDefaultJurusans } from '@/lib/jurusan-service';
 import type { KopSuratConfig } from '@/app/admin/settings/types';
 
@@ -1242,10 +1242,13 @@ export async function getCbtStudentCardsDataAction(options?: GetCbtStudentCardsO
       );
     }
 
+    const cbtTimezone = await getCbtTimezone();
+
     return {
       success: true,
       students,
       kopSuratConfig,
+      cbtTimezone,
       availableClasses: dynamicClasses,
       jurusans: jurusans.map((j) => ({
         id: j.id,
@@ -1318,6 +1321,35 @@ export async function saveSchoolStampAndSignatureAction(data: {
       message: 'Stempel dan tanda tangan resmi sekolah berhasil disimpan permanen!',
       kopSuratConfig: updatedKopSurat,
     };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+export async function saveCbtTimezone(timezone: CbtTimezone) {
+  try {
+    const current = await prisma.setting.findUnique({
+      where: { key: 'webSettings' },
+    });
+    const currentSettings = current?.value ? JSON.parse(current.value) : {};
+    const merged = { ...currentSettings, cbtTimezone: timezone };
+    const value = JSON.stringify(merged);
+
+    await prisma.setting.upsert({
+      where: { key: 'webSettings' },
+      update: { value },
+      create: {
+        key: 'webSettings',
+        value,
+        description: 'Web Settings (Logo, Name, Tagline, Themes, Kop Surat, Payment, CBT)',
+      },
+    });
+
+    revalidatePath('/admin/cbt');
+    revalidatePath('/portal/siswa/cbt');
+    revalidatePath('/ujian');
+
+    return { success: true, timezone };
   } catch (error: any) {
     return { error: error.message };
   }

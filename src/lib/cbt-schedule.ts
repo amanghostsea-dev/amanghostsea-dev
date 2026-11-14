@@ -3,6 +3,28 @@
  * SMK Garuda Mahadhika - Enterprise CBT Engine
  */
 
+export type CbtTimezone = 'WIB' | 'WITA' | 'WIT';
+
+export const TIMEZONE_IANA_MAP: Record<CbtTimezone, string> = {
+  WIB: 'Asia/Jakarta',
+  WITA: 'Asia/Makassar',
+  WIT: 'Asia/Jayapura',
+};
+
+export const TIMEZONE_LABEL_MAP: Record<CbtTimezone, string> = {
+  WIB: 'WIB (UTC+7)',
+  WITA: 'WITA (UTC+8)',
+  WIT: 'WIT (UTC+9)',
+};
+
+export const TIMEZONE_OFFSET_MAP: Record<CbtTimezone, string> = {
+  WIB: '+07:00',
+  WITA: '+08:00',
+  WIT: '+09:00',
+};
+
+export const DEFAULT_CBT_TIMEZONE: CbtTimezone = 'WITA';
+
 export interface ScheduleState {
   state: 'ONGOING' | 'UPCOMING' | 'ENDED' | 'FLEXIBLE';
   label: string;
@@ -13,13 +35,49 @@ export interface ScheduleState {
 }
 
 /**
+ * Extract time parts (year, month, day, hour, minute, second) in specific Indonesian timezone
+ */
+export function getTimePartsInTimezone(
+  date: Date | string,
+  tz: CbtTimezone = DEFAULT_CBT_TIMEZONE
+) {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const iana = TIMEZONE_IANA_MAP[tz] || 'Asia/Makassar';
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: iana,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    hourCycle: 'h23',
+  });
+  const parts = formatter.formatToParts(d);
+  const getPart = (type: string) => parts.find((p) => p.type === type)?.value || '00';
+  return {
+    year: getPart('year'),
+    month: getPart('month'),
+    day: getPart('day'),
+    hour: getPart('hour'),
+    minute: getPart('minute'),
+    second: getPart('second'),
+  };
+}
+
+/**
  * Format date to Indonesian localized date string (e.g. "Kamis, 30 Okt 2026")
  */
-export function formatScheduleDate(date: Date | string): string {
+export function formatScheduleDate(
+  date: Date | string,
+  tz: CbtTimezone = DEFAULT_CBT_TIMEZONE
+): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   if (!d || isNaN(d.getTime())) return '-';
   
   return d.toLocaleDateString('id-ID', {
+    timeZone: TIMEZONE_IANA_MAP[tz] || 'Asia/Makassar',
     weekday: 'long',
     day: 'numeric',
     month: 'short',
@@ -28,23 +86,26 @@ export function formatScheduleDate(date: Date | string): string {
 }
 
 /**
- * Format time to Indonesian localized 24-hour WIB format (e.g. "08:00 WIB")
+ * Format time to Indonesian localized 24-hour format with selected timezone (e.g. "08:00 WITA")
  */
-export function formatScheduleTime(date: Date | string): string {
+export function formatScheduleTime(
+  date: Date | string,
+  tz: CbtTimezone = DEFAULT_CBT_TIMEZONE
+): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   if (!d || isNaN(d.getTime())) return '-';
 
-  const hours = d.getHours().toString().padStart(2, '0');
-  const minutes = d.getMinutes().toString().padStart(2, '0');
-  return `${hours}:${minutes} WIB`;
+  const { hour, minute } = getTimePartsInTimezone(d, tz);
+  return `${hour}:${minute} ${tz}`;
 }
 
 /**
- * Format complete schedule range (e.g. "Kamis, 30 Okt 2026 • 08:00 - 09:30 WIB")
+ * Format complete schedule range (e.g. "Kamis, 30 Okt 2026 • 08:00 - 09:30 WITA")
  */
 export function formatExamScheduleRange(
   startTime?: Date | string | null,
-  endTime?: Date | string | null
+  endTime?: Date | string | null,
+  tz: CbtTimezone = DEFAULT_CBT_TIMEZONE
 ): string {
   if (!startTime && !endTime) {
     return 'Jadwal Fleksibel (Kapan saja)';
@@ -54,32 +115,33 @@ export function formatExamScheduleRange(
   const end = endTime ? (typeof endTime === 'string' ? new Date(endTime) : endTime) : null;
 
   if (start && (!end || isNaN(end.getTime()))) {
-    return `Mulai: ${formatScheduleDate(start)} • ${formatScheduleTime(start)}`;
+    return `Mulai: ${formatScheduleDate(start, tz)} • ${formatScheduleTime(start, tz)}`;
   }
 
   if (!start || isNaN(start.getTime())) {
     if (end && !isNaN(end.getTime())) {
-      return `Batas Akhir: ${formatScheduleDate(end)} • ${formatScheduleTime(end)}`;
+      return `Batas Akhir: ${formatScheduleDate(end, tz)} • ${formatScheduleTime(end, tz)}`;
     }
     return 'Jadwal Fleksibel (Kapan saja)';
   }
 
-  // Both start and end exist
+  // Both start and end exist: compare day in target timezone
+  const startParts = getTimePartsInTimezone(start, tz);
+  const endParts = getTimePartsInTimezone(end!, tz);
   const isSameDay =
-    start.getFullYear() === end!.getFullYear() &&
-    start.getMonth() === end!.getMonth() &&
-    start.getDate() === end!.getDate();
-
-  const startHours = start.getHours().toString().padStart(2, '0');
-  const startMinutes = start.getMinutes().toString().padStart(2, '0');
-  const endHours = end!.getHours().toString().padStart(2, '0');
-  const endMinutes = end!.getMinutes().toString().padStart(2, '0');
+    startParts.year === endParts.year &&
+    startParts.month === endParts.month &&
+    startParts.day === endParts.day;
 
   if (isSameDay) {
-    return `${formatScheduleDate(start)} • ${startHours}:${startMinutes} - ${endHours}:${endMinutes} WIB`;
+    return `${formatScheduleDate(start, tz)} • ${startParts.hour}:${startParts.minute} - ${endParts.hour}:${endParts.minute} ${tz}`;
   }
 
-  return `${start.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}, ${startHours}:${startMinutes} WIB s/d ${end!.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}, ${endHours}:${endMinutes} WIB`;
+  const iana = TIMEZONE_IANA_MAP[tz] || 'Asia/Makassar';
+  const startDay = start.toLocaleDateString('id-ID', { timeZone: iana, day: 'numeric', month: 'short' });
+  const endDay = end!.toLocaleDateString('id-ID', { timeZone: iana, day: 'numeric', month: 'short' });
+
+  return `${startDay}, ${startParts.hour}:${startParts.minute} ${tz} s/d ${endDay}, ${endParts.hour}:${endParts.minute} ${tz}`;
 }
 
 /**
@@ -183,20 +245,42 @@ export function getExamScheduleState(
 
 /**
  * Format a Date to string value for HTML5 datetime-local input (YYYY-MM-DDTHH:mm)
+ * according to the specified Indonesian timezone (WIB, WITA, WIT)
  */
-export function toDateTimeLocalInput(date?: Date | string | null): string {
+export function toDateTimeLocalInput(
+  date?: Date | string | null,
+  tz: CbtTimezone = DEFAULT_CBT_TIMEZONE
+): string {
   if (!date) return '';
   const d = typeof date === 'string' ? new Date(date) : date;
   if (!d || isNaN(d.getTime())) return '';
 
-  const pad = (n: number) => n.toString().padStart(2, '0');
-  const year = d.getFullYear();
-  const month = pad(d.getMonth() + 1);
-  const day = pad(d.getDate());
-  const hours = pad(d.getHours());
-  const minutes = pad(d.getMinutes());
+  const { year, month, day, hour, minute } = getTimePartsInTimezone(d, tz);
+  return `${year}-${month}-${day}T${hour}:${minute}`;
+}
 
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
+/**
+ * Convert HTML5 datetime-local string (YYYY-MM-DDTHH:mm) into a fully qualified ISO string
+ * preserving the target Indonesian timezone offset (+07:00 for WIB, +08:00 for WITA, +09:00 for WIT)
+ */
+export function parseDateTimeInputToIso(
+  val?: string | null,
+  tz: CbtTimezone = DEFAULT_CBT_TIMEZONE
+): string {
+  if (!val || !val.trim()) return '';
+  const clean = val.trim();
+  // If already has offset or Z, return as is
+  if (clean.includes('+') || clean.includes('Z') || clean.endsWith('z')) {
+    return clean;
+  }
+  const offset = TIMEZONE_OFFSET_MAP[tz] || '+08:00';
+  if (clean.length === 16) {
+    return `${clean}:00${offset}`;
+  }
+  if (clean.length === 19) {
+    return `${clean}${offset}`;
+  }
+  return `${clean}${offset}`;
 }
 
 /**

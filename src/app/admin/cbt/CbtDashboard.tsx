@@ -38,7 +38,8 @@ import {
   CheckCheck,
   Zap,
   RotateCcw,
-  CreditCard
+  CreditCard,
+  Globe
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import CbtParticipantCardModal from '@/components/cbt/CbtParticipantCardModal';
@@ -50,15 +51,21 @@ import {
   checkExamScheduleConflict, 
   ScheduleConflictExam,
   batchUpdateExamSchedules,
-  batchCreateExamsWithSchedule
+  batchCreateExamsWithSchedule,
+  saveCbtTimezone
 } from './actions';
 import { 
   formatExamScheduleRange, 
   getExamScheduleState, 
   toDateTimeLocalInput,
+  parseDateTimeInputToIso,
+  formatScheduleTime,
+  formatScheduleDate,
   formatClassTargetDisplay,
   isClassOverlap,
-  parseClassTargets
+  parseClassTargets,
+  CbtTimezone,
+  DEFAULT_CBT_TIMEZONE
 } from '@/lib/cbt-schedule';
 import CbtReportView from './CbtReportView';
 import CbtProctorPlottingView, { TeacherUserItem } from './CbtProctorPlottingView';
@@ -117,6 +124,7 @@ interface CbtDashboardProps {
   dynamicSubjectPresets?: string[];
   kopSuratConfig?: KopSuratConfig;
   teachers?: TeacherUserItem[];
+  initialTimezone?: CbtTimezone;
 }
 
 export default function CbtDashboard({
@@ -127,6 +135,7 @@ export default function CbtDashboard({
   dynamicSubjectPresets,
   kopSuratConfig,
   teachers = [],
+  initialTimezone,
 }: CbtDashboardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -137,6 +146,19 @@ export default function CbtDashboard({
   const [mineOnlyFilter, setMineOnlyFilter] = useState(false);
   const [adminTeacherFilter, setAdminTeacherFilter] = useState('ALL');
   const [sessionLoadingId, setSessionLoadingId] = useState<string | null>(null);
+
+  // Timezone State (WIB, WITA, WIT)
+  const [cbtTimezone, setCbtTimezone] = useState<CbtTimezone>(initialTimezone || DEFAULT_CBT_TIMEZONE);
+
+  const handleTimezoneChange = async (newTz: CbtTimezone) => {
+    if (newTz === cbtTimezone) return;
+    setCbtTimezone(newTz);
+    try {
+      await saveCbtTimezone(newTz);
+    } catch (err) {
+      console.error('Gagal menyimpan zona waktu CBT:', err);
+    }
+  };
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -316,8 +338,8 @@ export default function CbtDashboard({
       const res = await checkExamScheduleConflict({
         examId: editingExam?.id,
         classTarget,
-        startTime,
-        endTime,
+        startTime: parseDateTimeInputToIso(startTime, cbtTimezone),
+        endTime: parseDateTimeInputToIso(endTime, cbtTimezone),
       });
       if (res.hasConflict && res.conflicts && res.conflicts.length > 0) {
         setConflicts(res.conflicts);
@@ -396,8 +418,8 @@ export default function CbtDashboard({
       const initial: Record<string, { startTime: string; endTime: string }> = {};
       exams.forEach((e) => {
         initial[e.id] = {
-          startTime: toDateTimeLocalInput(e.startTime),
-          endTime: toDateTimeLocalInput(e.endTime),
+          startTime: toDateTimeLocalInput(e.startTime, cbtTimezone),
+          endTime: toDateTimeLocalInput(e.endTime, cbtTimezone),
         };
       });
       setInlineSchedules(initial);
@@ -418,7 +440,7 @@ export default function CbtDashboard({
   const handleInlinePreset = (id: string, minutes: number) => {
     setInlineSchedules((prev) => {
       const current = prev[id] || { startTime: '', endTime: '' };
-      const baseStart = current.startTime ? new Date(current.startTime) : new Date();
+      const baseStart = current.startTime ? new Date(parseDateTimeInputToIso(current.startTime, cbtTimezone)) : new Date();
       if (!current.startTime) {
         baseStart.setHours(8, 0, 0, 0);
       }
@@ -426,8 +448,8 @@ export default function CbtDashboard({
       return {
         ...prev,
         [id]: {
-          startTime: toDateTimeLocalInput(baseStart),
-          endTime: toDateTimeLocalInput(end),
+          startTime: toDateTimeLocalInput(baseStart, cbtTimezone),
+          endTime: toDateTimeLocalInput(end, cbtTimezone),
         },
       };
     });
@@ -437,8 +459,8 @@ export default function CbtDashboard({
     setInlineSaving(true);
     const payload = Object.entries(inlineSchedules).map(([id, sched]) => ({
       id,
-      startTime: sched.startTime ? sched.startTime : null,
-      endTime: sched.endTime ? sched.endTime : null,
+      startTime: sched.startTime ? parseDateTimeInputToIso(sched.startTime, cbtTimezone) : null,
+      endTime: sched.endTime ? parseDateTimeInputToIso(sched.endTime, cbtTimezone) : null,
     }));
 
     const res = await batchUpdateExamSchedules(payload, true);
@@ -449,8 +471,8 @@ export default function CbtDashboard({
           if (!mod) return e;
           return {
             ...e,
-            startTime: mod.startTime ? new Date(mod.startTime) : null,
-            endTime: mod.endTime ? new Date(mod.endTime) : null,
+            startTime: mod.startTime ? new Date(parseDateTimeInputToIso(mod.startTime, cbtTimezone)) : null,
+            endTime: mod.endTime ? new Date(parseDateTimeInputToIso(mod.endTime, cbtTimezone)) : null,
           };
         })
       );
@@ -476,7 +498,8 @@ export default function CbtDashboard({
       breakAfter: number;
     }> = [];
 
-    let currentDateTime = new Date(`${batchDate}T${batchSeqStart}:00`);
+    const startInitialIso = parseDateTimeInputToIso(`${batchDate}T${batchSeqStart}`, cbtTimezone);
+    let currentDateTime = new Date(startInitialIso);
 
     selected.forEach((ex, idx) => {
       const dur = batchDurationType === 'DEFAULT' ? ex.duration || 60 : batchUniformDuration;
@@ -485,10 +508,10 @@ export default function CbtDashboard({
 
       items.push({
         exam: ex,
-        startIso: toDateTimeLocalInput(start),
-        endIso: toDateTimeLocalInput(end),
-        startDisplay: start.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-        endDisplay: end.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+        startIso: start.toISOString(),
+        endIso: end.toISOString(),
+        startDisplay: formatScheduleTime(start, cbtTimezone).replace(` ${cbtTimezone}`, ''),
+        endDisplay: formatScheduleTime(end, cbtTimezone).replace(` ${cbtTimezone}`, ''),
         breakAfter: idx < selected.length - 1 ? batchBreakMinutes : 0,
       });
 
@@ -510,8 +533,8 @@ export default function CbtDashboard({
         setBatchLoading(false);
         return;
       }
-      const startIso = `${batchDate}T${batchStartTime}:00`;
-      const endIso = `${batchDate}T${batchEndTime}:00`;
+      const startIso = parseDateTimeInputToIso(`${batchDate}T${batchStartTime}`, cbtTimezone);
+      const endIso = parseDateTimeInputToIso(`${batchDate}T${batchEndTime}`, cbtTimezone);
       if (new Date(startIso) >= new Date(endIso)) {
         alert('Jam mulai harus lebih awal dari jam selesai.');
         setBatchLoading(false);
@@ -750,8 +773,8 @@ export default function CbtDashboard({
     setClassTargetMode('preset');
     const randomToken = 'CBT' + Math.floor(100 + Math.random() * 900);
     const now = new Date();
-    const startStr = toDateTimeLocalInput(now);
-    const endStr = toDateTimeLocalInput(new Date(now.getTime() + 60 * 60000));
+    const startStr = toDateTimeLocalInput(now, cbtTimezone);
+    const endStr = toDateTimeLocalInput(new Date(now.getTime() + 60 * 60000), cbtTimezone);
 
     const defaultClass = (selectedClassFilter !== 'ALL' && selectedClassFilter)
       ? selectedClassFilter
@@ -790,8 +813,8 @@ export default function CbtDashboard({
     } else {
       setClassTargetMode('preset');
     }
-    const startStr = toDateTimeLocalInput(exam.startTime);
-    const endStr = toDateTimeLocalInput(exam.endTime);
+    const startStr = toDateTimeLocalInput(exam.startTime, cbtTimezone);
+    const endStr = toDateTimeLocalInput(exam.endTime, cbtTimezone);
 
     setFormData({
       title: exam.title,
@@ -831,8 +854,15 @@ export default function CbtDashboard({
     e.preventDefault();
     setLoading(true);
 
-    if (formData.enableSchedule && formData.startTime && formData.endTime) {
-      if (new Date(formData.startTime) >= new Date(formData.endTime)) {
+    const startIso = formData.enableSchedule && formData.startTime 
+      ? parseDateTimeInputToIso(formData.startTime, cbtTimezone) 
+      : null;
+    const endIso = formData.enableSchedule && formData.endTime 
+      ? parseDateTimeInputToIso(formData.endTime, cbtTimezone) 
+      : null;
+
+    if (startIso && endIso) {
+      if (new Date(startIso) >= new Date(endIso)) {
         alert('Jadwal Mulai harus lebih awal daripada Jadwal Selesai.');
         setLoading(false);
         return;
@@ -849,8 +879,8 @@ export default function CbtDashboard({
       status: formData.status,
       shuffleQuestions: formData.shuffleQuestions,
       authorName: formData.authorName || teacherName,
-      startTime: formData.enableSchedule && formData.startTime ? formData.startTime : null,
-      endTime: formData.enableSchedule && formData.endTime ? formData.endTime : null,
+      startTime: startIso,
+      endTime: endIso,
       allowConflict: formData.allowConflict,
     };
 
@@ -1111,19 +1141,44 @@ export default function CbtDashboard({
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-400 font-medium">Status Jadwal Sistem:</span>
-          {systemConflicts.length === 0 ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-              <CheckCircle size={14} className="text-emerald-600 dark:text-emerald-400" />
-              <span>Bebas Bentrok (0 Tabrakan)</span>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* 🌐 Quick Timezone Switcher Pill */}
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs">
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 pl-1.5 flex items-center gap-1">
+              <Globe size={13} className="text-purple-600" />
+              Zona:
             </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800 animate-pulse">
-              <AlertTriangle size={14} className="text-rose-600 dark:text-rose-400" />
-              <span>{systemConflicts.length} Tabrakan Terdeteksi</span>
-            </span>
-          )}
+            {(['WIB', 'WITA', 'WIT'] as const).map((tz) => (
+              <button
+                key={tz}
+                type="button"
+                onClick={() => handleTimezoneChange(tz)}
+                className={`px-2 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  cbtTimezone === tz
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-purple-700 dark:hover:text-purple-300'
+                }`}
+                title={`Beralih ke zona waktu ${tz} (${tz === 'WIB' ? 'UTC+7' : tz === 'WITA' ? 'UTC+8' : 'UTC+9'})`}
+              >
+                {tz}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400 font-medium hidden sm:inline">Status Jadwal:</span>
+            {systemConflicts.length === 0 ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                <CheckCircle size={14} className="text-emerald-600 dark:text-emerald-400" />
+                <span>Bebas Bentrok</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800 animate-pulse">
+                <AlertTriangle size={14} className="text-rose-600 dark:text-rose-400" />
+                <span>{systemConflicts.length} Bentrok</span>
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1144,6 +1199,7 @@ export default function CbtDashboard({
           classPresets={classPresets}
           subjectPresets={subjectPresets}
           kopSuratConfig={kopSuratConfig}
+          cbtTimezone={cbtTimezone}
         />
       ) : activeMainTab === 'schedule' ? (
         <div className="space-y-6">
@@ -1164,7 +1220,7 @@ export default function CbtDashboard({
                       <div className="text-xs">
                         <span className="font-bold text-slate-900 dark:text-white block">{conf.exam1.title}</span>
                         <span className="text-[11px] text-slate-500">{conf.exam1.subject} • Kelas: <strong className="text-rose-600">{conf.exam1.classTarget}</strong></span>
-                        <span className="text-[11px] text-purple-600 block mt-0.5">{formatExamScheduleRange(conf.exam1.startTime, conf.exam1.endTime)}</span>
+                        <span className="text-[11px] text-purple-600 block mt-0.5">{formatExamScheduleRange(conf.exam1.startTime, conf.exam1.endTime, cbtTimezone)}</span>
                       </div>
                       <button
                         onClick={() => handleOpenEdit(conf.exam1)}
@@ -1180,7 +1236,7 @@ export default function CbtDashboard({
                       <div className="text-xs">
                         <span className="font-bold text-slate-900 dark:text-white block">{conf.exam2.title}</span>
                         <span className="text-[11px] text-slate-500">{conf.exam2.subject} • Kelas: <strong className="text-rose-600">{conf.exam2.classTarget}</strong></span>
-                        <span className="text-[11px] text-purple-600 block mt-0.5">{formatExamScheduleRange(conf.exam2.startTime, conf.exam2.endTime)}</span>
+                        <span className="text-[11px] text-purple-600 block mt-0.5">{formatExamScheduleRange(conf.exam2.startTime, conf.exam2.endTime, cbtTimezone)}</span>
                       </div>
                       <button
                         onClick={() => handleOpenEdit(conf.exam2)}
@@ -1453,7 +1509,7 @@ export default function CbtDashboard({
                     <th className="py-4 px-4">Mata Pelajaran & Judul</th>
                     <th className="py-4 px-4">Target Kelas</th>
                     <th className="py-4 px-4">Guru Pengampu</th>
-                    <th className="py-4 px-4">Jadwal Pelaksanaan (WIB)</th>
+                    <th className="py-4 px-4">Jadwal Pelaksanaan ({cbtTimezone})</th>
                     <th className="py-4 px-4 text-center">Durasi</th>
                     <th className="py-4 px-4">Status Waktu</th>
                     <th className="py-4 px-4 text-center">Token</th>
@@ -1544,7 +1600,7 @@ export default function CbtDashboard({
                               <div>
                                 <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
                                   <Calendar size={13} className="text-purple-600 dark:text-purple-400 flex-shrink-0" />
-                                  <span>{formatExamScheduleRange(exam.startTime, exam.endTime)}</span>
+                                  <span>{formatExamScheduleRange(exam.startTime, exam.endTime, cbtTimezone)}</span>
                                 </div>
                                 <span className="text-[10px] text-slate-400 block mt-0.5">{schedState.countdown}</span>
                               </div>
@@ -1785,7 +1841,7 @@ export default function CbtDashboard({
                     <div className="flex items-center justify-between gap-1 text-xs">
                       <span className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
                         <Calendar size={13} className="text-purple-600 dark:text-purple-400 flex-shrink-0" />
-                        <span className="line-clamp-1">{formatExamScheduleRange(exam.startTime, exam.endTime)}</span>
+                        <span className="line-clamp-1">{formatExamScheduleRange(exam.startTime, exam.endTime, cbtTimezone)}</span>
                       </span>
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border flex-shrink-0 ${schedState.badgeClass}`}>
                         {schedState.label}
@@ -2384,10 +2440,41 @@ export default function CbtDashboard({
 
                 {formData.enableSchedule && (
                   <div className="space-y-3 pt-1">
+                    {/* 🌐 Opsi Zona Waktu Ujian (WIB, WITA, WIT) */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-800/70 shadow-2xs">
+                      <div className="flex items-center gap-1.5">
+                        <Globe size={14} className="text-purple-600 dark:text-purple-400 flex-shrink-0" />
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                          Zona Waktu Ujian:
+                        </span>
+                      </div>
+                      <div className="inline-flex p-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                        {(['WIB', 'WITA', 'WIT'] as const).map((tz) => (
+                          <button
+                            key={tz}
+                            type="button"
+                            onClick={() => handleTimezoneChange(tz)}
+                            className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                              cbtTimezone === tz
+                                ? 'bg-purple-600 text-white shadow-xs'
+                                : 'text-slate-600 dark:text-slate-400 hover:text-purple-700 dark:hover:text-purple-300'
+                            }`}
+                          >
+                            {tz} {tz === 'WIB' ? '(UTC+7)' : tz === 'WITA' ? '(UTC+8)' : '(UTC+9)'}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="text-[10px] text-purple-700 dark:text-purple-300 font-semibold w-full">
+                        {cbtTimezone === 'WITA' && '📍 Standar Waktu Kalimantan Selatan (Banjarbaru / WITA UTC+8)'}
+                        {cbtTimezone === 'WIB' && '📍 Standar Waktu Pulau Jawa, Sumatera, Kalbar, Kalteng (WIB UTC+7)'}
+                        {cbtTimezone === 'WIT' && '📍 Standar Waktu Maluku & Papua (WIT UTC+9)'}
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                          Waktu Mulai Ujian (WIB) <span className="text-red-500">*</span>
+                          Waktu Mulai Ujian ({cbtTimezone}) <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="datetime-local"
@@ -2399,13 +2486,13 @@ export default function CbtDashboard({
                               const updated = { ...prev, startTime: val };
                               if (val && prev.duration) {
                                 const end = new Date(new Date(val).getTime() + prev.duration * 60000);
-                                updated.endTime = toDateTimeLocalInput(end);
+                                updated.endTime = toDateTimeLocalInput(end, cbtTimezone);
                               }
                               return updated;
                             });
                             if (val) {
                               const end = new Date(new Date(val).getTime() + formData.duration * 60000);
-                              runConflictCheck(val, toDateTimeLocalInput(end), formData.classTarget);
+                              runConflictCheck(val, toDateTimeLocalInput(end, cbtTimezone), formData.classTarget);
                             }
                           }}
                           className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-none"
@@ -2414,7 +2501,7 @@ export default function CbtDashboard({
 
                       <div>
                         <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                          Waktu Selesai / Tutup (WIB) <span className="text-red-500">*</span>
+                          Waktu Selesai / Tutup ({cbtTimezone}) <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="datetime-local"
@@ -2438,13 +2525,13 @@ export default function CbtDashboard({
                         onClick={() => {
                           if (!formData.startTime) {
                             const now = new Date();
-                            const startStr = toDateTimeLocalInput(now);
-                            const endStr = toDateTimeLocalInput(new Date(now.getTime() + formData.duration * 60000));
+                            const startStr = toDateTimeLocalInput(now, cbtTimezone);
+                            const endStr = toDateTimeLocalInput(new Date(now.getTime() + formData.duration * 60000), cbtTimezone);
                             setFormData({ ...formData, startTime: startStr, endTime: endStr });
                             runConflictCheck(startStr, endStr, formData.classTarget);
                           } else {
                             const end = new Date(new Date(formData.startTime).getTime() + formData.duration * 60000);
-                            const endStr = toDateTimeLocalInput(end);
+                            const endStr = toDateTimeLocalInput(end, cbtTimezone);
                             setFormData({ ...formData, endTime: endStr });
                             runConflictCheck(formData.startTime, endStr, formData.classTarget);
                           }
@@ -2458,15 +2545,15 @@ export default function CbtDashboard({
                         onClick={() => {
                           const today = new Date();
                           today.setHours(8, 0, 0, 0);
-                          const startStr = toDateTimeLocalInput(today);
+                          const startStr = toDateTimeLocalInput(today, cbtTimezone);
                           today.setHours(10, 0, 0, 0);
-                          const endStr = toDateTimeLocalInput(today);
+                          const endStr = toDateTimeLocalInput(today, cbtTimezone);
                           setFormData({ ...formData, startTime: startStr, endTime: endStr });
                           runConflictCheck(startStr, endStr, formData.classTarget);
                         }}
                         className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[10px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50"
                       >
-                        Hari Ini 08:00 - 10:00
+                        Hari Ini 08:00 - 10:00 ({cbtTimezone})
                       </button>
                       <button
                         type="button"
@@ -2474,15 +2561,15 @@ export default function CbtDashboard({
                           const tomorrow = new Date();
                           tomorrow.setDate(tomorrow.getDate() + 1);
                           tomorrow.setHours(8, 0, 0, 0);
-                          const startStr = toDateTimeLocalInput(tomorrow);
+                          const startStr = toDateTimeLocalInput(tomorrow, cbtTimezone);
                           tomorrow.setHours(10, 0, 0, 0);
-                          const endStr = toDateTimeLocalInput(tomorrow);
+                          const endStr = toDateTimeLocalInput(tomorrow, cbtTimezone);
                           setFormData({ ...formData, startTime: startStr, endTime: endStr });
                           runConflictCheck(startStr, endStr, formData.classTarget);
                         }}
                         className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[10px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50"
                       >
-                        Besok 08:00 - 10:00
+                        Besok 08:00 - 10:00 ({cbtTimezone})
                       </button>
                     </div>
 
@@ -2512,7 +2599,7 @@ export default function CbtDashboard({
                                 <span>•</span>
                                 <span>Kelas: <strong>{c.classTarget}</strong></span>
                                 <span>•</span>
-                                <span>{formatExamScheduleRange(c.startTime, c.endTime)}</span>
+                                <span>{formatExamScheduleRange(c.startTime, c.endTime, cbtTimezone)}</span>
                               </div>
                             </div>
                           ))}
@@ -2691,6 +2778,35 @@ export default function CbtDashboard({
                 </div>
               </div>
 
+              {/* 🌐 Timezone Selector in Batch Modal */}
+              <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200/60 dark:border-purple-900/50">
+                <div className="flex items-center gap-1.5">
+                  <Globe size={14} className="text-purple-600 dark:text-purple-400 flex-shrink-0" />
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                    Zona Waktu Penjadwalan:
+                  </span>
+                </div>
+                <div className="inline-flex p-0.5 rounded-lg bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-800 shadow-2xs">
+                  {(['WIB', 'WITA', 'WIT'] as const).map((tz) => (
+                    <button
+                      key={tz}
+                      type="button"
+                      onClick={() => handleTimezoneChange(tz)}
+                      className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                        cbtTimezone === tz
+                          ? 'bg-purple-600 text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-purple-700'
+                      }`}
+                    >
+                      {tz}
+                    </button>
+                  ))}
+                </div>
+                <span className="text-[11px] text-purple-700 dark:text-purple-300 font-semibold w-full sm:w-auto">
+                  {cbtTimezone === 'WITA' ? 'WITA (Banjarbaru / UTC+8)' : cbtTimezone === 'WIB' ? 'WIB (Jakarta / UTC+7)' : 'WIT (Jayapura / UTC+9)'}
+                </span>
+              </div>
+
               {/* Mode Tabs: Paralel vs Sequential */}
               <div className="grid grid-cols-2 gap-1.5 p-1.5 bg-slate-100 dark:bg-slate-800 rounded-2xl">
                 <button
@@ -2742,7 +2858,7 @@ export default function CbtDashboard({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                        Jam Mulai (WIB)
+                        Jam Mulai ({cbtTimezone})
                       </label>
                       <input
                         type="time"
@@ -2754,7 +2870,7 @@ export default function CbtDashboard({
 
                     <div>
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                        Jam Selesai (WIB)
+                        Jam Selesai ({cbtTimezone})
                       </label>
                       <input
                         type="time"
@@ -2815,7 +2931,7 @@ export default function CbtDashboard({
 
                     <div>
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                        Jam Mulai Sesi 1 (WIB)
+                        Jam Mulai Sesi 1 ({cbtTimezone})
                       </label>
                       <input
                         type="time"
@@ -2897,7 +3013,7 @@ export default function CbtDashboard({
                               </div>
                             </div>
                             <div className="text-right font-mono font-bold text-purple-700 dark:text-purple-300">
-                              {item.startDisplay} - {item.endDisplay} WIB
+                              {item.startDisplay} - {item.endDisplay} {cbtTimezone}
                             </div>
                           </div>
                           {item.breakAfter > 0 && (
@@ -3001,10 +3117,10 @@ export default function CbtDashboard({
                         </td>
                         <td className="py-2.5 px-3 font-semibold text-blue-600">{formatClassTargetDisplay(r.classTarget)}</td>
                         <td className="py-2.5 px-3 font-mono font-bold text-slate-700 dark:text-slate-200">
-                          {new Date(r.startTime).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })} WIB
+                          {formatScheduleDate(r.startTime, cbtTimezone)} • {formatScheduleTime(r.startTime, cbtTimezone)}
                         </td>
                         <td className="py-2.5 px-3 font-mono font-bold text-slate-700 dark:text-slate-200">
-                          {new Date(r.endTime).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })} WIB
+                          {formatScheduleDate(r.endTime, cbtTimezone)} • {formatScheduleTime(r.endTime, cbtTimezone)}
                         </td>
                       </tr>
                     ))}
@@ -3048,6 +3164,7 @@ export default function CbtDashboard({
           onClose={() => setIsParticipantCardModalOpen(false)}
           kopSuratConfig={kopSuratConfig}
           initialClasses={classPresets}
+          cbtTimezone={cbtTimezone}
         />
       )}
 

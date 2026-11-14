@@ -28,7 +28,16 @@ import {
   ChevronRight,
   FileText
 } from 'lucide-react';
-import { formatExamScheduleRange, getExamScheduleState, ScheduleState, formatClassTargetDisplay, isClassTargetMatch } from '@/lib/cbt-schedule';
+import { 
+  formatExamScheduleRange, 
+  getExamScheduleState, 
+  ScheduleState, 
+  formatClassTargetDisplay, 
+  isClassTargetMatch,
+  CbtTimezone,
+  DEFAULT_CBT_TIMEZONE,
+  TIMEZONE_IANA_MAP
+} from '@/lib/cbt-schedule';
 import { 
   CbtOfficialKopSurat, 
   CbtOfficialSignatures, 
@@ -72,6 +81,7 @@ interface SiswaCbtClientProps {
   studentClass: string;
   initials: string;
   kopSuratConfig?: KopSuratConfig;
+  timezone?: CbtTimezone;
 }
 
 export default function SiswaCbtClient({
@@ -81,6 +91,7 @@ export default function SiswaCbtClient({
   studentClass,
   initials,
   kopSuratConfig,
+  timezone = DEFAULT_CBT_TIMEZONE,
 }: SiswaCbtClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -318,7 +329,7 @@ export default function SiswaCbtClient({
 
           <div className="text-xs text-slate-500 flex items-center gap-1.5 font-medium">
             <Clock size={13} className="text-purple-500" />
-            <span>Waktu Server: {currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB</span>
+            <span>Waktu Server: {currentTime.toLocaleTimeString('id-ID', { timeZone: TIMEZONE_IANA_MAP[timezone], hour: '2-digit', minute: '2-digit' })} {timezone}</span>
           </div>
         </div>
 
@@ -505,7 +516,7 @@ export default function SiswaCbtClient({
                           <div className="flex items-center justify-between text-xs">
                             <span className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
                               <Calendar size={13} className="text-purple-600 dark:text-purple-400 flex-shrink-0" />
-                              <span className="line-clamp-1">{formatExamScheduleRange(exam.startTime, exam.endTime)}</span>
+                              <span className="line-clamp-1">{formatExamScheduleRange(exam.startTime, exam.endTime, timezone)}</span>
                             </span>
                           </div>
                           <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-0.5 border-t border-slate-200/60 dark:border-slate-700/50">
@@ -788,6 +799,7 @@ export default function SiswaCbtClient({
                         const submittedDate = att?.submittedAt ? new Date(att.submittedAt) : null;
                         const dateFormatted = submittedDate 
                           ? submittedDate.toLocaleDateString('id-ID', {
+                              timeZone: TIMEZONE_IANA_MAP[timezone],
                               day: 'numeric',
                               month: 'short',
                               year: 'numeric',
@@ -819,7 +831,7 @@ export default function SiswaCbtClient({
                             </td>
 
                             <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400">
-                              <span className="font-medium text-slate-800 dark:text-slate-200 block">{dateFormatted} WIB</span>
+                              <span className="font-medium text-slate-800 dark:text-slate-200 block">{dateFormatted} {timezone}</span>
                               <span className="text-[10px] text-slate-400">Telah diverifikasi</span>
                             </td>
 

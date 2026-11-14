@@ -33,7 +33,7 @@ import {
   CbtSecurityValidationBox, 
   CbtDigitalStamp 
 } from '@/components/cbt/CbtOfficialPrintComponents';
-import { extractJurusanCode, getJurusanFullName } from '@/lib/cbt-schedule';
+import { extractJurusanCode, getJurusanFullName, CbtTimezone, DEFAULT_CBT_TIMEZONE, formatScheduleTime } from '@/lib/cbt-schedule';
 
 export interface ReportAttemptItem {
   id: string;
@@ -71,6 +71,7 @@ interface CbtReportViewProps {
   classPresets?: string[];
   subjectPresets?: string[];
   kopSuratConfig?: KopSuratConfig;
+  cbtTimezone?: CbtTimezone;
 }
 
 export default function CbtReportView({
@@ -79,6 +80,7 @@ export default function CbtReportView({
   classPresets = [],
   subjectPresets = [],
   kopSuratConfig,
+  cbtTimezone = DEFAULT_CBT_TIMEZONE,
 }: CbtReportViewProps) {
   const isSuperAdmin = currentUser?.role === 'Super Admin' || currentUser?.role === 'Admin Utama';
   const isGuru = currentUser?.role === 'Guru';
@@ -754,7 +756,7 @@ export default function CbtReportView({
                           <div>
                             <div>{new Date(row.submittedAt).toLocaleDateString('id-ID')}</div>
                             <div className="text-[10px] text-slate-400">
-                              {new Date(row.submittedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                              {formatScheduleTime(row.submittedAt, cbtTimezone)}
                             </div>
                           </div>
                         ) : (

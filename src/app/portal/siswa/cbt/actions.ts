@@ -3,6 +3,7 @@
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { formatScheduleDate, formatScheduleTime, getExamScheduleState } from '@/lib/cbt-schedule';
+import { getCbtTimezone } from '@/lib/settings';
 
 export async function getExamSessionStatus(examId: string) {
   try {
@@ -68,16 +69,17 @@ export async function startOrResumeAttempt(data: {
     // 📅 Verify Schedule Window & Auto-Accessibility
     const now = new Date();
     const schedule = getExamScheduleState(exam.startTime, exam.endTime, exam.status, now);
+    const cbtTimezone = await getCbtTimezone();
 
     if (exam.startTime && now < exam.startTime && exam.status !== 'ACTIVE') {
       return { 
-        error: `Ujian ini belum dimulai. Sesuai jadwal, ujian baru dapat diakses pada ${formatScheduleDate(exam.startTime)} pukul ${formatScheduleTime(exam.startTime)}.` 
+        error: `Ujian ini belum dimulai. Sesuai jadwal, ujian baru dapat diakses pada ${formatScheduleDate(exam.startTime, cbtTimezone)} pukul ${formatScheduleTime(exam.startTime, cbtTimezone)}.` 
       };
     }
 
     if (exam.endTime && now > exam.endTime && exam.status !== 'ACTIVE') {
       return { 
-        error: `Waktu pengerjaan ujian ini telah berakhir pada ${formatScheduleDate(exam.endTime)} pukul ${formatScheduleTime(exam.endTime)}. Silakan hubungi guru pengampu.` 
+        error: `Waktu pengerjaan ujian ini telah berakhir pada ${formatScheduleDate(exam.endTime, cbtTimezone)} pukul ${formatScheduleTime(exam.endTime, cbtTimezone)}. Silakan hubungi guru pengampu.` 
       };
     }
 
