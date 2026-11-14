@@ -24,7 +24,10 @@ import {
   CheckCircle2,
   GraduationCap,
   Layers,
-  Copy
+  Copy,
+  Filter,
+  RotateCcw,
+  ShieldCheck
 } from 'lucide-react';
 import { createUser, updateUser, deleteUser, createBulkStudents, BulkStudentItem } from './actions';
 import ConfirmModal from '@/components/ConfirmModal';
@@ -645,14 +648,270 @@ export default function UsersCRUD({
     }
   };
 
+  // Filter States
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterClass, setFilterClass] = useState<string>('ALL');
+  const [filterJurusan, setFilterJurusan] = useState<string>('ALL');
+  const [filterRole, setFilterRole] = useState<string>('ALL');
+  const [filterStatus, setFilterStatus] = useState<string>('ALL');
 
-  const filteredUsers = (users || []).filter((item: User) =>
-    item.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.role?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (item.nisn && item.nisn.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  // Helper untuk mendapatkan kelas siswa
+  const getUserClass = (u: User) => {
+    if (u.role !== 'Siswa') return '';
+    return studentClassMap[u.name] || (u.nisn && studentClassMap[u.nisn]) || '';
+  };
+
+  // Daftar seluruh kelas resmi & rombel yang ada
+  const allClassOptions = useMemo(() => {
+    const set = new Set<string>();
+    (classTargets || []).forEach(c => {
+      const trimmed = c.trim();
+      if (trimmed && !trimmed.toLowerCase().startsWith('semua')) {
+        set.add(trimmed);
+      }
+    });
+    Object.values(studentClassMap || {}).forEach(c => {
+      const trimmed = c.trim();
+      if (trimmed && !trimmed.toLowerCase().startsWith('semua')) {
+        set.add(trimmed);
+      }
+    });
+    return Array.from(set).sort((a, b) => {
+      const order = (name: string) => {
+        if (/^(X|10)\b/i.test(name)) return 1;
+        if (/^(XI|11)\b/i.test(name)) return 2;
+        if (/^(XII|12)\b/i.test(name)) return 3;
+        return 4;
+      };
+      const diff = order(a) - order(b);
+      if (diff !== 0) return diff;
+      return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+    });
+  }, [classTargets, studentClassMap]);
+
+  // Hitung jumlah siswa per kelas
+  const studentCountByClass = useMemo(() => {
+    const counts: Record<string, number> = {};
+    (users || []).forEach(u => {
+      if (u.role === 'Siswa') {
+        const cls = getUserClass(u);
+        if (cls) {
+          counts[cls] = (counts[cls] || 0) + 1;
+        }
+      }
+    });
+    return counts;
+  }, [users, studentClassMap]);
+
+  // Hitung jumlah siswa per tingkat
+  const gradeLevelCounts = useMemo(() => {
+    let x = 0, xi = 0, xii = 0;
+    (users || []).forEach(u => {
+      if (u.role === 'Siswa') {
+        const cls = getUserClass(u);
+        if (cls) {
+          if (/^(X|10)\b/i.test(cls) && !/^(XI|XII|11|12)\b/i.test(cls)) x++;
+          else if (/^(XI|11)\b/i.test(cls) && !/^(XII|12)\b/i.test(cls)) xi++;
+          else if (/^(XII|12)\b/i.test(cls)) xii++;
+        }
+      }
+    });
+    return { x, xi, xii };
+  }, [users, studentClassMap]);
+
+  // Daftar opsi Jurusan tersinkronisasi dari master data Jurusan Admin Utama
+  const allJurusanOptions = useMemo(() => {
+    const list: Array<{ code: string; name: string; count: number }> = [];
+    const addedCodes = new Set<string>();
+
+    // 1. Dari master Jurusan Admin Utama
+    (jurusans || []).forEach(j => {
+      const code = (j.code || '').trim().toUpperCase();
+      if (code && !addedCodes.has(code)) {
+        addedCodes.add(code);
+        const count = (users || []).filter(u => {
+          if (u.role !== 'Siswa') return false;
+          const userClass = getUserClass(u);
+          const regex = new RegExp(`(^|[^A-Z0-9])${code}([^A-Z0-9]|$)`, 'i');
+          return regex.test(userClass) || userClass.toUpperCase().includes(code);
+        }).length;
+        list.push({ code, name: j.name, count });
+      }
+    });
+
+    // 2. Tambahan dari rombel siswa jika ada kode belum terdaftar
+    allClassOptions.forEach(cls => {
+      const match = cls.match(/\b(?:XII|XI|X|12|11|10)\s+([A-Za-z]+)\b/i);
+      if (match) {
+        const code = match[1].toUpperCase();
+        if (code && !addedCodes.has(code) && !/^\d+$/.test(code)) {
+          addedCodes.add(code);
+          const count = (users || []).filter(u => {
+            if (u.role !== 'Siswa') return false;
+            const userClass = getUserClass(u);
+            return userClass.toUpperCase().includes(code);
+          }).length;
+          list.push({ code, name: code, count });
+        }
+      }
+    });
+
+    return list;
+  }, [jurusans, users, allClassOptions, studentClassMap]);
+
+  // Daftar opsi Peran (Role) dan jumlah pengguna
+  const allRoleOptions = useMemo(() => {
+    const counts: Record<string, number> = {};
+    (users || []).forEach(u => {
+      const r = u.role || 'Siswa';
+      counts[r] = (counts[r] || 0) + 1;
+    });
+
+    const standardRoles = ['Siswa', 'Guru', 'Super Admin', 'Panitia PPDB', 'Admin BKK'];
+    const result: Array<{ role: string; count: number }> = [];
+    const seenRoles = new Set<string>();
+
+    standardRoles.forEach(r => {
+      if (counts[r] !== undefined) {
+        result.push({ role: r, count: counts[r] });
+        seenRoles.add(r);
+      }
+    });
+
+    Object.keys(counts).forEach(r => {
+      if (!seenRoles.has(r)) {
+        result.push({ role: r, count: counts[r] });
+      }
+    });
+
+    return result;
+  }, [users]);
+
+  // Hitung jumlah status akun
+  const statusCounts = useMemo(() => {
+    let aktif = 0;
+    let nonaktif = 0;
+    (users || []).forEach(u => {
+      const s = (u.status || 'Aktif').toLowerCase();
+      if (s === 'aktif') aktif++;
+      else nonaktif++;
+    });
+    return { aktif, nonaktif };
+  }, [users]);
+
+  // Filter kelas yang relevan jika jurusan dipilih
+  const filteredClassOptions = useMemo(() => {
+    if (filterJurusan === 'ALL') return allClassOptions;
+    const code = filterJurusan.toUpperCase();
+    const regex = new RegExp(`(^|[^A-Z0-9])${code}([^A-Z0-9]|$)`, 'i');
+    return allClassOptions.filter(cls => regex.test(cls) || cls.toUpperCase().includes(code));
+  }, [allClassOptions, filterJurusan]);
+
+  // Handler pergantian filter Jurusan
+  const handleJurusanFilterChange = (newJurusan: string) => {
+    setFilterJurusan(newJurusan);
+    if (newJurusan !== 'ALL' && filterClass !== 'ALL' && !filterClass.startsWith('LEVEL_')) {
+      const code = newJurusan.toUpperCase();
+      const regex = new RegExp(`(^|[^A-Z0-9])${code}([^A-Z0-9]|$)`, 'i');
+      if (!regex.test(filterClass) && !filterClass.toUpperCase().includes(code)) {
+        setFilterClass('ALL');
+      }
+    }
+  };
+
+  // Handler pergantian filter Role
+  const handleRoleFilterChange = (newRole: string) => {
+    setFilterRole(newRole);
+    if (newRole !== 'ALL' && newRole !== 'Siswa') {
+      // Jika peran selain Siswa (misal Guru/Admin), reset filter Kelas & Jurusan
+      setFilterClass('ALL');
+      setFilterJurusan('ALL');
+    }
+  };
+
+  // Cek apakah ada filter yang aktif
+  const isAnyFilterActive = 
+    filterClass !== 'ALL' || 
+    filterJurusan !== 'ALL' || 
+    filterRole !== 'ALL' || 
+    filterStatus !== 'ALL' || 
+    searchQuery.trim() !== '';
+
+  const handleResetFilters = () => {
+    setFilterClass('ALL');
+    setFilterJurusan('ALL');
+    setFilterRole('ALL');
+    setFilterStatus('ALL');
+    setSearchQuery('');
+  };
+
+  // Hasil filter akun pengguna
+  const filteredUsers = useMemo(() => {
+    return (users || []).filter((item: User) => {
+      const userClass = getUserClass(item);
+
+      // 1. Filter Role
+      if (filterRole !== 'ALL' && item.role !== filterRole) {
+        return false;
+      }
+
+      // 2. Filter Status
+      if (filterStatus !== 'ALL') {
+        const itemStatus = (item.status || 'Aktif').toLowerCase();
+        if (itemStatus !== filterStatus.toLowerCase()) {
+          return false;
+        }
+      }
+
+      // 3. Filter Kelas (khusus role Siswa)
+      if (filterClass !== 'ALL') {
+        if (item.role !== 'Siswa') return false;
+
+        if (filterClass === 'LEVEL_X') {
+          if (!/^(X|10)\b/i.test(userClass) || /^(XI|XII|11|12)\b/i.test(userClass)) {
+            return false;
+          }
+        } else if (filterClass === 'LEVEL_XI') {
+          if (!/^(XI|11)\b/i.test(userClass) || /^(XII|12)\b/i.test(userClass)) {
+            return false;
+          }
+        } else if (filterClass === 'LEVEL_XII') {
+          if (!/^(XII|12)\b/i.test(userClass)) {
+            return false;
+          }
+        } else {
+          if (userClass !== filterClass) {
+            return false;
+          }
+        }
+      }
+
+      // 4. Filter Jurusan (khusus role Siswa)
+      if (filterJurusan !== 'ALL') {
+        if (item.role !== 'Siswa') return false;
+        const code = filterJurusan.toUpperCase();
+        const regex = new RegExp(`(^|[^A-Z0-9])${code}([^A-Z0-9]|$)`, 'i');
+        if (!regex.test(userClass) && !userClass.toUpperCase().includes(code)) {
+          return false;
+        }
+      }
+
+      // 5. Search Query (Nama, Username, NISN, Role, Kelas)
+      if (searchQuery.trim()) {
+        const q = searchQuery.trim().toLowerCase();
+        const nameMatch = item.name?.toLowerCase().includes(q);
+        const userMatch = item.username?.toLowerCase().includes(q);
+        const roleMatch = item.role?.toLowerCase().includes(q);
+        const nisnMatch = item.nisn && item.nisn.toLowerCase().includes(q);
+        const classMatch = userClass.toLowerCase().includes(q);
+        if (!nameMatch && !userMatch && !roleMatch && !nisnMatch && !classMatch) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [users, filterRole, filterStatus, filterClass, filterJurusan, searchQuery, studentClassMap]);
 
   const totalSiswa = users.filter(u => u.role === 'Siswa').length;
 
@@ -693,21 +952,192 @@ export default function UsersCRUD({
         </div>
 
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
-          <div className="p-6 border-b border-gray-200 dark:border-gray-800 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="relative w-full sm:w-80">
-              <input 
-                type="text" 
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Cari nama, NISN, atau username..." 
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all" 
-              />
-              <Search className="absolute left-3.5 top-3 text-gray-400" size={18} />
+          {/* 🔍 PANEL FILTER & PENCARIAN MODERN */}
+          <div className="p-5 border-b border-gray-200 dark:border-gray-800 space-y-4">
+            {/* Baris 1: Pencarian dan Status Total */}
+            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+              <div className="relative flex-1 max-w-md">
+                <input 
+                  type="text" 
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Cari nama, NISN, kelas, atau username..." 
+                  className="w-full pl-10 pr-9 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all" 
+                />
+                <Search className="absolute left-3.5 top-3 text-gray-400" size={18} />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                    title="Hapus pencarian"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between sm:justify-end gap-3">
+                {isAnyFilterActive && (
+                  <button
+                    onClick={handleResetFilters}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors border border-rose-200 dark:border-rose-800 cursor-pointer"
+                  >
+                    <RotateCcw size={14} />
+                    Reset Filter
+                  </button>
+                )}
+                <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap bg-gray-50 dark:bg-gray-800/60 px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-700/60">
+                  <Filter size={14} className="text-indigo-500" />
+                  <span>Menampilkan <strong className="text-gray-900 dark:text-white font-bold">{filteredUsers.length}</strong> dari {users.length} akun</span>
+                </div>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-              <span>Menampilkan <strong className="text-gray-900 dark:text-white">{filteredUsers.length}</strong> dari {users.length} akun</span>
+            {/* Baris 2: Grid 4 Filter (Kelas, Jurusan, Role, Status) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-3 border-t border-gray-100 dark:border-gray-800/80">
+              {/* 1. Filter Kelas / Rombel */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <GraduationCap size={14} className="text-purple-500" />
+                    Filter Kelas:
+                  </span>
+                  {filterRole !== 'ALL' && filterRole !== 'Siswa' && (
+                    <span className="text-[10px] text-gray-400 italic">Khusus Siswa</span>
+                  )}
+                </label>
+                <select
+                  value={filterClass}
+                  onChange={(e) => setFilterClass(e.target.value)}
+                  disabled={filterRole !== 'ALL' && filterRole !== 'Siswa'}
+                  className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-xs font-semibold text-gray-800 dark:text-gray-200 cursor-pointer focus:ring-2 focus:ring-purple-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  <option value="ALL">Semua Kelas ({totalSiswa} Siswa)</option>
+                  <optgroup label="Tingkat Kelas">
+                    <option value="LEVEL_X">Semua Tingkat X ({gradeLevelCounts.x} Siswa)</option>
+                    <option value="LEVEL_XI">Semua Tingkat XI ({gradeLevelCounts.xi} Siswa)</option>
+                    <option value="LEVEL_XII">Semua Tingkat XII ({gradeLevelCounts.xii} Siswa)</option>
+                  </optgroup>
+                  <optgroup label="Rombel / Kelas Spesifik">
+                    {filteredClassOptions.map((cls) => {
+                      const count = studentCountByClass[cls] || 0;
+                      return (
+                        <option key={cls} value={cls}>
+                          {cls} ({count} Siswa)
+                        </option>
+                      );
+                    })}
+                  </optgroup>
+                </select>
+              </div>
+
+              {/* 2. Filter Jurusan Keahlian */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Layers size={14} className="text-indigo-500" />
+                    Filter Jurusan:
+                  </span>
+                  <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">
+                    ✓ Sinkron Master
+                  </span>
+                </label>
+                <select
+                  value={filterJurusan}
+                  onChange={(e) => handleJurusanFilterChange(e.target.value)}
+                  disabled={filterRole !== 'ALL' && filterRole !== 'Siswa'}
+                  className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-xs font-semibold text-gray-800 dark:text-gray-200 cursor-pointer focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  <option value="ALL">
+                    Semua Jurusan {allJurusanOptions.length > 0 ? `(${allJurusanOptions.length} Terdaftar)` : ''}
+                  </option>
+                  {allJurusanOptions.map((j) => (
+                    <option key={j.code} value={j.code}>
+                      Jurusan {j.code} - {j.name} ({j.count} Siswa)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 3. Filter Peran (Role) */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+                  <ShieldCheck size={14} className="text-emerald-500" />
+                  Filter Peran (Role):
+                </label>
+                <select
+                  value={filterRole}
+                  onChange={(e) => handleRoleFilterChange(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-xs font-semibold text-gray-800 dark:text-gray-200 cursor-pointer focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                >
+                  <option value="ALL">Semua Peran ({users.length} Akun)</option>
+                  {allRoleOptions.map((r) => (
+                    <option key={r.role} value={r.role}>
+                      {r.role} ({r.count} Akun)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 4. Filter Status Akun */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+                  <CheckCircle2 size={14} className="text-amber-500" />
+                  Filter Status:
+                </label>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-xs font-semibold text-gray-800 dark:text-gray-200 cursor-pointer focus:ring-2 focus:ring-amber-500 outline-none transition-all"
+                >
+                  <option value="ALL">Semua Status ({users.length} Akun)</option>
+                  <option value="Aktif">Status Aktif ({statusCounts.aktif} Akun)</option>
+                  <option value="Nonaktif">Status Nonaktif ({statusCounts.nonaktif} Akun)</option>
+                </select>
+              </div>
             </div>
+
+            {/* Baris 3: Active Filters Pills / Badges */}
+            {isAnyFilterActive && (
+              <div className="flex flex-wrap items-center gap-2 pt-2 text-xs border-t border-gray-100 dark:border-gray-800/60">
+                <span className="text-gray-400 dark:text-gray-500 font-medium text-[11px]">Filter aktif:</span>
+                {filterClass !== 'ALL' && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 font-semibold">
+                    <GraduationCap size={12} />
+                    Kelas: {filterClass.replace('LEVEL_', 'Tingkat ')}
+                    <button onClick={() => setFilterClass('ALL')} className="hover:text-purple-900 dark:hover:text-purple-100 transition-colors cursor-pointer" title="Hapus filter kelas"><X size={12} /></button>
+                  </span>
+                )}
+                {filterJurusan !== 'ALL' && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-semibold">
+                    <Layers size={12} />
+                    Jurusan: {filterJurusan}
+                    <button onClick={() => setFilterJurusan('ALL')} className="hover:text-indigo-900 dark:hover:text-indigo-100 transition-colors cursor-pointer" title="Hapus filter jurusan"><X size={12} /></button>
+                  </span>
+                )}
+                {filterRole !== 'ALL' && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-semibold">
+                    <ShieldCheck size={12} />
+                    Role: {filterRole}
+                    <button onClick={() => setFilterRole('ALL')} className="hover:text-emerald-900 dark:hover:text-emerald-100 transition-colors cursor-pointer" title="Hapus filter role"><X size={12} /></button>
+                  </span>
+                )}
+                {filterStatus !== 'ALL' && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 font-semibold">
+                    <CheckCircle2 size={12} />
+                    Status: {filterStatus}
+                    <button onClick={() => setFilterStatus('ALL')} className="hover:text-amber-900 dark:hover:text-amber-100 transition-colors cursor-pointer" title="Hapus filter status"><X size={12} /></button>
+                  </span>
+                )}
+                {searchQuery.trim() && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-700 font-semibold">
+                    <Search size={12} />
+                    Pencarian: &quot;{searchQuery}&quot;
+                    <button onClick={() => setSearchQuery('')} className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors cursor-pointer" title="Hapus kata kunci"><X size={12} /></button>
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="overflow-x-auto">
@@ -725,8 +1155,27 @@ export default function UsersCRUD({
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800 text-sm">
                 {filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-12 text-gray-400 dark:text-gray-500">
-                      Tidak ada akun pengguna yang cocok dengan pencarian
+                    <td colSpan={6} className="text-center py-16 text-gray-400 dark:text-gray-500">
+                      <div className="flex flex-col items-center justify-center gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400">
+                          <Filter size={24} />
+                        </div>
+                        <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                          Tidak ada akun pengguna yang cocok dengan kriteria filter atau pencarian
+                        </div>
+                        <p className="text-xs text-gray-400 max-w-md">
+                          Coba sesuaikan kata kunci pencarian, kelas, jurusan, peranan, atau status akun yang dipilih.
+                        </p>
+                        {isAnyFilterActive && (
+                          <button
+                            onClick={handleResetFilters}
+                            className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors border border-indigo-200 dark:border-indigo-800 cursor-pointer"
+                          >
+                            <RotateCcw size={14} />
+                            Reset Semua Filter
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ) : (
