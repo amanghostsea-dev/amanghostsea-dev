@@ -29,7 +29,7 @@ import {
   RotateCcw,
   ShieldCheck
 } from 'lucide-react';
-import { createUser, updateUser, deleteUser, createBulkStudents, BulkStudentItem } from './actions';
+import { createUser, updateUser, deleteUser, deleteBulkUsers, createBulkStudents, BulkStudentItem } from './actions';
 import ConfirmModal from '@/components/ConfirmModal';
 
 interface ParsedBulkStudent {
@@ -173,6 +173,50 @@ export default function UsersCRUD({
   const [loading, setLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Bulk Delete State
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+  const handleToggleSelectUser = (id: string) => {
+    setSelectedUserIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleClearSelection = () => {
+    setSelectedUserIds(new Set());
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    if (selectedUserIds.size === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      const idsToDelete = Array.from(selectedUserIds);
+      const res = await deleteBulkUsers(idsToDelete);
+      if (res?.success) {
+        setUsers(prev => prev.filter(u => !selectedUserIds.has(u.id)));
+        setSelectedUserIds(new Set());
+        setIsBulkDeleteModalOpen(false);
+        if (res.skippedSelf) {
+          alert(`Berhasil menghapus ${res.deletedCount} akun pengguna.\nCatatan: Akun Super Admin yang sedang aktif Anda gunakan tidak ikut dihapus demi keamanan.`);
+        }
+      } else {
+        alert(res?.error || 'Gagal menghapus akun terpilih.');
+      }
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Terjadi kesalahan sistem saat menghapus data massal.');
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
 
   // Bulk Import State
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
@@ -913,6 +957,48 @@ export default function UsersCRUD({
     });
   }, [users, filterRole, filterStatus, filterClass, filterJurusan, searchQuery, studentClassMap]);
 
+  // Kalkulasi data akun terpilih untuk aksi massal
+  const selectedUsers = useMemo(() => {
+    return (users || []).filter(u => selectedUserIds.has(u.id));
+  }, [users, selectedUserIds]);
+
+  const selectedBreakdown = useMemo(() => {
+    let siswa = 0, guru = 0, admin = 0, others = 0;
+    selectedUsers.forEach(u => {
+      if (u.role === 'Siswa') siswa++;
+      else if (u.role === 'Guru') guru++;
+      else if (u.role === 'Super Admin') admin++;
+      else others++;
+    });
+    return { siswa, guru, admin, others, total: selectedUsers.length };
+  }, [selectedUsers]);
+
+  const visibleUserIds = useMemo(() => filteredUsers.map(u => u.id), [filteredUsers]);
+
+  const isAllVisibleSelected = useMemo(() => {
+    if (visibleUserIds.length === 0) return false;
+    return visibleUserIds.every(id => selectedUserIds.has(id));
+  }, [visibleUserIds, selectedUserIds]);
+
+  const isSomeVisibleSelected = useMemo(() => {
+    if (visibleUserIds.length === 0) return false;
+    const some = visibleUserIds.some(id => selectedUserIds.has(id));
+    return some && !isAllVisibleSelected;
+  }, [visibleUserIds, selectedUserIds, isAllVisibleSelected]);
+
+  const handleToggleSelectAllVisible = () => {
+    if (visibleUserIds.length === 0) return;
+    setSelectedUserIds(prev => {
+      const next = new Set(prev);
+      if (isAllVisibleSelected) {
+        visibleUserIds.forEach(id => next.delete(id));
+      } else {
+        visibleUserIds.forEach(id => next.add(id));
+      }
+      return next;
+    });
+  };
+
   const totalSiswa = users.filter(u => u.role === 'Siswa').length;
 
   return (
@@ -930,6 +1016,17 @@ export default function UsersCRUD({
           </div>
           
           <div className="flex flex-wrap items-center gap-3">
+            {/* Tombol Hapus Kolektif Cepat di Header jika ada akun dipilih */}
+            {selectedUserIds.size > 0 && (
+              <button
+                type="button"
+                onClick={() => setIsBulkDeleteModalOpen(true)}
+                className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-xl font-bold flex items-center gap-2 text-sm shadow-md shadow-rose-600/20 transition-all cursor-pointer animate-in fade-in"
+              >
+                <Trash2 size={18} /> Hapus Kolektif ({selectedUserIds.size})
+              </button>
+            )}
+
             {/* Tombol Kolektif Tambah Siswa */}
             <button
               onClick={() => {
@@ -1140,10 +1237,75 @@ export default function UsersCRUD({
             )}
           </div>
 
+          {/* Banner Aksi Hapus Kolektif jika ada akun yang dicentang */}
+          {selectedUserIds.size > 0 && (
+            <div className="mx-6 my-4 p-3.5 px-4 bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm animate-in fade-in duration-200">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-rose-100 dark:bg-rose-900/60 flex items-center justify-center text-rose-600 dark:text-rose-400 font-bold shrink-0">
+                  <Trash2 size={18} />
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <span>{selectedUserIds.size} Akun Terpilih</span>
+                    <span className="text-[11px] font-semibold text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-900/60 px-2.5 py-0.5 rounded-full">
+                      {[
+                        selectedBreakdown.siswa > 0 ? `${selectedBreakdown.siswa} Siswa` : null,
+                        selectedBreakdown.guru > 0 ? `${selectedBreakdown.guru} Guru` : null,
+                        selectedBreakdown.admin > 0 ? `${selectedBreakdown.admin} Admin` : null,
+                      ].filter(Boolean).join(' • ') || 'Akun'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    Klik tombol Hapus Kolektif untuk menghapus {selectedUserIds.size} akun yang dicentang secara permanen.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={handleToggleSelectAllVisible}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors cursor-pointer"
+                >
+                  {isAllVisibleSelected ? 'Batal Pilih di Layar' : `Pilih Semua di Layar (${filteredUsers.length})`}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleClearSelection}
+                  className="px-2.5 py-1.5 text-xs font-semibold rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsBulkDeleteModalOpen(true)}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm shadow-rose-600/30 transition-all cursor-pointer"
+                >
+                  <Trash2 size={14} />
+                  Hapus Kolektif ({selectedUserIds.size})
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-gray-50/50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider font-semibold border-b border-gray-200 dark:border-gray-800">
+                  <th className="p-4 w-12 text-center">
+                    <input
+                      type="checkbox"
+                      checked={isAllVisibleSelected}
+                      ref={(input) => {
+                        if (input) input.indeterminate = isSomeVisibleSelected;
+                      }}
+                      onChange={handleToggleSelectAllVisible}
+                      aria-label="Pilih semua akun di layar"
+                      className="w-4 h-4 text-indigo-600 bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-indigo-500 cursor-pointer transition-all"
+                    />
+                  </th>
                   <th className="p-4">Nama Lengkap & NISN</th>
                   <th className="p-4">Username Login</th>
                   <th className="p-4">Password Awal</th>
@@ -1155,7 +1317,7 @@ export default function UsersCRUD({
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800 text-sm">
                 {filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-16 text-gray-400 dark:text-gray-500">
+                    <td colSpan={7} className="text-center py-16 text-gray-400 dark:text-gray-500">
                       <div className="flex flex-col items-center justify-center gap-3">
                         <div className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400">
                           <Filter size={24} />
@@ -1179,55 +1341,70 @@ export default function UsersCRUD({
                     </td>
                   </tr>
                 ) : (
-                  filteredUsers.map((item: User) => (
-                    <tr key={item.id} className="hover:bg-gray-50/80 dark:hover:bg-gray-800/40 transition-colors">
-                      <td className="p-4">
-                        <div className="font-semibold text-gray-900 dark:text-white">{item.name}</div>
-                        {item.role === 'Siswa' ? (
-                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                            {item.nisn ? (
-                              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                                NISN: {item.nisn}
-                              </div>
-                            ) : (
-                              <span className="text-[11px] text-amber-600 dark:text-amber-400 font-mono">NISN: Belum diisi</span>
-                            )}
-                            {(studentClassMap[item.name] || (item.nisn && studentClassMap[item.nisn])) && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-                                {studentClassMap[item.name] || (item.nisn && studentClassMap[item.nisn])}
-                              </span>
-                            )}
+                  filteredUsers.map((item: User) => {
+                    const isSelected = selectedUserIds.has(item.id);
+                    return (
+                      <tr 
+                        key={item.id} 
+                        className={`transition-colors ${isSelected ? 'bg-indigo-50/70 dark:bg-indigo-950/30 hover:bg-indigo-100/70 dark:hover:bg-indigo-950/50' : 'hover:bg-gray-50/80 dark:hover:bg-gray-800/40'}`}
+                      >
+                        <td className="p-4 text-center">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleToggleSelectUser(item.id)}
+                            aria-label={`Pilih akun ${item.name}`}
+                            className="w-4 h-4 text-indigo-600 bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-indigo-500 cursor-pointer transition-all"
+                          />
+                        </td>
+                        <td className="p-4">
+                          <div className="font-semibold text-gray-900 dark:text-white">{item.name}</div>
+                          {item.role === 'Siswa' ? (
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                              {item.nisn ? (
+                                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                                  NISN: {item.nisn}
+                                </div>
+                              ) : (
+                                <span className="text-[11px] text-amber-600 dark:text-amber-400 font-mono">NISN: Belum diisi</span>
+                              )}
+                              {(studentClassMap[item.name] || (item.nisn && studentClassMap[item.nisn])) && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                                  {studentClassMap[item.name] || (item.nisn && studentClassMap[item.nisn])}
+                                </span>
+                              )}
+                            </div>
+                          ) : null}
+                        </td>
+                        <td className="p-4 text-gray-600 dark:text-gray-300 font-mono text-sm font-medium">
+                          {item.username}
+                        </td>
+                        <td className="p-4 text-gray-500 dark:text-gray-400 font-mono text-sm">
+                          {item.password}
+                        </td>
+                        <td className="p-4">
+                          <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                            {item.role === 'Super Admin' && <Shield size={14} className="text-red-500"/>}
+                            {item.role === 'Admin BKK' && <Briefcase size={14} className="text-amber-500"/>}
+                            {item.role === 'Panitia PPDB' && <CheckSquare size={14} className="text-blue-500"/>}
+                            {item.role === 'Siswa' && <GraduationCap size={14} className="text-purple-500"/>}
+                            {item.role}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${item.status === 'Aktif' ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800/50' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700'}`}>
+                            {item.status}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          <div className="flex items-center justify-center gap-2">
+                            <button onClick={() => handleEdit(item)} className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors cursor-pointer" title="Edit"><Edit2 size={16} /></button>
+                            <button onClick={() => setDeleteTarget(item)} className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors cursor-pointer" title="Hapus"><Trash2 size={16} /></button>
                           </div>
-                        ) : null}
-                      </td>
-                      <td className="p-4 text-gray-600 dark:text-gray-300 font-mono text-sm font-medium">
-                        {item.username}
-                      </td>
-                      <td className="p-4 text-gray-500 dark:text-gray-400 font-mono text-sm">
-                        {item.password}
-                      </td>
-                      <td className="p-4">
-                        <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                          {item.role === 'Super Admin' && <Shield size={14} className="text-red-500"/>}
-                          {item.role === 'Admin BKK' && <Briefcase size={14} className="text-amber-500"/>}
-                          {item.role === 'Panitia PPDB' && <CheckSquare size={14} className="text-blue-500"/>}
-                          {item.role === 'Siswa' && <GraduationCap size={14} className="text-purple-500"/>}
-                          {item.role}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${item.status === 'Aktif' ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800/50' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700'}`}>
-                          {item.status}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center justify-center gap-2">
-                          <button onClick={() => handleEdit(item)} className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors cursor-pointer" title="Edit"><Edit2 size={16} /></button>
-                          <button onClick={() => setDeleteTarget(item)} className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors cursor-pointer" title="Hapus"><Trash2 size={16} /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -1795,7 +1972,7 @@ export default function UsersCRUD({
           </div>
         )}
 
-        {/* Delete Confirmation Modal */}
+        {/* Delete Confirmation Modal (Single) */}
         <ConfirmModal
           isOpen={!!deleteTarget}
           title="Hapus Pengguna"
@@ -1805,6 +1982,38 @@ export default function UsersCRUD({
           variant="danger"
           onConfirm={handleConfirmDelete}
           onClose={() => setDeleteTarget(null)}
+        />
+
+        {/* Modal Konfirmasi Hapus Kolektif (Bulk Delete) */}
+        <ConfirmModal
+          isOpen={isBulkDeleteModalOpen}
+          title={`Hapus ${selectedUserIds.size} Akun Pengguna Terpilih?`}
+          message={
+            <div className="space-y-3">
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Apakah Anda yakin ingin menghapus sebanyak <strong className="text-rose-600 dark:text-rose-400 font-bold">{selectedUserIds.size} akun</strong> ini secara permanen?
+              </p>
+              {selectedBreakdown.siswa > 0 && (
+                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300">
+                  ⚠️ Terdapat <strong>{selectedBreakdown.siswa} akun siswa</strong> dalam daftar yang dipilih. Menghapus akun siswa juga akan membersihkan riwayat nilai rapor terkait.
+                </div>
+              )}
+              {selectedBreakdown.guru > 0 && (
+                <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-xs text-blue-800 dark:text-blue-300">
+                  ℹ️ Terdapat <strong>{selectedBreakdown.guru} akun guru</strong> dalam daftar yang dipilih.
+                </div>
+              )}
+              <p className="text-xs text-gray-500">
+                Tindakan ini tidak dapat dibatalkan dan semua data akun yang terhapus tidak dapat dipulihkan.
+              </p>
+            </div>
+          }
+          confirmText={`Ya, Hapus ${selectedUserIds.size} Akun`}
+          cancelText="Batal"
+          isLoading={isBulkDeleting}
+          variant="danger"
+          onConfirm={handleConfirmBulkDelete}
+          onClose={() => setIsBulkDeleteModalOpen(false)}
         />
       </div>
     </div>

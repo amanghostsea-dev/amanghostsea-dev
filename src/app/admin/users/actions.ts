@@ -196,7 +196,12 @@ export async function deleteUser(id: string) {
     if (user?.role === 'Siswa') {
       try {
         await prisma.studentGrade.deleteMany({
-          where: { studentName: user.name }
+          where: {
+            OR: [
+              { studentName: user.name },
+              ...(user.nisn ? [{ studentNis: user.nisn }] : []),
+            ]
+          }
         });
       } catch {}
     }
@@ -206,6 +211,66 @@ export async function deleteUser(id: string) {
     return { success: true };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
+    return { error: message };
+  }
+}
+
+export async function deleteBulkUsers(ids: string[]) {
+  const admin = await requireSuperAdmin();
+  try {
+    if (!ids || ids.length === 0) {
+      return { error: 'Tidak ada akun yang dipilih untuk dihapus.' };
+    }
+
+    const targetUsers = await prisma.user.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true, nisn: true, role: true }
+    });
+
+    if (targetUsers.length === 0) {
+      return { error: 'Data akun yang ingin dihapus tidak ditemukan.' };
+    }
+
+    // Safety: Cegah menghapus akun Super Admin yang sedang aktif digunakan saat ini
+    const safeUsers = targetUsers.filter(u => !(u.role === 'Super Admin' && u.name === admin.name));
+    if (safeUsers.length === 0) {
+      return { error: 'Anda tidak dapat menghapus akun Super Admin yang sedang aktif digunakan.' };
+    }
+
+    const safeIds = safeUsers.map(u => u.id);
+    const studentNames = safeUsers.filter(u => u.role === 'Siswa').map(u => u.name);
+    const studentNisns = safeUsers.filter(u => u.role === 'Siswa' && u.nisn).map(u => u.nisn as string);
+
+    // Hapus users dari database
+    const deleteResult = await prisma.user.deleteMany({
+      where: { id: { in: safeIds } }
+    });
+
+    // Hapus juga data nilai rapor jika akun siswa dihapus
+    if (studentNames.length > 0 || studentNisns.length > 0) {
+      try {
+        await prisma.studentGrade.deleteMany({
+          where: {
+            OR: [
+              ...(studentNames.length > 0 ? [{ studentName: { in: studentNames } }] : []),
+              ...(studentNisns.length > 0 ? [{ studentNis: { in: studentNisns } }] : []),
+            ]
+          }
+        });
+      } catch (e) {
+        console.error('Error cleaning up student grades in bulk delete:', e);
+      }
+    }
+
+    revalidatePath('/admin/users');
+    revalidatePath('/portal/guru/kelas');
+    return {
+      success: true,
+      deletedCount: deleteResult.count,
+      skippedSelf: safeIds.length < ids.length,
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Terjadi kesalahan sistem saat menghapus data massal.';
     return { error: message };
   }
 }
