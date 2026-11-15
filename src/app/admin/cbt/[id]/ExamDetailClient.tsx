@@ -46,7 +46,9 @@ import {
   Image as ImageIcon,
   Upload,
   Eye,
-  EyeOff
+  EyeOff,
+  Zap,
+  X
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import { 
@@ -63,6 +65,8 @@ import {
 import { 
   formatExamScheduleRange, 
   getExamScheduleState, 
+  checkScheduleDiscrepancy,
+  ScheduleDiscrepancyResult,
   extractJurusanCode, 
   getJurusanFullName, 
   formatClassTargetDisplay 
@@ -513,7 +517,19 @@ export default function ExamDetailClient({
     return () => clearInterval(interval);
   }, [examStatus, exam.id]);
 
-  const handleToggleSession = async (open: boolean) => {
+  const [scheduleNoticeModal, setScheduleNoticeModal] = useState<ScheduleDiscrepancyResult | null>(null);
+  const schedState = getExamScheduleState(exam.startTime, exam.endTime, examStatus);
+
+  const handleToggleSession = async (open: boolean, forceAllowOutsideSchedule: boolean = false) => {
+    // ⏰ Verifikasi Jadwal Resmi Ujian saat pengawas membuka sesi / merilis token
+    if (open && !forceAllowOutsideSchedule) {
+      const discrepancy = checkScheduleDiscrepancy(exam.startTime, exam.endTime);
+      if (discrepancy.isOutside) {
+        setScheduleNoticeModal(discrepancy);
+        return;
+      }
+    }
+
     setTogglingSession(true);
     const res = await toggleExamSession(exam.id, open, examToken);
     if (res.success && res.data) {
@@ -1378,10 +1394,16 @@ Poin: 10
               </span>
               <span className={`text-xs font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
                 examStatus === 'ACTIVE'
-                  ? 'bg-emerald-500 text-white'
+                  ? schedState.isOutsideSchedule
+                    ? 'bg-amber-500 text-white animate-pulse'
+                    : 'bg-emerald-500 text-white'
                   : 'bg-amber-500/20 text-amber-800 dark:text-amber-200 border border-amber-500/30'
               }`}>
-                {examStatus === 'ACTIVE' ? 'Sesi Ujian Aktif (Live)' : 'Ruang Tunggu Siswa (Standby)'}
+                {examStatus === 'ACTIVE' 
+                  ? schedState.isOutsideSchedule
+                    ? '⚠️ Sesi Live (Susulan / Di Luar Jadwal)'
+                    : 'Sesi Ujian Aktif (Live)' 
+                  : 'Ruang Tunggu Siswa (Standby)'}
               </span>
               <span className="text-xs text-slate-500">
                 • Target: <strong>{exam.classTarget}</strong>
@@ -1390,7 +1412,9 @@ Poin: 10
 
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">
               {examStatus === 'ACTIVE'
-                ? 'Sesi Ujian Sedang Berlangsung di Kelas'
+                ? schedState.isOutsideSchedule
+                  ? 'Sesi Ujian Aktif di Luar Jadwal Resmi (Ujian Susulan)'
+                  : 'Sesi Ujian Sedang Berlangsung di Kelas'
                 : 'Sesi Ujian Masih Ditutup (Siswa Berada di Ruang Tunggu)'}
             </h3>
             
@@ -1399,6 +1423,16 @@ Poin: 10
                 ? 'Siswa di dalam kelas dapat memasukkan token di samping ini untuk mulai mengerjakan soal. Siswa di luar kelas atau di rumah tidak akan bisa mengerjakan jika tidak mengetahui token fisik ini.'
                 : 'Siswa yang mengakses ujian saat ini berada di Ruang Tunggu dan belum bisa mengakses soal atau memasukkan token. Buka sesi ketika jam ujian dimulai di kelas.'}
             </p>
+
+            {/* Notice informatif jika sesi aktif di luar jadwal resmi (Susulan) */}
+            {examStatus === 'ACTIVE' && schedState.isOutsideSchedule && (
+              <div className="mt-2 p-2.5 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2">
+                <AlertTriangle size={15} className="shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                <div>
+                  <strong className="font-bold">Info Sesi Susulan:</strong> Sesi ujian ini dibuka di luar jadwal resmi ({schedState.countdown}). Siswa yang memasukkan token tetap dapat login & mengerjakan ujian tanpa kendala.
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right Action / Token Display */}
@@ -3643,6 +3677,92 @@ Poin: 15`}
                 className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
               >
                 Batal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ⚠️ MODAL PERINGATAN / NOTIFIKASI KETIDAKSESUAIAN JADWAL RILIS TOKEN */}
+      {scheduleNoticeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl relative space-y-4">
+            <div className="flex items-start gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <AlertTriangle size={24} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-lg text-slate-900 dark:text-white">
+                  Pemberitahuan Waktu Ujian
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Rilis token / sesi dilakukan di luar jadwal resmi paket ujian
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setScheduleNoticeModal(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/50 space-y-3 text-xs">
+              <div className="flex items-center justify-between pb-2 border-b border-amber-200/60 dark:border-amber-800/40">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Paket Ujian:</span>
+                <span className="font-bold text-slate-800 dark:text-slate-100 truncate max-w-[240px]">
+                  {exam.title}
+                </span>
+              </div>
+              <div className="flex items-center justify-between pb-2 border-b border-amber-200/60 dark:border-amber-800/40">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Mata Pelajaran:</span>
+                <span className="font-semibold text-slate-700 dark:text-slate-200">
+                  {exam.subject} ({formatClassTargetDisplay(exam.classTarget, true)})
+                </span>
+              </div>
+              <div className="flex items-center justify-between pb-2 border-b border-amber-200/60 dark:border-amber-800/40">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Jadwal Resmi:</span>
+                <span className="font-mono font-bold text-slate-800 dark:text-slate-100">
+                  {scheduleNoticeModal.scheduledRangeText}
+                </span>
+              </div>
+              <div className="flex items-center justify-between pb-2 border-b border-amber-200/60 dark:border-amber-800/40">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Waktu Sekarang:</span>
+                <span className="font-mono font-bold text-purple-700 dark:text-purple-300">
+                  {scheduleNoticeModal.formattedCurrentTime}
+                </span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-amber-100/70 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 font-medium text-[11px] leading-relaxed">
+                {scheduleNoticeModal.message}
+              </div>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-900/50 text-[11px] text-blue-900 dark:text-blue-200 flex items-start gap-2">
+              <Zap size={15} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+              <div>
+                <strong>Ujian Tetap Bisa Dilakukan:</strong> Notifikasi ini bertujuan untuk memastikan pengawas mengetahui kesesuaian waktu ujian. Ujian tetap dapat dikerjakan siswa (misalnya untuk ujian susulan, remedial, atau penyesuaian waktu oleh pengawas).
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setScheduleNoticeModal(null)}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Batal / Cek Jadwal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setScheduleNoticeModal(null);
+                  handleToggleSession(true, true);
+                }}
+                className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold text-xs transition-all shadow-md shadow-amber-600/20 flex items-center gap-1.5 cursor-pointer"
+              >
+                <Play size={13} className="fill-white" />
+                <span>Tetap Buka Sesi Ujian</span>
               </button>
             </div>
           </div>

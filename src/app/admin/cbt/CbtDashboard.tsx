@@ -58,6 +58,8 @@ import {
   formatExamScheduleRange, 
   getExamScheduleDetails,
   getExamScheduleState, 
+  checkScheduleDiscrepancy,
+  ScheduleDiscrepancyResult,
   toDateTimeLocalInput,
   parseDateTimeInputToIso,
   formatScheduleTime,
@@ -267,6 +269,12 @@ export default function CbtDashboard({
   >([]);
   const [csvError, setCsvError] = useState<string | null>(null);
   const [csvSaving, setCsvSaving] = useState(false);
+
+  // ⚠️ Schedule Discrepancy Notice Modal State (Token Release outside scheduled window)
+  const [scheduleNoticeModal, setScheduleNoticeModal] = useState<{
+    exam: ExamItem;
+    discrepancy: ScheduleDiscrepancyResult;
+  } | null>(null);
 
   const classPresets: string[] = useMemo(() => {
     const list = dynamicClassPresets && dynamicClassPresets.length > 0 ? dynamicClassPresets : [
@@ -849,10 +857,26 @@ export default function CbtDashboard({
     setIsModalOpen(true);
   };
 
-  const handleQuickToggleSession = async (exam: ExamItem) => {
-    setSessionLoadingId(exam.id);
+  const handleQuickToggleSession = async (exam: ExamItem, forceAllowOutsideSchedule: boolean = false) => {
     const isCurrentlyActive = exam.status === 'ACTIVE';
     const nextOpen = !isCurrentlyActive;
+
+    // ⏰ Schedule Discrepancy Verification on Token Release / Session Open:
+    // Sesuai kebutuhan: Paket ujian secara otomatis aktif sesuai jadwal resmi.
+    // Namun jika pengawas membuka sesi di luar tanggal/jam, proses tetap diizinkan
+    // setelah menampilkan notifikasi edukatif pemberitahuan ketidaksesuaian waktu.
+    if (nextOpen && !forceAllowOutsideSchedule) {
+      const discrepancy = checkScheduleDiscrepancy(exam.startTime, exam.endTime, cbtTimezone);
+      if (discrepancy.isOutside) {
+        setScheduleNoticeModal({
+          exam,
+          discrepancy,
+        });
+        return;
+      }
+    }
+
+    setSessionLoadingId(exam.id);
     const res = await toggleExamSession(exam.id, nextOpen, exam.token || undefined);
 
     if (res.success && res.data) {
@@ -1848,13 +1872,21 @@ export default function CbtDashboard({
                     <span
                       className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold shrink-0 ${
                         isLive
-                          ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 animate-pulse'
+                          ? schedState.isOutsideSchedule
+                            ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 animate-pulse'
+                            : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 animate-pulse'
                           : exam.status === 'PUBLISHED'
                           ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
                           : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                       }`}
                     >
-                      {isLive ? '🟢 Sesi Live' : exam.status === 'PUBLISHED' ? '⏳ Ruang Tunggu' : 'Draft'}
+                      {isLive 
+                        ? schedState.isOutsideSchedule
+                          ? '⚠️ Sesi Live (Susulan)'
+                          : '🟢 Sesi Live' 
+                        : exam.status === 'PUBLISHED' 
+                        ? '⏳ Ruang Tunggu' 
+                        : 'Draft'}
                     </span>
                   </div>
 
@@ -1907,7 +1939,19 @@ export default function CbtDashboard({
                     {schedState.countdown && (
                       <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-0.5 px-0.5">
                         <span className="font-medium">Waktu Pengerjaan:</span>
-                        <span className="font-bold text-purple-700 dark:text-purple-300">{schedState.countdown}</span>
+                        <span className={`font-bold ${isLive && schedState.isOutsideSchedule ? 'text-amber-600 dark:text-amber-400' : 'text-purple-700 dark:text-purple-300'}`}>
+                          {schedState.countdown}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Notice informatif jika sesi aktif di luar jadwal resmi (Susulan) */}
+                    {isLive && schedState.isOutsideSchedule && (
+                      <div className="mt-1.5 p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-[10px] flex items-start gap-1.5 leading-tight">
+                        <AlertTriangle size={13} className="shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                        <div>
+                          <strong className="font-semibold">Info Ujian Susulan:</strong> Sesi aktif dibuka pengawas di luar jadwal resmi. Siswa tetap dapat login & mengerjakan ujian.
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1938,12 +1982,14 @@ export default function CbtDashboard({
                   {/* 🚀 QUICK TOKEN CONTROL BANNER */}
                   <div className={`p-3 rounded-2xl border flex items-center justify-between gap-3 text-xs ${
                     isLive 
-                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/50 text-emerald-900 dark:text-emerald-200' 
+                      ? schedState.isOutsideSchedule
+                        ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/50 text-amber-900 dark:text-amber-200'
+                        : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/50 text-emerald-900 dark:text-emerald-200' 
                       : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-slate-300'
                   }`}>
                     <div>
                       <div className="font-extrabold uppercase text-[10px] tracking-wider text-slate-400">
-                        {isLive ? 'Token Live Kelas:' : 'Status Token:'}
+                        {isLive ? (schedState.isOutsideSchedule ? 'Token Live (Susulan):' : 'Token Live Kelas:') : 'Status Token:'}
                       </div>
                       <div className="font-mono font-black text-sm text-slate-900 dark:text-white mt-0.5">
                         {(exam.token || '').split('|')[0] || 'BELUM AKTIF'}
@@ -3225,6 +3271,97 @@ export default function CbtDashboard({
                   {csvSaving ? 'Menyimpan...' : `Simpan ${csvParsedRows.length} Jadwal ke Database`}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ⚠️ MODAL PERINGATAN / NOTIFIKASI KETIDAKSESUAIAN JADWAL RILIS TOKEN */}
+      {scheduleNoticeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl relative space-y-4">
+            {/* Header */}
+            <div className="flex items-start gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <AlertTriangle size={24} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-lg text-slate-900 dark:text-white">
+                  Pemberitahuan Waktu Ujian
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Rilis token / sesi dilakukan di luar jadwal resmi paket ujian
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setScheduleNoticeModal(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Content Details Box */}
+            <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/50 space-y-3 text-xs">
+              <div className="flex items-center justify-between pb-2 border-b border-amber-200/60 dark:border-amber-800/40">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Paket Ujian:</span>
+                <span className="font-bold text-slate-800 dark:text-slate-100 truncate max-w-[240px]">
+                  {scheduleNoticeModal.exam.title}
+                </span>
+              </div>
+              <div className="flex items-center justify-between pb-2 border-b border-amber-200/60 dark:border-amber-800/40">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Mata Pelajaran / Target:</span>
+                <span className="font-semibold text-slate-700 dark:text-slate-200">
+                  {scheduleNoticeModal.exam.subject} ({formatClassTargetDisplay(scheduleNoticeModal.exam.classTarget, true)})
+                </span>
+              </div>
+              <div className="flex items-center justify-between pb-2 border-b border-amber-200/60 dark:border-amber-800/40">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Jadwal Resmi:</span>
+                <span className="font-mono font-bold text-slate-800 dark:text-slate-100">
+                  {scheduleNoticeModal.discrepancy.scheduledRangeText}
+                </span>
+              </div>
+              <div className="flex items-center justify-between pb-2 border-b border-amber-200/60 dark:border-amber-800/40">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Waktu Sekarang:</span>
+                <span className="font-mono font-bold text-purple-700 dark:text-purple-300">
+                  {scheduleNoticeModal.discrepancy.formattedCurrentTime}
+                </span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-amber-100/70 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 font-medium text-[11px] leading-relaxed">
+                {scheduleNoticeModal.discrepancy.message}
+              </div>
+            </div>
+
+            {/* Informative notice */}
+            <div className="p-3 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-900/50 text-[11px] text-blue-900 dark:text-blue-200 flex items-start gap-2">
+              <Zap size={15} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+              <div>
+                <strong>Ujian Tetap Bisa Dilakukan:</strong> Notifikasi ini bertujuan untuk memastikan pengawas mengetahui kesesuaian waktu ujian. Ujian tetap dapat dikerjakan siswa (misalnya untuk ujian susulan, remedial, atau penyesuaian waktu oleh pengawas).
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setScheduleNoticeModal(null)}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Batal / Cek Jadwal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const examToOpen = scheduleNoticeModal.exam;
+                  setScheduleNoticeModal(null);
+                  handleQuickToggleSession(examToOpen, true);
+                }}
+                className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold text-xs transition-all shadow-md shadow-amber-600/20 flex items-center gap-1.5 cursor-pointer"
+              >
+                <Play size={13} className="fill-white" />
+                <span>Tetap Rilis Token & Buka Sesi</span>
+              </button>
             </div>
           </div>
         </div>

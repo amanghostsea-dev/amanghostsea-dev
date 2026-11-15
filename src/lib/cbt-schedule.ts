@@ -32,6 +32,10 @@ export interface ScheduleState {
   countdown: string;
   isAccessible: boolean;
   isOngoingToday: boolean;
+  isLive?: boolean;
+  isOutsideSchedule?: boolean;
+  scheduleDiscrepancyType?: 'PRE_SCHEDULE' | 'POST_SCHEDULE' | null;
+  scheduleDiscrepancyNotice?: string;
 }
 
 /**
@@ -323,25 +327,76 @@ export function getExamScheduleState(
       countdown = 'Segera dimulai...';
     }
 
+    if (teacherOpened) {
+      return {
+        state: 'ONGOING',
+        label: 'Sesi Live (Pra-Jadwal)',
+        badgeClass: 'bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300 border-sky-300 dark:border-sky-800 animate-pulse',
+        countdown: `Sesi Terbuka (${countdown})`,
+        isAccessible: true,
+        isOngoingToday: diffDays === 0,
+        isLive: true,
+        isOutsideSchedule: true,
+        scheduleDiscrepancyType: 'PRE_SCHEDULE',
+        scheduleDiscrepancyNotice: 'Sesi ujian dibuka manual oleh pengawas sebelum jadwal resmi.',
+      };
+    }
+
     return {
       state: 'UPCOMING',
       label: 'Belum Dimulai',
       badgeClass: 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-200 dark:border-blue-800',
       countdown,
-      isAccessible: teacherOpened, // only accessible early if teacher opened manually
+      isAccessible: false,
       isOngoingToday: diffDays === 0,
+      isLive: false,
+      isOutsideSchedule: false,
     };
   }
 
   // Check if ENDED (after end time)
   if (end && !isNaN(end.getTime()) && nowMs > end.getTime()) {
+    if (teacherOpened) {
+      const diffMs = nowMs - end.getTime();
+      const diffSec = Math.floor(diffMs / 1000);
+      const diffMin = Math.floor(diffSec / 60);
+      const diffHour = Math.floor(diffMin / 60);
+      const diffDays = Math.floor(diffHour / 24);
+
+      let passedText = '';
+      if (diffDays > 0) {
+        passedText = `lewat ${diffDays} hari`;
+      } else if (diffHour > 0) {
+        passedText = `lewat ${diffHour} jam ${diffMin % 60} mnt`;
+      } else if (diffMin > 0) {
+        passedText = `lewat ${diffMin} mnt`;
+      } else {
+        passedText = 'baru saja lewat';
+      }
+
+      return {
+        state: 'ONGOING',
+        label: 'Sesi Live (Susulan)',
+        badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-800 animate-pulse',
+        countdown: `Sesi Aktif (Susulan • ${passedText})`,
+        isAccessible: true,
+        isOngoingToday: false,
+        isLive: true,
+        isOutsideSchedule: true,
+        scheduleDiscrepancyType: 'POST_SCHEDULE',
+        scheduleDiscrepancyNotice: 'Sesi dibuka manual oleh pengawas di luar rentang jadwal resmi (Mode Ujian Susulan). Siswa tetap dapat mengerjakan.',
+      };
+    }
+
     return {
       state: 'ENDED',
       label: 'Waktu Berakhir',
       badgeClass: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700',
       countdown: 'Telah Berakhir',
-      isAccessible: teacherOpened, // only if teacher explicitly extended/opened
+      isAccessible: false,
       isOngoingToday: false,
+      isLive: false,
+      isOutsideSchedule: false,
     };
   }
 
@@ -369,6 +424,131 @@ export function getExamScheduleState(
     countdown: remainingCountdown,
     isAccessible: true,
     isOngoingToday: true,
+    isLive: teacherOpened,
+    isOutsideSchedule: false,
+  };
+}
+
+export interface ScheduleDiscrepancyResult {
+  isOutside: boolean;
+  type: 'PRE_SCHEDULE' | 'POST_SCHEDULE' | null;
+  headline: string;
+  message: string;
+  diffHumanText: string;
+  scheduledRangeText?: string;
+  formattedCurrentTime?: string;
+}
+
+/**
+ * ⏰ Schedule Discrepancy Checker
+ * Evaluates whether releasing an exam token or activating a session right now
+ * happens outside the officially configured schedule window.
+ */
+export function checkScheduleDiscrepancy(
+  startTime?: Date | string | null,
+  endTime?: Date | string | null,
+  tz: CbtTimezone = DEFAULT_CBT_TIMEZONE,
+  now: Date = new Date()
+): ScheduleDiscrepancyResult {
+  const iana = TIMEZONE_IANA_MAP[tz] || 'Asia/Makassar';
+  const currentFormatted = now.toLocaleDateString('id-ID', {
+    timeZone: iana,
+    weekday: 'long',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }) + ' pukul ' + now.toLocaleTimeString('id-ID', {
+    timeZone: iana,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }) + ` ${tz}`;
+
+  if (!startTime && !endTime) {
+    return {
+      isOutside: false,
+      type: null,
+      headline: 'Jadwal Fleksibel',
+      message: 'Ujian ini tidak memiliki batasan tanggal atau jam khusus.',
+      diffHumanText: '',
+      formattedCurrentTime: currentFormatted,
+    };
+  }
+
+  const start = startTime ? (typeof startTime === 'string' ? new Date(startTime) : startTime) : null;
+  const end = endTime ? (typeof endTime === 'string' ? new Date(endTime) : endTime) : null;
+  const nowMs = now.getTime();
+  const rangeDetails = getExamScheduleDetails(startTime, endTime, tz);
+
+  // Check if current time is before start time
+  if (start && !isNaN(start.getTime()) && nowMs < start.getTime()) {
+    const diffMs = start.getTime() - nowMs;
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDays = Math.floor(diffHour / 24);
+
+    let diffHumanText = '';
+    if (diffDays > 0) {
+      diffHumanText = `${diffDays} hari ${diffHour % 24} jam lagi`;
+    } else if (diffHour > 0) {
+      diffHumanText = `${diffHour} jam ${diffMin % 60} menit lagi`;
+    } else if (diffMin > 0) {
+      diffHumanText = `${diffMin} menit lagi`;
+    } else {
+      diffHumanText = 'kurang dari 1 menit lagi';
+    }
+
+    return {
+      isOutside: true,
+      type: 'PRE_SCHEDULE',
+      headline: 'Waktu Ujian Belum Dimulai',
+      message: `Jadwal resmi paket ujian ini baru akan dimulai dalam ${diffHumanText} (${rangeDetails.timeRangeText}).`,
+      diffHumanText,
+      scheduledRangeText: `${rangeDetails.dateText}, ${rangeDetails.timeRangeText}`,
+      formattedCurrentTime: currentFormatted,
+    };
+  }
+
+  // Check if current time is after end time
+  if (end && !isNaN(end.getTime()) && nowMs > end.getTime()) {
+    const diffMs = nowMs - end.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDays = Math.floor(diffHour / 24);
+
+    let diffHumanText = '';
+    if (diffDays > 0) {
+      diffHumanText = `${diffDays} hari ${diffHour % 24} jam yang lalu`;
+    } else if (diffHour > 0) {
+      diffHumanText = `${diffHour} jam ${diffMin % 60} menit yang lalu`;
+    } else if (diffMin > 0) {
+      diffHumanText = `${diffMin} menit yang lalu`;
+    } else {
+      diffHumanText = 'baru saja berakhir';
+    }
+
+    return {
+      isOutside: true,
+      type: 'POST_SCHEDULE',
+      headline: 'Jadwal Resmi Telah Berakhir',
+      message: `Waktu pengerjaan sesuai paket ujian ini telah berakhir ${diffHumanText} (${rangeDetails.timeRangeText}).`,
+      diffHumanText,
+      scheduledRangeText: `${rangeDetails.dateText}, ${rangeDetails.timeRangeText}`,
+      formattedCurrentTime: currentFormatted,
+    };
+  }
+
+  // Within scheduled window
+  return {
+    isOutside: false,
+    type: null,
+    headline: 'Sesuai Jadwal Resmi',
+    message: 'Waktu saat ini berada dalam rentang jadwal pelaksanaan ujian.',
+    diffHumanText: 'Sedang Berlangsung',
+    scheduledRangeText: `${rangeDetails.dateText}, ${rangeDetails.timeRangeText}`,
+    formattedCurrentTime: currentFormatted,
   };
 }
 

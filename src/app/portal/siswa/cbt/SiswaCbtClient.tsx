@@ -533,7 +533,7 @@ export default function SiswaCbtClient({
                               {schedState.state === 'ONGOING' || isLiveTeacher ? (
                                 <>
                                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                  Sesi Aktif
+                                  {schedState.isOutsideSchedule ? 'Sesi Aktif (Susulan)' : 'Sesi Aktif'}
                                 </>
                               ) : schedState.state === 'UPCOMING' ? (
                                 <>
