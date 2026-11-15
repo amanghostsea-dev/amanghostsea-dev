@@ -289,8 +289,14 @@ export default function SiswaDashboardClient({
           >
             <Calendar size={19} />
             <span className="flex-1 text-left">Jadwal Pelajaran</span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
-              10 Mapel
+            <span
+              className={`text-[10px] px-2 py-0.5 rounded-full font-bold transition-colors ${
+                activeTab === 'jadwal'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+              }`}
+            >
+              {fullSchedule.length} Mapel
             </span>
           </button>
 
@@ -309,8 +315,14 @@ export default function SiswaDashboardClient({
           >
             <GraduationCap size={19} />
             <span className="flex-1 text-left">Transkrip Nilai</span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
-              IPK 3.85
+            <span
+              className={`text-[10px] px-2 py-0.5 rounded-full font-bold transition-colors ${
+                activeTab === 'nilai'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
+              }`}
+            >
+              {calculatedGpa > 0 ? `IPK ${calculatedGpa.toFixed(2)}` : `${fullGrades.length} Mapel`}
             </span>
           </button>
 
