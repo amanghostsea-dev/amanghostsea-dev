@@ -27,7 +27,9 @@ import {
   Copy,
   Filter,
   RotateCcw,
-  ShieldCheck
+  ShieldCheck,
+  ArrowRight,
+  UserCheck
 } from 'lucide-react';
 import { createUser, updateUser, deleteUser, deleteBulkUsers, createBulkStudents, BulkStudentItem } from './actions';
 import ConfirmModal from '@/components/ConfirmModal';
@@ -637,6 +639,23 @@ export default function UsersCRUD({
 
     setBulkText(lines.join('\n'));
     setBulkResult(null);
+  };
+
+  const handleCloseBulkModal = () => {
+    setIsBulkModalOpen(false);
+    setBulkResult(null);
+    setBulkText('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleResetBulkImport = () => {
+    setBulkResult(null);
+    setBulkText('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   // Process Bulk Submit
@@ -1594,49 +1613,207 @@ export default function UsersCRUD({
               {/* Modal Header */}
               <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-600/25">
-                    <UserPlus size={20} />
+                  <div className={`w-10 h-10 rounded-2xl ${bulkResult ? 'bg-emerald-600 shadow-emerald-600/25' : 'bg-indigo-600 shadow-indigo-600/25'} text-white flex items-center justify-center shadow-md`}>
+                    {bulkResult ? <CheckCircle2 size={22} /> : <UserPlus size={20} />}
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Tambah Siswa Kolektif (Massal)</h3>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                      {bulkResult ? 'Hasil Import Siswa Kolektif' : 'Tambah Siswa Kolektif (Massal)'}
+                    </h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Import puluhan akun siswa sekaligus menggunakan format template standar Dapodik & CBT
+                      {bulkResult 
+                        ? 'Laporan sinkronisasi akun siswa ke sistem Dapodik SMK & CBT'
+                        : 'Import puluhan akun siswa sekaligus menggunakan format template standar Dapodik & CBT'}
                     </p>
                   </div>
                 </div>
                 <button 
-                  onClick={() => setIsBulkModalOpen(false)} 
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1.5 rounded-xl hover:bg-white dark:hover:bg-gray-800 transition-colors"
+                  onClick={handleCloseBulkModal} 
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1.5 rounded-xl hover:bg-white dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                  title="Tutup"
                 >
                   <X size={20} />
                 </button>
               </div>
 
-              {/* Modal Body Scrollable */}
-              <div className="p-6 space-y-6 overflow-y-auto flex-1">
-                
-                {/* Result Alert if available */}
-                {bulkResult && (
-                  <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 space-y-2 animate-fade-in">
-                    <div className="flex items-center gap-2 font-bold text-sm">
-                      <CheckCircle2 className="text-emerald-600 dark:text-emerald-400" size={20} />
-                      Import Selesai: Berhasil membuat {bulkResult.createdCount} akun siswa!
+              {/* JIKA BERHASIL (bulkResult != null), TAMPILKAN NOTIFIKASI CANGGIH & ELEGAN (TANPA MENAMPILKAN FORM LAGI) */}
+              {bulkResult ? (
+                <>
+                  <div className="p-6 sm:p-8 space-y-6 overflow-y-auto flex-1">
+                    {/* Hero Success Badge & Heading */}
+                    <div className="text-center py-2 space-y-3">
+                      <div className="relative inline-flex items-center justify-center">
+                        <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-emerald-400 text-white flex items-center justify-center shadow-xl shadow-emerald-500/25 ring-8 ring-emerald-50 dark:ring-emerald-950/40 animate-in zoom-in-75 duration-300">
+                          <CheckCircle2 size={44} className="stroke-[2.5]" />
+                        </div>
+                        <span className="absolute -top-1 -right-1 flex h-6 w-6">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-6 w-6 bg-emerald-500 text-white items-center justify-center text-[11px] font-bold">✓</span>
+                        </span>
+                      </div>
+
+                      <div className="space-y-1">
+                        <h4 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
+                          Import Akun Siswa Berhasil!
+                        </h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 max-w-md mx-auto leading-relaxed">
+                          Sebanyak <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{bulkResult.createdCount} akun siswa baru</strong> telah berhasil dibuat, disinkronkan ke buku rapor kelas, dan langsung siap digunakan.
+                        </p>
+                      </div>
                     </div>
+
+                    {/* Stat Cards Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                      {/* Card 1: Akun Dibuat */}
+                      <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50/80 to-teal-50/50 dark:from-emerald-950/40 dark:to-teal-950/20 border border-emerald-200/80 dark:border-emerald-800/60 shadow-xs space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">Akun Berhasil Dibuat</span>
+                          <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center">
+                            <UserCheck size={16} />
+                          </div>
+                        </div>
+                        <div className="text-2xl font-black text-emerald-700 dark:text-emerald-300 font-mono">
+                          {bulkResult.createdCount} <span className="text-xs font-sans font-semibold text-emerald-600/80">Siswa</span>
+                        </div>
+                        <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80">
+                          Status: Aktif & tersimpan di database
+                        </p>
+                      </div>
+
+                      {/* Card 2: Data Dilewati / Duplikat */}
+                      <div className={`p-4 rounded-2xl border shadow-xs space-y-1.5 ${
+                        bulkResult.skippedCount > 0 
+                          ? 'bg-amber-50/80 dark:bg-amber-950/40 border-amber-200/80 dark:border-amber-800/60 text-amber-800 dark:text-amber-300' 
+                          : 'bg-gray-50/80 dark:bg-gray-800/40 border-gray-200/80 dark:border-gray-800 text-gray-700 dark:text-gray-300'
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold">Data Dilewati</span>
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+                            bulkResult.skippedCount > 0 
+                              ? 'bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300' 
+                              : 'bg-gray-200/70 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                          }`}>
+                            <AlertCircle size={16} />
+                          </div>
+                        </div>
+                        <div className="text-2xl font-black font-mono">
+                          {bulkResult.skippedCount} <span className="text-xs font-sans font-semibold opacity-80">Baris</span>
+                        </div>
+                        <p className="text-[11px] opacity-80">
+                          {bulkResult.skippedCount > 0 ? 'Duplikat NISN / Username' : 'Tidak ada duplikat data'}
+                        </p>
+                      </div>
+
+                      {/* Card 3: Integrasi CBT & Rapor */}
+                      <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-50/80 to-indigo-50/50 dark:from-purple-950/40 dark:to-indigo-950/20 border border-purple-200/80 dark:border-purple-800/60 shadow-xs space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-purple-800 dark:text-purple-300">Sinkronisasi</span>
+                          <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 flex items-center justify-center">
+                            <Layers size={16} />
+                          </div>
+                        </div>
+                        <div className="text-sm font-black text-purple-900 dark:text-purple-200 pt-1">
+                          100% Terhubung
+                        </div>
+                        <p className="text-[11px] text-purple-700/80 dark:text-purple-400/80">
+                          Siap CBT & cetak kartu peserta
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Rincian Baris yang Dilewati (Jika ada) */}
                     {bulkResult.skippedCount > 0 && (
-                      <div className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 p-2.5 rounded-xl border border-amber-200 dark:border-amber-800/50 space-y-1">
-                        <div className="font-semibold">{bulkResult.skippedCount} data dilewati (duplikat atau tidak valid):</div>
-                        <ul className="list-disc list-inside space-y-0.5">
-                          {bulkResult.skipped.slice(0, 5).map((s, idx) => (
-                            <li key={idx}>{s.name} ({s.nisn}): {s.reason}</li>
+                      <div className="p-4 rounded-2xl bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/70 space-y-2.5">
+                        <div className="flex items-center justify-between text-xs font-bold text-amber-900 dark:text-amber-200">
+                          <span className="flex items-center gap-1.5">
+                            <AlertCircle size={15} className="text-amber-600" />
+                            Rincian Data yang Dilewati ({bulkResult.skipped.length} Siswa):
+                          </span>
+                          <span className="text-[10px] text-amber-700 dark:text-amber-300">
+                            Tidak diimpor ulang agar tidak tumpang tindih
+                          </span>
+                        </div>
+                        <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
+                          {bulkResult.skipped.map((s, idx) => (
+                            <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between text-xs p-2.5 rounded-xl bg-white dark:bg-gray-900 border border-amber-100 dark:border-amber-900/50">
+                              <div className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                <span className="text-gray-400 font-mono text-[11px]">{idx + 1}.</span>
+                                <span>{s.name}</span>
+                                {s.nisn && s.nisn !== '-' && (
+                                  <span className="font-mono text-[10px] bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-gray-600 dark:text-gray-300">
+                                    NISN: {s.nisn}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[11px] text-amber-600 dark:text-amber-400 italic mt-1 sm:mt-0">
+                                {s.reason}
+                              </span>
+                            </div>
                           ))}
-                          {bulkResult.skipped.length > 5 && (
-                            <li>...dan {bulkResult.skipped.length - 5} lainnya</li>
-                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Rincian Error Sistem (Jika ada) */}
+                    {bulkResult.errors && bulkResult.errors.length > 0 && (
+                      <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-xs text-red-800 dark:text-red-200 space-y-1">
+                        <div className="font-bold">Terjadi kendala pada beberapa baris data:</div>
+                        <ul className="list-disc list-inside space-y-0.5">
+                          {bulkResult.errors.map((err, idx) => (
+                            <li key={idx}>{err}</li>
+                          ))}
                         </ul>
                       </div>
                     )}
+
+                    {/* Petunjuk Langkah Selanjutnya */}
+                    <div className="p-4 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-900/50 text-xs space-y-2">
+                      <div className="font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                        <Sparkles size={15} className="text-indigo-600" />
+                        Langkah Selanjutnya yang Bisa Dilakukan Admin:
+                      </div>
+                      <ul className="space-y-1 text-indigo-900/90 dark:text-indigo-300/90 text-[11.5px] leading-relaxed">
+                        <li className="flex items-start gap-1.5">
+                          <span className="text-emerald-600 font-bold">✓</span>
+                          <span><strong>Periksa Akun Siswa:</strong> Semua akun baru sudah tampil di tabel pengguna dan dapat difilter per kelas/jurusan.</span>
+                        </li>
+                        <li className="flex items-start gap-1.5">
+                          <span className="text-emerald-600 font-bold">✓</span>
+                          <span><strong>Cetak Kartu Ujian CBT:</strong> Buka menu <em>CBT & Ujian Online</em> lalu klik <strong>&quot;Cetak Kartu Peserta&quot;</strong> untuk mencetak kartu login format A4 presisi (6 kartu per lembar).</span>
+                        </li>
+                        <li className="flex items-start gap-1.5">
+                          <span className="text-emerald-600 font-bold">✓</span>
+                          <span><strong>Login Siswa:</strong> Siswa dapat langsung login di alamat <code>/ujian</code> dengan NISN/username dan password yang telah ditentukan.</span>
+                        </li>
+                      </ul>
+                    </div>
                   </div>
-                )}
+
+                  {/* Modal Footer (Success State) */}
+                  <div className="p-6 border-t border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-3 bg-gray-50/50 dark:bg-gray-900/50">
+                    <button
+                      type="button"
+                      onClick={handleResetBulkImport}
+                      className="w-full sm:w-auto px-5 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <RotateCcw size={16} />
+                      Upload File Lain / Import Lagi
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleCloseBulkModal}
+                      className="w-full sm:w-auto px-6 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 text-white rounded-xl text-sm font-bold shadow-md shadow-indigo-600/25 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <span>Selesai & Lihat Data Pengguna</span>
+                      <ArrowRight size={16} />
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Modal Body Scrollable (Form Input) */}
+                  <div className="p-6 space-y-6 overflow-y-auto flex-1">
 
                 {/* Quick Toolbar */}
                 <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-200/80 dark:border-gray-800">
@@ -1967,6 +2144,8 @@ export default function UsersCRUD({
                   </button>
                 </div>
               </div>
+            </>
+          )}
 
             </div>
           </div>
