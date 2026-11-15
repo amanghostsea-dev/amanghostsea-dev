@@ -11,6 +11,7 @@ import React, {
 } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Loader2, Sparkles, CheckCircle2, AlertTriangle, ShieldCheck, Zap } from 'lucide-react';
+import { BookLoadingAnimation } from './BookLoadingAnimation';
 
 interface GlobalLoadingContextType {
   isLoading: boolean;
@@ -302,53 +303,31 @@ export function GlobalLoadingProvider({ children }: { children: React.ReactNode 
         </div>
       )}
 
-      {/* 🛸 CENTERED CYBERNETIC LOADER DENGAN LATAR TRANSPARAN (Muncul otomatis saat respon melambat > 220ms) */}
+      {/* 📖 CENTERED BOOK ANIMATION LOADER DENGAN LATAR TRANSPARAN (Muncul otomatis saat respon melambat > 220ms) */}
       {showFloatingPill && (
         <div className="fixed inset-0 z-[99998] flex items-center justify-center p-4 bg-slate-950/25 dark:bg-black/35 backdrop-blur-[3px] animate-in fade-in duration-200 select-none">
-          {/* Card Tengah Glassmorphism Canggih */}
+          {/* Card Tengah Glassmorphism Estetik & Edukatif */}
           <div 
             onClick={(e) => {
               e.stopPropagation();
               triggerSpamWarning('⚠️ Harap tunggu, proses sedang diselesaikan...');
             }}
-            className="max-w-sm w-full bg-slate-950/90 dark:bg-slate-900/95 backdrop-blur-2xl border border-purple-500/40 shadow-2xl shadow-purple-900/30 rounded-3xl p-6 text-center space-y-4 animate-in zoom-in-95 duration-200"
+            className="max-w-md w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-amber-200/70 dark:border-amber-500/30 shadow-2xl shadow-amber-900/15 rounded-3xl p-6 text-center animate-in zoom-in-95 duration-200 relative overflow-hidden"
           >
-            {/* Dual-Ring Glowing Cybernetic Core */}
-            <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
-              {/* Outer Glow Halo */}
-              <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-purple-600/30 to-emerald-500/30 blur-md animate-pulse"></div>
-              {/* Outer Spinning Ring */}
-              <div className="absolute inset-0 rounded-full border-2 border-purple-500/20 border-t-purple-400 animate-spin"></div>
-              {/* Inner Reverse Spinning Ring */}
-              <div className="w-10 h-10 rounded-full border-2 border-indigo-500/30 border-b-emerald-400 animate-[spin_1.2s_linear_infinite_reverse]"></div>
-              {/* Pulsing Core Dot */}
-              <div className="w-3.5 h-3.5 rounded-full bg-gradient-to-tr from-purple-400 to-emerald-400 shadow-md shadow-emerald-400/50 animate-ping"></div>
-            </div>
+            {/* Soft Ambient Corner Aura */}
+            <div className="absolute -top-12 -left-12 w-32 h-32 bg-emerald-400/15 rounded-full blur-2xl pointer-events-none"></div>
+            <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-amber-400/15 rounded-full blur-2xl pointer-events-none"></div>
 
-            {/* Teks Status & Aksi Dinamis */}
-            <div className="space-y-1">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-500/20 border border-purple-400/30 text-[10px] font-bold text-purple-300 font-mono uppercase tracking-wider mb-1">
-                <Zap size={11} className="text-amber-400" /> Sedang Diproses
-              </div>
-              <h3 className="text-sm font-bold text-white tracking-wide leading-snug line-clamp-2">
-                {loadingText}
-              </h3>
-              <p className="text-xs text-slate-300/80 leading-relaxed pt-0.5">
-                {isProlonged 
-                  ? 'Sedang menyelesaikan transmisi data dengan server...' 
-                  : 'Mohon tunggu sebentar, sistem sedang memproses data...'}
-              </p>
-            </div>
+            {/* Book Flip Animated Component Sesuai Desain Gambar */}
+            <BookLoadingAnimation 
+              actionText={loadingText} 
+              isProlonged={isProlonged} 
+            />
 
-            {/* Micro Progress Track */}
-            <div className="w-full bg-slate-800/80 rounded-full h-1.5 overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-500 via-purple-500 to-emerald-400 h-full w-full rounded-full animate-[pulse_1.5s_ease-in-out_infinite]"></div>
-            </div>
-
-            {/* Hint Anti-Freeze jika memakan waktu lebih dari 3 detik */}
+            {/* Hint Anti-Freeze jika memakan waktu lebih dari 3.2 detik */}
             {isProlonged && (
-              <div className="p-2.5 rounded-2xl bg-amber-950/70 border border-amber-500/50 text-[11px] text-amber-200 text-left flex items-start gap-2 shadow-sm animate-in fade-in slide-in-from-bottom-1">
-                <AlertTriangle size={15} className="text-amber-400 flex-shrink-0 mt-0.5" />
+              <div className="mt-3 p-2.5 rounded-2xl bg-amber-50 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-500/50 text-[11px] text-amber-900 dark:text-amber-200 text-left flex items-start gap-2 shadow-xs animate-in fade-in slide-in-from-bottom-1">
+                <AlertTriangle size={15} className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
                 <span className="leading-snug">
                   Server sedang memproses transaksi. Mohon tidak menutup halaman atau menekan tombol berulang kali.
                 </span>
