@@ -144,6 +144,135 @@ export function formatExamScheduleRange(
   return `${startDay}, ${startParts.hour}:${startParts.minute} ${tz} s/d ${endDay}, ${endParts.hour}:${endParts.minute} ${tz}`;
 }
 
+export interface FormattedExamSchedule {
+  hasSchedule: boolean;
+  dateText: string;             // e.g. "Senin, 23 Nov 2026"
+  timeRangeText: string;        // e.g. "08:00 - 09:30 WITA"
+  startTimeFormatted: string;   // e.g. "08:00 WITA"
+  endTimeFormatted: string;     // e.g. "09:30 WITA"
+  startTimeOnly: string;        // e.g. "08:00"
+  endTimeOnly: string;          // e.g. "09:30"
+  isSameDay: boolean;
+  isMultiDay: boolean;
+  timezone: CbtTimezone;
+  fullScheduleText: string;     // e.g. "Senin, 23 Nov 2026 • 08:00 - 09:30 WITA"
+}
+
+/**
+ * Extract clean, structured date and time parts for cards, modals, and tables
+ * Ensures start & end hours are always visible and never cut off by ellipsis
+ */
+export function getExamScheduleDetails(
+  startTime?: Date | string | null,
+  endTime?: Date | string | null,
+  tz: CbtTimezone = DEFAULT_CBT_TIMEZONE
+): FormattedExamSchedule {
+  if (!startTime && !endTime) {
+    return {
+      hasSchedule: false,
+      dateText: 'Jadwal Fleksibel',
+      timeRangeText: 'Kapan Saja (Bebas)',
+      startTimeFormatted: '-',
+      endTimeFormatted: '-',
+      startTimeOnly: '-',
+      endTimeOnly: '-',
+      isSameDay: true,
+      isMultiDay: false,
+      timezone: tz,
+      fullScheduleText: 'Jadwal Fleksibel (Kapan saja)',
+    };
+  }
+
+  const start = startTime ? (typeof startTime === 'string' ? new Date(startTime) : startTime) : null;
+  const end = endTime ? (typeof endTime === 'string' ? new Date(endTime) : endTime) : null;
+
+  const validStart = start && !isNaN(start.getTime());
+  const validEnd = end && !isNaN(end.getTime());
+
+  if (validStart && !validEnd) {
+    const startParts = getTimePartsInTimezone(start!, tz);
+    const dateText = formatScheduleDate(start!, tz);
+    const timeRangeText = `Mulai ${startParts.hour}:${startParts.minute} ${tz}`;
+    return {
+      hasSchedule: true,
+      dateText,
+      timeRangeText,
+      startTimeFormatted: `${startParts.hour}:${startParts.minute} ${tz}`,
+      endTimeFormatted: 'Selesai Bebas',
+      startTimeOnly: `${startParts.hour}:${startParts.minute}`,
+      endTimeOnly: 'Bebas',
+      isSameDay: true,
+      isMultiDay: false,
+      timezone: tz,
+      fullScheduleText: `Mulai: ${dateText} • ${startParts.hour}:${startParts.minute} ${tz}`,
+    };
+  }
+
+  if (!validStart && validEnd) {
+    const endParts = getTimePartsInTimezone(end!, tz);
+    const dateText = formatScheduleDate(end!, tz);
+    const timeRangeText = `Batas Akhir ${endParts.hour}:${endParts.minute} ${tz}`;
+    return {
+      hasSchedule: true,
+      dateText,
+      timeRangeText,
+      startTimeFormatted: 'Bebas Mulai',
+      endTimeFormatted: `${endParts.hour}:${endParts.minute} ${tz}`,
+      startTimeOnly: 'Bebas',
+      endTimeOnly: `${endParts.hour}:${endParts.minute}`,
+      isSameDay: true,
+      isMultiDay: false,
+      timezone: tz,
+      fullScheduleText: `Batas Akhir: ${dateText} • ${endParts.hour}:${endParts.minute} ${tz}`,
+    };
+  }
+
+  const startParts = getTimePartsInTimezone(start!, tz);
+  const endParts = getTimePartsInTimezone(end!, tz);
+  const isSameDay =
+    startParts.year === endParts.year &&
+    startParts.month === endParts.month &&
+    startParts.day === endParts.day;
+
+  if (isSameDay) {
+    const dateText = formatScheduleDate(start!, tz);
+    const timeRangeText = `${startParts.hour}:${startParts.minute} - ${endParts.hour}:${endParts.minute} ${tz}`;
+    return {
+      hasSchedule: true,
+      dateText,
+      timeRangeText,
+      startTimeFormatted: `${startParts.hour}:${startParts.minute} ${tz}`,
+      endTimeFormatted: `${endParts.hour}:${endParts.minute} ${tz}`,
+      startTimeOnly: `${startParts.hour}:${startParts.minute}`,
+      endTimeOnly: `${endParts.hour}:${endParts.minute}`,
+      isSameDay: true,
+      isMultiDay: false,
+      timezone: tz,
+      fullScheduleText: `${dateText} • ${timeRangeText}`,
+    };
+  }
+
+  const iana = TIMEZONE_IANA_MAP[tz] || 'Asia/Makassar';
+  const startDay = start!.toLocaleDateString('id-ID', { timeZone: iana, weekday: 'short', day: 'numeric', month: 'short' });
+  const endDay = end!.toLocaleDateString('id-ID', { timeZone: iana, weekday: 'short', day: 'numeric', month: 'short' });
+  const dateText = `${startDay} s/d ${endDay}`;
+  const timeRangeText = `${startParts.hour}:${startParts.minute} (${startDay}) - ${endParts.hour}:${endParts.minute} (${endDay}) ${tz}`;
+
+  return {
+    hasSchedule: true,
+    dateText,
+    timeRangeText,
+    startTimeFormatted: `${startDay} ${startParts.hour}:${startParts.minute} ${tz}`,
+    endTimeFormatted: `${endDay} ${endParts.hour}:${endParts.minute} ${tz}`,
+    startTimeOnly: `${startParts.hour}:${startParts.minute}`,
+    endTimeOnly: `${endParts.hour}:${endParts.minute}`,
+    isSameDay: false,
+    isMultiDay: true,
+    timezone: tz,
+    fullScheduleText: `${dateText} • ${timeRangeText}`,
+  };
+}
+
 /**
  * Calculate dynamic state, countdown, and accessibility of an exam schedule
  */
@@ -480,21 +609,23 @@ export function isClassOverlap(
 /**
  * Prettify Class Target for clean display in badges, cards, and tables
  */
-export function formatClassTargetDisplay(target?: string | null): string {
+export function formatClassTargetDisplay(target?: string | null, isCompact: boolean = false): string {
   if (!target || !target.trim() || target.trim() === 'Semua Kelas') {
-    return '🌐 Semua Kelas (Semua Siswa)';
+    return isCompact ? 'Semua Kelas' : '🌐 Semua Kelas (Semua Siswa)';
   }
 
   const clean = target.trim();
   const lvl = isAllLevelTarget(clean);
-  if (lvl === 'X') return '🎯 Semua Kelas X (Semua Jurusan)';
-  if (lvl === 'XI') return '🎯 Semua Kelas XI (Semua Jurusan)';
-  if (lvl === 'XII') return '🎯 Semua Kelas XII (Semua Jurusan)';
-  if (lvl === 'ALL') return '🌐 Semua Kelas (Semua Siswa)';
+  if (lvl === 'X') return isCompact ? '🎯 Semua Kelas X' : '🎯 Semua Kelas X (Semua Jurusan)';
+  if (lvl === 'XI') return isCompact ? '🎯 Semua Kelas XI' : '🎯 Semua Kelas XI (Semua Jurusan)';
+  if (lvl === 'XII') return isCompact ? '🎯 Semua Kelas XII' : '🎯 Semua Kelas XII (Semua Jurusan)';
+  if (lvl === 'ALL') return isCompact ? 'Semua Kelas' : '🌐 Semua Kelas (Semua Siswa)';
 
   const parsed = parseClassTargets(clean);
   if (parsed.length > 1) {
-    return `👥 ${parsed.length} Kelas: ${parsed.slice(0, 2).join(', ')}${parsed.length > 2 ? '...' : ''}`;
+    return isCompact
+      ? `👥 ${parsed.length} Rombel`
+      : `👥 ${parsed.length} Kelas: ${parsed.slice(0, 2).join(', ')}${parsed.length > 2 ? '...' : ''}`;
   }
 
   return clean;

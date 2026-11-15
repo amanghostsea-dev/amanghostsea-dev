@@ -29,7 +29,7 @@ import {
   ShieldCheck,
   Camera
 } from 'lucide-react';
-import { formatExamScheduleRange, getExamScheduleState } from '@/lib/cbt-schedule';
+import { formatExamScheduleRange, getExamScheduleDetails, getExamScheduleState } from '@/lib/cbt-schedule';
 
 interface ExamItem {
   id: string;
@@ -446,6 +446,7 @@ export default function SiswaDashboardClient({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {upcomingExams.map((exam) => {
                     const sched = getExamScheduleState(exam.startTime, exam.endTime, exam.status);
+                    const schedDetails = getExamScheduleDetails(exam.startTime, exam.endTime);
                     const isSubmitted = exam.attempts[0]?.status === 'SUBMITTED';
 
                     return (
@@ -455,19 +456,24 @@ export default function SiswaDashboardClient({
                       >
                         <div>
                           <div className="flex items-center justify-between gap-1 mb-2">
-                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
+                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 truncate max-w-[140px]" title={exam.subject}>
                               {exam.subject}
                             </span>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${sched.badgeClass}`}>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${sched.badgeClass}`}>
                               {isSubmitted ? 'Selesai' : sched.label}
                             </span>
                           </div>
-                          <h4 className="font-bold text-sm text-slate-900 dark:text-white line-clamp-1 mb-1">
+                          <h4 className="font-bold text-sm text-slate-900 dark:text-white line-clamp-1 mb-2" title={exam.title}>
                             {exam.title}
                           </h4>
-                          <div className="text-xs text-purple-700 dark:text-purple-300 font-medium flex items-center gap-1.5 mb-2">
-                            <Calendar size={13} className="text-purple-500 flex-shrink-0" />
-                            <span className="line-clamp-1">{formatExamScheduleRange(exam.startTime, exam.endTime)}</span>
+                          <div className="text-xs text-purple-700 dark:text-purple-300 font-medium space-y-1 mb-2.5 bg-purple-50/60 dark:bg-purple-950/30 p-2 rounded-xl border border-purple-100 dark:border-purple-900/30">
+                            <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-200 font-semibold">
+                              <Calendar size={12} className="text-purple-500 shrink-0" />
+                              <span className="truncate">{schedDetails.dateText}</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-[11px] font-mono font-bold text-purple-700 dark:text-purple-300 pl-4">
+                              <span>🕒 {schedDetails.timeRangeText}</span>
+                            </div>
                           </div>
                         </div>
 

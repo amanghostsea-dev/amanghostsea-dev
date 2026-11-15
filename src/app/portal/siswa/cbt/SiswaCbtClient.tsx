@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { 
   formatExamScheduleRange, 
+  getExamScheduleDetails,
   getExamScheduleState, 
   ScheduleState, 
   formatClassTargetDisplay, 
@@ -464,6 +465,7 @@ export default function SiswaCbtClient({
                     exam.status,
                     currentTime
                   );
+                  const schedDetails = getExamScheduleDetails(exam.startTime, exam.endTime, timezone);
 
                   // Determine if student is allowed to enter right now
                   const isUnlocked = isSubmitted || isInProgress || isLiveTeacher || schedState.isAccessible;
@@ -511,17 +513,31 @@ export default function SiswaCbtClient({
                           {exam.title}
                         </h3>
 
-                        {/* 📅 EXAM TIMETABLE BADGE */}
-                        <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 mb-4 space-y-1.5">
+                        {/* 📅 EXAM TIMETABLE BADGE (JAM MULAI & BERAKHIR EKSPLISIT) */}
+                        <div className="p-3 rounded-2xl bg-gradient-to-br from-purple-50/70 to-indigo-50/40 dark:from-purple-950/30 dark:to-indigo-950/20 border border-purple-200/70 dark:border-purple-800/50 mb-4 space-y-2">
                           <div className="flex items-center justify-between text-xs">
-                            <span className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
+                            <span className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200 min-w-0">
                               <Calendar size={13} className="text-purple-600 dark:text-purple-400 flex-shrink-0" />
-                              <span className="line-clamp-1">{formatExamScheduleRange(exam.startTime, exam.endTime, timezone)}</span>
+                              <span className="truncate" title={schedDetails.dateText}>{schedDetails.dateText}</span>
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border shrink-0 ${schedState.badgeClass}`}>
+                              {schedState.label}
                             </span>
                           </div>
-                          <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-0.5 border-t border-slate-200/60 dark:border-slate-700/50">
-                            <span>Status Waktu:</span>
-                            <span className={`font-semibold ${
+
+                          <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl bg-white/95 dark:bg-slate-900/90 border border-purple-100 dark:border-purple-900/50 shadow-2xs">
+                            <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 text-xs">
+                              <Clock size={12} className="text-purple-500 shrink-0" />
+                              <span className="text-[11px] font-semibold">Jam Ujian:</span>
+                            </div>
+                            <span className="font-mono font-black text-xs text-purple-700 dark:text-purple-300 tracking-tight">
+                              {schedDetails.timeRangeText}
+                            </span>
+                          </div>
+
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-0.5 px-0.5">
+                            <span className="font-medium">Status Waktu:</span>
+                            <span className={`font-bold ${
                               schedState.state === 'ONGOING' 
                                 ? 'text-emerald-600 dark:text-emerald-400' 
                                 : schedState.state === 'UPCOMING'
@@ -546,9 +562,9 @@ export default function SiswaCbtClient({
                             <FileCheck2 size={14} className="text-emerald-500" />
                             <span>{exam._count.questions} Butir Soal</span>
                           </div>
-                          <div className="flex items-center gap-1.5" title={exam.classTarget}>
+                          <div className="flex items-center gap-1.5 min-w-0" title={exam.classTarget || 'Semua Kelas'}>
                             <Users size={14} className="text-blue-500 shrink-0" />
-                            <span className="truncate">{formatClassTargetDisplay(exam.classTarget)}</span>
+                            <span className="truncate font-medium">{formatClassTargetDisplay(exam.classTarget, true)}</span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <Key size={14} className="text-amber-500" />

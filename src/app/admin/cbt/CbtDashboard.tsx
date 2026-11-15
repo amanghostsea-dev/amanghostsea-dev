@@ -56,6 +56,7 @@ import {
 } from './actions';
 import { 
   formatExamScheduleRange, 
+  getExamScheduleDetails,
   getExamScheduleState, 
   toDateTimeLocalInput,
   parseDateTimeInputToIso,
@@ -1596,7 +1597,11 @@ export default function CbtDashboard({
                               <div>
                                 <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
                                   <Calendar size={13} className="text-purple-600 dark:text-purple-400 flex-shrink-0" />
-                                  <span>{formatExamScheduleRange(exam.startTime, exam.endTime, cbtTimezone)}</span>
+                                  <span>{getExamScheduleDetails(exam.startTime, exam.endTime, cbtTimezone).dateText}</span>
+                                </div>
+                                <div className="flex items-center gap-1 text-[11px] font-mono font-bold text-purple-700 dark:text-purple-300 mt-0.5">
+                                  <Clock size={11} className="text-purple-500 shrink-0" />
+                                  <span>{getExamScheduleDetails(exam.startTime, exam.endTime, cbtTimezone).timeRangeText}</span>
                                 </div>
                                 <span className="text-[10px] text-slate-400 block mt-0.5">{schedState.countdown}</span>
                               </div>
@@ -1797,6 +1802,7 @@ export default function CbtDashboard({
             const isLive = exam.status === 'ACTIVE';
             const isSessionLoading = sessionLoadingId === exam.id;
             const schedState = getExamScheduleState(exam.startTime, exam.endTime, exam.status);
+            const schedDetails = getExamScheduleDetails(exam.startTime, exam.endTime, cbtTimezone);
 
             return (
               <div
@@ -1806,11 +1812,14 @@ export default function CbtDashboard({
                 <div className="p-6">
                   {/* Top Status & Subject Bar */}
                   <div className="flex items-start justify-between gap-2 mb-3">
-                    <span className="px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200/50 dark:border-purple-800/50">
+                    <span 
+                      className="px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200/50 dark:border-purple-800/50 truncate max-w-[200px]"
+                      title={exam.subject}
+                    >
                       {exam.subject}
                     </span>
                     <span
-                      className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                      className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold shrink-0 ${
                         isLive
                           ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 animate-pulse'
                           : exam.status === 'PUBLISHED'
@@ -1822,7 +1831,10 @@ export default function CbtDashboard({
                     </span>
                   </div>
 
-                  <h3 className="font-bold text-lg text-slate-900 dark:text-white line-clamp-2 mb-1.5 group-hover:text-purple-600 transition-colors">
+                  <h3 
+                    className="font-bold text-lg text-slate-900 dark:text-white line-clamp-2 mb-1.5 group-hover:text-purple-600 transition-colors"
+                    title={exam.title}
+                  >
                     {exam.title}
                   </h3>
 
@@ -1832,21 +1844,35 @@ export default function CbtDashboard({
                     <strong className="text-slate-700 dark:text-slate-300 font-semibold">{exam.authorName || 'Bpk. Ahmad ST'}</strong>
                   </div>
 
-                  {/* 📅 Exam Schedule Badge */}
-                  <div className="p-2.5 rounded-2xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/40 mb-3 space-y-1">
-                    <div className="flex items-center justify-between gap-1 text-xs">
-                      <span className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
-                        <Calendar size={13} className="text-purple-600 dark:text-purple-400 flex-shrink-0" />
-                        <span className="line-clamp-1">{formatExamScheduleRange(exam.startTime, exam.endTime, cbtTimezone)}</span>
-                      </span>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border flex-shrink-0 ${schedState.badgeClass}`}>
+                  {/* 📅 EXAM SCHEDULE & TIME BOX (JAM MULAI & BERAKHIR EKSPLISIT) */}
+                  <div className="p-3 rounded-2xl bg-gradient-to-br from-purple-50/70 to-indigo-50/40 dark:from-purple-950/30 dark:to-indigo-950/20 border border-purple-200/70 dark:border-purple-800/50 mb-3 space-y-2">
+                    {/* Row 1: Tanggal Pelaksanaan & Status Sesi */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 font-bold text-xs text-slate-800 dark:text-slate-100 min-w-0">
+                        <Calendar size={13} className="text-purple-600 dark:text-purple-400 shrink-0" />
+                        <span className="truncate" title={schedDetails.dateText}>{schedDetails.dateText}</span>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border shrink-0 ${schedState.badgeClass}`}>
                         {schedState.label}
                       </span>
                     </div>
+
+                    {/* Row 2: Jam Mulai & Jam Berakhir (Sangat Jelas & Bebas Terpotong) */}
+                    <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl bg-white/95 dark:bg-slate-900/90 border border-purple-100 dark:border-purple-900/50 shadow-2xs">
+                      <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 text-xs">
+                        <Clock size={12} className="text-purple-500 shrink-0" />
+                        <span className="text-[11px] font-semibold">Jam Ujian:</span>
+                      </div>
+                      <div className="font-mono font-black text-xs text-purple-700 dark:text-purple-300 tracking-tight">
+                        {schedDetails.timeRangeText}
+                      </div>
+                    </div>
+
+                    {/* Row 3: Countdown / Sisa Waktu Menuju Ujian */}
                     {schedState.countdown && (
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-0.5">
-                        <span>Waktu Pengerjaan:</span>
-                        <span className="font-semibold text-purple-700 dark:text-purple-300">{schedState.countdown}</span>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-0.5 px-0.5">
+                        <span className="font-medium">Waktu Pengerjaan:</span>
+                        <span className="font-bold text-purple-700 dark:text-purple-300">{schedState.countdown}</span>
                       </div>
                     )}
                   </div>
@@ -1860,9 +1886,9 @@ export default function CbtDashboard({
                       <Clock size={14} className="text-purple-500" />
                       <span>{exam.duration} Menit</span>
                     </div>
-                    <div className="flex items-center gap-1.5 min-w-0" title={exam.classTarget}>
+                    <div className="flex items-center gap-1.5 min-w-0" title={exam.classTarget || 'Semua Kelas'}>
                       <Users size={14} className="text-blue-500 shrink-0" />
-                      <span className="truncate">{formatClassTargetDisplay(exam.classTarget)}</span>
+                      <span className="truncate font-medium">{formatClassTargetDisplay(exam.classTarget, true)}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <FileCheck2 size={14} className="text-emerald-500" />
