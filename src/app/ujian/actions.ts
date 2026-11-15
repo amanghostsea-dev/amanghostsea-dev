@@ -220,21 +220,28 @@ export async function verifyAndPrepareExamJoinAction(params: {
       }
     }
 
-    // 3. Ambil data kelas resmi siswa dari database rapor StudentGrade
-    const gradeRecord = await prisma.studentGrade.findFirst({
-      where: {
-        OR: [
-          { studentName: { equals: matchedUser.name, mode: 'insensitive' } },
-          ...(matchedUser.nisn ? [{ studentNis: matchedUser.nisn }] : []),
-          { studentNis: matchedUser.username },
-        ],
-      },
-      select: { studentClass: true },
-    });
+    // 3. Ambil data kelas resmi siswa: UTAMAKAN DARI User.studentClass (Master Akun di Database)
+    let studentClass = matchedUser.studentClass?.trim() || '';
 
-    let studentClass = gradeRecord?.studentClass;
+    // Jika belum ada di User, ambil dari database rapor StudentGrade
     if (!studentClass) {
-      // Cek riwayat exam attempt siswa jika ada
+      const gradeRecord = await prisma.studentGrade.findFirst({
+        where: {
+          OR: [
+            { studentName: { equals: matchedUser.name, mode: 'insensitive' } },
+            ...(matchedUser.nisn ? [{ studentNis: matchedUser.nisn }] : []),
+            { studentNis: matchedUser.username },
+          ],
+        },
+        select: { studentClass: true },
+      });
+      if (gradeRecord?.studentClass?.trim()) {
+        studentClass = gradeRecord.studentClass.trim();
+      }
+    }
+
+    // Jika belum ada, cek riwayat pengerjaan ujian siswa (ExamAttempt)
+    if (!studentClass) {
       const prevAttempt = await prisma.examAttempt.findFirst({
         where: {
           OR: [
@@ -246,16 +253,48 @@ export async function verifyAndPrepareExamJoinAction(params: {
         select: { studentClass: true },
         orderBy: { startedAt: 'desc' },
       });
-      studentClass = prevAttempt?.studentClass || undefined;
+      if (prevAttempt?.studentClass?.trim()) {
+        studentClass = prevAttempt.studentClass.trim();
+      }
     }
 
+    // Jika masih kosong, coba ambil dari session cookie auth_class
+    if (!studentClass) {
+      try {
+        const cookieStore = await cookies();
+        const cookieClass = cookieStore.get('auth_class')?.value?.trim();
+        if (cookieClass) {
+          studentClass = cookieClass;
+        }
+      } catch {}
+    }
+
+    // Fallback jika sama sekali belum memiliki kelas
     if (!studentClass) {
       const activeJurusans = await prisma.jurusan.findMany({
         orderBy: { code: 'asc' },
         select: { code: true },
       });
-      studentClass = `XI ${activeJurusans[0]?.code || 'TJKT'} 1`;
+      studentClass = `X ${activeJurusans[0]?.code || 'TJKT'} 1`;
     }
+
+    // Sinkronkan kembali ke User.studentClass jika di User masih kosong
+    if (matchedUser && !matchedUser.studentClass && studentClass) {
+      try {
+        await prisma.user.update({
+          where: { id: matchedUser.id },
+          data: { studentClass },
+        });
+      } catch (syncErr) {
+        console.error('Error auto-syncing studentClass to User:', syncErr);
+      }
+    }
+
+    // Sinkronkan cookie auth_class agar selalu konsisten dengan database
+    try {
+      const cookieStore = await cookies();
+      cookieStore.set('auth_class', studentClass, { maxAge: 60 * 60 * 24 });
+    } catch {}
 
     // Identifikasi nama jurusan dari kelas
     const classParts = studentClass.split(' ');

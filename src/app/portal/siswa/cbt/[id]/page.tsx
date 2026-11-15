@@ -65,28 +65,30 @@ export default async function SiswaExamRoomPage({ params }: { params: Promise<{ 
     studentName = 'Siswa SMK';
   }
 
-  // Cari kelas resmi aktual siswa dari database StudentGrade
-  try {
-    const gradeRecord = await prisma.studentGrade.findFirst({
-      where: {
-        OR: [
-          { studentName: { equals: studentName, mode: 'insensitive' as const } },
-          ...(studentNis ? [{ studentNis }] : []),
-          ...(authUser ? [{ studentNis: authUser }] : []),
-          ...(authName ? [{ studentNis: authName }, { studentName: { equals: authName, mode: 'insensitive' as const } }] : []),
-        ],
-      },
-      select: { studentClass: true, studentNis: true },
-    });
+  // Cari kelas resmi aktual siswa dari database StudentGrade (jika belum tercatat di User)
+  if (!studentClass) {
+    try {
+      const gradeRecord = await prisma.studentGrade.findFirst({
+        where: {
+          OR: [
+            { studentName: { equals: studentName, mode: 'insensitive' as const } },
+            ...(studentNis ? [{ studentNis }] : []),
+            ...(authUser ? [{ studentNis: authUser }] : []),
+            ...(authName ? [{ studentNis: authName }, { studentName: { equals: authName, mode: 'insensitive' as const } }] : []),
+          ],
+        },
+        select: { studentClass: true, studentNis: true },
+      });
 
-    if (gradeRecord?.studentClass) {
-      studentClass = gradeRecord.studentClass;
-      if (!studentNis && gradeRecord.studentNis) {
-        studentNis = gradeRecord.studentNis;
+      if (gradeRecord?.studentClass) {
+        studentClass = gradeRecord.studentClass;
+        if (!studentNis && gradeRecord.studentNis) {
+          studentNis = gradeRecord.studentNis;
+        }
       }
+    } catch (err) {
+      console.error('Error fetching student class info in exam room:', err);
     }
-  } catch (err) {
-    console.error('Error fetching student class info in exam room:', err);
   }
 
   // Jika belum ada di StudentGrade, cari dari riwayat attempt siswa

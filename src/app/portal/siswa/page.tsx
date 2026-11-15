@@ -100,9 +100,9 @@ export default async function PortalSiswa() {
         select: { code: true, name: true },
       });
       const first = activeJurusans[0];
-      studentClass = first ? `XI ${first.code} 1` : 'XI TJKT 1';
+      studentClass = first ? `X ${first.code} 1` : 'X TJKT 1';
     } catch {
-      studentClass = 'Kelas XI TJKT 1';
+      studentClass = 'Kelas X TJKT 1';
     }
   }
 

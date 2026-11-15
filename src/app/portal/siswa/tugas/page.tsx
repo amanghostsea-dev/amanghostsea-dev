@@ -80,9 +80,9 @@ export default async function SiswaTugasPage() {
         select: { code: true },
       });
       const firstCode = activeJurusans[0]?.code || 'TJKT';
-      studentClass = `XI ${firstCode} 1`;
+      studentClass = `X ${firstCode} 1`;
     } catch {
-      studentClass = 'XI TJKT 1';
+      studentClass = 'X TJKT 1';
     }
   }
 
