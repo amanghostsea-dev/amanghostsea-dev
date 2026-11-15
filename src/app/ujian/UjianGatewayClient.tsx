@@ -1,24 +1,17 @@
 'use client';
 
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect, useTransition, useRef } from 'react';
 import Link from 'next/link';
 import {
   MonitorPlay,
   Key,
   User,
   ArrowRight,
-  Clock,
-  FileCheck2,
-  Users,
   ShieldCheck,
   Sparkles,
   AlertCircle,
-  HelpCircle,
-  Wifi,
   ChevronRight,
-  Hash,
   CheckCircle2,
-  XCircle,
   Loader2,
   Info,
   Check,
@@ -31,7 +24,8 @@ import {
   EyeOff,
   CreditCard,
   LogOut,
-  QrCode
+  Wifi,
+  FileCheck2,
 } from 'lucide-react';
 import {
   verifyAndPrepareExamJoinAction,
@@ -41,9 +35,8 @@ import {
   studentDirectLoginAction,
   VerifiedStudentData,
   VerifiedExamData,
-  WrongRoomDetails
+  WrongRoomDetails,
 } from './actions';
-import { formatClassTargetDisplay } from '@/lib/cbt-schedule';
 
 interface ExamItem {
   id: string;
@@ -91,7 +84,11 @@ export default function UjianGatewayClient({
   );
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [token, setToken] = useState(prefillToken || '');
+  const [token, setToken] = useState(prefillToken ? prefillToken.toUpperCase().slice(0, 6) : '');
+
+  // 6-Slot OTP state and refs
+  const slotRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const otpChars = Array.from({ length: 6 }, (_, i) => token[i] || '');
 
   // Input states untuk Tab Portal Siswa
   const [portalUsername, setPortalUsername] = useState(
@@ -114,6 +111,62 @@ export default function UjianGatewayClient({
   const [verifiedStudent, setVerifiedStudent] = useState<VerifiedStudentData | null>(null);
   const [verifiedExam, setVerifiedExam] = useState<VerifiedExamData | null>(null);
   const [isConfirming, startConfirming] = useTransition();
+
+  // Click ripple animations for lightweight high-tech tactile feedback
+  const [ripples, setRipples] = useState<{ id: number; x: number; y: number }[]>([]);
+  const triggerClickAnim = (e: React.MouseEvent<HTMLElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const newRipple = { id: Date.now() + Math.random(), x, y };
+    setRipples((prev) => [...prev.slice(-4), newRipple]);
+    setTimeout(() => {
+      setRipples((prev) => prev.filter((r) => r.id !== newRipple.id));
+    }, 600);
+  };
+
+  // Handle slot token changes
+  const handleSlotChange = (index: number, val: string) => {
+    const cleanChar = val.slice(-1).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const currentChars = Array.from({ length: 6 }, (_, i) => token[i] || '');
+    currentChars[index] = cleanChar;
+    const newToken = currentChars.join('').trimEnd();
+    setToken(newToken);
+    if (cleanChar && index < 5) {
+      slotRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleSlotKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace') {
+      if (!otpChars[index] && index > 0) {
+        slotRefs.current[index - 1]?.focus();
+      } else if (otpChars[index]) {
+        const currentChars = Array.from({ length: 6 }, (_, i) => token[i] || '');
+        currentChars[index] = '';
+        setToken(currentChars.join('').trimEnd());
+      }
+    } else if (e.key === 'ArrowLeft' && index > 0) {
+      slotRefs.current[index - 1]?.focus();
+    } else if (e.key === 'ArrowRight' && index < 5) {
+      slotRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleSlotPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData
+      .getData('text')
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '')
+      .slice(0, 6);
+    if (pasted) {
+      setToken(pasted);
+      const nextIdx = Math.min(pasted.length, 5);
+      slotRefs.current[nextIdx]?.focus();
+    }
+  };
 
   // 🔍 Live background lookup saat siswa mengetik Username / NISN (hanya jika belum login)
   useEffect(() => {
@@ -152,6 +205,13 @@ export default function UjianGatewayClient({
     e.preventDefault();
     setErrorMessage('');
     setWrongRoomInfo(null);
+
+    const cleanToken = token.trim().toUpperCase();
+    if (!cleanToken) {
+      setErrorMessage('Silakan masukkan 6 digit Token Ujian yang diberikan pengawas.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -159,7 +219,7 @@ export default function UjianGatewayClient({
         authenticatedUserId: authenticatedStudent?.id,
         usernameOrNisn: usernameOrNisn.trim(),
         password: password.trim(),
-        token: token.trim().toUpperCase(),
+        token: cleanToken,
       });
 
       if (!res.success || !res.student) {
@@ -228,34 +288,53 @@ export default function UjianGatewayClient({
   };
 
   const getInitials = (fullName: string) => {
-    return fullName
-      .split(' ')
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((w) => w[0]?.toUpperCase())
-      .join('') || 'SW';
+    return (
+      fullName
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0]?.toUpperCase())
+        .join('') || 'SW'
+    );
   };
 
   return (
-    <div className="min-h-screen bg-[#fafaf9] text-slate-800 flex flex-col justify-between font-sans selection:bg-[#5fa08d] selection:text-white">
-      {/* Background soft ambient glow matching loading book logo */}
+    <div className="min-h-screen relative bg-[#f7f8f6] text-slate-800 flex flex-col justify-between font-sans selection:bg-[#5fa08d] selection:text-white overflow-hidden">
+      {/* 🎨 Lightweight Floating Organic Bokeh Shapes (60fps GPU Hardware Accelerated) */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[500px] bg-[#5fa08d]/10 blur-[140px] rounded-full"></div>
-        <div className="absolute bottom-0 right-0 w-[500px] h-[400px] bg-[#caa55d]/10 blur-[130px] rounded-full"></div>
+        {/* Mint / Sage Floating Blob */}
+        <div
+          className="absolute -top-32 -left-24 w-[520px] h-[520px] rounded-full bg-gradient-to-br from-[#5fa08d]/22 via-[#80bdab]/15 to-transparent blur-[90px] animate-[floatDrift1_18s_easeInOut_infinite]"
+          style={{ willChange: 'transform' }}
+        />
+        {/* Soft Honey / Champagne Floating Blob */}
+        <div
+          className="absolute top-1/4 -right-32 w-[580px] h-[580px] rounded-full bg-gradient-to-bl from-[#caa55d]/20 via-[#e2c788]/15 to-transparent blur-[100px] animate-[floatDrift2_22s_easeInOut_infinite]"
+          style={{ willChange: 'transform' }}
+        />
+        {/* Bottom Soft Emerald Glow */}
+        <div
+          className="absolute -bottom-40 left-1/3 w-[600px] h-[500px] rounded-full bg-gradient-to-t from-[#5fa08d]/18 via-[#a5d8cb]/10 to-transparent blur-[110px] animate-[floatDrift3_20s_easeInOut_infinite]"
+          style={{ willChange: 'transform' }}
+        />
+        {/* Ambient Top Pastel Geometry Accent */}
+        <div className="absolute top-12 right-[12%] w-64 h-64 rounded-[48px] bg-gradient-to-br from-[#68a795]/10 to-[#caa55d]/10 rotate-12 blur-2xl opacity-70" />
+        <div className="absolute bottom-24 left-[8%] w-56 h-56 rounded-full bg-[#f1dfb8]/25 blur-2xl" />
       </div>
 
       {/* Top Header */}
-      <header className="relative z-10 border-b border-slate-200/80 bg-white/80 backdrop-blur-md px-4 sm:px-8 py-3.5 shadow-2xs">
+      <header className="relative z-10 border-b border-white/60 bg-white/70 backdrop-blur-xl px-4 sm:px-8 py-3.5 shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link
             href="/"
-            className="text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1.5 transition-colors group"
+            onClick={triggerClickAnim}
+            className="text-xs sm:text-sm font-semibold text-slate-700 hover:text-slate-950 flex items-center gap-1.5 transition-colors group cursor-pointer"
           >
             <span className="group-hover:-translate-x-1 transition-transform">←</span>
             <span>Kembali ke Beranda</span>
           </Link>
 
-          <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-3 py-1 rounded-full shadow-2xs">
+          <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800 bg-emerald-500/10 border border-emerald-300/60 px-3.5 py-1 rounded-full shadow-2xs backdrop-blur-md">
             <span className="flex h-2 w-2 relative">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
@@ -266,16 +345,18 @@ export default function UjianGatewayClient({
       </header>
 
       {/* Main Content Area */}
-      <main className="relative z-10 flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-10">
-
+      <main className="relative z-10 flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-8 flex flex-col justify-center">
         {/* Hero Title */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-2 bg-[#5fa08d]/10 border border-[#5fa08d]/30 text-[#3a6b5d] px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider mb-2 shadow-2xs">
+          <div className="inline-flex items-center gap-2 bg-white/80 border border-[#5fa08d]/30 text-[#2f6354] px-4 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wider mb-1 shadow-sm backdrop-blur-md">
             <Sparkles size={13} className="text-[#caa55d]" />
             Gerbang Masuk Ujian Mandiri Siswa
           </div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 tracking-tight">
-            Smart CBT <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#3e7264] via-[#5fa08d] to-[#caa55d]">Ruang Ujian Online</span>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 tracking-tight drop-shadow-2xs">
+            Smart CBT{' '}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#2a6857] via-[#5fa08d] to-[#caa55d]">
+              Ruang Ujian Online
+            </span>
           </h1>
           <p className="text-sm sm:text-base text-slate-600 max-w-xl mx-auto leading-relaxed">
             {authenticatedStudent
@@ -284,48 +365,65 @@ export default function UjianGatewayClient({
           </p>
         </div>
 
-        {/* Quick Login Form Card */}
-        <div className="max-w-md mx-auto">
-          <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-200/70 relative overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#4d8675] via-[#5fa08d] via-[#f5d076] to-[#caa55d]"></div>
+        {/* 🌟 EXACT GLASSMORPHIC FLOATING CARD (MATCHING USER SCREENSHOT) */}
+        <div className="max-w-md w-full mx-auto">
+          <div className="relative backdrop-blur-2xl bg-white/80 border border-white/90 rounded-[32px] p-6 sm:p-8 shadow-[0_25px_60px_-15px_rgba(62,114,100,0.12),0_12px_28px_-10px_rgba(0,0,0,0.06)] overflow-hidden transition-all duration-300">
+            {/* Top Accent Gradient Bar */}
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#10705a] via-[#5fa08d] via-[#f0ca65] to-[#cca348]"></div>
 
-            {/* TAB SELECTOR: Hanya tampil jika siswa BELUM login */}
+            {/* Top Header Row inside Card: CBT Secure Exam • v2.6 Terenkripsi */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100/90 mb-5">
+              <div className="flex items-center gap-2">
+                <span className="flex h-2.5 w-2.5 relative">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-sm shadow-emerald-400"></span>
+                </span>
+                <span className="text-sm font-extrabold text-slate-900 tracking-tight">CBT Secure Exam</span>
+              </div>
+              <span className="text-[11px] font-mono font-medium text-slate-500 tracking-wide">
+                v2.6 • Terenkripsi
+              </span>
+            </div>
+
+            {/* TAB SELECTOR: Tampil jika siswa BELUM login */}
             {!authenticatedStudent && (
-              <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-2xl border border-slate-200/90 mb-5 text-xs font-bold">
+              <div className="p-1 bg-slate-100/90 rounded-full border border-slate-200/70 mb-5 grid grid-cols-2 gap-1 text-xs font-bold shadow-inner">
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={(e) => {
+                    triggerClickAnim(e);
                     setActiveTab('exam');
                     setErrorMessage('');
                   }}
-                  className={`py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  className={`py-2.5 px-3 rounded-full transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer relative overflow-hidden ${
                     activeTab === 'exam'
-                      ? 'bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] text-white shadow-md shadow-[#5fa08d]/25'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+                      ? 'bg-gradient-to-r from-[#10705a] via-[#3e8571] to-[#cca348] text-white shadow-md shadow-[#3e8571]/30 font-extrabold'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                   }`}
                 >
-                  <Key size={14} />
+                  <Key size={13} className={activeTab === 'exam' ? 'text-white' : 'text-[#cca348]'} />
                   <span>Masuk Ujian (Token)</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={(e) => {
+                    triggerClickAnim(e);
                     setActiveTab('portal');
                     setPortalError('');
                   }}
-                  className={`py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  className={`py-2.5 px-3 rounded-full transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer relative overflow-hidden ${
                     activeTab === 'portal'
-                      ? 'bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] text-white shadow-md shadow-[#5fa08d]/25'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+                      ? 'bg-gradient-to-r from-[#10705a] via-[#3e8571] to-[#cca348] text-white shadow-md shadow-[#3e8571]/30 font-extrabold'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                   }`}
                 >
-                  <BookOpen size={14} />
+                  <BookOpen size={13} className={activeTab === 'portal' ? 'text-white' : 'text-[#3e8571]'} />
                   <span>Portal Siswa (Jadwal)</span>
                 </button>
               </div>
             )}
 
-            {/* ⛔ Alert Notifikasi Rapi: Salah Kamar Ujian (Komparatif, Tidak Menumpuk) */}
+            {/* ⛔ Alert Notifikasi Rapi: Salah Kamar Ujian */}
             {wrongRoomInfo ? (
               <div className="mb-5 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 text-xs sm:text-sm animate-in fade-in-50 shadow-sm space-y-3">
                 <div className="flex items-center justify-between">
@@ -342,7 +440,6 @@ export default function UjianGatewayClient({
                   Token ini milik paket <strong className="text-rose-950 font-bold">"{wrongRoomInfo.examTitle}"</strong> ({wrongRoomInfo.examSubject}).
                 </div>
 
-                {/* Perbandingan Rapi 2 Kolom: Target Ujian vs Kelas Siswa */}
                 <div className="grid grid-cols-2 gap-2 p-3 rounded-xl bg-white border border-rose-200 text-xs shadow-2xs">
                   <div>
                     <span className="text-[10px] text-slate-500 block font-semibold uppercase tracking-wider">Target Ujian:</span>
@@ -382,14 +479,14 @@ export default function UjianGatewayClient({
             {/* TAB 1: FORM MASUK RUANG UJIAN CBT */}
             {activeTab === 'exam' && (
               <>
-                {/* 🪪 TAMPILAN JIKA SISWA SUDAH LOGIN: KARTU PESERTA AKTIF */}
+                {/* 🪪 TAMPILAN JIKA SISWA SUDAH LOGIN: KARTU PESERTA AKTIF + 6-SLOT OTP */}
                 {authenticatedStudent ? (
                   <div className="space-y-4">
                     {/* Kartu Profil Siswa Terautentikasi */}
-                    <div className="p-4 rounded-2xl bg-gradient-to-r from-[#5fa08d]/8 via-[#caa55d]/8 to-white border border-[#5fa08d]/25 shadow-sm space-y-3">
+                    <div className="p-4 rounded-2xl bg-gradient-to-r from-[#5fa08d]/10 via-[#caa55d]/10 to-white/60 border border-[#5fa08d]/25 shadow-sm space-y-3 backdrop-blur-md">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#4d8675] via-[#5fa08d] to-[#caa55d] text-white font-black text-lg flex items-center justify-center shadow-md shadow-[#5fa08d]/25 shrink-0">
+                          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#10705a] via-[#5fa08d] to-[#cca348] text-white font-black text-lg flex items-center justify-center shadow-md shadow-[#5fa08d]/25 shrink-0">
                             {getInitials(authenticatedStudent.name)}
                           </div>
                           <div className="min-w-0">
@@ -426,27 +523,47 @@ export default function UjianGatewayClient({
                     </div>
 
                     <form onSubmit={handleVerifySubmit} className="space-y-4">
-                      {/* Input Token Ujian */}
+                      {/* 6-Slot Token Input */}
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center justify-between">
-                          <span className="flex items-center gap-1.5">
-                            <Key size={14} className="text-[#caa55d]" /> Masukkan Token Ujian
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                            <Key size={13} className="text-[#caa55d]" /> TOKEN UJIAN
+                          </label>
+                          <span className="text-[11px] font-semibold text-[#caa55d]">
+                            (DIBERIKAN PENGAWAS)
                           </span>
-                          <span className="text-[10px] text-slate-500 font-normal">
-                            (Diberikan Pengawas)
-                          </span>
-                        </label>
-                        <input
-                          type="text"
-                          value={token}
-                          onChange={(e) => setToken(e.target.value.toUpperCase())}
-                          placeholder="CONTOH: PAS24G"
-                          maxLength={12}
-                          required
-                          autoFocus
-                          className="w-full px-4 py-3.5 rounded-2xl bg-slate-50/80 border border-slate-300 text-slate-900 placeholder-slate-400 text-center text-lg sm:text-xl font-mono font-bold tracking-widest uppercase focus:bg-white focus:outline-none focus:border-[#caa55d] focus:ring-2 focus:ring-[#caa55d]/25 transition-all shadow-inner"
-                        />
-                        <p className="text-[11px] text-slate-500 mt-1.5 flex items-center gap-1">
+                        </div>
+
+                        <div className="grid grid-cols-6 gap-2 sm:gap-2.5">
+                          {otpChars.map((char, idx) => (
+                            <div key={idx} className="relative aspect-square">
+                              <input
+                                ref={(el) => {
+                                  slotRefs.current[idx] = el;
+                                }}
+                                type="text"
+                                inputMode="text"
+                                autoCapitalize="characters"
+                                maxLength={1}
+                                value={char}
+                                onChange={(e) => handleSlotChange(idx, e.target.value)}
+                                onKeyDown={(e) => handleSlotKeyDown(idx, e)}
+                                onPaste={handleSlotPaste}
+                                autoFocus={idx === 0}
+                                className={`w-full h-full text-center text-xl sm:text-2xl font-black font-mono uppercase bg-white border rounded-2xl shadow-[inset_0_1px_2px_rgba(255,255,255,1),0_2px_6px_rgba(0,0,0,0.04)] transition-all duration-200 outline-none select-all caret-[#5fa08d] ${
+                                  char
+                                    ? 'border-[#5fa08d] text-slate-900 bg-emerald-50/20'
+                                    : 'border-slate-200/90 text-slate-700'
+                                } focus:border-[#5fa08d] focus:ring-4 focus:ring-[#5fa08d]/20 focus:scale-[1.06] focus:z-10`}
+                              />
+                              <Key
+                                size={10}
+                                className="absolute top-1.5 right-1.5 text-slate-300 pointer-events-none"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-2 flex items-center gap-1">
                           <Info size={12} className="text-[#caa55d] shrink-0" />
                           <span>Minta 6 karakter token kepada pengawas ruangan Anda.</span>
                         </p>
@@ -456,49 +573,72 @@ export default function UjianGatewayClient({
                       <button
                         type="submit"
                         disabled={loading}
-                        className="w-full py-3.5 px-4 bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#437768] hover:to-[#be984e] text-white font-extrabold rounded-2xl shadow-lg shadow-[#5fa08d]/25 transition-all transform active:scale-[0.98] disabled:opacity-50 text-sm flex items-center justify-center gap-2 cursor-pointer"
+                        onClick={triggerClickAnim}
+                        className="relative w-full mt-2 py-4 px-6 rounded-2xl font-extrabold text-sm sm:text-base text-white shadow-xl shadow-[#3e8571]/25 transition-all duration-200 transform active:scale-[0.98] disabled:opacity-50 overflow-hidden cursor-pointer group bg-gradient-to-r from-[#10705a] via-[#2f8872] via-[#a3944d] to-[#cca348] hover:brightness-105"
                       >
-                        {loading ? (
-                          <div className="flex items-center gap-2">
-                            <Loader2 size={18} className="animate-spin text-white" />
-                            <span>Mencocokkan Ruang & Token...</span>
-                          </div>
-                        ) : (
-                          <>
-                            <span>Mulai Masuk Ujian</span>
-                            <ArrowRight size={16} />
-                          </>
-                        )}
+                        {/* Shimmer sweep */}
+                        <span className="absolute inset-0 -translate-x-full group-hover:animate-[shimmerSweep_1.5s_infinite] bg-gradient-to-r from-transparent via-white/25 to-transparent pointer-events-none" />
+
+                        {/* Ripples */}
+                        {ripples.map((rip) => (
+                          <span
+                            key={rip.id}
+                            className="absolute rounded-full bg-white/30 pointer-events-none animate-[ripple_0.6s_ease-out]"
+                            style={{
+                              left: rip.x,
+                              top: rip.y,
+                              width: 120,
+                              height: 120,
+                              transform: 'translate(-50%, -50%)',
+                            }}
+                          />
+                        ))}
+
+                        <div className="relative flex items-center justify-center gap-2">
+                          {loading ? (
+                            <>
+                              <Loader2 size={18} className="animate-spin text-white" />
+                              <span>Mencocokkan Ruang & Token...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>Mulai Masuk Ujian</span>
+                              <ArrowRight size={17} className="transition-transform group-hover:translate-x-1" />
+                            </>
+                          )}
+                        </div>
                       </button>
                     </form>
                   </div>
                 ) : (
-                  /* 🪪 TAMPILAN JIKA SISWA BELUM LOGIN: FORM OTENTIKASI KARTU PESERTA + TOKEN */
+                  /* 🪪 TAMPILAN JIKA SISWA BELUM LOGIN: SESUAI GAMBAR USER SCREENSHOT */
                   <form onSubmit={handleVerifySubmit} className="space-y-4">
-                    {/* Notice Wajib Kartu Login */}
-                    <div className="p-3 rounded-2xl bg-gradient-to-r from-[#5fa08d]/10 via-[#caa55d]/10 to-transparent border border-[#5fa08d]/25 flex items-start gap-2.5 text-xs text-slate-700">
-                      <CreditCard size={18} className="text-[#caa55d] shrink-0 mt-0.5" />
+                    {/* Notice Wajib Kartu Login: Champagne Box */}
+                    <div className="p-3.5 rounded-2xl bg-[#faf6eb] border border-[#eedeb7] flex items-start gap-2.5 text-xs text-slate-800 shadow-2xs">
+                      <CreditCard size={17} className="text-[#caa55d] shrink-0 mt-0.5" />
                       <div className="leading-relaxed">
-                        <strong>Wajib Kredensial Kartu:</strong> Masukkan Username/NISN & Password sesuai <strong>Kartu Login Peserta Ujian</strong> Anda.
+                        <strong className="text-slate-900 font-bold">Wajib Kredensial Kartu:</strong> Masukkan
+                        Username/NISN & Password sesuai{' '}
+                        <strong className="text-slate-900 font-bold">Kartu Login Peserta Ujian</strong> Anda.
                       </div>
                     </div>
 
-                    {/* Field 1: Username / NISN Siswa */}
+                    {/* Field 1: USERNAME / NISN SISWA */}
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
-                        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                          <User size={14} className="text-[#3e7264]" /> Username / NISN Siswa
+                        <label className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                          <User size={13} className="text-slate-700" /> USERNAME / NISN SISWA
                         </label>
-                        <span className="text-[10px] text-[#caa55d] font-semibold">Dari Kartu Login</span>
+                        <span className="text-[11px] font-semibold text-[#caa55d]">Dari Kartu Login</span>
                       </div>
-                      <div className="relative">
+                      <div className="relative group">
                         <input
                           type="text"
                           value={usernameOrNisn}
                           onChange={(e) => setUsernameOrNisn(e.target.value)}
                           placeholder="Contoh: 105802928"
                           required
-                          className="w-full pl-4 pr-10 py-3 rounded-2xl bg-slate-50 border border-slate-300 text-slate-900 placeholder-slate-400 text-sm focus:bg-white focus:outline-none focus:border-[#5fa08d] focus:ring-2 focus:ring-[#5fa08d]/20 transition-all font-mono font-medium tracking-wide shadow-2xs"
+                          className="w-full pl-4 pr-10 py-3.5 rounded-2xl bg-white/90 border border-slate-200 text-slate-800 placeholder-slate-400 text-sm focus:bg-white focus:outline-none focus:border-[#5fa08d] focus:ring-4 focus:ring-[#5fa08d]/15 transition-all font-mono font-medium shadow-2xs group-hover:border-slate-300"
                         />
                         {isLookingUp && (
                           <div className="absolute right-3.5 top-3.5 text-[#5fa08d]">
@@ -509,89 +649,134 @@ export default function UjianGatewayClient({
 
                       {/* Live Match Indicator Nama & Kelas */}
                       {liveLookupInfo && (
-                        <div className="mt-1.5 p-2 px-3 rounded-xl bg-emerald-50 border border-emerald-300 text-[11px] text-emerald-800 flex items-center justify-between gap-2 animate-in fade-in-50">
+                        <div className="mt-2 p-2.5 px-3 rounded-xl bg-emerald-50/90 border border-emerald-300 text-[11px] text-emerald-800 flex items-center justify-between gap-2 animate-in fade-in-50 shadow-2xs">
                           <div className="flex items-center gap-1.5 truncate">
-                            <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
+                            <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
                             <span className="truncate">
                               <strong>{liveLookupInfo.name}</strong> • {liveLookupInfo.studentClass}
                             </span>
                           </div>
-                          <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold shrink-0">
+                          <span className="text-[10px] bg-emerald-200/70 text-emerald-900 px-2 py-0.5 rounded-md font-bold shrink-0">
                             Terverifikasi
                           </span>
                         </div>
                       )}
                     </div>
 
-                    {/* Field 2: Password Akun Ujian */}
+                    {/* Field 2: PASSWORD AKUN UJIAN */}
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
-                        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                          <Lock size={14} className="text-[#caa55d]" /> Password Akun Ujian
+                        <label className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                          <Lock size={13} className="text-[#caa55d]" /> PASSWORD AKUN UJIAN
                         </label>
-                        <span className="text-[10px] text-slate-500">Kredensial Kartu</span>
+                        <span className="text-[11px] font-semibold text-[#caa55d]">Kredensial Kartu</span>
                       </div>
-                      <div className="relative">
+                      <div className="relative group">
                         <input
                           type={showPassword ? 'text' : 'password'}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           placeholder="••••••••"
                           required
-                          className="w-full pl-4 pr-11 py-3 rounded-2xl bg-slate-50 border border-slate-300 text-slate-900 placeholder-slate-400 text-sm focus:bg-white focus:outline-none focus:border-[#5fa08d] focus:ring-2 focus:ring-[#5fa08d]/20 transition-all font-medium shadow-2xs"
+                          className="w-full pl-4 pr-11 py-3.5 rounded-2xl bg-white/90 border border-slate-200 text-slate-800 placeholder-slate-400 text-sm focus:bg-white focus:outline-none focus:border-[#5fa08d] focus:ring-4 focus:ring-[#5fa08d]/15 transition-all font-medium shadow-2xs group-hover:border-slate-300"
                         />
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-700 transition-colors"
+                          className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-700 transition-colors p-1 cursor-pointer"
                           aria-label={showPassword ? 'Sembunyikan password' : 'Lihat password'}
                         >
                           {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                         </button>
                       </div>
-                      <p className="text-[10px] text-slate-500 mt-1">
-                        Default: <code className="text-slate-700 font-mono bg-slate-100 px-1 py-0.5 rounded">siswa123</code> (atau sesuai kartu peserta)
+                      <p className="text-[11px] text-slate-500 mt-1.5">
+                        Default:{' '}
+                        <code className="text-slate-700 font-mono bg-slate-100 px-1.5 py-0.5 rounded">
+                          siswa123
+                        </code>{' '}
+                        (atau sesuai kartu peserta)
                       </p>
                     </div>
 
-                    {/* Field 3: Token Ujian */}
+                    {/* Field 3: 6-SLOT PIN/OTP TOKEN UJIAN DENGAN WATERMARK KEY */}
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                        <span className="flex items-center gap-1.5">
-                          <Key size={14} className="text-[#caa55d]" /> Token Ujian
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                          <Key size={13} className="text-[#caa55d]" /> TOKEN UJIAN
+                        </label>
+                        <span className="text-[11px] font-semibold text-[#caa55d]">
+                          (DIBERIKAN PENGAWAS)
                         </span>
-                        <span className="text-[10px] text-[#caa55d] font-semibold">
-                          (Diberikan Pengawas)
-                        </span>
-                      </label>
-                      <input
-                        type="text"
-                        value={token}
-                        onChange={(e) => setToken(e.target.value.toUpperCase())}
-                        placeholder="CONTOH: PAS24G"
-                        maxLength={12}
-                        required
-                        className="w-full px-4 py-3.5 rounded-2xl bg-slate-50 border border-slate-300 text-slate-900 placeholder-slate-400 text-center text-lg sm:text-xl font-mono font-bold tracking-widest uppercase focus:bg-white focus:outline-none focus:border-[#caa55d] focus:ring-2 focus:ring-[#caa55d]/25 transition-all shadow-inner"
-                      />
+                      </div>
+
+                      <div className="grid grid-cols-6 gap-2 sm:gap-2.5">
+                        {otpChars.map((char, idx) => (
+                          <div key={idx} className="relative aspect-square">
+                            <input
+                              ref={(el) => {
+                                slotRefs.current[idx] = el;
+                              }}
+                              type="text"
+                              inputMode="text"
+                              autoCapitalize="characters"
+                              maxLength={1}
+                              value={char}
+                              onChange={(e) => handleSlotChange(idx, e.target.value)}
+                              onKeyDown={(e) => handleSlotKeyDown(idx, e)}
+                              onPaste={handleSlotPaste}
+                              className={`w-full h-full text-center text-xl sm:text-2xl font-black font-mono uppercase bg-white border rounded-2xl shadow-[inset_0_1px_2px_rgba(255,255,255,1),0_2px_6px_rgba(0,0,0,0.04)] transition-all duration-200 outline-none select-all caret-[#5fa08d] ${
+                                char
+                                  ? 'border-[#5fa08d] text-slate-900 bg-emerald-50/20'
+                                  : 'border-slate-200/90 text-slate-700'
+                              } focus:border-[#5fa08d] focus:ring-4 focus:ring-[#5fa08d]/20 focus:scale-[1.06] focus:z-10`}
+                            />
+                            <Key
+                              size={10}
+                              className="absolute top-1.5 right-1.5 text-slate-300 pointer-events-none"
+                            />
+                          </div>
+                        ))}
+                      </div>
                     </div>
 
-                    {/* Tombol Submit & Verifikasi */}
+                    {/* Submit Button with High-Tech Shimmer and Haptic Ripple */}
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full mt-2 py-3.5 px-4 bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#437768] hover:to-[#be984e] text-white font-extrabold rounded-2xl shadow-lg shadow-[#5fa08d]/25 transition-all transform active:scale-[0.98] disabled:opacity-50 text-sm flex items-center justify-center gap-2 cursor-pointer"
+                      onClick={triggerClickAnim}
+                      className="relative w-full mt-2 py-4 px-6 rounded-2xl font-extrabold text-sm sm:text-base text-white shadow-xl shadow-[#3e8571]/25 transition-all duration-200 transform active:scale-[0.98] disabled:opacity-50 overflow-hidden cursor-pointer group bg-gradient-to-r from-[#10705a] via-[#2f8872] via-[#a3944d] to-[#cca348] hover:brightness-105"
                     >
-                      {loading ? (
-                        <div className="flex items-center gap-2">
-                          <Loader2 size={18} className="animate-spin text-white" />
-                          <span>Memvalidasi Kredensial Kartu...</span>
-                        </div>
-                      ) : (
-                        <>
-                          <span>Otentikasi & Mulai Ujian</span>
-                          <ArrowRight size={16} />
-                        </>
-                      )}
+                      {/* Shimmer sweep animation */}
+                      <span className="absolute inset-0 -translate-x-full group-hover:animate-[shimmerSweep_1.5s_infinite] bg-gradient-to-r from-transparent via-white/25 to-transparent pointer-events-none" />
+
+                      {/* Ripple items */}
+                      {ripples.map((rip) => (
+                        <span
+                          key={rip.id}
+                          className="absolute rounded-full bg-white/30 pointer-events-none animate-[ripple_0.6s_ease-out]"
+                          style={{
+                            left: rip.x,
+                            top: rip.y,
+                            width: 120,
+                            height: 120,
+                            transform: 'translate(-50%, -50%)',
+                          }}
+                        />
+                      ))}
+
+                      <div className="relative flex items-center justify-center gap-2">
+                        {loading ? (
+                          <>
+                            <Loader2 size={18} className="animate-spin text-white" />
+                            <span>Memvalidasi Kredensial Kartu...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Otentikasi & Mulai Ujian</span>
+                            <ArrowRight size={17} className="transition-transform group-hover:translate-x-1" />
+                          </>
+                        )}
+                      </div>
                     </button>
                   </form>
                 )}
@@ -601,10 +786,11 @@ export default function UjianGatewayClient({
             {/* TAB 2: LOGIN LANGSUNG KE PORTAL SISWA (LIHAT JADWAL & MATERI) */}
             {activeTab === 'portal' && !authenticatedStudent && (
               <form onSubmit={handlePortalLoginSubmit} className="space-y-4">
-                <div className="p-3 rounded-2xl bg-[#5fa08d]/10 border border-[#5fa08d]/20 text-xs text-slate-700 leading-relaxed flex items-start gap-2.5">
+                <div className="p-3.5 rounded-2xl bg-[#5fa08d]/10 border border-[#5fa08d]/25 text-xs text-slate-700 leading-relaxed flex items-start gap-2.5">
                   <GraduationCap size={18} className="text-[#caa55d] shrink-0 mt-0.5" />
                   <div>
-                    <strong>Portal Siswa CBT:</strong> Masuk untuk melihat seluruh jadwal ujian, pengumuman nilai, dan materi tanpa memasukkan token sekarang.
+                    <strong className="text-slate-900">Portal Siswa CBT:</strong> Masuk untuk melihat seluruh jadwal
+                    ujian, pengumuman nilai, dan materi tanpa memasukkan token sekarang.
                   </div>
                 </div>
 
@@ -616,7 +802,7 @@ export default function UjianGatewayClient({
                 )}
 
                 <div>
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1.5">
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block mb-1.5">
                     Username / NISN
                   </label>
                   <input
@@ -625,12 +811,12 @@ export default function UjianGatewayClient({
                     onChange={(e) => setPortalUsername(e.target.value)}
                     placeholder="Masukkan Username atau NISN"
                     required
-                    className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-300 text-slate-900 placeholder-slate-400 text-sm focus:bg-white focus:outline-none focus:border-[#5fa08d] font-mono shadow-2xs"
+                    className="w-full px-4 py-3.5 rounded-2xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:border-[#5fa08d] focus:ring-4 focus:ring-[#5fa08d]/15 font-mono shadow-2xs"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1.5">
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block mb-1.5">
                     Password Akun
                   </label>
                   <div className="relative">
@@ -640,12 +826,12 @@ export default function UjianGatewayClient({
                       onChange={(e) => setPortalPassword(e.target.value)}
                       placeholder="••••••••"
                       required
-                      className="w-full pl-4 pr-11 py-3 rounded-2xl bg-slate-50 border border-slate-300 text-slate-900 placeholder-slate-400 text-sm focus:bg-white focus:outline-none focus:border-[#5fa08d] shadow-2xs"
+                      className="w-full pl-4 pr-11 py-3.5 rounded-2xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:border-[#5fa08d] focus:ring-4 focus:ring-[#5fa08d]/15 shadow-2xs"
                     />
                     <button
                       type="button"
                       onClick={() => setPortalShowPassword(!portalShowPassword)}
-                      className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-700"
+                      className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-700 cursor-pointer"
                     >
                       {portalShowPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -655,31 +841,36 @@ export default function UjianGatewayClient({
                 <button
                   type="submit"
                   disabled={portalLoading}
-                  className="w-full py-3.5 px-4 bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#437768] hover:to-[#be984e] text-white font-extrabold rounded-2xl shadow-lg shadow-[#5fa08d]/25 transition-all text-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  onClick={triggerClickAnim}
+                  className="relative w-full py-4 px-6 rounded-2xl font-extrabold text-sm sm:text-base text-white shadow-xl shadow-[#3e8571]/25 transition-all duration-200 transform active:scale-[0.98] disabled:opacity-50 overflow-hidden cursor-pointer group bg-gradient-to-r from-[#10705a] via-[#2f8872] via-[#a3944d] to-[#cca348] hover:brightness-105"
                 >
                   {portalLoading ? (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-center gap-2">
                       <Loader2 size={18} className="animate-spin text-white" />
                       <span>Masuk ke Portal...</span>
                     </div>
                   ) : (
-                    <>
+                    <div className="flex items-center justify-center gap-2">
                       <span>Masuk ke Portal Siswa</span>
-                      <ArrowRight size={16} />
-                    </>
+                      <ArrowRight size={17} className="transition-transform group-hover:translate-x-1" />
+                    </div>
                   )}
                 </button>
               </form>
             )}
 
             {/* Quick Link Portal Siswa */}
-            <div className="mt-5 pt-4 border-t border-slate-100 text-center">
+            <div className="mt-5 text-center">
               <Link
                 href="/portal/siswa/cbt"
-                className="text-xs text-[#3e7264] hover:text-[#caa55d] font-bold inline-flex items-center gap-1 transition-colors"
+                onClick={triggerClickAnim}
+                className="text-xs text-slate-700 hover:text-[#caa55d] font-bold inline-flex items-center gap-1.5 transition-colors group cursor-pointer"
               >
                 <span>Lihat semua jadwal paket ujian di Portal Siswa</span>
-                <ChevronRight size={14} />
+                <ChevronRight
+                  size={14}
+                  className="text-[#caa55d] group-hover:translate-x-0.5 transition-transform"
+                />
               </Link>
             </div>
           </div>
@@ -687,15 +878,15 @@ export default function UjianGatewayClient({
 
         {/* 🌟 MODAL KONFIRMASI IDENTITAS RESMI PESERTA UJIAN */}
         {isConfirmModalOpen && verifiedStudent && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in-50">
-            <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl relative overflow-hidden space-y-5 animate-in zoom-in-95">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in-50">
+            <div className="bg-white/95 backdrop-blur-2xl border border-white rounded-[32px] max-w-lg w-full p-6 sm:p-7 shadow-2xl relative overflow-hidden space-y-5 animate-in zoom-in-95">
               {/* Top Logo Accent */}
-              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#4d8675] via-[#5fa08d] via-[#f5d076] to-[#caa55d]"></div>
+              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#10705a] via-[#5fa08d] via-[#f0ca65] to-[#cca348]"></div>
 
               {/* Modal Header */}
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-[#5fa08d]/10 border border-[#5fa08d]/25 text-[#3e7264] flex items-center justify-center shrink-0">
+                  <div className="w-12 h-12 rounded-2xl bg-[#5fa08d]/10 border border-[#5fa08d]/25 text-[#2f6354] flex items-center justify-center shrink-0">
                     <ShieldCheck size={26} />
                   </div>
                   <div>
@@ -710,16 +901,16 @@ export default function UjianGatewayClient({
                 <button
                   type="button"
                   onClick={() => setIsConfirmModalOpen(false)}
-                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition"
+                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition cursor-pointer"
                 >
                   <X size={18} />
                 </button>
               </div>
 
               {/* Student Verified Profile Badge */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-3.5">
+              <div className="p-4 rounded-2xl bg-slate-50/90 border border-slate-200/90 space-y-3.5">
                 <div className="flex items-center gap-3.5 pb-3 border-b border-slate-200">
-                  <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-[#4d8675] via-[#5fa08d] to-[#caa55d] text-white font-black text-lg flex items-center justify-center shadow-md shadow-[#5fa08d]/25 shrink-0">
+                  <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-[#10705a] via-[#5fa08d] to-[#cca348] text-white font-black text-lg flex items-center justify-center shadow-md shadow-[#5fa08d]/25 shrink-0">
                     {getInitials(verifiedStudent.name)}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -727,7 +918,9 @@ export default function UjianGatewayClient({
                       {verifiedStudent.name}
                     </div>
                     <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
-                      <span className="font-mono text-slate-700 font-semibold">NISN: {verifiedStudent.nisn}</span>
+                      <span className="font-mono text-slate-700 font-semibold">
+                        NISN: {verifiedStudent.nisn}
+                      </span>
                       <span>•</span>
                       <span className="text-emerald-700 font-semibold">Status: Aktif</span>
                     </div>
@@ -736,15 +929,22 @@ export default function UjianGatewayClient({
 
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
-                    <span className="text-[10px] uppercase font-bold text-slate-500 block mb-0.5">Kelas Resmi</span>
+                    <span className="text-[10px] uppercase font-bold text-slate-500 block mb-0.5">
+                      Kelas Resmi
+                    </span>
                     <strong className="text-sm font-extrabold text-[#9a782a]">
                       {verifiedStudent.studentClass}
                     </strong>
                   </div>
 
                   <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
-                    <span className="text-[10px] uppercase font-bold text-slate-500 block mb-0.5">Program Keahlian</span>
-                    <strong className="text-xs font-bold text-[#3e7264] truncate block" title={verifiedStudent.majorName}>
+                    <span className="text-[10px] uppercase font-bold text-slate-500 block mb-0.5">
+                      Program Keahlian
+                    </span>
+                    <strong
+                      className="text-xs font-bold text-[#2f6354] truncate block"
+                      title={verifiedStudent.majorName}
+                    >
                       {verifiedStudent.majorName}
                     </strong>
                   </div>
@@ -755,22 +955,26 @@ export default function UjianGatewayClient({
               {verifiedExam ? (
                 <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#5fa08d]/8 to-[#caa55d]/8 border border-[#5fa08d]/25 space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-[#3e7264] uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="font-bold text-[#2f6354] uppercase tracking-wider flex items-center gap-1.5">
                       <MonitorPlay size={14} className="text-[#caa55d]" /> Ruang Ujian CBT
                     </span>
                     <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-[#caa55d]/15 text-[#9a782a] border border-[#caa55d]/35">
                       Token: {token}
                     </span>
                   </div>
-                  <div className="text-sm font-bold text-slate-900">
-                    {verifiedExam.title}
-                  </div>
+                  <div className="text-sm font-bold text-slate-900">{verifiedExam.title}</div>
                   <div className="text-xs text-slate-600 flex flex-wrap items-center gap-3 pt-1">
-                    <span>Mata Pelajaran: <strong className="text-slate-800">{verifiedExam.subject}</strong></span>
+                    <span>
+                      Mata Pelajaran: <strong className="text-slate-800">{verifiedExam.subject}</strong>
+                    </span>
                     <span>•</span>
-                    <span>Durasi: <strong className="text-slate-800">{verifiedExam.duration} Menit</strong></span>
+                    <span>
+                      Durasi: <strong className="text-slate-800">{verifiedExam.duration} Menit</strong>
+                    </span>
                     <span>•</span>
-                    <span>Ruang: <strong className="text-slate-800">{verifiedExam.roomName}</strong></span>
+                    <span>
+                      Ruang: <strong className="text-slate-800">{verifiedExam.roomName}</strong>
+                    </span>
                   </div>
                 </div>
               ) : (
@@ -782,7 +986,9 @@ export default function UjianGatewayClient({
 
               {/* Notice Confirmation */}
               <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900 leading-relaxed">
-                ⚠️ <strong>Pemberitahuan:</strong> Pastikan nama dan NISN di atas adalah milik Anda. Seluruh jawaban, durasi pengerjaan, dan perolehan nilai akan otomatis direkam permanen ke akun rapor siswa ini.
+                ⚠️ <strong>Pemberitahuan:</strong> Pastikan nama dan NISN di atas adalah milik Anda. Seluruh
+                jawaban, durasi pengerjaan, dan perolehan nilai akan otomatis direkam permanen ke akun rapor siswa
+                ini.
               </div>
 
               {/* Action Buttons */}
@@ -800,7 +1006,7 @@ export default function UjianGatewayClient({
                   type="button"
                   onClick={handleFinalConfirmJoin}
                   disabled={isConfirming}
-                  className="w-full sm:w-2/3 py-3 px-5 rounded-xl bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#437768] hover:to-[#be984e] text-white text-xs sm:text-sm font-extrabold shadow-lg shadow-[#5fa08d]/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="w-full sm:w-2/3 py-3 px-5 rounded-xl bg-gradient-to-r from-[#10705a] via-[#3e8571] to-[#cca348] hover:brightness-105 text-white text-xs sm:text-sm font-extrabold shadow-lg shadow-[#3e8571]/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   {isConfirming ? (
                     <>
@@ -820,8 +1026,8 @@ export default function UjianGatewayClient({
         )}
 
         {/* Security & System Features */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-slate-200">
-          <div className="flex items-start gap-3 p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-slate-200/80">
+          <div className="flex items-start gap-3 p-4 rounded-2xl bg-white/70 backdrop-blur-md border border-white/80 shadow-sm">
             <div className="p-2 bg-blue-50 text-blue-600 rounded-xl shrink-0">
               <Wifi size={18} />
             </div>
@@ -833,8 +1039,8 @@ export default function UjianGatewayClient({
             </div>
           </div>
 
-          <div className="flex items-start gap-3 p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm">
-            <div className="p-2 bg-[#5fa08d]/10 text-[#3e7264] rounded-xl shrink-0">
+          <div className="flex items-start gap-3 p-4 rounded-2xl bg-white/70 backdrop-blur-md border border-white/80 shadow-sm">
+            <div className="p-2 bg-[#5fa08d]/10 text-[#2f6354] rounded-xl shrink-0">
               <ShieldCheck size={18} />
             </div>
             <div>
@@ -845,7 +1051,7 @@ export default function UjianGatewayClient({
             </div>
           </div>
 
-          <div className="flex items-start gap-3 p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm">
+          <div className="flex items-start gap-3 p-4 rounded-2xl bg-white/70 backdrop-blur-md border border-white/80 shadow-sm">
             <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl shrink-0">
               <FileCheck2 size={18} />
             </div>
@@ -860,9 +1066,55 @@ export default function UjianGatewayClient({
       </main>
 
       {/* Minimal Footer */}
-      <footer className="relative z-10 border-t border-slate-200/80 py-4 px-4 text-center text-xs text-slate-500 bg-white/70">
+      <footer className="relative z-10 border-t border-slate-200/60 py-4 px-4 text-center text-xs text-slate-500 bg-white/50 backdrop-blur-sm">
         Portal Ujian Mandiri Siswa (Smart CBT) • SMK Digital Vocational Excellence
       </footer>
+
+      {/* 🚀 CSS Keyframes for 60fps animations */}
+      <style jsx global>{`
+        @keyframes floatDrift1 {
+          0%, 100% {
+            transform: translate(0px, 0px) scale(1);
+          }
+          50% {
+            transform: translate(35px, -25px) scale(1.06);
+          }
+        }
+        @keyframes floatDrift2 {
+          0%, 100% {
+            transform: translate(0px, 0px) scale(1);
+          }
+          50% {
+            transform: translate(-30px, 30px) scale(0.96);
+          }
+        }
+        @keyframes floatDrift3 {
+          0%, 100% {
+            transform: translate(0px, 0px) scale(1);
+          }
+          50% {
+            transform: translate(25px, 35px) scale(1.04);
+          }
+        }
+        @keyframes shimmerSweep {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(200%);
+          }
+        }
+        @keyframes ripple {
+          0% {
+            transform: translate(-50%, -50%) scale(0);
+            opacity: 0.6;
+          }
+          100% {
+            transform: translate(-50%, -50%) scale(2.6);
+            opacity: 0;
+          }
+        }
+      `}</style>
     </div>
   );
 }
