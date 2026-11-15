@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { logoutAction } from "@/app/login/actions";
 import SiswaDashboardClient from "./SiswaDashboardClient";
-import { ensureDefaultSubjectsAndGrades, computeGradePredicate } from "@/lib/subject-seed";
+import { ensureDefaultSubjectsAndGrades, computeGradePredicate, DUMMY_TEACHER_KEYWORDS } from "@/lib/subject-seed";
 import { isClassTargetMatch } from "@/lib/cbt-schedule";
 
 export const dynamic = 'force-dynamic';
@@ -114,19 +114,26 @@ export default async function PortalSiswa() {
     .map((w) => w[0]?.toUpperCase())
     .join('') || 'S';
 
-  // Hitung tugas siswa yang belum dikerjakan
+  // Hitung tugas siswa yang belum dikerjakan untuk kelas siswa (mengabaikan tugas dummy / anonim)
   let pendingAssignmentsCount = 0;
   try {
-    pendingAssignmentsCount = await prisma.assignment.count({
+    const candidateAssignments = await prisma.assignment.findMany({
       where: {
         status: 'ACTIVE',
+        authorName: {
+          notIn: DUMMY_TEACHER_KEYWORDS,
+        },
         submissions: {
           none: {
             studentName: studentName,
           },
         },
       },
+      select: { classTarget: true },
     });
+    pendingAssignmentsCount = candidateAssignments.filter((a) =>
+      isClassTargetMatch(a.classTarget, studentClass)
+    ).length;
   } catch (err) {
     console.error('Error counting pending assignments:', err);
     pendingAssignmentsCount = 0;

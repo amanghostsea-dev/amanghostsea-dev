@@ -1,6 +1,8 @@
 import prisma from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import TugasSiswaClient from './TugasSiswaClient';
+import { cleanupLegacyDummyAssignments, DUMMY_TEACHER_KEYWORDS } from '@/lib/subject-seed';
+import { isClassTargetMatch } from '@/lib/cbt-schedule';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,12 +62,19 @@ export default async function SiswaTugasPage() {
     }
   }
 
-  const assignments = await prisma.assignment.findMany({
+  // 1. Bersihkan tugas dummy atau anonim lawas jika ada
+  await cleanupLegacyDummyAssignments();
+
+  // 2. Ambil tugas resmi yang bukan dummy
+  const rawAssignments = await prisma.assignment.findMany({
     where: {
       OR: [
         { status: 'ACTIVE' },
-        { submissions: { some: { studentName } } }
-      ]
+        { submissions: { some: { studentName } } },
+      ],
+      authorName: {
+        notIn: DUMMY_TEACHER_KEYWORDS,
+      },
     },
     include: {
       submissions: {
@@ -76,6 +85,11 @@ export default async function SiswaTugasPage() {
     },
     orderBy: { deadline: 'asc' },
   });
+
+  // 3. Filter HANYA tugas yang diperuntukkan bagi kelas & jurusan siswa ini
+  const assignments = rawAssignments.filter((a) =>
+    isClassTargetMatch(a.classTarget, studentClass)
+  );
 
   return (
     <TugasSiswaClient

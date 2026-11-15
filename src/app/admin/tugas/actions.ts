@@ -2,7 +2,8 @@
 
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-import { computeFinalScore, computeGradePredicate } from '@/lib/subject-seed';
+import { cookies } from 'next/headers';
+import { computeFinalScore, computeGradePredicate, cleanupLegacyDummyAssignments, DUMMY_TEACHER_KEYWORDS } from '@/lib/subject-seed';
 
 export async function createAssignment(data: {
   title: string;
@@ -14,6 +15,29 @@ export async function createAssignment(data: {
   authorName?: string;
 }) {
   try {
+    const cookieStore = await cookies();
+    const authRole = cookieStore.get('auth_token')?.value;
+    const authName = cookieStore.get('auth_name')?.value;
+    const authUser = cookieStore.get('auth_user')?.value;
+
+    let dbUser = null;
+    if (authUser || authName) {
+      dbUser = await prisma.user.findFirst({
+        where: {
+          OR: [
+            ...(authUser ? [{ username: authUser }] : []),
+            ...(authName ? [{ name: authName }] : []),
+          ],
+        },
+        select: { id: true, name: true, role: true },
+      });
+    }
+
+    const resolvedAuthor =
+      data.authorName?.trim() && !DUMMY_TEACHER_KEYWORDS.includes(data.authorName.trim())
+        ? data.authorName.trim()
+        : dbUser?.name || authName || (authRole === 'Super Admin' ? 'Admin Utama' : 'Guru Pengampu');
+
     const assignment = await prisma.assignment.create({
       data: {
         title: data.title,
@@ -23,12 +47,13 @@ export async function createAssignment(data: {
         deadline: new Date(data.deadline),
         fileUrl: data.fileUrl?.trim() || null,
         status: 'ACTIVE',
-        authorName: data.authorName || 'Guru Pengampu',
+        authorName: resolvedAuthor,
       },
     });
 
     revalidatePath('/admin/tugas');
     revalidatePath('/portal/siswa/tugas');
+    revalidatePath('/portal/siswa');
     return { success: true, data: assignment };
   } catch (error: any) {
     return { error: error.message };
@@ -45,6 +70,7 @@ export async function updateAssignment(
     deadline?: string;
     fileUrl?: string;
     status?: string;
+    authorName?: string;
   }
 ) {
   try {
@@ -58,12 +84,14 @@ export async function updateAssignment(
         ...(data.deadline && { deadline: new Date(data.deadline) }),
         ...(data.fileUrl !== undefined && { fileUrl: data.fileUrl?.trim() || null }),
         ...(data.status && { status: data.status }),
+        ...(data.authorName && { authorName: data.authorName }),
       },
     });
 
     revalidatePath('/admin/tugas');
     revalidatePath(`/admin/tugas/${id}`);
     revalidatePath('/portal/siswa/tugas');
+    revalidatePath('/portal/siswa');
     return { success: true, data: updated };
   } catch (error: any) {
     return { error: error.message };
@@ -75,6 +103,19 @@ export async function deleteAssignment(id: string) {
     await prisma.assignment.delete({ where: { id } });
     revalidatePath('/admin/tugas');
     revalidatePath('/portal/siswa/tugas');
+    revalidatePath('/portal/siswa');
+    return { success: true };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+export async function purgeDummyAssignments() {
+  try {
+    await cleanupLegacyDummyAssignments();
+    revalidatePath('/admin/tugas');
+    revalidatePath('/portal/siswa/tugas');
+    revalidatePath('/portal/siswa');
     return { success: true };
   } catch (error: any) {
     return { error: error.message };

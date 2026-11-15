@@ -20,7 +20,9 @@ import {
   Unlock,
   CheckCircle,
   TrendingUp,
-  FileCheck
+  FileCheck,
+  User,
+  BookOpen
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import { createAssignment, updateAssignment, deleteAssignment } from './actions';
@@ -46,12 +48,38 @@ interface AssignmentItem {
   }[];
 }
 
+interface SubjectSimple {
+  id: string;
+  name: string;
+  code: string;
+  classTarget: string;
+  teacherName?: string | null;
+}
+
+interface TeacherSimple {
+  id: string;
+  name: string;
+  role: string;
+}
+
+interface CurrentUserSimple {
+  role: string;
+  name: string;
+  isSuperAdmin: boolean;
+}
+
 export default function TugasDashboard({
   assignments: initialAssignments,
   dynamicClassPresets = ['Semua Kelas', 'X TJKT 1', 'XI TJKT 1', 'XII TJKT 1', 'X DKV 1', 'XI DKV 1', 'XII DKV 1', 'X MPLB 1', 'XI MPLB 1', 'XII MPLB 1'],
+  activeSubjects = [],
+  teachers = [],
+  currentUser = { role: 'Guru', name: 'Guru Pengampu', isSuperAdmin: false },
 }: {
   assignments: AssignmentItem[];
   dynamicClassPresets?: string[];
+  activeSubjects?: SubjectSimple[];
+  teachers?: TeacherSimple[];
+  currentUser?: CurrentUserSimple;
 }) {
   const [assignments, setAssignments] = useState(initialAssignments);
   const [searchTerm, setSearchTerm] = useState('');
@@ -74,6 +102,7 @@ export default function TugasDashboard({
     deadline: '',
     fileUrl: '',
     status: 'ACTIVE',
+    authorName: '',
   });
 
   const handleOpenCreate = () => {
@@ -81,14 +110,22 @@ export default function TugasDashboard({
     const defaultDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const dateStr = defaultDate.toISOString().slice(0, 16);
 
+    const firstSubj = activeSubjects && activeSubjects.length > 0 ? activeSubjects[0] : null;
+    const defaultSubject = firstSubj?.name || '';
+    const defaultClass = firstSubj?.classTarget || 'Semua Kelas';
+    const defaultAuthor = currentUser?.isSuperAdmin
+      ? (firstSubj?.teacherName || currentUser?.name || 'Admin Utama')
+      : (currentUser?.name || 'Guru');
+
     setFormData({
       title: '',
-      subject: '',
-      classTarget: 'Semua Kelas',
+      subject: defaultSubject,
+      classTarget: defaultClass,
       description: '',
       deadline: dateStr,
       fileUrl: '',
       status: 'ACTIVE',
+      authorName: defaultAuthor,
     });
     setIsModalOpen(true);
   };
@@ -105,6 +142,7 @@ export default function TugasDashboard({
       deadline: dateStr,
       fileUrl: item.fileUrl || '',
       status: item.status,
+      authorName: item.authorName || currentUser.name,
     });
     setIsModalOpen(true);
   };
@@ -323,14 +361,21 @@ export default function TugasDashboard({
       {/* 📚 ASSIGNMENT GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredAssignments.length === 0 ? (
-          <div className="col-span-full py-16 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
-            <FileText className="mx-auto text-slate-300 dark:text-slate-600 mb-3" size={48} />
-            <p className="text-slate-500 font-medium">Belum ada tugas pada kategori ini.</p>
+          <div className="col-span-full py-16 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 space-y-3">
+            <div className="w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-600 flex items-center justify-center mx-auto mb-2">
+              <FileCheck size={32} />
+            </div>
+            <h3 className="font-bold text-slate-800 dark:text-slate-200 text-base">
+              Belum Ada Tugas Siswa
+            </h3>
+            <p className="text-xs text-slate-400 max-w-md mx-auto">
+              Seluruh data tugas dummy bawaan telah dibersihkan. Anda dapat membuat tugas resmi untuk kelas dan mata pelajaran yang Anda ampu dengan mengklik tombol di bawah ini.
+            </p>
             <button
               onClick={handleOpenCreate}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition"
+              className="mt-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition shadow-sm inline-flex items-center gap-1.5 cursor-pointer"
             >
-              Beri Tugas Baru Sekarang
+              <Plus size={15} /> Beri Tugas Baru Sekarang
             </button>
           </div>
         ) : (
@@ -395,6 +440,10 @@ export default function TugasDashboard({
                       <span>
                         Deadline: <strong>{deadlineDate.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}</strong>
                       </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                      <User size={14} className="text-purple-500 flex-shrink-0" />
+                      <span>Guru: <strong>{assignment.authorName || 'Guru Pengampu'}</strong></span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Users size={14} className="text-blue-500 flex-shrink-0" />
@@ -497,14 +546,39 @@ export default function TugasDashboard({
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Mata Pelajaran <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Contoh: Pemrograman Web"
-                    value={formData.subject}
-                    onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs focus:ring-2 focus:ring-blue-500"
-                  />
+                  {activeSubjects && activeSubjects.length > 0 ? (
+                    <select
+                      required
+                      value={formData.subject}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const matched = activeSubjects.find((s) => s.name === val);
+                        setFormData((prev) => ({
+                          ...prev,
+                          subject: val,
+                          ...(matched?.classTarget && { classTarget: matched.classTarget }),
+                          ...(currentUser?.isSuperAdmin && matched?.teacherName && { authorName: matched.teacherName }),
+                        }));
+                      }}
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
+                    >
+                      <option value="">-- Pilih Mata Pelajaran --</option>
+                      {activeSubjects.map((s, idx) => (
+                        <option key={idx} value={s.name}>
+                          {s.name} ({s.code}) - {s.classTarget}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      required
+                      placeholder="Contoh: Pemrograman Web"
+                      value={formData.subject}
+                      onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs focus:ring-2 focus:ring-blue-500"
+                    />
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -523,6 +597,32 @@ export default function TugasDashboard({
                     ))}
                   </select>
                 </div>
+              </div>
+
+              {/* Guru Pembuat Tugas */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Guru Pengampu / Pembuat Tugas <span className="text-red-500">*</span>
+                </label>
+                {currentUser?.isSuperAdmin ? (
+                  <select
+                    value={formData.authorName}
+                    onChange={(e) => setFormData({ ...formData, authorName: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
+                  >
+                    <option value={currentUser.name}>{currentUser.name} (Admin Utama)</option>
+                    {teachers?.map((t, idx) => (
+                      <option key={idx} value={t.name}>
+                        {t.name} (Guru)
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="px-3.5 py-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-xs text-blue-700 dark:text-blue-300 font-bold flex items-center justify-between">
+                    <span className="flex items-center gap-1.5"><User size={14} /> {currentUser?.name || 'Guru Pengampu'}</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-blue-600 text-white font-mono">Terkunci Otomatis</span>
+                  </div>
+                )}
               </div>
 
               {/* Deadline with Quick Presets */}

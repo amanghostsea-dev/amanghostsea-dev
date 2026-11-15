@@ -43,6 +43,19 @@ export const LEGACY_DUMMY_TEACHERS = [
   'Ust. Nurul Huda M.Pd',
 ];
 
+export const DUMMY_TEACHER_KEYWORDS = [
+  'Guru Pengampu',
+  'Anonim',
+  'Bpk. Farhan M.T',
+  'Farhan M.T',
+  'Mr. John',
+  'Bpk. Budi S.Kom',
+  'Ibu Siti S.Pd',
+  'Bpk. Hendra S.T',
+  'Ibu Dewi SE',
+  'Ust. Nurul Huda M.Pd',
+];
+
 export function computeGradePredicate(score: number): string {
   if (score >= 90) return 'A';
   if (score >= 85) return 'A-';
@@ -94,6 +107,38 @@ export async function cleanupLegacyDummySubjects() {
 }
 
 /**
+ * Membersihkan seluruh tugas dummy atau tugas dengan nama pengampu anonim ('Guru Pengampu')
+ * agar tidak ada lagi tugas fiktif yang muncul di portal siswa.
+ */
+export async function cleanupLegacyDummyAssignments() {
+  try {
+    const dummyAssignments = await prisma.assignment.findMany({
+      where: {
+        OR: [
+          { authorName: null },
+          { authorName: '' },
+          { authorName: { in: DUMMY_TEACHER_KEYWORDS } },
+        ],
+      },
+      select: { id: true, title: true, authorName: true },
+    });
+
+    if (dummyAssignments.length > 0) {
+      const ids = dummyAssignments.map((a) => a.id);
+      await prisma.assignmentSubmission.deleteMany({
+        where: { assignmentId: { in: ids } },
+      });
+      await prisma.assignment.deleteMany({
+        where: { id: { in: ids } },
+      });
+      console.log(`[CLEANUP] Berhasil menghapus ${dummyAssignments.length} tugas dummy/anonim.`);
+    }
+  } catch (error) {
+    console.error('Error cleaning up legacy dummy assignments:', error);
+  }
+}
+
+/**
  * Menghubungkan siswa dengan mata pelajaran resmi yang ada di database.
  * TIDAK PERNAH membuat mata pelajaran dummy baru jika database kosong.
  */
@@ -103,8 +148,9 @@ export async function ensureDefaultSubjectsAndGrades(
   targetStudentClass?: string
 ) {
   try {
-    // 1. Bersihkan sisa mapel dummy lawas jika ada
+    // 1. Bersihkan sisa mapel dummy lawas dan tugas dummy/anonim jika ada
     await cleanupLegacyDummySubjects();
+    await cleanupLegacyDummyAssignments();
 
     // 2. Jika dipanggil khusus untuk 1 siswa tertentu:
     // Buat placeholder nilai HANYA untuk mata pelajaran resmi yang memang sudah ada di database
