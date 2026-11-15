@@ -4,6 +4,7 @@ import "./globals.css";
 import "katex/dist/katex.min.css";
 import Chatbot from "@/components/Chatbot";
 import { NotificationProvider } from "@/components/NotificationProvider";
+import { GlobalLoadingProvider } from "@/components/GlobalLoadingProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,10 +37,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <body className="min-h-full flex flex-col relative">
         <NotificationProvider>
-          <div className="flex-grow flex flex-col">
-            {children}
-          </div>
-          <Chatbot />
+          <GlobalLoadingProvider>
+            <div className="flex-grow flex flex-col">
+              {children}
+            </div>
+            <Chatbot />
+          </GlobalLoadingProvider>
         </NotificationProvider>
       </body>
     </html>
