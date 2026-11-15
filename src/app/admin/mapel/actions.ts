@@ -326,3 +326,163 @@ export async function plotTeacher(
 ) {
   return await plotTeacherToSubject({ subjectId, teacherId, teacherName });
 }
+
+export async function deleteSubjectsBulk(ids: string[]) {
+  const auth = await requireGuruOrAdmin();
+  if (!auth.isSuperAdmin) {
+    return { error: 'Hanya Super Admin yang berhak melakukan penghapusan mata pelajaran secara kolektif.' };
+  }
+
+  if (!ids || ids.length === 0) {
+    return { error: 'Pilih minimal satu mata pelajaran untuk dihapus.' };
+  }
+
+  try {
+    // Hapus nilai terkait terlebih dahulu demi integritas data
+    await prisma.studentGrade.deleteMany({
+      where: { subjectId: { in: ids } },
+    });
+
+    const result = await prisma.subject.deleteMany({
+      where: { id: { in: ids } },
+    });
+
+    revalidatePath('/admin/mapel');
+    revalidatePath('/portal/siswa');
+    revalidatePath('/portal/guru');
+    revalidatePath('/portal/guru/nilai');
+
+    return { success: true, count: result.count };
+  } catch (error) {
+    console.error('Error bulk deleting subjects:', error);
+    return { error: error instanceof Error ? error.message : 'Gagal menghapus mata pelajaran secara kolektif' };
+  }
+}
+
+export interface BulkSubjectInput {
+  code: string;
+  name: string;
+  category: string;
+  classTarget: string;
+  teacherId?: string | null;
+  teacherName?: string | null;
+  day?: string | null;
+  time?: string | null;
+  room?: string | null;
+  kkm: number;
+  credits: number;
+}
+
+export async function saveSubjectsBulk(dataList: BulkSubjectInput[]) {
+  const auth = await requireGuruOrAdmin();
+  if (!auth.isSuperAdmin) {
+    return { error: 'Hanya Super Admin yang berhak menambah mata pelajaran secara kolektif.' };
+  }
+
+  // Filter valid rows
+  const validList = dataList.filter(
+    (item) => item.name && item.name.trim().length > 0 && item.code && item.code.trim().length > 0
+  );
+
+  if (validList.length === 0) {
+    return { error: 'Tidak ada data mata pelajaran valid yang dapat disimpan. Pastikan Kode dan Nama telah diisi.' };
+  }
+
+  try {
+    // Check for duplicate codes within input
+    const upperCodes = validList.map((d) => d.code.trim().toUpperCase());
+    const duplicateInInput = upperCodes.filter((c, idx) => upperCodes.indexOf(c) !== idx);
+    if (duplicateInInput.length > 0) {
+      return {
+        error: `Terdapat kode mapel ganda di dalam daftar input: ${Array.from(new Set(duplicateInInput)).join(', ')}`,
+      };
+    }
+
+    // Check if any code already exists in DB
+    const existing = await prisma.subject.findMany({
+      where: { code: { in: upperCodes } },
+      select: { code: true, name: true },
+    });
+
+    if (existing.length > 0) {
+      return {
+        error: `Kode mapel berikut sudah digunakan di sistem: ${existing.map((e) => `${e.code} (${e.name})`).join(', ')}. Harap gunakan kode unik.`,
+      };
+    }
+
+    // Ambil data siswa & kelas untuk inisialisasi studentGrade
+    const allStudents = await prisma.user.findMany({
+      where: { role: 'Siswa' },
+      select: { id: true, name: true, nisn: true, username: true },
+    });
+
+    const studentGrades = await prisma.studentGrade.findMany({
+      select: { studentName: true, studentClass: true },
+      distinct: ['studentName'],
+    });
+    const classMap = new Map<string, string>();
+    for (const sg of studentGrades) {
+      if (sg.studentName) classMap.set(sg.studentName, sg.studentClass);
+    }
+
+    const createdSubjects = [];
+
+    for (const item of validList) {
+      const code = item.code.trim().toUpperCase();
+      const name = item.name.trim();
+
+      const subject = await prisma.subject.create({
+        data: {
+          code,
+          name,
+          category: item.category || 'Muatan Kejuruan',
+          classTarget: item.classTarget || 'Semua Kelas',
+          teacherId: item.teacherId || null,
+          teacherName: item.teacherName || null,
+          day: item.day || 'Senin',
+          time: item.time || '07:30 - 10:00',
+          room: item.room || 'Lab Komputer 1',
+          kkm: Number(item.kkm) || 75,
+          credits: Number(item.credits) || 3,
+        },
+      });
+
+      createdSubjects.push(subject);
+
+      try {
+        const targetClass = item.classTarget || 'Semua Kelas';
+        for (const st of allStudents) {
+          const studentClass = classMap.get(st.name) || 'XI TJKT 1';
+          if (isClassTargetMatch(targetClass, studentClass)) {
+            await prisma.studentGrade.create({
+              data: {
+                subjectId: subject.id,
+                studentName: st.name,
+                studentNis: st.nisn || st.username,
+                studentClass: studentClass,
+                assignment: 0,
+                midExam: 0,
+                finalExam: 0,
+                finalGrade: '-',
+                notes: 'Mata pelajaran ditambahkan secara kolektif oleh Super Admin.',
+                updatedBy: item.teacherName || auth.name || 'Admin Utama',
+              },
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Error initializing grades for bulk subject:', code, err);
+      }
+    }
+
+    revalidatePath('/admin/mapel');
+    revalidatePath('/portal/siswa');
+    revalidatePath('/portal/guru');
+    revalidatePath('/portal/guru/nilai');
+
+    return { success: true, count: createdSubjects.length, subjects: createdSubjects };
+  } catch (error) {
+    console.error('Error saving subjects bulk:', error);
+    return { error: error instanceof Error ? error.message : 'Gagal menyimpan mata pelajaran secara kolektif' };
+  }
+}
