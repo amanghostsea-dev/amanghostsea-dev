@@ -558,7 +558,7 @@ export default function CbtExamRoom({
             <p className="text-slate-500 text-xs mt-1">{exam.description || 'Petunjuk ujian standar SMK.'}</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 text-xs bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
             <div>
               <span className="text-slate-500 block">Durasi Pengerjaan</span>
               <strong className="text-slate-800 dark:text-slate-200 text-sm font-bold">
@@ -568,12 +568,22 @@ export default function CbtExamRoom({
             <div>
               <span className="text-slate-500 block">Jumlah Butir Soal</span>
               <strong className="text-slate-800 dark:text-slate-200 text-sm font-bold">
-                {questions.length} Butir Soal Pilihan Ganda
+                {questions.length} Butir Soal
               </strong>
             </div>
             <div>
               <span className="text-slate-500 block">Nama Peserta</span>
-              <strong className="text-slate-800 dark:text-slate-200 text-sm font-bold">{studentName}</strong>
+              <strong className="text-slate-800 dark:text-slate-200 text-sm font-bold truncate block">{studentName}</strong>
+            </div>
+            <div>
+              <span className="text-slate-500 block">Kelas Terdaftar</span>
+              <strong className="text-purple-600 dark:text-purple-400 text-sm font-bold">{studentClass || 'Siswa'}</strong>
+            </div>
+            <div>
+              <span className="text-slate-500 block">Target Paket</span>
+              <strong className="text-blue-600 dark:text-blue-400 text-sm font-bold truncate block" title={exam.classTarget}>
+                {formatClassTargetDisplay(exam.classTarget, true)}
+              </strong>
             </div>
             <div>
               <span className="text-slate-500 block">Mode Keamanan</span>

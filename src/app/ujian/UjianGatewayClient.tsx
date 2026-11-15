@@ -225,7 +225,11 @@ export default function UjianGatewayClient({
               <div className="mb-5 p-4 rounded-2xl bg-rose-950/50 border border-rose-500/40 text-rose-200 text-xs sm:text-sm flex items-start gap-3 animate-in fade-in-50 shadow-lg shadow-rose-950/30">
                 <AlertCircle size={20} className="shrink-0 text-rose-400 mt-0.5" />
                 <div className="space-y-1">
-                  <div className="font-bold text-rose-300">Pencocokan Data Gagal</div>
+                  <div className="font-bold text-rose-300">
+                    {errorMessage.includes('Salah Kamar') || errorMessage.includes('Akses Ditolak')
+                      ? 'Akses Ditolak — Salah Kamar Ujian'
+                      : 'Pencocokan Data Gagal'}
+                  </div>
                   <div className="text-rose-200/90 leading-relaxed">{errorMessage}</div>
                 </div>
               </div>

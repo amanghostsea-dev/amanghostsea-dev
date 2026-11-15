@@ -2,7 +2,7 @@
 
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-import { formatScheduleDate, formatScheduleTime, getExamScheduleState } from '@/lib/cbt-schedule';
+import { formatScheduleDate, formatScheduleTime, getExamScheduleState, isClassTargetMatch, formatClassTargetDisplay } from '@/lib/cbt-schedule';
 import { getCbtTimezone } from '@/lib/settings';
 
 export async function getExamSessionStatus(examId: string) {
@@ -100,6 +100,32 @@ export async function startOrResumeAttempt(data: {
       const studentInput = (data.token || '').trim().toUpperCase();
       if (!allowedTokens.includes(studentInput)) {
         return { error: 'Token ujian yang Anda masukkan salah atau sudah kadaluwarsa!' };
+      }
+    }
+
+    // 🔒 STRICT CLASS TARGET VERIFICATION (ANTI SALAH KAMAR & BOCOR SOAL)
+    let verifiedClass = data.studentClass;
+    if (data.studentNis || data.studentName) {
+      const gradeRec = await prisma.studentGrade.findFirst({
+        where: {
+          OR: [
+            ...(data.studentNis ? [{ studentNis: data.studentNis }] : []),
+            { studentName: { equals: data.studentName, mode: 'insensitive' as const } },
+          ],
+        },
+        select: { studentClass: true },
+      });
+      if (gradeRec?.studentClass) {
+        verifiedClass = gradeRec.studentClass;
+      }
+    }
+
+    if (verifiedClass) {
+      const isClassAllowed = isClassTargetMatch(exam.classTarget, verifiedClass);
+      if (!isClassAllowed) {
+        return {
+          error: `Akses Ditolak (Salah Kamar Ujian): Paket ujian "${exam.title}" (${exam.subject}) diplot khusus untuk ${formatClassTargetDisplay(exam.classTarget)}, sedangkan kelas Anda adalah "${verifiedClass}". Anda tidak memiliki hak akses untuk mengerjakan paket ujian ini!`
+        };
       }
     }
 

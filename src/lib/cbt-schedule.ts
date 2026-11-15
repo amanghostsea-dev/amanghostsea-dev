@@ -469,34 +469,47 @@ export function isAllLevelTarget(target?: string | null): 'X' | 'XI' | 'XII' | '
     clean === 'SEMUA KELAS' ||
     clean === 'SEMUA SISWA' ||
     clean === 'ALL' ||
-    clean === 'SELURUH KELAS'
+    clean === 'SELURUH KELAS' ||
+    clean.includes('SEMUA KELAS (SEMUA SISWA)')
   ) {
     return 'ALL';
   }
 
   if (
+    clean === 'XII' ||
+    clean === 'KELAS XII' ||
+    clean === 'TINGKAT XII' ||
+    clean === 'SEMUA XII' ||
     clean.includes('SEMUA KELAS XII') ||
     clean.includes('SEMUA JURUSAN TINGKAT XII') ||
     clean.includes('SELURUH JURUSAN TINGKAT XII') ||
-    clean === 'TINGKAT XII'
+    clean.includes('TINGKAT XII')
   ) {
     return 'XII';
   }
 
   if (
+    clean === 'XI' ||
+    clean === 'KELAS XI' ||
+    clean === 'TINGKAT XI' ||
+    clean === 'SEMUA XI' ||
     clean.includes('SEMUA KELAS XI') ||
     clean.includes('SEMUA JURUSAN TINGKAT XI') ||
     clean.includes('SELURUH JURUSAN TINGKAT XI') ||
-    clean === 'TINGKAT XI'
+    clean.includes('TINGKAT XI')
   ) {
     return 'XI';
   }
 
   if (
+    clean === 'X' ||
+    clean === 'KELAS X' ||
+    clean === 'TINGKAT X' ||
+    clean === 'SEMUA X' ||
     clean.includes('SEMUA KELAS X') ||
     clean.includes('SEMUA JURUSAN TINGKAT X') ||
     clean.includes('SELURUH JURUSAN TINGKAT X') ||
-    clean === 'TINGKAT X'
+    clean.includes('TINGKAT X')
   ) {
     return 'X';
   }
@@ -517,41 +530,65 @@ export function parseClassTargets(target?: string | null): string[] {
 
 /**
  * Check if an exam target matches a student's class
+ * STRICT MATCHING: Prevents students from other classes/levels from entering wrong exam rooms (bocor soal)
  */
 export function isClassTargetMatch(
   examClassTarget?: string | null,
   studentClass?: string | null
 ): boolean {
-  if (!examClassTarget || examClassTarget.trim() === 'Semua Kelas') {
+  if (!examClassTarget || !examClassTarget.trim()) {
+    return true; // No target restriction = open to all
+  }
+  const cleanTarget = examClassTarget.trim();
+  const lowerTarget = cleanTarget.toLowerCase();
+
+  // If exam is open to everyone
+  if (
+    lowerTarget === 'semua kelas' ||
+    lowerTarget === 'semua siswa' ||
+    lowerTarget === 'all' ||
+    lowerTarget === 'seluruh kelas' ||
+    lowerTarget.includes('semua kelas (semua siswa)')
+  ) {
     return true;
   }
+
+  // If exam has specific targets, student class MUST be defined
   if (!studentClass || !studentClass.trim()) {
-    return true; // fallback if student class is undetermined
+    return false;
   }
 
-  const levelTarget = isAllLevelTarget(examClassTarget);
+  const cleanStudent = studentClass.trim();
+  const normalizedStudent = cleanStudent.toLowerCase().replace(/\s+/g, ' ');
+  const compactStudent = cleanStudent.toLowerCase().replace(/\s+/g, '');
+  const studentLevel = extractClassLevel(cleanStudent);
+
+  // 1. Check if target is a level-wide target (X, XI, XII, or ALL)
+  const levelTarget = isAllLevelTarget(cleanTarget);
   if (levelTarget === 'ALL') {
     return true;
   }
-
-  const studentLevel = extractClassLevel(studentClass);
-
   if (levelTarget) {
+    // Student MUST have the exact same academic level
     return studentLevel === levelTarget;
   }
 
-  const targetList = parseClassTargets(examClassTarget);
-  const normalizedStudent = studentClass.trim().toLowerCase();
+  // 2. Check if target is single class or comma-separated list of classes
+  const targetList = parseClassTargets(cleanTarget);
 
   for (const t of targetList) {
-    const tClean = t.trim().toLowerCase();
-    if (tClean === 'semua kelas') return true;
-    if (tClean === normalizedStudent) return true;
-    if (tClean.replace(/\s+/g, '') === normalizedStudent.replace(/\s+/g, '')) return true;
+    const tClean = t.trim();
+    const tLower = tClean.toLowerCase().replace(/\s+/g, ' ');
+    const tCompact = tClean.toLowerCase().replace(/\s+/g, '');
 
-    // In case target list contains a level-wide element e.g. "Semua Kelas X"
-    const tLevel = isAllLevelTarget(t);
-    if (tLevel && studentLevel === tLevel) {
+    if (tLower === 'semua kelas' || tLower === 'semua siswa' || tLower === 'all') return true;
+    if (tLower === normalizedStudent) return true;
+    if (tCompact === compactStudent) return true;
+
+    // Check if item in targetList is a level preset, e.g. "Semua Kelas X"
+    const itemLevel = isAllLevelTarget(tClean);
+    if (itemLevel === 'ALL') return true;
+    if (itemLevel && studentLevel === itemLevel) {
       return true;
     }
   }

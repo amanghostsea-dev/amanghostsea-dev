@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { logoutAction } from "@/app/login/actions";
 import SiswaDashboardClient from "./SiswaDashboardClient";
 import { ensureDefaultSubjectsAndGrades } from "@/lib/subject-seed";
+import { isClassTargetMatch } from "@/lib/cbt-schedule";
 
 export const dynamic = 'force-dynamic';
 
@@ -66,7 +67,7 @@ export default async function PortalSiswa() {
   }
 
   // Ambil daftar ujian CBT aktif / terjadwal
-  const upcomingExams = await prisma.exam.findMany({
+  const rawUpcomingExams = await prisma.exam.findMany({
     where: {
       status: { in: ['PUBLISHED', 'ACTIVE'] },
     },
@@ -86,8 +87,16 @@ export default async function PortalSiswa() {
       { startTime: 'asc' },
       { createdAt: 'desc' },
     ],
-    take: 6,
+    take: 12,
   });
+
+  // Filter ujian yang relevan dengan kelas siswa (atau siswa telah memiliki attempt)
+  const upcomingExams = rawUpcomingExams
+    .filter((exam) => {
+      if (exam.attempts && exam.attempts.length > 0) return true;
+      return isClassTargetMatch(exam.classTarget, studentClass);
+    })
+    .slice(0, 6);
 
   // 1. Ambil data Jadwal Pelajaran (Mapel yang aktif & Guru Pengampu)
   const dbSubjects = await prisma.subject.findMany({

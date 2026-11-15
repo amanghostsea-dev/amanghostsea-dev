@@ -3,6 +3,7 @@
 import prisma from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { isClassTargetMatch, formatClassTargetDisplay } from '@/lib/cbt-schedule';
 
 function cleanString(str?: string | null): string {
   return (str || '')
@@ -205,7 +206,7 @@ export async function verifyAndPrepareExamJoinAction(params: {
     const gradeRecord = await prisma.studentGrade.findFirst({
       where: {
         OR: [
-          { studentName: matchedUser.name },
+          { studentName: { equals: matchedUser.name, mode: 'insensitive' } },
           ...(matchedUser.nisn ? [{ studentNis: matchedUser.nisn }] : []),
           { studentNis: matchedUser.username },
         ],
@@ -214,6 +215,22 @@ export async function verifyAndPrepareExamJoinAction(params: {
     });
 
     let studentClass = gradeRecord?.studentClass;
+    if (!studentClass) {
+      // Cek riwayat exam attempt siswa jika ada
+      const prevAttempt = await prisma.examAttempt.findFirst({
+        where: {
+          OR: [
+            { studentName: matchedUser.name },
+            ...(matchedUser.nisn ? [{ studentNis: matchedUser.nisn }] : []),
+          ],
+          studentClass: { not: null },
+        },
+        select: { studentClass: true },
+        orderBy: { startedAt: 'desc' },
+      });
+      studentClass = prevAttempt?.studentClass || undefined;
+    }
+
     if (!studentClass) {
       const activeJurusans = await prisma.jurusan.findMany({
         orderBy: { code: 'asc' },
@@ -265,6 +282,18 @@ export async function verifyAndPrepareExamJoinAction(params: {
           success: false,
           error: `Token ujian "${inputToken}" tidak valid atau sesi ujian belum diaktifkan oleh pengawas. Silakan mintakan token aktif ke pengawas ujian Anda.`,
         };
+      }
+
+      // 🔒 VERIFIKASI KELAS & JURUSAN (ANTI SALAH KAMAR & BOCOR SOAL)
+      if (studentClass) {
+        const isClassAllowed = isClassTargetMatch(matchedExam.classTarget, studentClass);
+        if (!isClassAllowed) {
+          const targetDisplay = formatClassTargetDisplay(matchedExam.classTarget);
+          return {
+            success: false,
+            error: `Akses Ditolak (Salah Kamar Ujian): Paket ujian "${matchedExam.title}" (${matchedExam.subject}) khusus diperuntukkan bagi ${targetDisplay}. Akun Anda terdaftar di kelas "${studentClass}". Anda tidak memiliki hak akses untuk mengerjakan soal ujian kelas ini!`,
+          };
+        }
       }
 
       targetExam = {
@@ -332,6 +361,23 @@ export async function confirmAndJoinExamAction(params: {
   cookieStore.set('auth_user', user.username, { maxAge: 60 * 60 * 24 });
   cookieStore.set('auth_token', 'Siswa', { maxAge: 60 * 60 * 24 });
   cookieStore.set('auth_class', studentClass, { maxAge: 60 * 60 * 24 });
+
+  // 🔒 Jika examId ditentukan, pastikan siswa memang berhak mengakses paket ujian ini
+  if (params.examId && studentClass) {
+    const exam = await prisma.exam.findUnique({
+      where: { id: params.examId },
+      select: { id: true, title: true, subject: true, classTarget: true },
+    });
+
+    if (exam) {
+      const isClassAllowed = isClassTargetMatch(exam.classTarget, studentClass);
+      if (!isClassAllowed) {
+        return {
+          error: `Akses Ditolak (Salah Kamar Ujian): Paket ujian "${exam.title}" khusus untuk ${formatClassTargetDisplay(exam.classTarget)}. Anda terdaftar di kelas "${studentClass}". Anda tidak memiliki izin mengerjakan ujian ini!`,
+        };
+      }
+    }
+  }
 
   if (params.examId) {
     redirect(`/portal/siswa/cbt/${params.examId}`);
