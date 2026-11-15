@@ -470,7 +470,7 @@ export function CbtSecurityValidationBox({
             Dokumen ini dicetak otomatis dari server Sistem Evaluasi CBT. Dinyatakan sah tanpa tanda tangan basah jika kode verifikasi dan stempel digital tercantum.
           </div>
           <div className="text-[8.5px] font-mono text-slate-700">
-            ID Verifikasi: <strong className="text-black">{code}</strong> • Paket: {examTitle || 'Evaluasi Belajar'}
+            ID Verifikasi: <strong className="text-black">{code}</strong> • Paket: {examTitle || 'Evaluasi Belajar'} • Created By Abdul Rahman
           </div>
         </div>
       </div>

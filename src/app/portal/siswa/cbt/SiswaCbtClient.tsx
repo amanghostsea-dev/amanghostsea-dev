@@ -288,8 +288,11 @@ export default function SiswaCbtClient({
               </span>
             </div>
 
-            {/* Quick Action: Gerbang Token Ujian Mandiri */}
+            {/* Quick Action: Gerbang Token Ujian Mandiri & Developer Tag */}
             <div className="flex items-center gap-2">
+              <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                Created By Abdul Rahman
+              </span>
               <Link
                 href="/ujian"
                 className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#5aa08c] hover:to-[#dfba6f] text-white text-xs font-bold shadow-md shadow-[#5fa08d]/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
@@ -952,6 +955,13 @@ export default function SiswaCbtClient({
             </div>
           </div>
         )}
+
+        {/* Developer Identity Footer */}
+        <footer className="pt-8 pb-4 border-t border-slate-200/80 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400 flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2">
+          <span>Smart CBT Portal Siswa • SMK Digital Vocational Excellence</span>
+          <span className="hidden sm:inline text-slate-300 dark:text-slate-700">•</span>
+          <span className="font-semibold text-slate-700 dark:text-slate-300">Created By Abdul Rahman</span>
+        </footer>
       </div>
 
       {/* ========================================================================= */}

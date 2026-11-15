@@ -879,8 +879,8 @@ export default function UjianGatewayClient({
               </form>
             )}
 
-            {/* Quick Link Portal Siswa */}
-            <div className="mt-5 text-center">
+            {/* Quick Link Portal Siswa & Developer Badge */}
+            <div className="mt-5 text-center space-y-2.5">
               <Link
                 href="/portal/siswa/cbt"
                 onClick={triggerClickAnim}
@@ -892,6 +892,11 @@ export default function UjianGatewayClient({
                   className="text-[#caa55d] group-hover:translate-x-0.5 transition-transform"
                 />
               </Link>
+              <div className="pt-2 border-t border-slate-100/80 text-[10.5px] text-slate-400 font-medium tracking-wide flex items-center justify-center gap-1.5">
+                <span>Smart CBT Platform v2.6</span>
+                <span>•</span>
+                <span className="text-slate-600 font-bold">Created By Abdul Rahman</span>
+              </div>
             </div>
           </div>
         </div>
@@ -1086,8 +1091,10 @@ export default function UjianGatewayClient({
       </main>
 
       {/* Minimal Footer */}
-      <footer className="relative z-10 border-t border-slate-200/60 py-4 px-4 text-center text-xs text-slate-500 bg-white/50 backdrop-blur-sm">
-        Portal Ujian Mandiri Siswa (Smart CBT) • SMK Digital Vocational Excellence
+      <footer className="relative z-10 border-t border-slate-200/60 py-4 px-4 text-center text-xs text-slate-500 bg-white/50 backdrop-blur-sm flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2">
+        <span>Portal Ujian Mandiri Siswa (Smart CBT) • SMK Digital Vocational Excellence</span>
+        <span className="hidden sm:inline text-slate-300">•</span>
+        <span className="font-semibold text-slate-700">Created By Abdul Rahman</span>
       </footer>
 
       {/* 🚀 CSS Keyframes for 60fps animations */}

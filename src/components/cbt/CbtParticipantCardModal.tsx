@@ -1254,6 +1254,12 @@ function SingleParticipantCard({
           </div>
         </div>
       </div>
+
+      {/* Developer Identity Footer (Subtle, professional) */}
+      <div className="pt-1 mt-1 border-t border-dotted border-slate-300 text-[6.5px] text-slate-400 flex items-center justify-between font-mono">
+        <span>Smart CBT Vocational System</span>
+        <span>Created By Abdul Rahman</span>
+      </div>
     </div>
   );
 }

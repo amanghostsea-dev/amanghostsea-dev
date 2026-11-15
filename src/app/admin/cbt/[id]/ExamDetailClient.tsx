@@ -1300,6 +1300,9 @@ Poin: 10
                   Token: {exam.token}
                 </span>
               )}
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                Created By Abdul Rahman
+              </span>
             </div>
             <h1 className="text-3xl font-bold text-slate-900 dark:text-white">{exam.title}</h1>
             <p className="text-slate-500 text-sm mt-1">{exam.description || 'Tidak ada deskripsi khusus.'}</p>

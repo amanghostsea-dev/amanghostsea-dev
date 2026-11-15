@@ -1047,8 +1047,13 @@ export default function CbtDashboard({
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-semibold mb-2">
-            <BookOpen size={14} /> Smart CBT Guru • Rilis Token & Kontrol Ruang Ujian
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-semibold">
+              <BookOpen size={14} /> Smart CBT Guru • Rilis Token & Kontrol Ruang Ujian
+            </div>
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-slate-700">
+              Created By Abdul Rahman
+            </span>
           </div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
             Manajemen Ujian Online (CBT)
@@ -3250,6 +3255,13 @@ export default function CbtDashboard({
         variant="danger"
         isLoading={loading}
       />
+
+      {/* Footer identitas pengembang */}
+      <footer className="mt-12 pt-6 pb-2 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400 flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2">
+        <span>Smart CBT Engine • SMK Digital Vocational Excellence</span>
+        <span className="hidden sm:inline text-slate-300 dark:text-slate-700">•</span>
+        <span className="font-semibold text-slate-700 dark:text-slate-300">Created By Abdul Rahman</span>
+      </footer>
     </div>
   );
 }

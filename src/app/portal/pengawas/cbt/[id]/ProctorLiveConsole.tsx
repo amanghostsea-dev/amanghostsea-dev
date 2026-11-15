@@ -371,6 +371,8 @@ export default function ProctorLiveConsole({
           <span>Kembali ke Jadwal Pengawas</span>
         </Link>
         <div className="flex items-center gap-2">
+          <span className="hidden sm:inline text-slate-500 font-mono text-[10.5px]">Created By Abdul Rahman</span>
+          <span className="hidden sm:inline text-slate-600">•</span>
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
           <span className="text-emerald-400 font-mono text-[11px] font-bold">KONSOL AKTIF • REFRESH 5S</span>
         </div>
@@ -1226,6 +1228,13 @@ export default function ProctorLiveConsole({
           </div>
         </div>
       )}
+
+      {/* Footer identitas pengembang */}
+      <footer className="max-w-7xl mx-auto pt-6 pb-2 text-center text-xs text-slate-500 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2">
+        <span>Smart CBT Live Proctor Console • SMK Digital</span>
+        <span className="hidden sm:inline text-slate-700">•</span>
+        <span className="font-semibold text-slate-400">Created By Abdul Rahman</span>
+      </footer>
 
     </div>
   );

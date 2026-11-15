@@ -538,6 +538,9 @@ export default function CbtExamRoom({
           >
             Kembali ke Daftar Ujian
           </Link>
+          <div className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium pt-1">
+            Smart CBT Examination System • Created By Abdul Rahman
+          </div>
         </div>
       </div>
     );
@@ -804,6 +807,9 @@ export default function CbtExamRoom({
             </div>
           )}
         </div>
+        <div className="text-center text-[10.5px] text-slate-400 dark:text-slate-500 font-medium">
+          Smart CBT Engine • Created By Abdul Rahman
+        </div>
       </div>
     );
   }
@@ -1024,8 +1030,11 @@ export default function CbtExamRoom({
             </div>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 text-center">
-            Jawaban tersimpan otomatis secara real-time.
+          <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 text-center space-y-1">
+            <div>Jawaban tersimpan otomatis secara real-time.</div>
+            <div className="text-[10px] text-slate-400/80 font-medium">
+              Smart CBT Secure • Created By <span className="font-semibold text-slate-600 dark:text-slate-300">Abdul Rahman</span>
+            </div>
           </div>
         </div>
       </div>

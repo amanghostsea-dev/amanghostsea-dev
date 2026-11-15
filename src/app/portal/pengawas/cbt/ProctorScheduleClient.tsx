@@ -119,7 +119,7 @@ export default function ProctorScheduleClient({
             <div className="space-y-2">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-blue-200 text-xs font-semibold">
                 <ShieldCheck size={14} className="text-blue-300" />
-                Portal Pengawas Ujian CBT Resmi • SMK TI GAMA 1 BEKASI
+                Portal Pengawas Ujian CBT Resmi • Created By Abdul Rahman
               </div>
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
                 Ruang Tugas Pengawas Ujian
@@ -365,6 +365,12 @@ export default function ProctorScheduleClient({
           </div>
         )}
 
+        {/* Footer Identitas Pengembang */}
+        <footer className="pt-8 pb-4 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400 flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2">
+          <span>Portal Pengawas CBT • SMK Digital Vocational Excellence</span>
+          <span className="hidden sm:inline text-slate-300 dark:text-slate-700">•</span>
+          <span className="font-semibold text-slate-700 dark:text-slate-300">Created By Abdul Rahman</span>
+        </footer>
       </div>
     </div>
   );
