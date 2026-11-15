@@ -144,6 +144,9 @@ export function CbtOfficialSignatures({
   headmasterNip,
   proctorName,
   proctorNip,
+  proctor2Name,
+  roleTitle,
+  subTitle,
   dateString,
   city,
   config,
@@ -157,6 +160,9 @@ export function CbtOfficialSignatures({
   headmasterNip?: string;
   proctorName?: string;
   proctorNip?: string;
+  proctor2Name?: string;
+  roleTitle?: string;
+  subTitle?: string;
   dateString?: string;
   city?: string;
   config?: Partial<KopSuratConfig>;
@@ -175,13 +181,35 @@ export function CbtOfficialSignatures({
     year: 'numeric'
   });
 
+  const effectiveRoleTitle = roleTitle || (
+    proctorName || (classNameTarget && classNameTarget.toLowerCase().includes('semua'))
+      ? 'Pengawas Ujian'
+      : classNameTarget
+        ? `Wali Kelas ${classNameTarget}`
+        : 'Pengawas Ujian'
+  );
+
+  const signerName = proctorName || teacherName || 'Pengawas Ujian';
+
+  const effectiveSubTitle = subTitle || (
+    proctorNip
+      ? `NIP. ${proctorNip}`
+      : teacherNip
+        ? `NIP. ${teacherNip}`
+        : effectiveRoleTitle === 'Pengawas Ujian'
+          ? (subjectName ? `Pengawas Ujian • Mapel: ${subjectName}` : 'Pengawas Ruang Ujian')
+          : subjectName
+            ? `Guru Mapel: ${subjectName}`
+            : cfg.schoolName
+  );
+
   if (mode === 'two-column') {
     return (
       <div className="pt-6 print:pt-4 print-avoid-break text-black font-serif text-[11px]">
         <div className="grid grid-cols-2 gap-8 text-center">
           <div>
             <div>Mengetahui,</div>
-            <div className="font-bold">Kepala Sekolah / Ka. Laboratorium CBT</div>
+            <div className="font-bold">Kepala Sekolah</div>
             <div className="relative h-20 flex items-center justify-center">
               {/* Cap Stempel Resmi / Digital */}
               <div className="absolute -left-2 top-0 pointer-events-none z-10">
@@ -204,15 +232,21 @@ export function CbtOfficialSignatures({
           <div>
             <div>{cityName}, {currentDate}</div>
             <div className="font-bold">
-              {classNameTarget ? `Wali Kelas ${classNameTarget}` : 'Guru Pengampu / Proktor'}
+              {effectiveRoleTitle}
             </div>
             <div className="h-20 flex items-center justify-center">
               <HeadmasterSignatureStroke size={{ width: 110, height: 42 }} />
             </div>
-            <div className="font-bold underline">{teacherName}</div>
+            <div className="font-bold underline">{signerName}</div>
             <div className="text-[10px] text-slate-600">
-              {teacherNip ? `NIP. ${teacherNip}` : subjectName ? `Guru Mapel: ${subjectName}` : cfg.schoolName}
+              {effectiveSubTitle}
             </div>
+            {proctor2Name && (
+              <div className="mt-2 text-[10px] text-slate-700">
+                <span>Pengawas 2: </span>
+                <span className="font-bold underline">{proctor2Name}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>

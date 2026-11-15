@@ -1024,7 +1024,12 @@ export default function ProctorLiveConsole({
               <div className="pt-4">
                 <CbtOfficialSignatures
                   config={kopSuratConfig}
+                  roleTitle="Pengawas Ujian"
+                  proctorName={exam.proctorName || currentUser.name}
+                  proctorNip={exam.proctorNip || ''}
+                  proctor2Name={exam.proctor2Name || undefined}
                   teacherName={exam.proctorName || currentUser.name}
+                  subTitle="Pengawas Ruang Ujian"
                   subjectName={exam.subject}
                   classNameTarget={exam.classTarget}
                   mode="two-column"
@@ -1118,7 +1123,12 @@ export default function ProctorLiveConsole({
               <div className="pt-4">
                 <CbtOfficialSignatures
                   config={kopSuratConfig}
+                  roleTitle="Pengawas Ujian"
+                  proctorName={exam.proctorName || currentUser.name}
+                  proctorNip={exam.proctorNip || ''}
+                  proctor2Name={exam.proctor2Name || undefined}
                   teacherName={exam.proctorName || currentUser.name}
+                  subTitle="Pengawas Ruang Ujian"
                   subjectName={exam.subject}
                   classNameTarget={exam.classTarget}
                   mode="two-column"
