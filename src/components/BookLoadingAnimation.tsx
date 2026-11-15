@@ -4,12 +4,11 @@ import React from 'react';
 
 interface BookLoadingAnimationProps {
   actionText?: string;
-  isProlonged?: boolean;
 }
 
-export function BookLoadingAnimation({ actionText = 'Memproses...', isProlonged = false }: BookLoadingAnimationProps) {
+export function BookLoadingAnimation({ actionText = 'Memproses...' }: BookLoadingAnimationProps) {
   return (
-    <div className="flex flex-col items-center justify-center p-6 sm:p-8 max-w-sm w-full mx-auto select-none">
+    <div className="flex flex-col items-center justify-center p-4 sm:p-6 max-w-sm w-full mx-auto select-none pointer-events-none">
       <style jsx>{`
         @keyframes pageTurn1 {
           0% {
@@ -113,17 +112,17 @@ export function BookLoadingAnimation({ actionText = 'Memproses...', isProlonged 
         }
       `}</style>
 
-      {/* 📖 ANIMATED SVG BOOK (Exact representation of uploaded design with Full Transparent Interior) */}
-      <div className="relative w-48 h-32 sm:w-56 sm:h-36 flex items-center justify-center">
+      {/* 📖 ANIMATED SVG BOOK (Full Transparent Background) */}
+      <div className="relative w-44 h-28 sm:w-52 sm:h-32 flex items-center justify-center">
         <svg
           viewBox="0 0 200 130"
           className="w-full h-full overflow-visible"
-          style={{ filter: 'drop-shadow(0px 3px 12px rgba(0,0,0,0.28))' }}
+          style={{ filter: 'drop-shadow(0px 4px 16px rgba(0,0,0,0.18))' }}
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
         >
           <defs>
-            {/* Main Aesthetic Book Gradient: Sage-Green (Left) to Warm Gold (Right) */}
+            {/* Sage-Green to Warm Gold Gradient */}
             <linearGradient id="bookGradient" x1="20" y1="65" x2="180" y2="65" gradientUnits="userSpaceOnUse">
               <stop offset="0%" stopColor="#5fa08d" />
               <stop offset="35%" stopColor="#75a695" />
@@ -137,15 +136,9 @@ export function BookLoadingAnimation({ actionText = 'Memproses...', isProlonged 
               <stop offset="50%" stopColor="#e8cf8d" stopOpacity="0.95" />
               <stop offset="100%" stopColor="#caa55d" />
             </linearGradient>
-
-            {/* Soft inner page fill */}
-            <linearGradient id="pageFillGradient" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />
-              <stop offset="100%" stopColor="#faf7ed" stopOpacity="0.9" />
-            </linearGradient>
           </defs>
 
-          {/* 🍃 Wind Flutter Arcs Above Page (Swooshes from image) */}
+          {/* 🍃 Wind Flutter Arcs */}
           <g className="wind-swoosh stroke-[#caa55d]" strokeWidth="2.2" strokeLinecap="round">
             <path d="M 122 30 C 127 22, 137 19, 145 23" opacity="0.65" />
             <path d="M 134 38 C 141 33, 149 32, 155 36" opacity="0.8" />
@@ -195,7 +188,6 @@ export function BookLoadingAnimation({ actionText = 'Memproses...', isProlonged 
             fill="none"
           />
 
-          {/* Spine Center Bottom Notch */}
           <path
             d="M 94 99 C 94 105, 106 105, 106 99"
             stroke="url(#bookGradient)"
@@ -204,7 +196,7 @@ export function BookLoadingAnimation({ actionText = 'Memproses...', isProlonged 
             fill="none"
           />
 
-          {/* 📄 3. Left Static Page (Full Transparent) */}
+          {/* 📄 3. Left Static Page */}
           <path
             d="M 30 45 
                C 50 45, 72 49, 96 54 
@@ -217,8 +209,7 @@ export function BookLoadingAnimation({ actionText = 'Memproses...', isProlonged 
             fill="none"
           />
 
-          {/* 📄 4. Animated Turning Page Leaves (Full Transparent) */}
-          {/* Back Leaf 2 (Slight delay for layered book physics) */}
+          {/* 📄 4. Animated Turning Page Leaves */}
           <g className="page-flip-2" style={{ transformStyle: 'preserve-3d' }}>
             <path
               d="M 100 52 
@@ -233,7 +224,6 @@ export function BookLoadingAnimation({ actionText = 'Memproses...', isProlonged 
             />
           </g>
 
-          {/* Front Leaf 1 (Main fluttering page matching illustration) */}
           <g className="page-flip-1" style={{ transformStyle: 'preserve-3d' }}>
             <path
               d="M 100 52 
@@ -248,7 +238,7 @@ export function BookLoadingAnimation({ actionText = 'Memproses...', isProlonged 
             />
           </g>
 
-          {/* 📖 5. Right Book Page Edge Contour */}
+          {/* 📖 5. Right Book Page Edge */}
           <path
             d="M 170 45 
                C 152 45, 130 49, 104 54 
@@ -264,14 +254,14 @@ export function BookLoadingAnimation({ actionText = 'Memproses...', isProlonged 
         </svg>
       </div>
 
-      {/* 🖋️ "LOADING" TYPOGRAPHY (Matching Exact Serif Styling in Image) */}
+      {/* 🖋️ "LOADING" TYPOGRAPHY */}
       <div className="mt-1 flex flex-col items-center">
         <h2 className="loading-shimmer-text font-serif text-2xl sm:text-3xl font-extrabold tracking-[0.28em] uppercase drop-shadow-xs">
           LOADING
         </h2>
 
         {/* 🟡 6 PULSING GRADIENT INDICATOR DOTS */}
-        <div className="flex items-center justify-center gap-2.5 mt-3">
+        <div className="flex items-center justify-center gap-2 mt-2.5">
           {[
             { color: '#5fa08d', delay: '0s' },
             { color: '#6fa695', delay: '0.2s' },
@@ -282,7 +272,7 @@ export function BookLoadingAnimation({ actionText = 'Memproses...', isProlonged 
           ].map((dot, idx) => (
             <span
               key={idx}
-              className="w-2.5 h-2.5 rounded-full inline-block"
+              className="w-2 h-2 rounded-full inline-block"
               style={{
                 backgroundColor: dot.color,
                 animation: `dotPulse 1.4s ease-in-out infinite`,
@@ -293,17 +283,10 @@ export function BookLoadingAnimation({ actionText = 'Memproses...', isProlonged 
         </div>
       </div>
 
-      {/* 💬 DYNAMIC ACTION SUBTEXT & DETAILS */}
-      <div className="mt-4 text-center space-y-1.5 flex flex-col items-center">
-        <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-slate-950/70 dark:bg-black/70 backdrop-blur-md border border-white/10 text-white shadow-lg">
-          <p className="text-xs sm:text-sm font-semibold text-slate-100 line-clamp-1 max-w-[280px]">
-            {actionText}
-          </p>
-        </div>
-        <p className="text-[11px] text-slate-700 dark:text-slate-300 font-medium drop-shadow-sm">
-          {isProlonged 
-            ? '⚡ Menghubungkan ke server, mohon tunggu sebentar...' 
-            : 'Sistem sedang memproses data di server'}
+      {/* 💬 CLEAN SUBTLE ACTION LABEL (Ringan, Tanpa Kotak Bertumpuk) */}
+      <div className="mt-2.5 text-center">
+        <p className="text-xs font-semibold text-slate-700/90 dark:text-slate-200/90 tracking-wide drop-shadow-sm">
+          {actionText || 'Memproses...'}
         </p>
       </div>
     </div>
