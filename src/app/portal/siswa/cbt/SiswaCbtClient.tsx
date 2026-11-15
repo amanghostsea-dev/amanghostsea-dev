@@ -269,33 +269,73 @@ export default function SiswaCbtClient({
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans p-4 sm:p-6 md:p-10">
       <div className="max-w-6xl mx-auto space-y-6">
-        {/* Top Navigation & Profile Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <Link
-              href="/portal/siswa"
-              className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 mb-2 transition-colors"
-            >
-              <ArrowLeft size={16} /> Kembali ke Portal Siswa
-            </Link>
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-              <span className="p-2.5 bg-gradient-to-tr from-purple-600 to-indigo-600 text-white rounded-2xl shadow-lg shadow-purple-500/25">
-                <MonitorPlay size={24} />
+        {/* Top Navigation & Profile Command Bar (Sleek, High-Tech, & Cohesive) */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
+          {/* Breadcrumb & Quick Link Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800/80">
+            {/* Breadcrumb */}
+            <div className="flex items-center gap-2 text-xs">
+              <Link
+                href="/portal/siswa"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-purple-50 dark:hover:bg-purple-950/40 text-slate-700 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-300 font-semibold transition-all group border border-slate-200 dark:border-slate-700 hover:border-purple-300"
+              >
+                <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform text-slate-400 group-hover:text-purple-500" />
+                <span>Dashboard Utama Siswa</span>
+              </Link>
+              <span className="text-slate-300 dark:text-slate-600">/</span>
+              <span className="text-purple-600 dark:text-purple-400 font-bold flex items-center gap-1">
+                <MonitorPlay size={13} /> Ruang CBT Online
               </span>
-              Portal CBT & Nilai Evaluasi Siswa
-            </h1>
-            <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm mt-1">
-              Jadwal pelaksanaan ujian dan rekapitulasi nilai resmi untuk <strong className="text-purple-600 dark:text-purple-400">{studentName}</strong>.
-            </p>
+            </div>
+
+            {/* Quick Action: Gerbang Token Ujian Mandiri */}
+            <div className="flex items-center gap-2">
+              <Link
+                href="/ujian"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold shadow-md shadow-purple-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <Key size={13} />
+                <span>Gerbang Token Ujian</span>
+              </Link>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3 bg-white dark:bg-slate-900 px-4 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-            <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 font-extrabold flex items-center justify-center text-sm shadow-sm">
-              {initials}
+          {/* Title & Student Profile Info */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
+                <span className="p-2.5 bg-gradient-to-tr from-purple-600 to-indigo-600 text-white rounded-2xl shadow-lg shadow-purple-500/25">
+                  <MonitorPlay size={24} />
+                </span>
+                Portal CBT & Nilai Evaluasi Siswa
+              </h1>
+              <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm">
+                Jadwal resmi ujian berbasis komputer & rekapitulasi nilai untuk <strong className="text-purple-600 dark:text-purple-400">{studentName}</strong>.
+              </p>
             </div>
-            <div>
-              <div className="text-xs font-bold text-slate-900 dark:text-white">{studentName}</div>
-              <div className="text-[10px] text-slate-500 font-medium">NISN: {studentNis} • Kelas: {studentClass}</div>
+
+            {/* Student Verified Identity Card */}
+            <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-950/70 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800">
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white font-black flex items-center justify-center text-sm shadow-md shadow-purple-900/30 shrink-0">
+                {initials}
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                  {studentName}
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                  <span className="text-[10px] font-mono font-semibold text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-800">
+                    NISN: {studentNis}
+                  </span>
+                  <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-950/50 px-1.5 py-0.5 rounded border border-purple-200 dark:border-purple-800">
+                    {studentClass}
+                  </span>
+                  <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/50 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Kartu Aktif
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         </div>

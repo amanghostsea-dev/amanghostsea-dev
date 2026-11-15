@@ -27,7 +27,8 @@ import {
   TrendingUp,
   MapPinCheck,
   ShieldCheck,
-  Camera
+  Camera,
+  Key
 } from 'lucide-react';
 import { formatExamScheduleRange, getExamScheduleDetails, getExamScheduleState } from '@/lib/cbt-schedule';
 
@@ -375,7 +376,7 @@ export default function SiswaDashboardClient({
             {/* Quick Actions (CBT & Geolocation Attendance) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* CBT Card */}
-              <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 rounded-3xl text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg shadow-purple-500/20">
+              <div className="bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 p-6 rounded-3xl text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg shadow-purple-500/20">
                 <div>
                   <h3 className="font-bold text-lg flex items-center gap-2 mb-1">
                     <MonitorPlay size={20} /> Ujian Berlangsung (CBT)
@@ -384,12 +385,20 @@ export default function SiswaDashboardClient({
                     Akses ruang ujian online, cek token sesi, dan pantau hasil nilai pengerjaan.
                   </p>
                 </div>
-                <Link
-                  href="/portal/siswa/cbt"
-                  className="px-5 py-2.5 bg-white text-purple-700 rounded-xl font-bold text-xs sm:text-sm hover:scale-[1.03] transition-all shadow-md text-center whitespace-nowrap"
-                >
-                  Buka CBT Siswa →
-                </Link>
+                <div className="flex flex-col sm:flex-row items-center gap-2 shrink-0">
+                  <Link
+                    href="/portal/siswa/cbt"
+                    className="w-full sm:w-auto px-4 py-2.5 bg-white text-purple-700 rounded-xl font-bold text-xs sm:text-sm hover:scale-[1.03] transition-all shadow-md text-center whitespace-nowrap"
+                  >
+                    Jadwal & Nilai CBT →
+                  </Link>
+                  <Link
+                    href="/ujian"
+                    className="w-full sm:w-auto px-4 py-2.5 bg-purple-900/60 hover:bg-purple-800 text-white border border-purple-400/40 rounded-xl font-bold text-xs sm:text-sm transition-all text-center whitespace-nowrap flex items-center justify-center gap-1.5"
+                  >
+                    <Key size={14} className="text-amber-300" /> Masukkan Token
+                  </Link>
+                </div>
               </div>
 
               {/* Attendance Card */}
