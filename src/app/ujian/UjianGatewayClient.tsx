@@ -346,19 +346,39 @@ export default function UjianGatewayClient({
 
       {/* Main Content Area */}
       <main className="relative z-10 flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-8 flex flex-col justify-center">
-        {/* Hero Title */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-2 bg-white/80 border border-[#5fa08d]/30 text-[#2f6354] px-4 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wider mb-1 shadow-sm backdrop-blur-md">
-            <Sparkles size={13} className="text-[#caa55d]" />
-            Gerbang Masuk Ujian Mandiri Siswa
-          </div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 tracking-tight drop-shadow-2xs">
-            Smart CBT{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#2a6857] via-[#5fa08d] to-[#caa55d]">
-              Ruang Ujian Online
+        {/* 🌟 HERO TITLE DENGAN ANIMASI CANGGIH & 100% TETAP TERBACA DI SEMUA PERANGKAT */}
+        <div className="text-center space-y-3 relative select-none">
+          {/* 1. Interactive Pill Badge: Breathing & Twinkling */}
+          <div className="inline-flex items-center gap-2 bg-white/90 border border-[#5fa08d]/35 text-[#1b5344] px-4 py-1.5 rounded-full text-[11px] sm:text-xs font-black uppercase tracking-wider shadow-[0_2px_12px_rgba(95,160,141,0.12)] backdrop-blur-md animate-[badgeFloat_4.5s_ease-in-out_infinite] transition-transform hover:scale-105 cursor-default">
+            <Sparkles size={14} className="text-[#caa55d] animate-[sparkleGleam_3s_ease-in-out_infinite]" />
+            <span className="bg-gradient-to-r from-[#1b5344] to-[#2f6354] bg-clip-text text-transparent font-extrabold">
+              Gerbang Masuk Ujian Mandiri Siswa
             </span>
-          </h1>
-          <p className="text-sm sm:text-base text-slate-600 max-w-xl mx-auto leading-relaxed">
+          </div>
+
+          {/* 2. Main Title: "Smart CBT" (Glint Sheen) + "Ruang Ujian Online" (Fluid Aurora Wave + Ambient Aura) */}
+          <div className="relative flex flex-col items-center justify-center">
+            {/* Holographic Ambient Glow behind text (Layer kedalaman 3D futuristik) */}
+            <div
+              aria-hidden="true"
+              className="absolute -inset-x-8 -inset-y-4 bg-gradient-to-r from-[#5fa08d]/25 via-[#f0ca65]/20 to-[#caa55d]/25 blur-2xl rounded-full opacity-60 pointer-events-none animate-[auraPulse_5s_ease-in-out_infinite]"
+            />
+
+            <h1 className="relative text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight leading-[1.15] drop-shadow-2xs">
+              {/* "Smart CBT" with sophisticated metallic glint sheen */}
+              <span className="smart-cbt-text font-black mr-2.5 sm:mr-3.5 inline-block">
+                Smart CBT
+              </span>
+
+              {/* "Ruang Ujian Online" with flowing aurora gradient */}
+              <span className="ruang-ujian-aurora font-black inline-block">
+                Ruang Ujian Online
+              </span>
+            </h1>
+          </div>
+
+          {/* 3. Subtitle: Crisp Slate with high readability across all devices */}
+          <p className="text-xs sm:text-sm md:text-base text-slate-600 font-medium max-w-xl mx-auto leading-relaxed px-2">
             {authenticatedStudent
               ? `Selamat datang, ${authenticatedStudent.name}! Masukkan Token Ujian resmi dari pengawas untuk memulai pengerjaan.`
               : 'Gunakan Username & Password resmi pada Kartu Login Peserta Ujian Anda serta Token Ujian dari pengawas ruangan.'}
@@ -1072,6 +1092,93 @@ export default function UjianGatewayClient({
 
       {/* 🚀 CSS Keyframes for 60fps animations */}
       <style jsx global>{`
+        /* 💎 Smart CBT Titanium Metallic Sheen Animation */
+        .smart-cbt-text {
+          color: #091e2b;
+          background: linear-gradient(
+            115deg,
+            #091e2b 0%,
+            #091e2b 35%,
+            #477a6c 50%,
+            #091e2b 65%,
+            #091e2b 100%
+          );
+          background-size: 240% 100%;
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          animation: glintWave 5.5s ease-in-out infinite;
+        }
+
+        /* 🌊 Ruang Ujian Online Fluid Aurora Gradient Wave */
+        .ruang-ujian-aurora {
+          color: #1b5e4c;
+          background: linear-gradient(
+            100deg,
+            #175444 0%,
+            #2a7360 22%,
+            #5fa08d 45%,
+            #d6a746 72%,
+            #8e6c26 90%,
+            #175444 100%
+          );
+          background-size: 260% 100%;
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          animation: auroraFlow 6.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes auroraFlow {
+          0% {
+            background-position: 0% 50%;
+          }
+          100% {
+            background-position: 100% 50%;
+          }
+        }
+
+        @keyframes glintWave {
+          0%, 60% {
+            background-position: -180% 0;
+          }
+          100% {
+            background-position: 180% 0;
+          }
+        }
+
+        @keyframes badgeFloat {
+          0%, 100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-3px);
+          }
+        }
+
+        @keyframes sparkleGleam {
+          0%, 100% {
+            transform: scale(1) rotate(0deg);
+            opacity: 0.85;
+          }
+          50% {
+            transform: scale(1.3) rotate(18deg);
+            opacity: 1;
+            filter: drop-shadow(0 0 6px rgba(202, 165, 93, 0.95));
+          }
+        }
+
+        @keyframes auraPulse {
+          0%, 100% {
+            opacity: 0.45;
+            transform: scale(0.97);
+          }
+          50% {
+            opacity: 0.75;
+            transform: scale(1.03);
+          }
+        }
+
         @keyframes floatDrift1 {
           0%, 100% {
             transform: translate(0px, 0px) scale(1);
