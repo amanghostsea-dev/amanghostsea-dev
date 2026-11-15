@@ -66,12 +66,20 @@ interface JurusanItem {
   description: string;
 }
 
+interface CurrentUserItem {
+  role: string;
+  name: string;
+  id?: string;
+  isSuperAdmin: boolean;
+}
+
 interface MapelClientProps {
   initialSubjects: SubjectItem[];
   teachers: TeacherItem[];
   students: StudentItem[];
   classTargets?: string[];
   jurusans?: JurusanItem[];
+  currentUser?: CurrentUserItem;
 }
 
 export default function MapelClient({
@@ -80,11 +88,15 @@ export default function MapelClient({
   students,
   classTargets = ['Semua Kelas', 'X TJKT 1', 'XI TJKT 1', 'XII TJKT 1', 'X DKV 1', 'XI DKV 1', 'XII DKV 1', 'X MPLB 1', 'XI MPLB 1', 'XII MPLB 1'],
   jurusans = [],
+  currentUser,
 }: MapelClientProps) {
+  const isSuperAdmin = currentUser?.isSuperAdmin ?? true;
+
   const [subjects, setSubjects] = useState<SubjectItem[]>(initialSubjects);
   const [search, setSearch] = useState('');
   const [selectedClass, setSelectedClass] = useState('ALL');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
+  const [selectedTeacher, setSelectedTeacher] = useState('ALL');
 
   // Modal states
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -147,8 +159,13 @@ export default function MapelClient({
 
     const matchesClass = selectedClass === 'ALL' || s.classTarget === selectedClass;
     const matchesCategory = selectedCategory === 'ALL' || s.category === selectedCategory;
+    const matchesTeacher =
+      !isSuperAdmin ||
+      selectedTeacher === 'ALL' ||
+      s.teacherId === selectedTeacher ||
+      s.teacherName === selectedTeacher;
 
-    return matchesSearch && matchesClass && matchesCategory;
+    return matchesSearch && matchesClass && matchesCategory && matchesTeacher;
   });
 
   // Stats calculation
@@ -166,8 +183,15 @@ export default function MapelClient({
     setFormJurusan(defaultJurusan);
     const defaultClass = classTargets.find((c) => c !== 'Semua Kelas' && c.toUpperCase().includes(defaultJurusan.toUpperCase())) || `XI ${defaultJurusan} 1`;
     setFormClassTarget(defaultClass);
-    setFormTeacherId(teachers[0]?.id || '');
-    setFormTeacherName(teachers[0]?.name || 'Abdul Rahman');
+
+    if (!isSuperAdmin) {
+      setFormTeacherId(currentUser?.id || '');
+      setFormTeacherName(currentUser?.name || 'Guru Pengampu');
+    } else {
+      setFormTeacherId(teachers[0]?.id || '');
+      setFormTeacherName(teachers[0]?.name || 'Abdul Rahman');
+    }
+
     setFormDay('Senin');
     setFormTime('07:30 - 10:00');
     setFormRoom('Lab Komputer 1');
@@ -184,8 +208,15 @@ export default function MapelClient({
     setFormClassTarget(subject.classTarget);
     const matchedJurusan = jurusans.find((j) => subject.classTarget.toUpperCase().includes(j.code.toUpperCase()))?.code || (subject.classTarget === 'Semua Kelas' ? 'ALL' : (jurusans[0]?.code || 'TJKT'));
     setFormJurusan(matchedJurusan);
-    setFormTeacherId(subject.teacherId || '');
-    setFormTeacherName(subject.teacherName || '');
+
+    if (!isSuperAdmin) {
+      setFormTeacherId(currentUser?.id || subject.teacherId || '');
+      setFormTeacherName(currentUser?.name || subject.teacherName || '');
+    } else {
+      setFormTeacherId(subject.teacherId || '');
+      setFormTeacherName(subject.teacherName || '');
+    }
+
     setFormDay(subject.day || 'Senin');
     setFormTime(subject.time || '07:30 - 10:00');
     setFormRoom(subject.room || 'Lab Komputer 1');
@@ -210,9 +241,13 @@ export default function MapelClient({
 
     setLoading(true);
     try {
-      // Tentukan teacherName dari dropdown atau custom
       let finalTeacherName = formTeacherName;
-      if (formTeacherId) {
+      let finalTeacherId = formTeacherId;
+
+      if (!isSuperAdmin) {
+        finalTeacherName = currentUser?.name || formTeacherName;
+        finalTeacherId = currentUser?.id || formTeacherId;
+      } else if (formTeacherId) {
         const found = teachers.find((t) => t.id === formTeacherId);
         if (found) finalTeacherName = found.name;
       }
@@ -223,7 +258,7 @@ export default function MapelClient({
         name: formName,
         category: formCategory,
         classTarget: formClassTarget,
-        teacherId: formTeacherId || null,
+        teacherId: finalTeacherId || null,
         teacherName: finalTeacherName || null,
         day: formDay,
         time: formTime,
@@ -347,13 +382,18 @@ export default function MapelClient({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-bold mb-2">
-            <BookOpen size={14} /> Sinkronisasi Kurikulum & Plotting Guru Pengampu
+            <BookOpen size={14} />{' '}
+            {isSuperAdmin
+              ? 'Sinkronisasi Kurikulum & Plotting Guru Pengampu'
+              : `Mata Pelajaran Pengampu • ${currentUser?.name || 'Guru'}`}
           </div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
-            Plotting & Manajemen Mata Pelajaran (Mapel)
+            {isSuperAdmin ? 'Plotting & Manajemen Mata Pelajaran (Mapel)' : 'Mata Pelajaran Saya'}
           </h1>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-1 max-w-2xl">
-            Atur kurikulum, jadwal pelajaran mingguan, dan tentukan guru pengampu untuk setiap mata pelajaran. Data ini tersinkronisasi langsung ke Portal Siswa dan Portal Guru.
+            {isSuperAdmin
+              ? 'Atur kurikulum sekolah, jadwal pelajaran mingguan, dan tentukan guru pengampu untuk setiap mata pelajaran. Data ini tersinkronisasi langsung ke Portal Siswa dan Portal Guru.'
+              : 'Kelola mata pelajaran dan jadwal belajar yang Anda ampu di kelas. Seluruh data mapel ini tersinkronisasi otomatis dengan Portal Siswa, Bank Soal CBT, Tugas, dan Buku Penilaian.'}
           </p>
         </div>
 
@@ -382,7 +422,9 @@ export default function MapelClient({
           </div>
           <div>
             <div className="text-2xl font-black text-gray-900 dark:text-white">{totalSubjects} Mapel</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">Total Mata Pelajaran</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+              {isSuperAdmin ? 'Total Mata Pelajaran Sekolah' : 'Mata Pelajaran Saya'}
+            </div>
           </div>
         </div>
 
@@ -392,9 +434,13 @@ export default function MapelClient({
           </div>
           <div>
             <div className="text-2xl font-black text-gray-900 dark:text-white">
-              {plottedCount} / {totalSubjects}
+              {isSuperAdmin
+                ? `${plottedCount} / ${totalSubjects}`
+                : `${new Set(subjects.map((s) => s.classTarget)).size} Rombel`}
             </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">Guru Terplotting</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+              {isSuperAdmin ? 'Guru Terplotting' : 'Kelas Yang Diajar'}
+            </div>
           </div>
         </div>
 
@@ -404,7 +450,9 @@ export default function MapelClient({
           </div>
           <div>
             <div className="text-2xl font-black text-gray-900 dark:text-white">{totalCredits} JP</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">Beban Mengajar / Minggu</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+              {isSuperAdmin ? 'Beban Mengajar / Minggu' : 'Beban Mengajar Saya / Minggu'}
+            </div>
           </div>
         </div>
 
@@ -432,7 +480,24 @@ export default function MapelClient({
           />
         </div>
 
-        <div className="flex items-center gap-2.5 w-full sm:w-auto">
+        <div className="flex items-center gap-2.5 w-full sm:w-auto flex-wrap">
+          {/* Guru Filter for Super Admin */}
+          {isSuperAdmin && (
+            <select
+              value={selectedTeacher}
+              onChange={(e) => setSelectedTeacher(e.target.value)}
+              aria-label="Filter Berdasarkan Guru Pengampu"
+              className="px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="ALL">Semua Guru Pengampu</option>
+              {teachers.map((t) => (
+                <option key={t.id} value={t.name}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          )}
+
           {/* Class Filter */}
           <select
             value={selectedClass}
@@ -537,41 +602,57 @@ export default function MapelClient({
 
                       {/* GURU PENGAMPU CELL */}
                       <td className="py-4 px-6">
-                        {hasTeacher ? (
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs border border-emerald-200">
-                                {s.teacherName ? s.teacherName[0]?.toUpperCase() : 'G'}
+                        {isSuperAdmin ? (
+                          hasTeacher ? (
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs border border-emerald-200">
+                                  {s.teacherName ? s.teacherName[0]?.toUpperCase() : 'G'}
+                                </div>
+                                <div>
+                                  <span className="font-bold text-gray-900 dark:text-white text-xs block">
+                                    {s.teacherName}
+                                  </span>
+                                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                                    Akun Guru Terhubung
+                                  </span>
+                                </div>
                               </div>
-                              <div>
-                                <span className="font-bold text-gray-900 dark:text-white text-xs block">
-                                  {s.teacherName}
-                                </span>
-                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
-                                  Akun Guru Terhubung
-                                </span>
-                              </div>
+                              <button
+                                type="button"
+                                onClick={() => openPlotModal(s)}
+                                className="px-2.5 py-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer"
+                              >
+                                Ganti
+                              </button>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => openPlotModal(s)}
-                              className="px-2.5 py-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer"
-                            >
-                              Ganti
-                            </button>
-                          </div>
+                          ) : (
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="inline-flex items-center gap-1.5 text-xs text-amber-600 font-bold bg-amber-50 dark:bg-amber-900/30 px-2.5 py-1 rounded-lg">
+                                <ShieldAlert size={13} /> Belum Diplotting
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => openPlotModal(s)}
+                                className="px-3 py-1 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-lg shadow-sm transition-all cursor-pointer"
+                              >
+                                Plot Guru
+                              </button>
+                            </div>
+                          )
                         ) : (
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="inline-flex items-center gap-1.5 text-xs text-amber-600 font-bold bg-amber-50 dark:bg-amber-900/30 px-2.5 py-1 rounded-lg">
-                              <ShieldAlert size={13} /> Belum Diplotting
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => openPlotModal(s)}
-                              className="px-3 py-1 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-lg shadow-sm transition-all cursor-pointer"
-                            >
-                              Plot Guru
-                            </button>
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 flex items-center justify-center font-bold text-xs border border-blue-200">
+                              {currentUser?.name ? currentUser.name[0]?.toUpperCase() : 'G'}
+                            </div>
+                            <div>
+                              <span className="font-bold text-gray-900 dark:text-white text-xs block">
+                                {s.teacherName || currentUser?.name}
+                              </span>
+                              <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold flex items-center gap-1">
+                                <CheckCircle2 size={11} /> Anda Sendiri (Pengampu)
+                              </span>
+                            </div>
                           </div>
                         )}
                       </td>
@@ -851,22 +932,43 @@ export default function MapelClient({
                 <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
                   Guru Pengampu
                 </label>
-                <select
-                  value={formTeacherId}
-                  onChange={(e) => {
-                    setFormTeacherId(e.target.value);
-                    const t = teachers.find((item) => item.id === e.target.value);
-                    if (t) setFormTeacherName(t.name);
-                  }}
-                  className="w-full px-3.5 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-semibold text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">-- Pilih Guru Pengampu --</option>
-                  {teachers.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} (@{t.username})
-                    </option>
-                  ))}
-                </select>
+                {isSuperAdmin ? (
+                  <select
+                    value={formTeacherId}
+                    onChange={(e) => {
+                      setFormTeacherId(e.target.value);
+                      const t = teachers.find((item) => item.id === e.target.value);
+                      if (t) setFormTeacherName(t.name);
+                    }}
+                    className="w-full px-3.5 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-semibold text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">-- Pilih Guru Pengampu --</option>
+                    {teachers.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name} (@{t.username})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs">
+                        {currentUser?.name ? currentUser.name[0]?.toUpperCase() : 'G'}
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-emerald-950 dark:text-emerald-200">
+                          {currentUser?.name || 'Guru Pengampu'}
+                        </div>
+                        <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                          Otomatis terhubung sebagai pengampu mata pelajaran ini
+                        </div>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-200/60 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 text-[10px] font-bold">
+                      Akun Anda
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-3 gap-3">

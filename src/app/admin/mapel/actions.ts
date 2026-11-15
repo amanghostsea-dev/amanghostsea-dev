@@ -39,15 +39,28 @@ async function requireGuruOrAdmin() {
 }
 
 export async function getSubjects() {
-  await requireGuruOrAdmin();
+  const auth = await requireGuruOrAdmin();
 
   const [classTargets, jurusans] = await Promise.all([
     getDynamicClassTargets(),
     ensureDefaultJurusans(),
   ]);
 
+  // JIKA USER ADALAH GURU: Hanya ambil mata pelajaran yang dia ampu / input sendiri
+  // JIKA SUPER ADMIN: Ambil seluruh mata pelajaran sekolah dari semua guru
+  const subjectWhere = auth.isSuperAdmin
+    ? {}
+    : {
+        OR: [
+          ...(auth.userId ? [{ teacherId: auth.userId }] : []),
+          ...(auth.name ? [{ teacherName: { equals: auth.name, mode: 'insensitive' as const } }] : []),
+          ...(auth.name ? [{ teacherName: { contains: auth.name, mode: 'insensitive' as const } }] : []),
+        ],
+      };
+
   const [subjects, teachers, students] = await Promise.all([
     prisma.subject.findMany({
+      where: subjectWhere,
       include: {
         _count: {
           select: {
@@ -82,7 +95,19 @@ export async function getSubjects() {
     }),
   ]);
 
-  return { subjects, teachers, students, classTargets, jurusans };
+  return {
+    subjects,
+    teachers,
+    students,
+    classTargets,
+    jurusans,
+    currentUser: {
+      role: auth.role,
+      name: auth.name,
+      id: auth.userId,
+      isSuperAdmin: auth.isSuperAdmin,
+    },
+  };
 }
 
 export async function saveSubject(data: {
@@ -105,13 +130,25 @@ export async function saveSubject(data: {
     const code = data.code.trim().toUpperCase();
     const name = data.name.trim();
 
-    // Tentukan guru pengampu (jika user adalah Guru dan belum diisi, otomatis akun dirinya)
+    // Tentukan guru pengampu (jika user adalah Guru, otomatis akun dirinya)
     let teacherId = data.teacherId || null;
     let teacherName = data.teacherName || null;
 
-    if (!teacherId && !teacherName && auth.role === 'Guru') {
+    if (auth.role === 'Guru') {
       teacherId = auth.userId || null;
       teacherName = auth.name;
+    }
+
+    // Jika Guru mengedit, pastikan mapel tersebut adalah miliknya
+    if (data.id && !auth.isSuperAdmin) {
+      const existing = await prisma.subject.findUnique({ where: { id: data.id } });
+      if (
+        existing &&
+        existing.teacherName?.toLowerCase() !== auth.name.toLowerCase() &&
+        existing.teacherId !== auth.userId
+      ) {
+        return { error: 'Anda hanya dapat mengedit mata pelajaran yang Anda ampu.' };
+      }
     }
 
     // Check code uniqueness if creating new or changing code
@@ -216,7 +253,11 @@ export async function deleteSubject(id: string) {
   try {
     if (!auth.isSuperAdmin) {
       const existing = await prisma.subject.findUnique({ where: { id } });
-      if (existing && existing.teacherName !== auth.name && existing.teacherId !== auth.userId) {
+      if (
+        existing &&
+        existing.teacherName?.trim().toLowerCase() !== auth.name?.trim().toLowerCase() &&
+        existing.teacherId !== auth.userId
+      ) {
         return { error: 'Anda hanya dapat menghapus mata pelajaran yang Anda ampu.' };
       }
     }
@@ -242,7 +283,10 @@ export async function plotTeacherToSubject(data: {
   teacherId?: string | null;
   teacherName?: string | null;
 }) {
-  await requireGuruOrAdmin();
+  const auth = await requireGuruOrAdmin();
+  if (!auth.isSuperAdmin) {
+    return { error: 'Hanya Super Admin yang berhak melakukan plotting guru pengampu.' };
+  }
 
   try {
     const updated = await prisma.subject.update({

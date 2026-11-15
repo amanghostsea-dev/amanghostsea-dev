@@ -54,7 +54,10 @@ export function middleware(request: NextRequest) {
     }
 
     if (isGuru) {
-      const isAllowedForGuru = pathname.startsWith('/admin/cbt') || pathname.startsWith('/admin/tugas');
+      const isAllowedForGuru =
+        pathname.startsWith('/admin/cbt') ||
+        pathname.startsWith('/admin/tugas') ||
+        pathname.startsWith('/admin/mapel');
       if (!isAllowedForGuru) {
         return NextResponse.redirect(new URL('/portal/guru', request.url));
       }
