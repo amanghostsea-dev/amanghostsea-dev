@@ -18,135 +18,29 @@ export interface DefaultSubjectItem {
   defaultGrade: string;
 }
 
-export const DEFAULT_SUBJECTS: DefaultSubjectItem[] = [
-  {
-    code: 'PWM-01',
-    name: 'Pemrograman Web & Mobile',
-    category: 'Muatan Kejuruan',
-    classTarget: 'XI TJKT 1',
-    teacherName: 'Abdul Rahman',
-    day: 'Senin',
-    time: '07:30 - 10:00',
-    room: 'Lab Komputer 1',
-    kkm: 78,
-    credits: 4,
-    defaultAssignment: 88,
-    defaultMid: 85,
-    defaultFinal: 92,
-    defaultGrade: 'A',
-  },
-  {
-    code: 'BD-02',
-    name: 'Basis Data & SQL Relasional',
-    category: 'Muatan Kejuruan',
-    classTarget: 'XI TJKT 1',
-    teacherName: 'Bpk. Budi S.Kom',
-    day: 'Selasa',
-    time: '07:30 - 09:45',
-    room: 'Lab Komputer 2',
-    kkm: 78,
-    credits: 3,
-    defaultAssignment: 90,
-    defaultMid: 86,
-    defaultFinal: 94,
-    defaultGrade: 'A',
-  },
-  {
-    code: 'PBO-03',
-    name: 'Pemrograman Berorientasi Objek',
-    category: 'Muatan Kejuruan',
-    classTarget: 'XI TJKT 1',
-    teacherName: 'Bpk. Hendra S.T',
-    day: 'Kamis',
-    time: '07:30 - 10:30',
-    room: 'Lab Komputer 2',
-    kkm: 78,
-    credits: 4,
-    defaultAssignment: 86,
-    defaultMid: 82,
-    defaultFinal: 89,
-    defaultGrade: 'A-',
-  },
-  {
-    code: 'MTK-04',
-    name: 'Matematika Terapan',
-    category: 'Muatan Umum',
-    classTarget: 'XI TJKT 1',
-    teacherName: 'Ibu Siti S.Pd',
-    day: 'Senin',
-    time: '10:15 - 12:30',
-    room: 'Ruang Teori 12A',
-    kkm: 75,
-    credits: 3,
-    defaultAssignment: 80,
-    defaultMid: 76,
-    defaultFinal: 84,
-    defaultGrade: 'B+',
-  },
-  {
-    code: 'BIG-05',
-    name: 'Bahasa Inggris Kejuruan',
-    category: 'Muatan Umum',
-    classTarget: 'XI TJKT 1',
-    teacherName: 'Mr. John',
-    day: 'Selasa',
-    time: '10:00 - 11:30',
-    room: 'Ruang 10B',
-    kkm: 75,
-    credits: 2,
-    defaultAssignment: 88,
-    defaultMid: 85,
-    defaultFinal: 88,
-    defaultGrade: 'A-',
-  },
-  {
-    code: 'PKK-06',
-    name: 'Produk Kreatif & Kewirausahaan',
-    category: 'Muatan Kejuruan',
-    classTarget: 'XI TJKT 1',
-    teacherName: 'Ibu Dewi SE',
-    day: 'Kamis',
-    time: '10:45 - 13:00',
-    room: 'Ruang Kreatif',
-    kkm: 78,
-    credits: 3,
-    defaultAssignment: 92,
-    defaultMid: 90,
-    defaultFinal: 95,
-    defaultGrade: 'A',
-  },
-  {
-    code: 'AIJ-07',
-    name: 'Administrasi Infrastruktur Jaringan',
-    category: 'Muatan Kejuruan',
-    classTarget: 'XI TJKT 1',
-    teacherName: 'Bpk. Farhan M.T',
-    day: 'Rabu',
-    time: '07:30 - 10:00',
-    room: 'Lab Jaringan',
-    kkm: 78,
-    credits: 4,
-    defaultAssignment: 84,
-    defaultMid: 80,
-    defaultFinal: 85,
-    defaultGrade: 'B+',
-  },
-  {
-    code: 'PABP-08',
-    name: 'Pendidikan Agama & Budi Pekerti',
-    category: 'Muatan Umum',
-    classTarget: 'XI TJKT 1',
-    teacherName: 'Ust. Nurul Huda M.Pd',
-    day: 'Jumat',
-    time: '07:00 - 09:00',
-    room: 'Masjid Sekolah',
-    kkm: 80,
-    credits: 2,
-    defaultAssignment: 95,
-    defaultMid: 92,
-    defaultFinal: 96,
-    defaultGrade: 'A',
-  },
+// Data dummy lawas dikosongkan agar sistem TIDAK PERNAH menginjeksi mapel fiktif ke database
+export const DEFAULT_SUBJECTS: DefaultSubjectItem[] = [];
+
+// Daftar penanda data dummy bawaan yang tidak pernah diinput oleh pengguna
+export const LEGACY_DUMMY_CODES = [
+  'AIJ-07',
+  'BD-02',
+  'BIG-05',
+  'MTK-04',
+  'PABP-08',
+  'PBO-03',
+  'PKK-06',
+  'PWM-01',
+];
+
+export const LEGACY_DUMMY_TEACHERS = [
+  'Bpk. Farhan M.T',
+  'Mr. John',
+  'Bpk. Budi S.Kom',
+  'Ibu Siti S.Pd',
+  'Bpk. Hendra S.T',
+  'Ibu Dewi SE',
+  'Ust. Nurul Huda M.Pd',
 ];
 
 export function computeGradePredicate(score: number): string {
@@ -163,8 +57,45 @@ export function computeFinalScore(assignment: number, midExam: number, finalExam
 }
 
 /**
- * Memastikan Mapel dasar dan nilai awal siswa terdaftar di PostgreSQL
- * Menggunakan pencocokan kelas yang akurat dan nilai bersih (tanpa dummy values).
+ * Membersihkan seluruh mata pelajaran dummy (seperti Bpk. Farhan M.T, Mr. John, dll.)
+ * yang pernah ter-generate otomatis sebelumnya, sehingga database benar-benar bersih
+ * dan murni hanya berisi data yang diinput resmi oleh Guru & Admin Utama.
+ */
+export async function cleanupLegacyDummySubjects() {
+  try {
+    const dummySubjects = await prisma.subject.findMany({
+      where: {
+        OR: [
+          { teacherName: { in: LEGACY_DUMMY_TEACHERS } },
+          {
+            AND: [
+              { code: { in: LEGACY_DUMMY_CODES } },
+              { teacherName: { in: [...LEGACY_DUMMY_TEACHERS, 'Abdul Rahman'] } },
+            ],
+          },
+        ],
+      },
+      select: { id: true, code: true, name: true, teacherName: true },
+    });
+
+    if (dummySubjects.length > 0) {
+      const ids = dummySubjects.map((d) => d.id);
+      await prisma.studentGrade.deleteMany({
+        where: { subjectId: { in: ids } },
+      });
+      await prisma.subject.deleteMany({
+        where: { id: { in: ids } },
+      });
+      console.log(`[CLEANUP] Berhasil menghapus ${dummySubjects.length} mata pelajaran dummy lawas.`);
+    }
+  } catch (error) {
+    console.error('Error cleaning up legacy dummy subjects:', error);
+  }
+}
+
+/**
+ * Menghubungkan siswa dengan mata pelajaran resmi yang ada di database.
+ * TIDAK PERNAH membuat mata pelajaran dummy baru jika database kosong.
  */
 export async function ensureDefaultSubjectsAndGrades(
   targetStudentName?: string,
@@ -172,29 +103,11 @@ export async function ensureDefaultSubjectsAndGrades(
   targetStudentClass?: string
 ) {
   try {
-    // 1. Inisialisasi awal Mapel jika tabel Subject masih kosong sama sekali
-    const subjectCount = await prisma.subject.count();
-    if (subjectCount === 0) {
-      for (const def of DEFAULT_SUBJECTS) {
-        await prisma.subject.create({
-          data: {
-            code: def.code,
-            name: def.name,
-            category: def.category,
-            classTarget: def.classTarget,
-            teacherName: def.teacherName,
-            day: def.day,
-            time: def.time,
-            room: def.room,
-            kkm: def.kkm,
-            credits: def.credits,
-            status: 'ACTIVE',
-          },
-        });
-      }
-    }
+    // 1. Bersihkan sisa mapel dummy lawas jika ada
+    await cleanupLegacyDummySubjects();
 
-    // 2. Jika dipanggil khusus untuk 1 siswa tertentu (inisialisasi daftar mapel kelasnya)
+    // 2. Jika dipanggil khusus untuk 1 siswa tertentu:
+    // Buat placeholder nilai HANYA untuk mata pelajaran resmi yang memang sudah ada di database
     if (targetStudentName) {
       let studentClass = targetStudentClass || '';
       if (!studentClass) {

@@ -3,7 +3,7 @@
 import prisma from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-import { ensureDefaultSubjectsAndGrades } from '@/lib/subject-seed';
+import { ensureDefaultSubjectsAndGrades, cleanupLegacyDummySubjects } from '@/lib/subject-seed';
 import { ensureDefaultJurusans, getDynamicClassTargets } from '@/lib/jurusan-service';
 import { isClassTargetMatch } from '@/lib/cbt-schedule';
 
@@ -40,6 +40,9 @@ async function requireGuruOrAdmin() {
 
 export async function getSubjects() {
   const auth = await requireGuruOrAdmin();
+
+  // Bersihkan data dummy bawaan/lawas jika masih ada di DB agar tabel murni hanya berisi input asli
+  await cleanupLegacyDummySubjects();
 
   const [classTargets, jurusans] = await Promise.all([
     getDynamicClassTargets(),
@@ -484,5 +487,23 @@ export async function saveSubjectsBulk(dataList: BulkSubjectInput[]) {
   } catch (error) {
     console.error('Error saving subjects bulk:', error);
     return { error: error instanceof Error ? error.message : 'Gagal menyimpan mata pelajaran secara kolektif' };
+  }
+}
+
+export async function purgeLegacyDummySubjects() {
+  const auth = await requireGuruOrAdmin();
+  if (!auth.isSuperAdmin) {
+    return { error: 'Hanya Super Admin yang berhak membersihkan data dummy.' };
+  }
+  try {
+    await cleanupLegacyDummySubjects();
+    revalidatePath('/admin/mapel');
+    revalidatePath('/portal/siswa');
+    revalidatePath('/portal/guru');
+    revalidatePath('/portal/guru/nilai');
+    return { success: true };
+  } catch (error) {
+    console.error('Error in purgeLegacyDummySubjects:', error);
+    return { error: error instanceof Error ? error.message : 'Gagal membersihkan data dummy' };
   }
 }

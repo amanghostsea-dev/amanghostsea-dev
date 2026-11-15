@@ -849,7 +849,16 @@ export default function MapelClient({
         {filteredSubjects.length === 0 ? (
           <div className="p-12 text-center text-gray-400 space-y-3">
             <BookOpen size={40} className="mx-auto opacity-40 text-gray-400" />
-            <p className="text-sm font-medium">Tidak ada mata pelajaran yang cocok dengan pencarian.</p>
+            {subjects.length === 0 ? (
+              <div>
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Belum ada mata pelajaran terdaftar</p>
+                <p className="text-xs text-gray-400 mt-1 max-w-md mx-auto">
+                  Seluruh data dummy bawaan telah dibersihkan. Silakan input mata pelajaran resmi melalui tombol &quot;+ Tambah Mapel Baru&quot; atau &quot;+ Tambah Kolektif&quot;.
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm font-medium">Tidak ada mata pelajaran yang cocok dengan filter atau pencarian Anda.</p>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
