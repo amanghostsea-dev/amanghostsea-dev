@@ -75,7 +75,7 @@ export default function UjianGatewayClient({
   prefillUsername = '',
   prefillToken = '',
 }: {
-  activeExams: ExamItem[];
+  activeExams?: ExamItem[];
   currentStudentName?: string;
   currentStudentNis?: string;
   authenticatedStudent?: AuthenticatedStudentProp | null;
@@ -818,90 +818,6 @@ export default function UjianGatewayClient({
             </div>
           </div>
         )}
-
-        {/* Active Exams Preview Section */}
-        <div className="space-y-4 pt-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-purple-500/20 text-purple-400 rounded-lg">
-                <MonitorPlay size={18} />
-              </div>
-              <h2 className="text-lg font-bold text-white">
-                Daftar Paket Ujian Aktif Hari Ini
-              </h2>
-            </div>
-            <span className="text-xs text-slate-400">
-              {activeExams.length} Paket Tersedia
-            </span>
-          </div>
-
-          {activeExams.length === 0 ? (
-            <div className="p-8 text-center bg-slate-900/50 rounded-2xl border border-slate-800">
-              <p className="text-sm text-slate-400">
-                Belum ada jadwal ujian berstatus aktif saat ini. Silakan hubungi pengawas atau guru pengampu Anda.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {activeExams.map((exam) => (
-                <div
-                  key={exam.id}
-                  className="bg-slate-900/70 border border-slate-800 hover:border-purple-500/50 rounded-2xl p-5 transition-all hover:shadow-lg hover:shadow-purple-950/20 flex flex-col justify-between group"
-                >
-                  <div className="space-y-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-extrabold uppercase px-2.5 py-0.5 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20">
-                        {exam.subject}
-                      </span>
-                      {exam.status === 'ACTIVE' ? (
-                        <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-semibold">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Sesi Dibuka
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-amber-400 flex items-center gap-1 font-semibold">
-                          <Clock size={11} /> Ruang Tunggu
-                        </span>
-                      )}
-                    </div>
-
-                    <h3 className="font-bold text-base text-white group-hover:text-purple-300 transition-colors line-clamp-2">
-                      {exam.title}
-                    </h3>
-
-                    <div className="grid grid-cols-3 gap-2 text-[11px] text-slate-400 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80">
-                      <div className="flex items-center gap-1">
-                        <Clock size={12} className="text-purple-400" />
-                        <span>{exam.duration}m</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <FileCheck2 size={12} className="text-emerald-400" />
-                        <span>{exam._count.questions} Soal</span>
-                      </div>
-                      <div className="flex items-center gap-1 min-w-0" title={exam.classTarget}>
-                        <Users size={12} className="text-sky-400 shrink-0" />
-                        <span className="truncate">{formatClassTargetDisplay(exam.classTarget)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (exam.token) {
-                        setToken(exam.token.split('|')[0]);
-                      }
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className="mt-4 w-full py-2 px-3 bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white rounded-xl text-xs font-bold text-center transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <span>Pilih Paket Ujian Ini</span>
-                    <ArrowRight size={13} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
 
         {/* Security & System Features */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-slate-800/60">

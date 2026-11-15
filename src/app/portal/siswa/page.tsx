@@ -70,7 +70,7 @@ export default async function PortalSiswa() {
       if (attemptRecord?.studentClass) {
         studentClass = attemptRecord.studentClass;
       }
-    } catch {}
+    } catch { }
   }
 
   if (!studentClass) {

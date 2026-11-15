@@ -98,29 +98,8 @@ export default async function UjianPage({
     }
   }
 
-  // Ambil daftar ujian aktif berstatus PUBLISHED atau ACTIVE
-  let activeExams: any[] = [];
-  try {
-    activeExams = await prisma.exam.findMany({
-      where: {
-        status: { in: ['PUBLISHED', 'ACTIVE'] },
-      },
-      include: {
-        _count: {
-          select: {
-            questions: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-  } catch (error) {
-    console.error('Error fetching active exams for gateway:', error);
-  }
-
   return (
     <UjianGatewayClient
-      activeExams={activeExams}
       currentStudentName={currentStudentName}
       currentStudentNis={currentStudentNis}
       authenticatedStudent={authenticatedStudent}
