@@ -2,16 +2,16 @@
 
 import { useState, useEffect, useTransition } from 'react';
 import Link from 'next/link';
-import { 
-  MonitorPlay, 
-  Key, 
-  User, 
-  ArrowRight, 
-  Clock, 
-  FileCheck2, 
-  Users, 
-  ShieldCheck, 
-  Sparkles, 
+import {
+  MonitorPlay,
+  Key,
+  User,
+  ArrowRight,
+  Clock,
+  FileCheck2,
+  Users,
+  ShieldCheck,
+  Sparkles,
   AlertCircle,
   HelpCircle,
   Wifi,
@@ -24,14 +24,16 @@ import {
   Check,
   X,
   GraduationCap,
-  BookOpen
+  BookOpen,
+  ShieldAlert
 } from 'lucide-react';
-import { 
-  verifyAndPrepareExamJoinAction, 
-  confirmAndJoinExamAction, 
+import {
+  verifyAndPrepareExamJoinAction,
+  confirmAndJoinExamAction,
   lookupStudentIdentityAction,
   VerifiedStudentData,
-  VerifiedExamData
+  VerifiedExamData,
+  WrongRoomDetails
 } from './actions';
 import { formatClassTargetDisplay } from '@/lib/cbt-schedule';
 
@@ -61,10 +63,11 @@ export default function UjianGatewayClient({
   const [nisn, setNisn] = useState(currentStudentNis);
   const [studentName, setStudentName] = useState(currentStudentName);
   const [token, setToken] = useState('');
-  
+
   // States untuk Verifikasi & Pencocokan Database
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [wrongRoomInfo, setWrongRoomInfo] = useState<WrongRoomDetails | null>(null);
   const [liveLookupInfo, setLiveLookupInfo] = useState<{ name: string; studentClass: string } | null>(null);
   const [isLookingUp, setIsLookingUp] = useState(false);
 
@@ -112,6 +115,7 @@ export default function UjianGatewayClient({
   const handleVerifySubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrorMessage('');
+    setWrongRoomInfo(null);
     setLoading(true);
 
     try {
@@ -122,7 +126,11 @@ export default function UjianGatewayClient({
       });
 
       if (!res.success || !res.student) {
-        setErrorMessage(res.error || 'Data siswa atau token tidak valid.');
+        if (res.wrongRoomDetails) {
+          setWrongRoomInfo(res.wrongRoomDetails);
+        } else {
+          setErrorMessage(res.error || 'Data siswa atau token tidak valid.');
+        }
         setLoading(false);
         return;
       }
@@ -152,6 +160,7 @@ export default function UjianGatewayClient({
 
         if (res && res.error) {
           setErrorMessage(res.error);
+          setWrongRoomInfo(null);
           setIsConfirmModalOpen(false);
         }
       } catch {
@@ -200,7 +209,7 @@ export default function UjianGatewayClient({
 
       {/* Main Content Area */}
       <main className="relative z-10 flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-10">
-        
+
         {/* Hero Title */}
         <div className="text-center space-y-2">
           <div className="inline-flex items-center gap-2 bg-purple-500/10 border border-purple-500/30 text-purple-300 px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider mb-2">
@@ -220,17 +229,52 @@ export default function UjianGatewayClient({
           <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-purple-950/40 relative overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-indigo-500 to-sky-500"></div>
 
-            {/* Alert Notifikasi Error Jika Data Siswa / Token Salah */}
-            {errorMessage && (
+            {/* ⛔ Alert Notifikasi Rapi: Salah Kamar Ujian (Komparatif, Tidak Menumpuk) */}
+            {wrongRoomInfo ? (
+              <div className="mb-5 p-4 rounded-2xl bg-rose-950/60 border border-rose-500/40 text-rose-100 text-xs sm:text-sm animate-in fade-in-50 shadow-lg shadow-rose-950/40 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-rose-300 font-bold text-sm">
+                    <ShieldAlert size={18} className="text-rose-400 shrink-0" />
+                    <span>Salah Kamar Ujian</span>
+                  </div>
+                  <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 uppercase tracking-wider">
+                    Akses Ditolak
+                  </span>
+                </div>
+
+                <div className="text-xs text-rose-200/90 leading-relaxed">
+                  Token ini milik paket <strong className="text-white font-semibold">"{wrongRoomInfo.examTitle}"</strong> ({wrongRoomInfo.examSubject}).
+                </div>
+
+                {/* Perbandingan Rapi 2 Kolom: Target Ujian vs Kelas Siswa */}
+                <div className="grid grid-cols-2 gap-2 p-3 rounded-xl bg-slate-950/80 border border-rose-900/60 text-xs">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Target Ujian:</span>
+                    <span className="font-extrabold text-emerald-400 truncate block mt-0.5">
+                      {wrongRoomInfo.targetClass}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Kelas Anda:</span>
+                    <span className="font-extrabold text-rose-400 truncate block mt-0.5">
+                      {wrongRoomInfo.studentClass}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-slate-300/80 flex items-center gap-1.5 pt-0.5">
+                  <Info size={13} className="text-purple-400 shrink-0" />
+                  <span>Silakan tanyakan token ujian yang sesuai dengan kelas Anda ke pengawas ruangan.</span>
+                </div>
+              </div>
+            ) : errorMessage && (
               <div className="mb-5 p-4 rounded-2xl bg-rose-950/50 border border-rose-500/40 text-rose-200 text-xs sm:text-sm flex items-start gap-3 animate-in fade-in-50 shadow-lg shadow-rose-950/30">
-                <AlertCircle size={20} className="shrink-0 text-rose-400 mt-0.5" />
+                <AlertCircle size={18} className="shrink-0 text-rose-400 mt-0.5" />
                 <div className="space-y-1">
                   <div className="font-bold text-rose-300">
-                    {errorMessage.includes('Salah Kamar') || errorMessage.includes('Akses Ditolak')
-                      ? 'Akses Ditolak — Salah Kamar Ujian'
-                      : 'Pencocokan Data Gagal'}
+                    {errorMessage.includes('Salah Kamar') ? 'Salah Kamar Ujian' : 'Pencocokan Data Gagal'}
                   </div>
-                  <div className="text-rose-200/90 leading-relaxed">{errorMessage}</div>
+                  <div className="text-rose-200/90 leading-relaxed text-xs">{errorMessage}</div>
                 </div>
               </div>
             )}

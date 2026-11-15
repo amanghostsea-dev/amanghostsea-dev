@@ -100,6 +100,13 @@ export interface VerifiedExamData {
   roomName: string;
 }
 
+export interface WrongRoomDetails {
+  examTitle: string;
+  examSubject: string;
+  targetClass: string;
+  studentClass: string;
+}
+
 /**
  * 🛡️ Verifikasi dan Pencocokan Ketat Data Siswa & Token Ujian
  * Jika data Nama/NISN tidak cocok dengan database, kembalikan notifikasi error spesifik dan BLOKIR login!
@@ -111,6 +118,8 @@ export async function verifyAndPrepareExamJoinAction(params: {
 }): Promise<{
   success: boolean;
   error?: string;
+  errorType?: 'WRONG_ROOM' | 'NOT_FOUND' | 'MISMATCH' | 'INVALID_TOKEN' | 'GENERAL';
+  wrongRoomDetails?: WrongRoomDetails;
   student?: VerifiedStudentData;
   exam?: VerifiedExamData | null;
   token?: string;
@@ -288,10 +297,17 @@ export async function verifyAndPrepareExamJoinAction(params: {
       if (studentClass) {
         const isClassAllowed = isClassTargetMatch(matchedExam.classTarget, studentClass);
         if (!isClassAllowed) {
-          const targetDisplay = formatClassTargetDisplay(matchedExam.classTarget);
+          const targetDisplay = formatClassTargetDisplay(matchedExam.classTarget, true);
           return {
             success: false,
-            error: `Akses Ditolak (Salah Kamar Ujian): Paket ujian "${matchedExam.title}" (${matchedExam.subject}) khusus diperuntukkan bagi ${targetDisplay}. Akun Anda terdaftar di kelas "${studentClass}". Anda tidak memiliki hak akses untuk mengerjakan soal ujian kelas ini!`,
+            errorType: 'WRONG_ROOM',
+            error: `Salah Kamar Ujian: Token ini khusus untuk ${targetDisplay}, sedangkan Anda terdaftar di kelas "${studentClass}".`,
+            wrongRoomDetails: {
+              examTitle: matchedExam.title,
+              examSubject: matchedExam.subject,
+              targetClass: targetDisplay,
+              studentClass: studentClass,
+            },
           };
         }
       }
@@ -373,7 +389,7 @@ export async function confirmAndJoinExamAction(params: {
       const isClassAllowed = isClassTargetMatch(exam.classTarget, studentClass);
       if (!isClassAllowed) {
         return {
-          error: `Akses Ditolak (Salah Kamar Ujian): Paket ujian "${exam.title}" khusus untuk ${formatClassTargetDisplay(exam.classTarget)}. Anda terdaftar di kelas "${studentClass}". Anda tidak memiliki izin mengerjakan ujian ini!`,
+          error: `Salah Kamar Ujian: Paket ujian ini khusus untuk ${formatClassTargetDisplay(exam.classTarget, true)}. Anda di kelas "${studentClass}".`,
         };
       }
     }

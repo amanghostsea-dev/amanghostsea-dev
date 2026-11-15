@@ -124,7 +124,7 @@ export async function startOrResumeAttempt(data: {
       const isClassAllowed = isClassTargetMatch(exam.classTarget, verifiedClass);
       if (!isClassAllowed) {
         return {
-          error: `Akses Ditolak (Salah Kamar Ujian): Paket ujian "${exam.title}" (${exam.subject}) diplot khusus untuk ${formatClassTargetDisplay(exam.classTarget)}, sedangkan kelas Anda adalah "${verifiedClass}". Anda tidak memiliki hak akses untuk mengerjakan paket ujian ini!`
+          error: `Salah Kamar Ujian: Paket ujian ini khusus untuk ${formatClassTargetDisplay(exam.classTarget, true)}, sedangkan Anda terdaftar di kelas "${verifiedClass}". Silakan minta token kelas Anda ke pengawas.`
         };
       }
     }
