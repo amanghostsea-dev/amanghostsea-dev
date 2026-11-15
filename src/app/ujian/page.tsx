@@ -12,6 +12,7 @@ export const metadata = {
 export default async function UjianPage() {
   const cookieStore = await cookies();
   const currentStudentName = cookieStore.get('auth_name')?.value || '';
+  const currentStudentNis = cookieStore.get('auth_user')?.value || '';
 
   // Ambil daftar ujian aktif berstatus PUBLISHED atau ACTIVE
   let activeExams: any[] = [];
@@ -37,6 +38,7 @@ export default async function UjianPage() {
     <UjianGatewayClient
       activeExams={activeExams}
       currentStudentName={currentStudentName}
+      currentStudentNis={currentStudentNis}
     />
   );
 }
