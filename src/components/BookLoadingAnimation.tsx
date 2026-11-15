@@ -113,11 +113,12 @@ export function BookLoadingAnimation({ actionText = 'Memproses...', isProlonged 
         }
       `}</style>
 
-      {/* 📖 ANIMATED SVG BOOK (Exact representation of uploaded design) */}
+      {/* 📖 ANIMATED SVG BOOK (Exact representation of uploaded design with Full Transparent Interior) */}
       <div className="relative w-48 h-32 sm:w-56 sm:h-36 flex items-center justify-center">
         <svg
           viewBox="0 0 200 130"
-          className="w-full h-full overflow-visible drop-shadow-sm"
+          className="w-full h-full overflow-visible"
+          style={{ filter: 'drop-shadow(0px 3px 12px rgba(0,0,0,0.28))' }}
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
         >
@@ -150,7 +151,7 @@ export function BookLoadingAnimation({ actionText = 'Memproses...', isProlonged 
             <path d="M 134 38 C 141 33, 149 32, 155 36" opacity="0.8" />
           </g>
 
-          {/* 📘 1. Book Outer Base & Cover Contour */}
+          {/* 📘 1. Book Outer Base & Cover Contour (Full Transparent Fill) */}
           <path
             d="M 22 46 
                C 22 41, 26 38, 32 38 
@@ -162,7 +163,7 @@ export function BookLoadingAnimation({ actionText = 'Memproses...', isProlonged 
             stroke="url(#bookGradient)"
             strokeWidth="3.6"
             strokeLinejoin="round"
-            fill="url(#pageFillGradient)"
+            fill="none"
           />
 
           <path
@@ -176,7 +177,7 @@ export function BookLoadingAnimation({ actionText = 'Memproses...', isProlonged 
             stroke="url(#bookGradient)"
             strokeWidth="3.6"
             strokeLinejoin="round"
-            fill="url(#pageFillGradient)"
+            fill="none"
           />
 
           {/* 📖 2. Bottom Book Spine & Center Notch */}
@@ -191,9 +192,10 @@ export function BookLoadingAnimation({ actionText = 'Memproses...', isProlonged 
             strokeWidth="3.6"
             strokeLinecap="round"
             strokeLinejoin="round"
+            fill="none"
           />
 
-          {/* Spine Center Bottom Notch (The cute half-circle at the bottom) */}
+          {/* Spine Center Bottom Notch */}
           <path
             d="M 94 99 C 94 105, 106 105, 106 99"
             stroke="url(#bookGradient)"
@@ -202,7 +204,7 @@ export function BookLoadingAnimation({ actionText = 'Memproses...', isProlonged 
             fill="none"
           />
 
-          {/* 📄 3. Left Static Page (Smooth and stable) */}
+          {/* 📄 3. Left Static Page (Full Transparent) */}
           <path
             d="M 30 45 
                C 50 45, 72 49, 96 54 
@@ -212,11 +214,10 @@ export function BookLoadingAnimation({ actionText = 'Memproses...', isProlonged 
             stroke="url(#bookGradient)"
             strokeWidth="2.8"
             strokeLinejoin="round"
-            fill="white"
-            fillOpacity="0.8"
+            fill="none"
           />
 
-          {/* 📄 4. Animated Turning Page Leaves (Canggih & Hidup) */}
+          {/* 📄 4. Animated Turning Page Leaves (Full Transparent) */}
           {/* Back Leaf 2 (Slight delay for layered book physics) */}
           <g className="page-flip-2" style={{ transformStyle: 'preserve-3d' }}>
             <path
@@ -228,8 +229,7 @@ export function BookLoadingAnimation({ actionText = 'Memproses...', isProlonged 
               stroke="url(#pageGradient)"
               strokeWidth="2.8"
               strokeLinejoin="round"
-              fill="white"
-              fillOpacity="0.9"
+              fill="none"
             />
           </g>
 
@@ -244,8 +244,7 @@ export function BookLoadingAnimation({ actionText = 'Memproses...', isProlonged 
               stroke="url(#pageGradient)"
               strokeWidth="3.2"
               strokeLinejoin="round"
-              fill="white"
-              fillOpacity="0.95"
+              fill="none"
             />
           </g>
 
@@ -260,6 +259,7 @@ export function BookLoadingAnimation({ actionText = 'Memproses...', isProlonged 
             strokeWidth="2.6"
             strokeLinejoin="round"
             opacity="0.4"
+            fill="none"
           />
         </svg>
       </div>
@@ -294,11 +294,13 @@ export function BookLoadingAnimation({ actionText = 'Memproses...', isProlonged 
       </div>
 
       {/* 💬 DYNAMIC ACTION SUBTEXT & DETAILS */}
-      <div className="mt-4 text-center space-y-1">
-        <p className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 line-clamp-1 max-w-[280px]">
-          {actionText}
-        </p>
-        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+      <div className="mt-4 text-center space-y-1.5 flex flex-col items-center">
+        <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-slate-950/70 dark:bg-black/70 backdrop-blur-md border border-white/10 text-white shadow-lg">
+          <p className="text-xs sm:text-sm font-semibold text-slate-100 line-clamp-1 max-w-[280px]">
+            {actionText}
+          </p>
+        </div>
+        <p className="text-[11px] text-slate-700 dark:text-slate-300 font-medium drop-shadow-sm">
           {isProlonged 
             ? '⚡ Menghubungkan ke server, mohon tunggu sebentar...' 
             : 'Sistem sedang memproses data di server'}
