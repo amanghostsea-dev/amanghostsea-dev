@@ -498,6 +498,33 @@ export async function deleteExam(id: string) {
   }
 }
 
+async function verifyExamAuthorOrAdmin(examId: string) {
+  const cookieStore = await cookies();
+  const userRole = cookieStore.get('auth_token')?.value;
+  const userName = cookieStore.get('auth_name')?.value;
+  const isSuperAdmin = userRole === 'Super Admin' || userRole === 'Admin Utama';
+  if (isSuperAdmin) return { allowed: true };
+
+  const exam = await prisma.exam.findUnique({
+    where: { id: examId },
+    select: { authorName: true },
+  });
+  if (!exam) return { allowed: false, error: 'Paket ujian tidak ditemukan.' };
+
+  if (exam.authorName && userName) {
+    const a = exam.authorName.trim().toLowerCase();
+    const u = userName.trim().toLowerCase();
+    if (a === u || a.includes(u) || u.includes(a)) {
+      return { allowed: true };
+    }
+  }
+
+  return { 
+    allowed: false, 
+    error: 'Akses ditolak: Anda bertugas sebagai Pengawas dan tidak memiliki wewenang untuk menambah, mengubah, atau menghapus butir soal.' 
+  };
+}
+
 export async function createQuestion(data: {
   examId: string;
   questionText: string;
@@ -507,6 +534,11 @@ export async function createQuestion(data: {
   points?: number;
 }) {
   try {
+    const authCheck = await verifyExamAuthorOrAdmin(data.examId);
+    if (!authCheck.allowed) {
+      return { error: authCheck.error };
+    }
+
     const question = await prisma.examQuestion.create({
       data: {
         examId: data.examId,
@@ -536,6 +568,11 @@ export async function createBatchQuestions(
   }>
 ) {
   try {
+    const authCheck = await verifyExamAuthorOrAdmin(examId);
+    if (!authCheck.allowed) {
+      return { error: authCheck.error };
+    }
+
     if (!questions || questions.length === 0) {
       return { error: 'Daftar butir soal tidak boleh kosong.' };
     }
@@ -581,6 +618,11 @@ export async function updateQuestion(
   }
 ) {
   try {
+    const authCheck = await verifyExamAuthorOrAdmin(examId);
+    if (!authCheck.allowed) {
+      return { error: authCheck.error };
+    }
+
     const updated = await prisma.examQuestion.update({
       where: { id: questionId },
       data: {
@@ -601,6 +643,11 @@ export async function updateQuestion(
 
 export async function deleteQuestion(questionId: string, examId: string) {
   try {
+    const authCheck = await verifyExamAuthorOrAdmin(examId);
+    if (!authCheck.allowed) {
+      return { error: authCheck.error };
+    }
+
     await prisma.examQuestion.delete({ where: { id: questionId } });
     revalidatePath(`/admin/cbt/${examId}`);
     return { success: true };
@@ -618,6 +665,11 @@ export async function autoDistributeExamPointsAction(
   targetTotalPoints: number = 100
 ) {
   try {
+    const authCheck = await verifyExamAuthorOrAdmin(examId);
+    if (!authCheck.allowed) {
+      return { success: false, error: authCheck.error };
+    }
+
     if (!targetTotalPoints || targetTotalPoints <= 0) {
       return { success: false, error: 'Target nilai total harus lebih besar dari 0.' };
     }
@@ -663,6 +715,11 @@ export async function autoDistributeExamPointsAction(
 
 export async function deleteAttempt(attemptId: string, examId: string) {
   try {
+    const authCheck = await verifyExamAuthorOrAdmin(examId);
+    if (!authCheck.allowed) {
+      return { error: authCheck.error };
+    }
+
     await prisma.examAttempt.delete({ where: { id: attemptId } });
     revalidatePath(`/admin/cbt/${examId}`);
     return { success: true };

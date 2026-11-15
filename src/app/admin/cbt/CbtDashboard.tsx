@@ -183,6 +183,18 @@ export default function CbtDashboard({
     return a === c || a.includes(c) || c.includes(a);
   };
 
+  // Helper kepemilikan paket ujian & peran pengawas
+  const isExamOwner = (exam: ExamItem) => {
+    if (isSuperAdmin) return true;
+    return isAuthorMatch(exam.authorName);
+  };
+
+  const isExamProctor = (exam: ExamItem) => {
+    if (isSuperAdmin) return false;
+    if (isAuthorMatch(exam.authorName)) return false; // Jika guru adalah pembuat paketnya, dia adalah owner
+    return isAuthorMatch(exam.proctorName) || isAuthorMatch(exam.proctor2Name);
+  };
+
   // Main View Tab: 'exams' | 'schedule' | 'reports' | 'proctors'
   const [activeMainTab, setActiveMainTab] = useState<'exams' | 'schedule' | 'reports' | 'proctors'>(initialTab);
   const [selectedClassFilter, setSelectedClassFilter] = useState('ALL');
@@ -798,6 +810,10 @@ export default function CbtDashboard({
   };
 
   const handleOpenEdit = (exam: ExamItem) => {
+    if (!isExamOwner(exam)) {
+      alert('Akses ditolak: Anda bertugas sebagai Pengawas dan tidak memiliki izin untuk mengedit paket ujian ini.');
+      return;
+    }
     setEditingExam(exam);
     setIsCustomClassTarget(!classPresets.includes(exam.classTarget));
     if (exam.classTarget.includes(',')) {
@@ -1622,18 +1638,24 @@ export default function CbtDashboard({
                           </td>
                           <td className="py-3.5 px-4 text-right">
                             <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                onClick={() => handleOpenEdit(exam)}
-                                className="px-2.5 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 font-bold text-xs transition-colors flex items-center gap-1 cursor-pointer"
-                              >
-                                <Edit3 size={13} /> Atur Jadwal
-                              </button>
+                              {isExamOwner(exam) && (
+                                <button
+                                  onClick={() => handleOpenEdit(exam)}
+                                  className="px-2.5 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 font-bold text-xs transition-colors flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Edit3 size={13} /> Atur Jadwal
+                                </button>
+                              )}
                               <Link
                                 href={`/admin/cbt/${exam.id}`}
-                                className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-                                title="Buka Bank Soal"
+                                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                                  isExamProctor(exam)
+                                    ? 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
+                                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                }`}
+                                title={isExamProctor(exam) ? 'Buka Ruang Pengawasan' : 'Buka Bank Soal'}
                               >
-                                <ExternalLink size={15} />
+                                {isExamProctor(exam) ? <ShieldCheck size={15} /> : <ExternalLink size={15} />}
                               </Link>
                             </div>
                           </td>
@@ -1839,9 +1861,17 @@ export default function CbtDashboard({
                   </h3>
 
                   {/* Author / Teacher Badge */}
-                  <div className="text-[11px] text-slate-500 mb-3 flex items-center gap-1.5">
-                    <span>Guru Pengampu:</span>
-                    <strong className="text-slate-700 dark:text-slate-300 font-semibold">{exam.authorName || 'Bpk. Ahmad ST'}</strong>
+                  <div className="text-[11px] text-slate-500 mb-3 flex items-center justify-between gap-1.5 flex-wrap">
+                    <div className="flex items-center gap-1.5">
+                      <span>Guru Pengampu:</span>
+                      <strong className="text-slate-700 dark:text-slate-300 font-semibold">{exam.authorName || 'Bpk. Ahmad ST'}</strong>
+                    </div>
+                    {isExamProctor(exam) && (
+                      <span className="px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 font-bold text-[10px] flex items-center gap-1">
+                        <ShieldCheck size={11} className="text-amber-600 dark:text-amber-400" />
+                        <span>Tugas Pengawas {exam.roomName ? `Ruang ${exam.roomName}` : ''}</span>
+                      </span>
+                    )}
                   </div>
 
                   {/* 📅 EXAM SCHEDULE & TIME BOX (JAM MULAI & BERAKHIR EKSPLISIT) */}
@@ -1942,29 +1972,45 @@ export default function CbtDashboard({
 
                 {/* Bottom Action Buttons */}
                 <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/20 flex items-center justify-between gap-2">
-                  <Link
-                    href={`/admin/cbt/${exam.id}`}
-                    className="flex-1 text-center py-2 px-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold text-xs transition-colors shadow-sm"
-                  >
-                    Buka Bank Soal & Nilai
-                  </Link>
-                  <button
-                    onClick={() => handleOpenEdit(exam)}
-                    className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
-                    title="Edit Pengaturan Ujian"
-                  >
-                    <Edit3 size={16} />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setDeleteTargetId(exam.id);
-                      setIsDeleteModalOpen(true);
-                    }}
-                    className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-colors cursor-pointer"
-                    title="Hapus Ujian"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  {isExamProctor(exam) ? (
+                    <Link
+                      href={`/admin/cbt/${exam.id}`}
+                      className="flex-1 text-center py-2.5 px-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-bold text-xs transition-all shadow-md shadow-emerald-600/20 flex items-center justify-center gap-1.5"
+                    >
+                      <ShieldCheck size={15} />
+                      <span>Ruang Pengawasan & Monitoring</span>
+                    </Link>
+                  ) : (
+                    <>
+                      <Link
+                        href={`/admin/cbt/${exam.id}`}
+                        className="flex-1 text-center py-2 px-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold text-xs transition-colors shadow-sm"
+                      >
+                        Buka Bank Soal & Nilai
+                      </Link>
+                      {isExamOwner(exam) && (
+                        <>
+                          <button
+                            onClick={() => handleOpenEdit(exam)}
+                            className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                            title="Edit Pengaturan Ujian"
+                          >
+                            <Edit3 size={16} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setDeleteTargetId(exam.id);
+                              setIsDeleteModalOpen(true);
+                            }}
+                            className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-colors cursor-pointer"
+                            title="Hapus Ujian"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             );

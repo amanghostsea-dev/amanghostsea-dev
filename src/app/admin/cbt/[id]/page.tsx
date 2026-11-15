@@ -35,21 +35,31 @@ export default async function ExamDetailPage({ params }: { params: Promise<{ id:
 
   // Otorisasi Akses Paket Ujian:
   // - Admin Utama (Super Admin) memiliki hak akses penuh ke seluruh paket ujian.
-  // - Guru hanya dapat mengakses dan mengelola bank soal paket ujian miliknya sendiri.
-  if (!isSuperAdmin && exam.authorName) {
-    const author = exam.authorName.trim().toLowerCase();
-    const current = userName.trim().toLowerCase();
-    const isOwner = author === current || author.includes(current) || current.includes(author);
-    if (!isOwner) {
-      redirect('/admin/cbt');
-    }
+  // - Guru Pengampu dapat mengelola bank soal & paket ujian miliknya sendiri.
+  // - Pengawas yang di-plotting Admin Utama dapat mengakses ruang monitoring & pengawasan ujian.
+  const author = (exam.authorName || '').trim().toLowerCase();
+  const current = userName.trim().toLowerCase();
+  const isOwner = isSuperAdmin || (!!current && (author === current || author.includes(current) || current.includes(author)));
+
+  const p1 = (exam.proctorName || '').trim().toLowerCase();
+  const p2 = (exam.proctor2Name || '').trim().toLowerCase();
+  const isProctor = !!current && (
+    (p1 && (p1 === current || p1.includes(current) || current.includes(p1))) ||
+    (p2 && (p2 === current || p2.includes(current) || current.includes(p2)))
+  );
+
+  if (!isOwner && !isProctor) {
+    redirect('/admin/cbt');
   }
+
+  const isProctorMode = !isOwner && !!isProctor;
 
   return (
     <ExamDetailClient 
       exam={exam} 
       kopSuratConfig={kopSuratConfig} 
       currentUser={{ name: userName, role: userRole }}
+      isProctorMode={isProctorMode}
     />
   );
 }

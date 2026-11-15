@@ -33,6 +33,7 @@ import {
   UploadCloud,
   FileSpreadsheet,
   Edit3,
+  ShieldCheck,
   Sliders,
   FileUp,
   Layers,
@@ -384,6 +385,10 @@ interface ExamDetailProps {
     description: string | null;
     status: string;
     shuffleQuestions: boolean;
+    authorName?: string | null;
+    proctorName?: string | null;
+    proctor2Name?: string | null;
+    roomName?: string | null;
     startTime?: Date | string | null;
     endTime?: Date | string | null;
     updatedAt?: Date | string;
@@ -395,10 +400,31 @@ interface ExamDetailProps {
     name: string;
     role: string;
   };
+  isProctorMode?: boolean;
 }
 
-export default function ExamDetailClient({ exam, kopSuratConfig, currentUser }: ExamDetailProps) {
-  const [activeTab, setActiveTab] = useState<'questions' | 'results'>('questions');
+export default function ExamDetailClient({ 
+  exam, 
+  kopSuratConfig, 
+  currentUser,
+  isProctorMode: propIsProctorMode,
+}: ExamDetailProps) {
+  const isSuperAdmin = currentUser?.role === 'Super Admin' || currentUser?.role === 'Admin Utama';
+  const cleanCurrentName = (currentUser?.name || '').trim().toLowerCase();
+  const authorName = (exam.authorName || '').trim().toLowerCase();
+  const isAuthor = !!cleanCurrentName && (authorName === cleanCurrentName || authorName.includes(cleanCurrentName) || cleanCurrentName.includes(authorName));
+  const isOwner = isSuperAdmin || isAuthor;
+
+  const p1 = (exam.proctorName || '').trim().toLowerCase();
+  const p2 = (exam.proctor2Name || '').trim().toLowerCase();
+  const isProctor = !!cleanCurrentName && (
+    (p1 && (p1 === cleanCurrentName || p1.includes(cleanCurrentName) || cleanCurrentName.includes(p1))) ||
+    (p2 && (p2 === cleanCurrentName || p2.includes(cleanCurrentName) || cleanCurrentName.includes(p2)))
+  );
+
+  const isProctorOnly = propIsProctorMode ?? (!isOwner && isProctor);
+
+  const [activeTab, setActiveTab] = useState<'questions' | 'results'>(isProctorOnly ? 'results' : 'questions');
   const [questions, setQuestions] = useState(exam.questions);
   const [attempts, setAttempts] = useState(exam.attempts);
 
@@ -1287,6 +1313,46 @@ Poin: 10
         </div>
       </div>
 
+      {/* 🛡️ BANNER KHUSUS ROLE PENGAWAS RUANG */}
+      {isProctorOnly && (
+        <div className="p-5 rounded-3xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/5 border-2 border-amber-400/40 dark:border-amber-600/30 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm animate-in fade-in">
+          <div className="flex items-start gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20">
+              <ShieldCheck size={26} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-black text-base text-amber-950 dark:text-amber-100">
+                  Mode Pengawas Ruang Ujian Aktif
+                </span>
+                {exam.roomName && (
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500 text-white font-extrabold text-[10px] tracking-wide uppercase shadow-xs">
+                    Ruang {exam.roomName}
+                  </span>
+                )}
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold text-[10px] border border-emerald-300 dark:border-emerald-800">
+                  Pengawas Terverifikasi
+                </span>
+              </div>
+              <p className="text-xs text-amber-900/80 dark:text-amber-200/80 mt-1 max-w-3xl leading-relaxed">
+                Anda bertugas sebagai <strong>Pengawas Ujian</strong>. Wewenang Anda difokuskan pada pengawasan operasional: <strong>merilis token ruang kelas</strong>, <strong>mode proyektor layar penuh</strong>, <strong>pemantauan presensi & integritas siswa</strong>, serta <strong>mencetak berita acara (BAP) dan daftar hadir</strong>. Pengaturan naskah dan butir soal dikunci oleh guru pengampu ({exam.authorName || 'Kurikulum'}).
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 self-start md:self-center">
+            <button
+              type="button"
+              onClick={() => setIsWhiteboardModalOpen(true)}
+              className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl font-bold text-xs shadow-md shadow-indigo-500/20 flex items-center gap-2 cursor-pointer transition-all hover:scale-[1.02]"
+            >
+              <Maximize2 size={15} />
+              <span>Buka Papan Tulis Proyektor</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 🌟 PROCTOR SESSION CONTROL CONSOLE (DUAL-KEY EXAM RELEASE) */}
       <div className={`p-6 rounded-3xl border transition-all shadow-sm ${
         examStatus === 'ACTIVE'
@@ -1442,28 +1508,57 @@ Poin: 10
 
       {/* Tabs */}
       <div className="flex border-b border-slate-200 dark:border-slate-800 gap-6">
-        <button
-          onClick={() => setActiveTab('questions')}
-          className={`flex items-center gap-2 pb-4 font-semibold text-sm transition-colors border-b-2 -mb-px ${
-            activeTab === 'questions'
-              ? 'border-purple-600 text-purple-600 dark:text-purple-400'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-          }`}
-        >
-          <FileText size={18} />
-          Bank Soal ({questions.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('results')}
-          className={`flex items-center gap-2 pb-4 font-semibold text-sm transition-colors border-b-2 -mb-px ${
-            activeTab === 'results'
-              ? 'border-purple-600 text-purple-600 dark:text-purple-400'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-          }`}
-        >
-          <Award size={18} />
-          Hasil & Rekap Nilai Siswa ({attempts.length})
-        </button>
+        {isProctorOnly ? (
+          <>
+            <button
+              onClick={() => setActiveTab('results')}
+              className={`flex items-center gap-2 pb-4 font-bold text-sm transition-colors border-b-2 -mb-px ${
+                activeTab === 'results'
+                  ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+              }`}
+            >
+              <Users size={18} />
+              Monitoring & Presensi Peserta ({attempts.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('questions')}
+              className={`flex items-center gap-2 pb-4 font-bold text-sm transition-colors border-b-2 -mb-px ${
+                activeTab === 'questions'
+                  ? 'border-purple-600 text-purple-600 dark:text-purple-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+              }`}
+            >
+              <FileText size={18} />
+              Pratinjau Soal (Hanya Lihat) ({questions.length})
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={() => setActiveTab('questions')}
+              className={`flex items-center gap-2 pb-4 font-semibold text-sm transition-colors border-b-2 -mb-px ${
+                activeTab === 'questions'
+                  ? 'border-purple-600 text-purple-600 dark:text-purple-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+              }`}
+            >
+              <FileText size={18} />
+              Bank Soal ({questions.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('results')}
+              className={`flex items-center gap-2 pb-4 font-semibold text-sm transition-colors border-b-2 -mb-px ${
+                activeTab === 'results'
+                  ? 'border-purple-600 text-purple-600 dark:text-purple-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+              }`}
+            >
+              <Award size={18} />
+              Hasil & Rekap Nilai Siswa ({attempts.length})
+            </button>
+          </>
+        )}
       </div>
 
       {/* TAB 1: BANK SOAL */}
@@ -1483,10 +1578,17 @@ Poin: 10
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold text-slate-900 dark:text-white">Daftar Butir Soal</h2>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                  {isProctorOnly ? 'Pratinjau Naskah Soal Ujian' : 'Daftar Butir Soal'}
+                </h2>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300">
                   {questions.length} Butir
                 </span>
+                {isProctorOnly && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                    Mode Hanya Lihat (Read-Only)
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-500 mt-1">
                 Total Nilai Maksimal: <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{Math.round(totalPoints * 100) / 100} Poin</strong>
@@ -1495,43 +1597,50 @@ Poin: 10
                 )}
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setIsAutoDistributeModalOpen(true)}
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-sm font-bold shadow-md shadow-amber-500/25 transition-all cursor-pointer"
-                title="Bagi rata nilai otomatis ke seluruh butir soal (contoh: 40 soal dengan total 100 = 2.5 poin/soal)"
-              >
-                <Calculator size={16} />
-                <span>Bagi Rata Nilai (Otomatis)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDownloadCsvTemplate('csv')}
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-semibold transition shadow-sm cursor-pointer"
-                title="Unduh Template Excel CSV Resmi dengan Kolom Siap Isi"
-              >
-                <FileSpreadsheet size={16} className="text-emerald-600 dark:text-emerald-400" />
-                <span>Unduh Template CSV</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setBatchStep('input');
-                  setIsBatchModalOpen(true);
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-500/25 transition-all cursor-pointer"
-              >
-                <UploadCloud size={16} /> Input Kolektif (Batch)
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsAddQuestionModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-semibold shadow-md shadow-purple-500/25 transition-all cursor-pointer"
-              >
-                <Plus size={16} /> Tambah Soal Manual
-              </button>
-            </div>
+            {!isProctorOnly ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAutoDistributeModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-sm font-bold shadow-md shadow-amber-500/25 transition-all cursor-pointer"
+                  title="Bagi rata nilai otomatis ke seluruh butir soal (contoh: 40 soal dengan total 100 = 2.5 poin/soal)"
+                >
+                  <Calculator size={16} />
+                  <span>Bagi Rata Nilai (Otomatis)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadCsvTemplate('csv')}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-semibold transition shadow-sm cursor-pointer"
+                  title="Unduh Template Excel CSV Resmi dengan Kolom Siap Isi"
+                >
+                  <FileSpreadsheet size={16} className="text-emerald-600 dark:text-emerald-400" />
+                  <span>Unduh Template CSV</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBatchStep('input');
+                    setIsBatchModalOpen(true);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-500/25 transition-all cursor-pointer"
+                >
+                  <UploadCloud size={16} /> Input Kolektif (Batch)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAddQuestionModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-semibold shadow-md shadow-purple-500/25 transition-all cursor-pointer"
+                >
+                  <Plus size={16} /> Tambah Soal Manual
+                </button>
+              </div>
+            ) : (
+              <div className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold flex items-center gap-2 border border-slate-200 dark:border-slate-700">
+                <ShieldCheck size={16} className="text-amber-500 shrink-0" />
+                <span>Naskah soal dikunci. Pengawas tidak diizinkan menambah atau mengubah soal.</span>
+              </div>
+            )}
           </div>
 
           {questions.length === 0 ? (
@@ -1590,27 +1699,29 @@ Poin: 10
                           Bobot: {q.points} Poin
                         </span>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEditModal(q)}
-                          className="p-1.5 text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/30 rounded-lg transition-colors cursor-pointer"
-                          title="Edit Soal & Bobot Nilai"
-                        >
-                          <Edit3 size={16} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setDeleteQId(q.id);
-                            setIsDeleteQModal(true);
-                          }}
-                          className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors cursor-pointer"
-                          title="Hapus Soal"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
+                      {!isProctorOnly && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditModal(q)}
+                            className="p-1.5 text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/30 rounded-lg transition-colors cursor-pointer"
+                            title="Edit Soal & Bobot Nilai"
+                          >
+                            <Edit3 size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeleteQId(q.id);
+                              setIsDeleteQModal(true);
+                            }}
+                            className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors cursor-pointer"
+                            title="Hapus Soal"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     {/* Visualisasi Gambar Soal (Jika Ada) */}
@@ -1878,16 +1989,22 @@ Poin: 10
                           </span>
                         </td>
                         <td className="py-4 px-6 text-right">
-                          <button
-                            onClick={() => {
-                              setDeleteAttemptId(att.id);
-                              setIsDeleteAttemptModal(true);
-                            }}
-                            className="p-1.5 text-slate-400 hover:text-red-600 transition-colors rounded-lg cursor-pointer"
-                            title="Reset / Hapus Pengerjaan"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          {!isProctorOnly ? (
+                            <button
+                              onClick={() => {
+                                setDeleteAttemptId(att.id);
+                                setIsDeleteAttemptModal(true);
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-red-600 transition-colors rounded-lg cursor-pointer"
+                              title="Reset / Hapus Pengerjaan"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          ) : (
+                            <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
+                              Terkunci
+                            </span>
+                          )}
                         </td>
                       </tr>
                       );
