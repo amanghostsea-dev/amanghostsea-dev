@@ -302,39 +302,56 @@ export function GlobalLoadingProvider({ children }: { children: React.ReactNode 
         </div>
       )}
 
-      {/* 🛸 FUTURISTIC FLOATING ISLAND LOADER (Muncul otomatis saat respon melambat > 220ms) */}
+      {/* 🛸 CENTERED CYBERNETIC LOADER DENGAN LATAR TRANSPARAN (Muncul otomatis saat respon melambat > 220ms) */}
       {showFloatingPill && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[99998] pointer-events-none animate-in fade-in slide-in-from-top-3 duration-200">
-          <div className="pointer-events-auto flex flex-col items-center gap-1.5">
-            <div className="flex items-center gap-3 px-4 sm:px-5 py-2.5 rounded-full bg-slate-950/90 dark:bg-slate-900/95 backdrop-blur-xl border border-purple-500/40 shadow-2xl shadow-purple-500/25 text-white">
-              
-              {/* Dual-Ring Cybernetic Spinner */}
-              <div className="relative w-5 h-5 flex items-center justify-center flex-shrink-0">
-                <div className="absolute inset-0 rounded-full border-2 border-purple-500/30 border-t-purple-400 animate-spin"></div>
-                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></div>
-              </div>
-
-              {/* Dynamic Action Text */}
-              <div className="flex flex-col text-left">
-                <span className="text-xs font-bold text-slate-100 tracking-wide line-clamp-1 max-w-[240px] sm:max-w-[340px]">
-                  {loadingText}
-                </span>
-                <span className="text-[10px] text-purple-300/80 font-mono flex items-center gap-1">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                  <span>{isProlonged ? 'Menghubungkan ke server...' : 'Memproses secara aman...'}</span>
-                </span>
-              </div>
-
-              {/* Subtle visual badge */}
-              <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/20 border border-purple-400/30 text-[10px] font-bold text-purple-300 font-mono">
-                <Zap size={10} className="text-amber-400" /> PROSES
-              </span>
+        <div className="fixed inset-0 z-[99998] flex items-center justify-center p-4 bg-slate-950/25 dark:bg-black/35 backdrop-blur-[3px] animate-in fade-in duration-200 select-none">
+          {/* Card Tengah Glassmorphism Canggih */}
+          <div 
+            onClick={(e) => {
+              e.stopPropagation();
+              triggerSpamWarning('⚠️ Harap tunggu, proses sedang diselesaikan...');
+            }}
+            className="max-w-sm w-full bg-slate-950/90 dark:bg-slate-900/95 backdrop-blur-2xl border border-purple-500/40 shadow-2xl shadow-purple-900/30 rounded-3xl p-6 text-center space-y-4 animate-in zoom-in-95 duration-200"
+          >
+            {/* Dual-Ring Glowing Cybernetic Core */}
+            <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
+              {/* Outer Glow Halo */}
+              <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-purple-600/30 to-emerald-500/30 blur-md animate-pulse"></div>
+              {/* Outer Spinning Ring */}
+              <div className="absolute inset-0 rounded-full border-2 border-purple-500/20 border-t-purple-400 animate-spin"></div>
+              {/* Inner Reverse Spinning Ring */}
+              <div className="w-10 h-10 rounded-full border-2 border-indigo-500/30 border-b-emerald-400 animate-[spin_1.2s_linear_infinite_reverse]"></div>
+              {/* Pulsing Core Dot */}
+              <div className="w-3.5 h-3.5 rounded-full bg-gradient-to-tr from-purple-400 to-emerald-400 shadow-md shadow-emerald-400/50 animate-ping"></div>
             </div>
 
-            {/* Hint jika proses memakan waktu lebih dari 3 detik */}
+            {/* Teks Status & Aksi Dinamis */}
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-500/20 border border-purple-400/30 text-[10px] font-bold text-purple-300 font-mono uppercase tracking-wider mb-1">
+                <Zap size={11} className="text-amber-400" /> Sedang Diproses
+              </div>
+              <h3 className="text-sm font-bold text-white tracking-wide leading-snug line-clamp-2">
+                {loadingText}
+              </h3>
+              <p className="text-xs text-slate-300/80 leading-relaxed pt-0.5">
+                {isProlonged 
+                  ? 'Sedang menyelesaikan transmisi data dengan server...' 
+                  : 'Mohon tunggu sebentar, sistem sedang memproses data...'}
+              </p>
+            </div>
+
+            {/* Micro Progress Track */}
+            <div className="w-full bg-slate-800/80 rounded-full h-1.5 overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-500 via-purple-500 to-emerald-400 h-full w-full rounded-full animate-[pulse_1.5s_ease-in-out_infinite]"></div>
+            </div>
+
+            {/* Hint Anti-Freeze jika memakan waktu lebih dari 3 detik */}
             {isProlonged && (
-              <div className="px-3.5 py-1 rounded-full bg-amber-950/90 backdrop-blur-md border border-amber-500/40 text-[10px] text-amber-200 font-medium shadow-lg animate-in fade-in slide-in-from-top-1">
-                ⚡ Server sedang merespons, mohon tidak menekan tombol berulang kali.
+              <div className="p-2.5 rounded-2xl bg-amber-950/70 border border-amber-500/50 text-[11px] text-amber-200 text-left flex items-start gap-2 shadow-sm animate-in fade-in slide-in-from-bottom-1">
+                <AlertTriangle size={15} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                <span className="leading-snug">
+                  Server sedang memproses transaksi. Mohon tidak menutup halaman atau menekan tombol berulang kali.
+                </span>
               </div>
             )}
           </div>
