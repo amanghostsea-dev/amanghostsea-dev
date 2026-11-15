@@ -9,10 +9,69 @@ export const metadata = {
   description: 'Gerbang mandiri ujian berbasis komputer dan smartphone siswa SMK. Masukkan nama dan token untuk memulai ujian.',
 };
 
-export default async function UjianPage() {
-  const cookieStore = await cookies();
+export default async function UjianPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ u?: string; nisn?: string; token?: string; id?: string }>;
+}) {
+  const [cookieStore, resolvedParams] = await Promise.all([
+    cookies(),
+    searchParams ? searchParams : Promise.resolve({} as { u?: string; nisn?: string; token?: string; id?: string }),
+  ]);
+
+  const authToken = cookieStore.get('auth_token')?.value || '';
   const currentStudentName = cookieStore.get('auth_name')?.value || '';
   const currentStudentNis = cookieStore.get('auth_user')?.value || '';
+
+  const prefillUsername = (resolvedParams?.u || resolvedParams?.nisn || '').trim();
+  const prefillToken = (resolvedParams?.token || '').trim();
+
+  // Cek apakah siswa saat ini SUDAH login secara sah dengan kredensial kartu
+  let authenticatedStudent: {
+    id: string;
+    name: string;
+    username: string;
+    nisn: string;
+    studentClass: string;
+  } | null = null;
+
+  if (authToken === 'Siswa' && currentStudentNis) {
+    try {
+      const user = await prisma.user.findFirst({
+        where: {
+          role: 'Siswa',
+          status: 'Aktif',
+          OR: [
+            { username: { equals: currentStudentNis, mode: 'insensitive' } },
+            { nisn: { equals: currentStudentNis, mode: 'insensitive' } },
+          ],
+        },
+      });
+
+      if (user) {
+        const grade = await prisma.studentGrade.findFirst({
+          where: {
+            OR: [
+              { studentName: user.name },
+              ...(user.nisn ? [{ studentNis: user.nisn }] : []),
+              { studentNis: user.username },
+            ],
+          },
+          select: { studentClass: true },
+        });
+
+        authenticatedStudent = {
+          id: user.id,
+          name: user.name,
+          username: user.username,
+          nisn: user.nisn || user.username,
+          studentClass: grade?.studentClass || 'XI TJKT 1',
+        };
+      }
+    } catch (err) {
+      console.error('Error fetching authenticated student:', err);
+    }
+  }
 
   // Ambil daftar ujian aktif berstatus PUBLISHED atau ACTIVE
   let activeExams: any[] = [];
@@ -39,6 +98,9 @@ export default async function UjianPage() {
       activeExams={activeExams}
       currentStudentName={currentStudentName}
       currentStudentNis={currentStudentNis}
+      authenticatedStudent={authenticatedStudent}
+      prefillUsername={prefillUsername}
+      prefillToken={prefillToken}
     />
   );
 }

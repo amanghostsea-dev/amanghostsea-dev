@@ -1,5 +1,5 @@
 import prisma from '@/lib/prisma';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import CbtExamRoom from './CbtExamRoom';
@@ -11,9 +11,17 @@ export const dynamic = 'force-dynamic';
 export default async function SiswaExamRoomPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const cookieStore = await cookies();
+  const authToken = cookieStore.get('auth_token')?.value;
   const authName = cookieStore.get('auth_name')?.value;
   const authUser = cookieStore.get('auth_user')?.value;
   const authClass = cookieStore.get('auth_class')?.value;
+
+  const isStaff = authToken === 'Super Admin' || authToken === 'Guru';
+
+  // Wajib login: jika siswa belum login menggunakan kartu peserta, arahkan ke gerbang ujian
+  if (!authUser && !isStaff) {
+    redirect(`/ujian?id=${id}`);
+  }
 
   const exam = await prisma.exam.findUnique({
     where: { id },

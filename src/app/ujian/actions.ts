@@ -108,45 +108,73 @@ export interface WrongRoomDetails {
 }
 
 /**
- * 🛡️ Verifikasi dan Pencocokan Ketat Data Siswa & Token Ujian
- * Jika data Nama/NISN tidak cocok dengan database, kembalikan notifikasi error spesifik dan BLOKIR login!
+ * 🛡️ Verifikasi dan Pencocokan Ketat Kredensial Siswa (Kartu Login) & Token Ujian
+ * Siswa WAJIB login dengan kredensial kartu ujian (Username/NISN + Password).
+ * Jika password salah, user tidak aktif, atau kelas salah (salah kamar), akses DITOLAK!
  */
 export async function verifyAndPrepareExamJoinAction(params: {
+  usernameOrNisn?: string;
+  password?: string;
+  token?: string;
+  authenticatedUserId?: string;
   nisn?: string;
   studentName?: string;
-  token?: string;
 }): Promise<{
   success: boolean;
   error?: string;
-  errorType?: 'WRONG_ROOM' | 'NOT_FOUND' | 'MISMATCH' | 'INVALID_TOKEN' | 'GENERAL';
+  errorType?: 'WRONG_ROOM' | 'NOT_FOUND' | 'MISMATCH' | 'INVALID_TOKEN' | 'INVALID_PASSWORD' | 'GENERAL';
   wrongRoomDetails?: WrongRoomDetails;
   student?: VerifiedStudentData;
   exam?: VerifiedExamData | null;
   token?: string;
 }> {
-  const inputNisn = (params.nisn || '').trim();
-  const inputName = (params.studentName || '').trim();
+  const inputIdentifier = (params.usernameOrNisn || params.nisn || '').trim();
+  const inputPassword = (params.password || '').trim();
   const inputToken = (params.token || '').trim().toUpperCase();
-
-  if (!inputNisn && !inputName) {
-    return {
-      success: false,
-      error: 'Harap masukkan NISN atau Nama Lengkap siswa sesuai kartu peserta ujian.',
-    };
-  }
 
   try {
     let matchedUser = null;
 
-    // 1. Jika NISN diisi, verifikasi keberadaan NISN di database siswa aktif
-    if (inputNisn) {
+    // 1. Jika siswa SUDAH login resmi dengan session terverifikasi
+    if (params.authenticatedUserId) {
+      matchedUser = await prisma.user.findFirst({
+        where: {
+          id: params.authenticatedUserId,
+          role: 'Siswa',
+          status: 'Aktif',
+        },
+      });
+
+      if (!matchedUser) {
+        return {
+          success: false,
+          error: 'Sesi login Anda telah berakhir. Silakan login kembali menggunakan kartu ujian Anda.',
+        };
+      }
+    } else {
+      // 2. Siswa BELUM login: WAJIB memasukkan Username/NISN dan Password dari Kartu Login
+      if (!inputIdentifier) {
+        return {
+          success: false,
+          error: 'Harap masukkan Username atau NISN sesuai yang tertera pada Kartu Login Siswa Anda.',
+        };
+      }
+
+      if (!inputPassword) {
+        return {
+          success: false,
+          error: 'Harap masukkan Password akun sesuai yang tertera pada Kartu Login Siswa Anda.',
+        };
+      }
+
+      // Cari user berdasarkan NISN atau Username
       matchedUser = await prisma.user.findFirst({
         where: {
           role: 'Siswa',
           status: 'Aktif',
           OR: [
-            { nisn: { equals: inputNisn, mode: 'insensitive' } },
-            { username: { equals: inputNisn, mode: 'insensitive' } },
+            { username: { equals: inputIdentifier, mode: 'insensitive' } },
+            { nisn: { equals: inputIdentifier, mode: 'insensitive' } },
           ],
         },
       });
@@ -154,61 +182,18 @@ export async function verifyAndPrepareExamJoinAction(params: {
       if (!matchedUser) {
         return {
           success: false,
-          error: `NISN "${inputNisn}" tidak ditemukan di database siswa aktif sekolah. Pastikan nomor NISN sesuai kartu login ujian Anda.`,
+          error: `Akun siswa "${inputIdentifier}" tidak ditemukan di database siswa aktif. Pastikan Username atau NISN sesuai Kartu Login Siswa Anda.`,
         };
       }
 
-      // Jika Nama Lengkap juga diisi, cocokkan apakah nama sesuai dengan pemilik NISN tersebut
-      if (inputName && !isNameMatch(matchedUser.name, inputName)) {
+      // 🔐 VALIDASI KREDENSIAL PASSWORD KARTU LOGIN
+      if (matchedUser.password !== inputPassword) {
         return {
           success: false,
-          error: `Data Tidak Sesuai: NISN ${inputNisn} terdaftar resmi atas nama "${matchedUser.name}", bukan "${inputName}". Harap periksa kembali kartu ujian Anda.`,
+          errorType: 'INVALID_PASSWORD',
+          error: 'Password akun salah! Silakan periksa kembali Password yang tertera pada Kartu Login & Peserta Ujian Anda.',
         };
       }
-    } else if (inputName) {
-      // 2. Jika hanya Nama diisi, cari kecocokan di database
-      matchedUser = await prisma.user.findFirst({
-        where: {
-          role: 'Siswa',
-          status: 'Aktif',
-          name: { equals: inputName, mode: 'insensitive' },
-        },
-      });
-
-      // Coba pencarian partial jika nama lengkap memiliki singkatan/spasi berbeda
-      if (!matchedUser) {
-        const candidates = await prisma.user.findMany({
-          where: {
-            role: 'Siswa',
-            status: 'Aktif',
-            name: { contains: inputName, mode: 'insensitive' },
-          },
-          take: 3,
-        });
-
-        if (candidates.length === 1) {
-          matchedUser = candidates[0];
-        } else if (candidates.length > 1) {
-          return {
-            success: false,
-            error: `Ditemukan beberapa nama yang mirip (${candidates.map((c) => c.name).join(', ')}). Mohon sertakan nomor NISN Anda agar data terkonfirmasi presisi.`,
-          };
-        }
-      }
-
-      if (!matchedUser) {
-        return {
-          success: false,
-          error: `Nama siswa "${inputName}" tidak terdaftar di database siswa aktif. Pastikan ejaan nama atau NISN sesuai dengan kartu ujian Anda.`,
-        };
-      }
-    }
-
-    if (!matchedUser) {
-      return {
-        success: false,
-        error: 'Data siswa (Nama/NISN) salah atau tidak ditemukan di database. Anda tidak dapat masuk ke ruang ujian CBT.',
-      };
     }
 
     // 3. Ambil data kelas resmi siswa dari database rapor StudentGrade
@@ -403,21 +388,81 @@ export async function confirmAndJoinExamAction(params: {
 }
 
 /**
+ * 🔑 Login Langsung Siswa ke Portal Siswa dari Gerbang Ujian
+ */
+export async function studentDirectLoginAction(formData: FormData) {
+  const username = (formData.get('username') as string || '').trim();
+  const password = (formData.get('password') as string || '').trim();
+
+  if (!username || !password) {
+    return { error: 'Username/NISN dan Password wajib diisi!' };
+  }
+
+  const user = await prisma.user.findFirst({
+    where: {
+      role: 'Siswa',
+      status: 'Aktif',
+      OR: [
+        { username: { equals: username, mode: 'insensitive' } },
+        { nisn: { equals: username, mode: 'insensitive' } },
+      ],
+    },
+  });
+
+  if (!user || user.password !== password) {
+    return { error: 'Username atau password salah! Periksa kembali kartu login Anda.' };
+  }
+
+  const grade = await prisma.studentGrade.findFirst({
+    where: {
+      OR: [
+        { studentName: user.name },
+        ...(user.nisn ? [{ studentNis: user.nisn }] : []),
+        { studentNis: user.username },
+      ],
+    },
+    select: { studentClass: true },
+  });
+
+  const studentClass = grade?.studentClass || 'XI TJKT 1';
+
+  const cookieStore = await cookies();
+  cookieStore.set('auth_token', 'Siswa', { maxAge: 60 * 60 * 24 });
+  cookieStore.set('auth_user', user.username, { maxAge: 60 * 60 * 24 });
+  cookieStore.set('auth_name', user.name, { maxAge: 60 * 60 * 24 });
+  cookieStore.set('auth_class', studentClass, { maxAge: 60 * 60 * 24 });
+
+  redirect('/portal/siswa/cbt');
+}
+
+/**
+ * 🚪 Logout Siswa dari Gerbang Ujian (Misal saat berganti akun di komputer lab bersama)
+ */
+export async function studentGatewayLogoutAction() {
+  const cookieStore = await cookies();
+  cookieStore.delete('auth_token');
+  cookieStore.delete('auth_user');
+  cookieStore.delete('auth_name');
+  cookieStore.delete('auth_class');
+  redirect('/ujian');
+}
+
+/**
  * ⚡ Legacy quickJoinExamAction (diperketat dengan validasi database yang sama)
  */
 export async function quickJoinExamAction(formData: FormData) {
   const nisn = (formData.get('nisn') as string || '').trim();
-  const studentName = (formData.get('studentName') as string || '').trim();
+  const password = (formData.get('password') as string || '').trim();
   const token = (formData.get('token') as string || '').trim().toUpperCase();
 
   const verifyRes = await verifyAndPrepareExamJoinAction({
-    nisn,
-    studentName,
+    usernameOrNisn: nisn,
+    password,
     token,
   });
 
   if (!verifyRes.success || !verifyRes.student) {
-    return { error: verifyRes.error || 'Data siswa tidak valid.' };
+    return { error: verifyRes.error || 'Data siswa atau kredensial kartu tidak valid.' };
   }
 
   return await confirmAndJoinExamAction({

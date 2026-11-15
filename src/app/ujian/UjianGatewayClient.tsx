@@ -25,12 +25,20 @@ import {
   X,
   GraduationCap,
   BookOpen,
-  ShieldAlert
+  ShieldAlert,
+  Lock,
+  Eye,
+  EyeOff,
+  CreditCard,
+  LogOut,
+  QrCode
 } from 'lucide-react';
 import {
   verifyAndPrepareExamJoinAction,
   confirmAndJoinExamAction,
   lookupStudentIdentityAction,
+  studentGatewayLogoutAction,
+  studentDirectLoginAction,
   VerifiedStudentData,
   VerifiedExamData,
   WrongRoomDetails
@@ -51,18 +59,48 @@ interface ExamItem {
   };
 }
 
+export interface AuthenticatedStudentProp {
+  id: string;
+  name: string;
+  username: string;
+  nisn: string;
+  studentClass: string;
+}
+
 export default function UjianGatewayClient({
   activeExams = [],
   currentStudentName = '',
   currentStudentNis = '',
+  authenticatedStudent = null,
+  prefillUsername = '',
+  prefillToken = '',
 }: {
   activeExams: ExamItem[];
   currentStudentName?: string;
   currentStudentNis?: string;
+  authenticatedStudent?: AuthenticatedStudentProp | null;
+  prefillUsername?: string;
+  prefillToken?: string;
 }) {
-  const [nisn, setNisn] = useState(currentStudentNis);
-  const [studentName, setStudentName] = useState(currentStudentName);
-  const [token, setToken] = useState('');
+  // Mode Tab: 'exam' (Ruang Ujian Token) atau 'portal' (Portal Siswa)
+  const [activeTab, setActiveTab] = useState<'exam' | 'portal'>('exam');
+
+  // Input states untuk Ruang Ujian (dengan Kredensial Kartu)
+  const [usernameOrNisn, setUsernameOrNisn] = useState(
+    prefillUsername || authenticatedStudent?.username || currentStudentNis || ''
+  );
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [token, setToken] = useState(prefillToken || '');
+
+  // Input states untuk Tab Portal Siswa
+  const [portalUsername, setPortalUsername] = useState(
+    prefillUsername || authenticatedStudent?.username || currentStudentNis || ''
+  );
+  const [portalPassword, setPortalPassword] = useState('');
+  const [portalShowPassword, setPortalShowPassword] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [portalError, setPortalError] = useState('');
 
   // States untuk Verifikasi & Pencocokan Database
   const [loading, setLoading] = useState(false);
@@ -77,10 +115,12 @@ export default function UjianGatewayClient({
   const [verifiedExam, setVerifiedExam] = useState<VerifiedExamData | null>(null);
   const [isConfirming, startConfirming] = useTransition();
 
-  // 🔍 Live background lookup saat siswa mengetik NISN (otomatis mendeteksi nama & kelas)
+  // 🔍 Live background lookup saat siswa mengetik Username / NISN (hanya jika belum login)
   useEffect(() => {
-    const trimmedNisn = nisn.trim();
-    if (trimmedNisn.length < 4) {
+    if (authenticatedStudent) return;
+
+    const trimmed = usernameOrNisn.trim();
+    if (trimmed.length < 3) {
       setLiveLookupInfo(null);
       return;
     }
@@ -88,16 +128,12 @@ export default function UjianGatewayClient({
     const timer = setTimeout(async () => {
       setIsLookingUp(true);
       try {
-        const res = await lookupStudentIdentityAction(trimmedNisn);
+        const res = await lookupStudentIdentityAction(trimmed);
         if (res.success && res.student) {
           setLiveLookupInfo({
             name: res.student.name,
             studentClass: res.student.studentClass,
           });
-          // Otomatis isi Nama Lengkap jika masih kosong
-          if (!studentName.trim()) {
-            setStudentName(res.student.name);
-          }
         } else {
           setLiveLookupInfo(null);
         }
@@ -106,12 +142,12 @@ export default function UjianGatewayClient({
       } finally {
         setIsLookingUp(false);
       }
-    }, 450);
+    }, 400);
 
     return () => clearTimeout(timer);
-  }, [nisn, studentName]);
+  }, [usernameOrNisn, authenticatedStudent]);
 
-  // Handle Verifikasi Data Siswa & Token saat tombol Mulai Masuk Ujian diklik
+  // Handle Verifikasi Kredensial Kartu & Token Ujian
   const handleVerifySubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrorMessage('');
@@ -120,8 +156,9 @@ export default function UjianGatewayClient({
 
     try {
       const res = await verifyAndPrepareExamJoinAction({
-        nisn: nisn.trim(),
-        studentName: studentName.trim(),
+        authenticatedUserId: authenticatedStudent?.id,
+        usernameOrNisn: usernameOrNisn.trim(),
+        password: password.trim(),
         token: token.trim().toUpperCase(),
       });
 
@@ -129,7 +166,7 @@ export default function UjianGatewayClient({
         if (res.wrongRoomDetails) {
           setWrongRoomInfo(res.wrongRoomDetails);
         } else {
-          setErrorMessage(res.error || 'Data siswa atau token tidak valid.');
+          setErrorMessage(res.error || 'Data kredensial kartu atau token tidak valid.');
         }
         setLoading(false);
         return;
@@ -141,9 +178,30 @@ export default function UjianGatewayClient({
       setIsConfirmModalOpen(true);
       setLoading(false);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Terjadi kendala saat memeriksa database siswa.';
+      const msg = err instanceof Error ? err.message : 'Terjadi kendala saat memeriksa kredensial kartu siswa.';
       setErrorMessage(msg);
       setLoading(false);
+    }
+  };
+
+  // Handle Login Langsung ke Portal Siswa dari Tab Portal
+  const handlePortalLoginSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setPortalError('');
+    setPortalLoading(true);
+
+    const formData = new FormData();
+    formData.append('username', portalUsername.trim());
+    formData.append('password', portalPassword.trim());
+
+    try {
+      const res = await studentDirectLoginAction(formData);
+      if (res?.error) {
+        setPortalError(res.error);
+        setPortalLoading(false);
+      }
+    } catch {
+      // Normal redirect from Next.js Server Action
     }
   };
 
@@ -219,8 +277,10 @@ export default function UjianGatewayClient({
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight">
             Smart CBT <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-indigo-300 to-sky-400">Ruang Ujian Online</span>
           </h1>
-          <p className="text-sm sm:text-base text-slate-400 max-w-xl mx-auto">
-            Akses langsung ujian berbasis komputer & smartphone. Masukkan NISN, Nama Lengkap, dan Token Ujian resmi dari pengawas Anda.
+          <p className="text-sm sm:text-base text-slate-400 max-w-xl mx-auto leading-relaxed">
+            {authenticatedStudent
+              ? `Selamat datang, ${authenticatedStudent.name}! Masukkan Token Ujian resmi dari pengawas untuk memulai pengerjaan.`
+              : 'Gunakan Username & Password resmi pada Kartu Login Peserta Ujian Anda serta Token Ujian dari pengawas ruangan.'}
           </p>
         </div>
 
@@ -228,6 +288,42 @@ export default function UjianGatewayClient({
         <div className="max-w-md mx-auto">
           <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-purple-950/40 relative overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-indigo-500 to-sky-500"></div>
+
+            {/* TAB SELECTOR: Hanya tampil jika siswa BELUM login */}
+            {!authenticatedStudent && (
+              <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-950/80 rounded-2xl border border-slate-800 mb-5 text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('exam');
+                    setErrorMessage('');
+                  }}
+                  className={`py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    activeTab === 'exam'
+                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                  }`}
+                >
+                  <Key size={14} />
+                  <span>Masuk Ujian (Token)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('portal');
+                    setPortalError('');
+                  }}
+                  className={`py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    activeTab === 'portal'
+                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                  }`}
+                >
+                  <BookOpen size={14} />
+                  <span>Portal Siswa (Jadwal)</span>
+                </button>
+              </div>
+            )}
 
             {/* ⛔ Alert Notifikasi Rapi: Salah Kamar Ujian (Komparatif, Tidak Menumpuk) */}
             {wrongRoomInfo ? (
@@ -272,118 +368,317 @@ export default function UjianGatewayClient({
                 <AlertCircle size={18} className="shrink-0 text-rose-400 mt-0.5" />
                 <div className="space-y-1">
                   <div className="font-bold text-rose-300">
-                    {errorMessage.includes('Salah Kamar') ? 'Salah Kamar Ujian' : 'Pencocokan Data Gagal'}
+                    {errorMessage.includes('Salah Kamar')
+                      ? 'Salah Kamar Ujian'
+                      : errorMessage.includes('Password')
+                      ? 'Kredensial Password Salah'
+                      : 'Pencocokan Data Gagal'}
                   </div>
                   <div className="text-rose-200/90 leading-relaxed text-xs">{errorMessage}</div>
                 </div>
               </div>
             )}
 
-            <form onSubmit={handleVerifySubmit} className="space-y-4">
-              {/* Field 1: NISN Siswa */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <Hash size={14} className="text-purple-400" /> NISN / Nomor Peserta
-                  </label>
-                  <span className="text-[10px] text-purple-400/80 font-medium">Wajib diisi</span>
-                </div>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={nisn}
-                    onChange={(e) => setNisn(e.target.value.replace(/[^0-9]/g, ''))}
-                    placeholder="Contoh: 105802928"
-                    required
-                    className="w-full px-4 py-3 rounded-2xl bg-slate-950/70 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all font-mono font-medium tracking-wide"
-                  />
-                  {isLookingUp && (
-                    <div className="absolute right-3.5 top-3.5 text-purple-400">
-                      <Loader2 size={16} className="animate-spin" />
+            {/* TAB 1: FORM MASUK RUANG UJIAN CBT */}
+            {activeTab === 'exam' && (
+              <>
+                {/* 🪪 TAMPILAN JIKA SISWA SUDAH LOGIN: KARTU PESERTA AKTIF */}
+                {authenticatedStudent ? (
+                  <div className="space-y-4">
+                    {/* Kartu Profil Siswa Terautentikasi */}
+                    <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/60 via-indigo-950/40 to-slate-950 border border-purple-500/30 shadow-lg space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white font-black text-lg flex items-center justify-center shadow-md shadow-purple-900/40 shrink-0">
+                            {getInitials(authenticatedStudent.name)}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                Kartu Login Aktif
+                              </span>
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                {authenticatedStudent.studentClass}
+                              </span>
+                            </div>
+                            <h3 className="font-extrabold text-white text-sm sm:text-base truncate mt-1">
+                              {authenticatedStudent.name}
+                            </h3>
+                            <p className="text-[11px] text-slate-400 font-mono">
+                              NISN: {authenticatedStudent.nisn}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Tombol Logout / Ganti Siswa */}
+                        <form action={studentGatewayLogoutAction}>
+                          <button
+                            type="submit"
+                            title="Ganti Akun Siswa (Komputer Lab)"
+                            className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition border border-transparent hover:border-rose-500/30 cursor-pointer flex items-center gap-1 text-[11px]"
+                          >
+                            <LogOut size={14} />
+                            <span className="hidden sm:inline">Ganti Akun</span>
+                          </button>
+                        </form>
+                      </div>
                     </div>
-                  )}
-                </div>
 
-                {/* Live Match Indicator */}
-                {liveLookupInfo && (
-                  <div className="mt-2 p-2 px-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-[11px] text-emerald-300 flex items-center justify-between gap-2 animate-in fade-in-50">
-                    <div className="flex items-center gap-1.5 truncate">
-                      <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
-                      <span className="truncate">
-                        <strong>{liveLookupInfo.name}</strong> • {liveLookupInfo.studentClass}
-                      </span>
-                    </div>
-                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold shrink-0">
-                      Terdaftar
-                    </span>
-                  </div>
-                )}
-              </div>
+                    <form onSubmit={handleVerifySubmit} className="space-y-4">
+                      {/* Input Token Ujian */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 flex items-center justify-between">
+                          <span className="flex items-center gap-1.5">
+                            <Key size={14} className="text-amber-400" /> Masukkan Token Ujian
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-normal">
+                            (Diberikan Pengawas)
+                          </span>
+                        </label>
+                        <input
+                          type="text"
+                          value={token}
+                          onChange={(e) => setToken(e.target.value.toUpperCase())}
+                          placeholder="CONTOH: PAS24G"
+                          maxLength={12}
+                          required
+                          autoFocus
+                          className="w-full px-4 py-3.5 rounded-2xl bg-slate-950/70 border border-slate-700/80 text-white placeholder-slate-600 text-center text-lg sm:text-xl font-mono font-bold tracking-widest uppercase focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                        />
+                        <p className="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1">
+                          <Info size={12} className="text-amber-400 shrink-0" />
+                          <span>Minta 6 karakter token kepada pengawas ruangan Anda.</span>
+                        </p>
+                      </div>
 
-              {/* Field 2: Nama Lengkap Siswa */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <User size={14} className="text-indigo-400" /> Nama Lengkap Siswa
-                  </label>
-                  <span className="text-[10px] text-slate-500">Sesuai Kartu Ujian</span>
-                </div>
-                <input
-                  type="text"
-                  value={studentName}
-                  onChange={(e) => setStudentName(e.target.value)}
-                  placeholder="Contoh: Jurrien Aurelia Wynette Sasalab"
-                  required
-                  className="w-full px-4 py-3 rounded-2xl bg-slate-950/70 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all font-medium"
-                />
-              </div>
-
-              {/* Field 3: Token Ujian */}
-              <div>
-                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <Key size={14} className="text-amber-400" /> Token Ujian
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-normal">
-                    (Diberikan Pengawas)
-                  </span>
-                </label>
-                <input
-                  type="text"
-                  value={token}
-                  onChange={(e) => setToken(e.target.value.toUpperCase())}
-                  placeholder="CONTOH: PAS24G"
-                  maxLength={12}
-                  className="w-full px-4 py-3.5 rounded-2xl bg-slate-950/70 border border-slate-700/80 text-white placeholder-slate-600 text-center text-lg sm:text-xl font-mono font-bold tracking-widest uppercase focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
-                />
-              </div>
-
-              {/* Tombol Submit & Verifikasi */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full mt-2 py-3.5 px-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-2xl shadow-lg shadow-purple-600/30 transition-all transform active:scale-[0.98] disabled:opacity-50 text-sm flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {loading ? (
-                  <div className="flex items-center gap-2">
-                    <Loader2 size={18} className="animate-spin text-white" />
-                    <span>Mencocokkan Database Siswa...</span>
+                      {/* Tombol Masuk Ujian */}
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full py-3.5 px-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-2xl shadow-lg shadow-purple-600/30 transition-all transform active:scale-[0.98] disabled:opacity-50 text-sm flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        {loading ? (
+                          <div className="flex items-center gap-2">
+                            <Loader2 size={18} className="animate-spin text-white" />
+                            <span>Mencocokkan Ruang & Token...</span>
+                          </div>
+                        ) : (
+                          <>
+                            <span>Mulai Masuk Ujian</span>
+                            <ArrowRight size={16} />
+                          </>
+                        )}
+                      </button>
+                    </form>
                   </div>
                 ) : (
-                  <>
-                    <span>Mulai Masuk Ujian</span>
-                    <ArrowRight size={16} />
-                  </>
-                )}
-              </button>
-            </form>
+                  /* 🪪 TAMPILAN JIKA SISWA BELUM LOGIN: FORM OTENTIKASI KARTU PESERTA + TOKEN */
+                  <form onSubmit={handleVerifySubmit} className="space-y-4">
+                    {/* Notice Wajib Kartu Login */}
+                    <div className="p-3 rounded-2xl bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-transparent border border-purple-500/25 flex items-start gap-2.5 text-xs text-purple-200">
+                      <CreditCard size={18} className="text-purple-400 shrink-0 mt-0.5" />
+                      <div className="leading-relaxed">
+                        <strong>Wajib Kredensial Kartu:</strong> Masukkan Username/NISN & Password sesuai <strong>Kartu Login Peserta Ujian</strong> Anda.
+                      </div>
+                    </div>
 
+                    {/* Field 1: Username / NISN Siswa */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                          <User size={14} className="text-purple-400" /> Username / NISN Siswa
+                        </label>
+                        <span className="text-[10px] text-purple-400/80 font-medium">Dari Kartu Login</span>
+                      </div>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={usernameOrNisn}
+                          onChange={(e) => setUsernameOrNisn(e.target.value)}
+                          placeholder="Contoh: 105802928"
+                          required
+                          className="w-full pl-4 pr-10 py-3 rounded-2xl bg-slate-950/70 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all font-mono font-medium tracking-wide"
+                        />
+                        {isLookingUp && (
+                          <div className="absolute right-3.5 top-3.5 text-purple-400">
+                            <Loader2 size={16} className="animate-spin" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Live Match Indicator Nama & Kelas */}
+                      {liveLookupInfo && (
+                        <div className="mt-1.5 p-2 px-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-[11px] text-emerald-300 flex items-center justify-between gap-2 animate-in fade-in-50">
+                          <div className="flex items-center gap-1.5 truncate">
+                            <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
+                            <span className="truncate">
+                              <strong>{liveLookupInfo.name}</strong> • {liveLookupInfo.studentClass}
+                            </span>
+                          </div>
+                          <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold shrink-0">
+                            Terverifikasi
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Field 2: Password Akun Ujian */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                          <Lock size={14} className="text-indigo-400" /> Password Akun Ujian
+                        </label>
+                        <span className="text-[10px] text-slate-500">Kredensial Kartu</span>
+                      </div>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="••••••••"
+                          required
+                          className="w-full pl-4 pr-11 py-3 rounded-2xl bg-slate-950/70 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all font-medium"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3.5 top-3 text-slate-400 hover:text-white transition-colors"
+                          aria-label={showPassword ? 'Sembunyikan password' : 'Lihat password'}
+                        >
+                          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-1">
+                        Default: <code className="text-slate-400 font-mono">siswa123</code> (atau sesuai kartu peserta)
+                      </p>
+                    </div>
+
+                    {/* Field 3: Token Ujian */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <Key size={14} className="text-amber-400" /> Token Ujian
+                        </span>
+                        <span className="text-[10px] text-amber-400/90 font-medium">
+                          (Diberikan Pengawas)
+                        </span>
+                      </label>
+                      <input
+                        type="text"
+                        value={token}
+                        onChange={(e) => setToken(e.target.value.toUpperCase())}
+                        placeholder="CONTOH: PAS24G"
+                        maxLength={12}
+                        required
+                        className="w-full px-4 py-3.5 rounded-2xl bg-slate-950/70 border border-slate-700/80 text-white placeholder-slate-600 text-center text-lg sm:text-xl font-mono font-bold tracking-widest uppercase focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                      />
+                    </div>
+
+                    {/* Tombol Submit & Verifikasi */}
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full mt-2 py-3.5 px-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-2xl shadow-lg shadow-purple-600/30 transition-all transform active:scale-[0.98] disabled:opacity-50 text-sm flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      {loading ? (
+                        <div className="flex items-center gap-2">
+                          <Loader2 size={18} className="animate-spin text-white" />
+                          <span>Memvalidasi Kredensial Kartu...</span>
+                        </div>
+                      ) : (
+                        <>
+                          <span>Otentikasi & Mulai Ujian</span>
+                          <ArrowRight size={16} />
+                        </>
+                      )}
+                    </button>
+                  </form>
+                )}
+              </>
+            )}
+
+            {/* TAB 2: LOGIN LANGSUNG KE PORTAL SISWA (LIHAT JADWAL & MATERI) */}
+            {activeTab === 'portal' && !authenticatedStudent && (
+              <form onSubmit={handlePortalLoginSubmit} className="space-y-4">
+                <div className="p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/25 text-xs text-indigo-200 leading-relaxed flex items-start gap-2.5">
+                  <GraduationCap size={18} className="text-indigo-400 shrink-0 mt-0.5" />
+                  <div>
+                    <strong>Portal Siswa CBT:</strong> Masuk untuk melihat seluruh jadwal ujian, pengumuman nilai, dan materi tanpa memasukkan token sekarang.
+                  </div>
+                </div>
+
+                {portalError && (
+                  <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-200 text-xs flex items-center gap-2">
+                    <AlertCircle size={15} className="text-rose-400 shrink-0" />
+                    <span>{portalError}</span>
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-1.5">
+                    Username / NISN
+                  </label>
+                  <input
+                    type="text"
+                    value={portalUsername}
+                    onChange={(e) => setPortalUsername(e.target.value)}
+                    placeholder="Masukkan Username atau NISN"
+                    required
+                    className="w-full px-4 py-3 rounded-2xl bg-slate-950/70 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-indigo-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-1.5">
+                    Password Akun
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={portalShowPassword ? 'text' : 'password'}
+                      value={portalPassword}
+                      onChange={(e) => setPortalPassword(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      className="w-full pl-4 pr-11 py-3 rounded-2xl bg-slate-950/70 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-indigo-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setPortalShowPassword(!portalShowPassword)}
+                      className="absolute right-3.5 top-3 text-slate-400 hover:text-white"
+                    >
+                      {portalShowPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={portalLoading}
+                  className="w-full py-3.5 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-2xl shadow-lg shadow-indigo-600/30 transition-all text-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {portalLoading ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 size={18} className="animate-spin text-white" />
+                      <span>Masuk ke Portal...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <span>Masuk ke Portal Siswa</span>
+                      <ArrowRight size={16} />
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+
+            {/* Quick Link Portal Siswa */}
             <div className="mt-5 pt-4 border-t border-slate-800 text-center">
               <Link
                 href="/portal/siswa/cbt"
                 className="text-xs text-purple-400 hover:text-purple-300 font-semibold inline-flex items-center gap-1 transition-colors"
               >
-                <span>Lihat semua paket ujian di Portal Siswa</span>
+                <span>Lihat semua jadwal paket ujian di Portal Siswa</span>
                 <ChevronRight size={14} />
               </Link>
             </div>

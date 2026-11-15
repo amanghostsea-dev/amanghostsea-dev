@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { loginAction } from './actions';
 import { 
   Lock, 
@@ -83,7 +84,9 @@ const JURUSAN_DATA: Record<JurusanKey, JurusanInfo> = {
   },
 };
 
-export default function LoginPage() {
+function LoginFormContent() {
+  const searchParams = useSearchParams();
+  const redirectParam = searchParams.get('redirect') || '';
   const [activeJurusan, setActiveJurusan] = useState<JurusanKey>('tjkt');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -292,6 +295,16 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {/* Ruang Ujian CBT Redirect Notice */}
+            {redirectParam && (
+              <div className="mb-4 p-3.5 bg-gradient-to-r from-purple-950/60 to-indigo-950/60 border border-purple-500/40 text-purple-200 rounded-2xl flex items-center gap-3 text-xs animate-fade-in shadow-lg shadow-purple-950/20">
+                <Sparkles size={18} className="text-purple-400 shrink-0" />
+                <span className="leading-relaxed">
+                  <strong>Akses Ruang Ujian CBT:</strong> Silakan login menggunakan <strong>Username / NISN</strong> dan <strong>Password</strong> yang tertera pada <strong>Kartu Login Peserta Ujian</strong> Anda.
+                </span>
+              </div>
+            )}
+
             {/* Error Message Alert */}
             {error && (
               <div className="mb-5 p-3.5 bg-red-950/60 border border-red-500/40 text-red-200 rounded-2xl flex items-center gap-3 text-xs sm:text-sm animate-fade-in backdrop-blur-md">
@@ -302,6 +315,7 @@ export default function LoginPage() {
 
             {/* Login Form */}
             <form action={handleSubmit} className="space-y-4">
+              <input type="hidden" name="redirect" value={redirectParam} />
               
               {/* Username Input Field */}
               <div>
@@ -445,5 +459,20 @@ export default function LoginPage() {
       </footer>
 
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#070b14] flex flex-col items-center justify-center text-white space-y-3">
+          <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs font-mono text-slate-400">Memuat Gerbang Login...</p>
+        </div>
+      }
+    >
+      <LoginFormContent />
+    </Suspense>
   );
 }

@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { logoutAction } from "@/app/login/actions";
 import SiswaDashboardClient from "./SiswaDashboardClient";
@@ -9,11 +10,17 @@ export const dynamic = 'force-dynamic';
 
 export default async function PortalSiswa() {
   const cookieStore = await cookies();
+  const authToken = cookieStore.get('auth_token')?.value;
   const authName = cookieStore.get('auth_name')?.value;
   const authUser = cookieStore.get('auth_user')?.value;
 
-  let studentName = authName;
-  let studentNis = authUser || '10293847';
+  // Wajib login: jika tidak ada session akun siswa resmi, alihkan ke login
+  if (!authUser || !authToken) {
+    redirect('/login?redirect=/portal/siswa');
+  }
+
+  let studentName = authName || '';
+  let studentNis = authUser || '';
 
   if (authUser) {
     try {
@@ -35,7 +42,7 @@ export default async function PortalSiswa() {
   }
 
   if (!studentName) {
-    studentName = 'Siswa SMK';
+    redirect('/login?redirect=/portal/siswa');
   }
 
   // Pastikan master mapel dan nilai siswa tersinkronisasi di Postgres

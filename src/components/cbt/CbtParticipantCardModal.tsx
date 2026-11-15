@@ -1024,6 +1024,22 @@ function SingleParticipantCard({
 }) {
   const isCompact = layoutMode === '6-per-page';
 
+  // Generate personalized QR Code for this student with auto-fill query
+  const studentQrSvg = useMemo(() => {
+    try {
+      const base = portalUrl || 'https://smkgama.sch.id/ujian';
+      const separator = base.includes('?') ? '&' : '?';
+      const studentUrl = `${base}${separator}u=${encodeURIComponent(student.username || student.nisn || '')}`;
+      return generateQrSvg(studentUrl, {
+        size: layoutMode === '6-per-page' ? 56 : 76,
+        padding: 1,
+        darkColor: '#0f172a',
+      });
+    } catch {
+      return qrSvg;
+    }
+  }, [portalUrl, student.username, student.nisn, layoutMode, qrSvg]);
+
   const currentDateFormatted = new Date().toLocaleDateString('id-ID', {
     day: 'numeric',
     month: 'long',
@@ -1169,12 +1185,12 @@ function SingleParticipantCard({
             </div>
           </div>
 
-          {/* Quick QR Code */}
-          {showQr && qrSvg && (
+          {/* Quick QR Code (Personalized Deep-Link to /ujian?u=...) */}
+          {showQr && studentQrSvg && (
             <div className="flex flex-col items-center">
               <div
                 className="w-13 h-13 bg-white p-0.5 border border-slate-300 rounded shadow-xs flex items-center justify-center overflow-hidden"
-                dangerouslySetInnerHTML={{ __html: qrSvg }}
+                dangerouslySetInnerHTML={{ __html: studentQrSvg }}
               />
               <span className="text-[6px] font-bold text-slate-500 uppercase tracking-tighter leading-none mt-0.5">
                 Scan Masuk Ujian

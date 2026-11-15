@@ -1,5 +1,6 @@
 import prisma from '@/lib/prisma';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import SiswaCbtClient from './SiswaCbtClient';
 import { getKopSuratConfig, getCbtTimezone } from '@/lib/settings';
 import { isClassTargetMatch } from '@/lib/cbt-schedule';
@@ -12,8 +13,16 @@ export default async function SiswaCbtListPage() {
     getKopSuratConfig(),
     getCbtTimezone(),
   ]);
+  const authToken = cookieStore.get('auth_token')?.value;
   const authName = cookieStore.get('auth_name')?.value?.trim();
   const authUser = cookieStore.get('auth_user')?.value?.trim();
+
+  const isStaff = authToken === 'Super Admin' || authToken === 'Guru';
+
+  // Wajib login: siswa harus sudah terautentikasi dengan kredensial kartu login
+  if (!authUser && !isStaff) {
+    redirect('/login?redirect=/portal/siswa/cbt');
+  }
 
   let studentName = authName || '';
   let studentNis = authUser || '';

@@ -2,20 +2,32 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 // Routes that require authentication
-const protectedRoutes = ['/admin'];
+const protectedAdminRoutes = ['/admin'];
+const protectedStudentRoutes = ['/portal/siswa'];
 
 // Roles allowed to access admin routes
 const adminRoles = ['Super Admin', 'Panitia PPDB', 'Verifikator PPDB', 'Admin BKK', 'BKK', 'Guru'];
+const studentAllowedRoles = ['Siswa', 'Super Admin', 'Guru'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Check if the route is protected
-  const isProtected = protectedRoutes.some(route => pathname.startsWith(route));
+  const authToken = request.cookies.get('auth_token')?.value;
 
-  if (isProtected) {
-    const authToken = request.cookies.get('auth_token')?.value;
+  // 1. Check if the route is student portal
+  const isStudentRoute = protectedStudentRoutes.some(route => pathname.startsWith(route));
+  if (isStudentRoute) {
+    if (!authToken || !studentAllowedRoles.includes(authToken)) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    return NextResponse.next();
+  }
 
+  // 2. Check if the route is admin
+  const isAdminRoute = protectedAdminRoutes.some(route => pathname.startsWith(route));
+  if (isAdminRoute) {
     // No auth cookie → redirect to login
     if (!authToken) {
       const loginUrl = new URL('/login', request.url);
@@ -53,5 +65,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/admin/:path*', '/portal/siswa/:path*'],
 };
