@@ -34,7 +34,7 @@ import {
   RefreshCw,
   Lock
 } from 'lucide-react';
-import { createUser, updateUser, deleteUser, deleteBulkUsers, createBulkStudents, BulkStudentItem } from './actions';
+import { createUser, updateUser, deleteUser, deleteBulkUsers, createBulkStudents, updateStudentClass, updateBulkStudentsClass, BulkStudentItem } from './actions';
 import ConfirmModal from '@/components/ConfirmModal';
 
 // Helper: Generator password acak bersih & unik (menghindari karakter ambigu 0, O, 1, l, I)
@@ -239,6 +239,40 @@ export default function UsersCRUD({
       alert(err instanceof Error ? err.message : 'Terjadi kesalahan sistem saat menghapus data massal.');
     } finally {
       setIsBulkDeleting(false);
+    }
+  };
+
+  // Bulk Assign Class State (Khusus Siswa)
+  const [isBulkClassModalOpen, setIsBulkClassModalOpen] = useState(false);
+  const [bulkTargetClass, setBulkTargetClass] = useState<string>('');
+  const [isBulkClassUpdating, setIsBulkClassUpdating] = useState(false);
+
+  const handleConfirmBulkClass = async () => {
+    if (selectedUserIds.size === 0 || !bulkTargetClass) return;
+    setIsBulkClassUpdating(true);
+    try {
+      const ids = Array.from(selectedUserIds);
+      const res = await updateBulkStudentsClass(ids, bulkTargetClass);
+      if (res?.success) {
+        setUsers(prev => prev.map(u => {
+          if (selectedUserIds.has(u.id) && u.role === 'Siswa') {
+            return { ...u, studentClass: bulkTargetClass };
+          }
+          return u;
+        }));
+        for (const id of ids) {
+          studentClassMap[id] = bulkTargetClass;
+        }
+        setIsBulkClassModalOpen(false);
+        setSelectedUserIds(new Set());
+        alert(`Berhasil memperbarui kelas & jurusan untuk ${res.count} siswa ke "${bulkTargetClass}".`);
+      } else {
+        alert(res?.error || 'Gagal memperbarui kelas siswa.');
+      }
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Terjadi kesalahan sistem.');
+    } finally {
+      setIsBulkClassUpdating(false);
     }
   };
 
@@ -832,6 +866,24 @@ export default function UsersCRUD({
     return (u as any).studentClass || studentClassMap[u.id] || studentClassMap[u.name] || (u.nisn && studentClassMap[u.nisn]) || '';
   };
 
+  // Helper: Dapatkan objek Jurusan dari nama kelas siswa
+  const getStudentJurusan = (cls: string) => {
+    if (!cls) return null;
+    const upper = cls.toUpperCase();
+    for (const j of jurusans) {
+      const code = (j.code || '').trim().toUpperCase();
+      if (code && (upper.includes(code) || new RegExp(`(^|[^A-Z0-9])${code}([^A-Z0-9]|$)`, 'i').test(upper))) {
+        return j;
+      }
+    }
+    return null;
+  };
+
+  // Hitung jumlah siswa yang belum diplot kelas
+  const unassignedSiswaCount = useMemo(() => {
+    return (users || []).filter(u => u.role === 'Siswa' && !getUserClass(u)).length;
+  }, [users, studentClassMap]);
+
   // Daftar seluruh kelas resmi & rombel yang ada
   const allClassOptions = useMemo(() => {
     const set = new Set<string>();
@@ -1038,7 +1090,9 @@ export default function UsersCRUD({
       if (filterClass !== 'ALL') {
         if (item.role !== 'Siswa') return false;
 
-        if (filterClass === 'LEVEL_X') {
+        if (filterClass === 'UNASSIGNED') {
+          if (userClass) return false;
+        } else if (filterClass === 'LEVEL_X') {
           if (!/^(X|10)\b/i.test(userClass) || /^(XI|XII|11|12)\b/i.test(userClass)) {
             return false;
           }
@@ -1237,6 +1291,9 @@ export default function UsersCRUD({
                   className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-xs font-semibold text-gray-800 dark:text-gray-200 cursor-pointer focus:ring-2 focus:ring-purple-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
                   <option value="ALL">Semua Kelas ({totalSiswa} Siswa)</option>
+                  {unassignedSiswaCount > 0 && (
+                    <option value="UNASSIGNED">⚠️ Belum Diplot Kelas ({unassignedSiswaCount} Siswa)</option>
+                  )}
                   <optgroup label="Tingkat Kelas">
                     <option value="LEVEL_X">Semua Tingkat X ({gradeLevelCounts.x} Siswa)</option>
                     <option value="LEVEL_XI">Semua Tingkat XI ({gradeLevelCounts.xi} Siswa)</option>
@@ -1328,7 +1385,7 @@ export default function UsersCRUD({
                 {filterClass !== 'ALL' && (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 font-semibold">
                     <GraduationCap size={12} />
-                    Kelas: {filterClass.replace('LEVEL_', 'Tingkat ')}
+                    Kelas: {filterClass === 'UNASSIGNED' ? 'Belum Diplot' : filterClass.replace('LEVEL_', 'Tingkat ')}
                     <button onClick={() => setFilterClass('ALL')} className="hover:text-purple-900 dark:hover:text-purple-100 transition-colors cursor-pointer" title="Hapus filter kelas"><X size={12} /></button>
                   </span>
                 )}
@@ -1388,7 +1445,22 @@ export default function UsersCRUD({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+                {selectedBreakdown.siswa > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const fallbackCls = classTargets.find(c => c !== 'Semua Kelas' && !c.includes('Semua Jurusan')) || 'XI TJKT 1';
+                      setBulkTargetClass(fallbackCls);
+                      setIsBulkClassModalOpen(true);
+                    }}
+                    className="px-3.5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 active:scale-95 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm shadow-indigo-600/25 transition-all cursor-pointer"
+                  >
+                    <GraduationCap size={14} />
+                    Atur Kelas ({selectedBreakdown.siswa} Siswa)
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={handleToggleSelectAllVisible}
@@ -1434,6 +1506,7 @@ export default function UsersCRUD({
                     />
                   </th>
                   <th className="p-4">Nama Lengkap & NISN</th>
+                  <th className="p-4">Kelas & Jurusan</th>
                   <th className="p-4">Username Login</th>
                   <th className="p-4">Password Awal</th>
                   <th className="p-4">Peran (Role)</th>
@@ -1444,7 +1517,7 @@ export default function UsersCRUD({
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800 text-sm">
                 {filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-16 text-gray-400 dark:text-gray-500">
+                    <td colSpan={8} className="text-center py-16 text-gray-400 dark:text-gray-500">
                       <div className="flex flex-col items-center justify-center gap-3">
                         <div className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400">
                           <Filter size={24} />
@@ -1495,13 +1568,54 @@ export default function UsersCRUD({
                               ) : (
                                 <span className="text-[11px] text-amber-600 dark:text-amber-400 font-mono">NISN: Belum diisi</span>
                               )}
-                              {((item as any).studentClass || studentClassMap[item.id] || studentClassMap[item.name] || (item.nisn && studentClassMap[item.nisn])) && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-                                  {(item as any).studentClass || studentClassMap[item.id] || studentClassMap[item.name] || (item.nisn && studentClassMap[item.nisn])}
-                                </span>
-                              )}
                             </div>
                           ) : null}
+                        </td>
+                        <td className="p-4">
+                          {item.role === 'Siswa' ? (() => {
+                            const userClass = getUserClass(item);
+                            const matchedJurusan = getStudentJurusan(userClass);
+
+                            if (userClass) {
+                              return (
+                                <div className="flex flex-col gap-1 items-start">
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 shadow-xs">
+                                    <GraduationCap size={13} className="text-purple-600 dark:text-purple-400 shrink-0" />
+                                    <span>{userClass}</span>
+                                  </span>
+                                  {matchedJurusan ? (
+                                    <span 
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 max-w-[210px] truncate" 
+                                      title={`${matchedJurusan.code} • ${matchedJurusan.name}`}
+                                    >
+                                      <Layers size={11} className="text-indigo-500 shrink-0" />
+                                      <span className="truncate">{matchedJurusan.code} • {matchedJurusan.name}</span>
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 text-[11px] text-gray-500 font-medium">
+                                      <Layers size={11} className="text-gray-400 shrink-0" />
+                                      <span>Jurusan Terpaut</span>
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => handleEdit(item)}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/60 transition-colors cursor-pointer group"
+                                title="Klik untuk memplot kelas & jurusan siswa ini"
+                              >
+                                <AlertCircle size={13} className="text-amber-500 shrink-0" />
+                                <span>Belum Diatur</span>
+                                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-300 underline ml-0.5 group-hover:text-amber-700">Atur</span>
+                              </button>
+                            );
+                          })() : (
+                            <span className="text-gray-300 dark:text-gray-600 font-mono text-xs pl-2" title="Bukan role siswa">-</span>
+                          )}
                         </td>
                         <td className="p-4 text-gray-600 dark:text-gray-300 font-mono text-sm font-medium">
                           {item.username}
@@ -2458,6 +2572,107 @@ export default function UsersCRUD({
           onConfirm={handleConfirmBulkDelete}
           onClose={() => setIsBulkDeleteModalOpen(false)}
         />
+
+        {/* Modal Atur Kelas & Jurusan Kolektif (Bulk Assign Class) */}
+        {isBulkClassModalOpen && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 w-full max-w-md overflow-hidden text-gray-900 dark:text-white transition-all">
+              <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-transparent">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-md shadow-purple-600/30">
+                    <GraduationCap size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white">Atur Kelas & Jurusan Siswa</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Plotting massal untuk {selectedBreakdown.siswa} akun siswa terpilih</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsBulkClassModalOpen(false)} 
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="p-3.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-xs text-purple-900 dark:text-purple-200 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <CheckCircle2 size={14} className="text-purple-600" />
+                    {selectedBreakdown.siswa} Siswa Terpilih
+                  </div>
+                  <p className="text-[11px] text-purple-700 dark:text-purple-300">
+                    Siswa yang dipilih akan langsung dihubungkan ke kelas dan jurusan baru. Nilai dan jadwal pelajaran siswa akan otomatis disinkronkan.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-2">
+                    Pilih Kelas & Jurusan Target
+                  </label>
+                  <select
+                    value={bulkTargetClass}
+                    onChange={(e) => setBulkTargetClass(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white font-semibold text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-all cursor-pointer"
+                  >
+                    <option value="" disabled>-- Pilih Kelas & Jurusan --</option>
+                    {allClassOptions.map(cls => {
+                      const j = getStudentJurusan(cls);
+                      return (
+                        <option key={cls} value={cls}>
+                          {cls} {j ? `(${j.code} - ${j.name})` : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                {bulkTargetClass && (
+                  <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 text-xs space-y-1">
+                    <div className="text-gray-500 font-medium">Ringkasan Pengaturan:</div>
+                    <div className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                      <GraduationCap size={14} className="text-purple-600" />
+                      Kelas: <span className="font-bold text-purple-600 dark:text-purple-400">{bulkTargetClass}</span>
+                    </div>
+                    {getStudentJurusan(bulkTargetClass) && (
+                      <div className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                        <Layers size={14} className="text-indigo-600" />
+                        Jurusan: <span className="text-indigo-600 dark:text-indigo-400 font-bold">{getStudentJurusan(bulkTargetClass)?.code}</span> - {getStudentJurusan(bulkTargetClass)?.name}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="p-5 border-t border-gray-100 dark:border-gray-800 flex items-center justify-end gap-2.5 bg-gray-50/50 dark:bg-gray-900/50">
+                <button
+                  type="button"
+                  onClick={() => setIsBulkClassModalOpen(false)}
+                  disabled={isBulkClassUpdating}
+                  className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={!bulkTargetClass || isBulkClassUpdating}
+                  onClick={handleConfirmBulkClass}
+                  className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl shadow-md shadow-purple-600/25 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  {isBulkClassUpdating ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" /> Memperbarui Kelas...
+                    </>
+                  ) : (
+                    <>
+                      <Check size={14} /> Simpan Kelas ({selectedBreakdown.siswa} Siswa)
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -43,10 +43,10 @@ export async function createUser(data: {
       }
     }
 
-    const password = data.password && data.password.trim() !== '' 
-      ? data.password.trim() 
+    const password = data.password && data.password.trim() !== ''
+      ? data.password.trim()
       : (nisn || Math.random().toString(36).slice(-8));
-    
+
     const newUser = await prisma.user.create({
       data: {
         name: data.name.trim(),
@@ -157,7 +157,7 @@ export async function updateUser(id: string, data: {
       nisn,
       studentClass: data.role === 'Siswa' ? (data.studentClass?.trim() || null) : null,
     };
-    
+
     if (data.password && data.password.trim() !== '') {
       updateData.password = data.password.trim();
     }
@@ -206,7 +206,7 @@ export async function deleteUser(id: string) {
             ]
           }
         });
-      } catch {}
+      } catch { }
     }
 
     revalidatePath('/admin/users');
@@ -278,6 +278,171 @@ export async function deleteBulkUsers(ids: string[]) {
   }
 }
 
+export async function updateStudentClass(userId: string, studentClass: string) {
+  await requireSuperAdmin();
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true, name: true, nisn: true, username: true }
+    });
+
+    if (!user) {
+      return { error: 'Pengguna tidak ditemukan.' };
+    }
+
+    if (user.role !== 'Siswa') {
+      return { error: 'Hanya pengguna role Siswa yang memiliki kelas dan jurusan.' };
+    }
+
+    const trimmedClass = studentClass.trim();
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        studentClass: trimmedClass || null,
+      }
+    });
+
+    // Auto-sync StudentGrade jika kelas siswa diatur
+    if (trimmedClass) {
+      try {
+        const activeSubjects = await prisma.subject.findMany({
+          where: { status: 'ACTIVE' },
+          select: { id: true, classTarget: true },
+        });
+
+        for (const subj of activeSubjects) {
+          if (subj.classTarget === 'Semua Kelas' || subj.classTarget === trimmedClass) {
+            await prisma.studentGrade.upsert({
+              where: {
+                subjectId_studentName: {
+                  subjectId: subj.id,
+                  studentName: user.name,
+                },
+              },
+              update: {
+                studentNis: user.nisn || user.username,
+                studentClass: trimmedClass,
+              },
+              create: {
+                subjectId: subj.id,
+                studentName: user.name,
+                studentNis: user.nisn || user.username,
+                studentClass: trimmedClass,
+                assignment: 85,
+                midExam: 80,
+                finalExam: 85,
+                finalGrade: 'A',
+                updatedBy: 'Admin Utama',
+              },
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Error syncing student grade in updateStudentClass:', err);
+      }
+    }
+
+    revalidatePath('/admin/users');
+    revalidatePath('/admin/cbt');
+    revalidatePath('/portal/siswa');
+    revalidatePath('/portal/guru/kelas');
+    revalidatePath('/portal/guru/nilai');
+
+    return { success: true, user: updated };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Gagal memperbarui kelas siswa';
+    return { error: msg };
+  }
+}
+
+export async function updateBulkStudentsClass(userIds: string[], studentClass: string) {
+  await requireSuperAdmin();
+  try {
+    if (!userIds || userIds.length === 0) {
+      return { error: 'Tidak ada akun siswa yang dipilih.' };
+    }
+
+    const trimmedClass = studentClass.trim();
+    if (!trimmedClass) {
+      return { error: 'Kelas dan jurusan wajib dipilih.' };
+    }
+
+    // Hanya update user dengan role 'Siswa'
+    const studentUsers = await prisma.user.findMany({
+      where: {
+        id: { in: userIds },
+        role: 'Siswa',
+      },
+      select: { id: true, name: true, nisn: true, username: true }
+    });
+
+    if (studentUsers.length === 0) {
+      return { error: 'Tidak ada akun siswa valid di antara akun yang dipilih.' };
+    }
+
+    const targetIds = studentUsers.map(u => u.id);
+
+    await prisma.user.updateMany({
+      where: { id: { in: targetIds } },
+      data: {
+        studentClass: trimmedClass,
+      }
+    });
+
+    // Auto-sync StudentGrade jika kelas diatur
+    try {
+      const activeSubjects = await prisma.subject.findMany({
+        where: { status: 'ACTIVE' },
+        select: { id: true, classTarget: true },
+      });
+
+      for (const subj of activeSubjects) {
+        if (subj.classTarget === 'Semua Kelas' || subj.classTarget === trimmedClass) {
+          for (const u of studentUsers) {
+            await prisma.studentGrade.upsert({
+              where: {
+                subjectId_studentName: {
+                  subjectId: subj.id,
+                  studentName: u.name,
+                },
+              },
+              update: {
+                studentNis: u.nisn || u.username,
+                studentClass: trimmedClass,
+              },
+              create: {
+                subjectId: subj.id,
+                studentName: u.name,
+                studentNis: u.nisn || u.username,
+                studentClass: trimmedClass,
+                assignment: 85,
+                midExam: 80,
+                finalExam: 85,
+                finalGrade: 'A',
+                updatedBy: 'Admin Utama',
+              },
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error syncing student grades in bulk update:', err);
+    }
+
+    revalidatePath('/admin/users');
+    revalidatePath('/admin/cbt');
+    revalidatePath('/portal/siswa');
+    revalidatePath('/portal/guru/kelas');
+    revalidatePath('/portal/guru/nilai');
+
+    return { success: true, count: studentUsers.length };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Gagal memperbarui kelas siswa massal';
+    return { error: msg };
+  }
+}
+
 // Helper: Generator password acak bersih (menghindari karakter ambigu seperti 0, O, 1, l, I)
 function generateCleanRandomPassword(length = 8): string {
   const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz';
@@ -338,7 +503,7 @@ export async function createBulkStudents(
       const name = s.name?.trim();
       const nisn = s.nisn?.toString().trim();
       const assignedClass = s.studentClass?.trim() || fallbackClass;
-      
+
       if (!name) {
         skipped.push({ name: s.name || `Baris ${i + 1}`, nisn: nisn || '-', reason: 'Nama siswa wajib diisi' });
         continue;
