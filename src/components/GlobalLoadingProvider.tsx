@@ -63,6 +63,7 @@ export function GlobalLoadingProvider({ children }: { children: React.ReactNode 
   const lastClickedButtonRef = useRef<HTMLElement | null>(null);
   const lastClickTimeRef = useRef<number>(0);
   const manualLoadingCounterRef = useRef(0);
+  const pillShownAtRef = useRef<number>(0);
 
   // Start progress bar animation (Neon Top Laser)
   const startProgressBar = useCallback(() => {
@@ -78,7 +79,7 @@ export function GlobalLoadingProvider({ children }: { children: React.ReactNode 
         if (prev < 94) return prev + 0.5;
         return prev;
       });
-    }, 150);
+    }, 120);
   }, []);
 
   // Complete and hide progress bar
@@ -91,30 +92,40 @@ export function GlobalLoadingProvider({ children }: { children: React.ReactNode 
     }, 250);
   }, []);
 
-  // Show floating pill if request takes > 220ms (prevent flicker on fast actions)
+  // 🎯 Presisi Delay: Tampilkan logo loading tepat pada 60ms jika sistem mulai memproses
   const scheduleFloatingPill = useCallback((text?: string) => {
     if (text) setLoadingText(text);
 
     if (pillTimerRef.current) clearTimeout(pillTimerRef.current);
     if (prolongedTimerRef.current) clearTimeout(prolongedTimerRef.current);
 
+    // 60ms presisi: langsung merespons ketika sistem memproses
     pillTimerRef.current = setTimeout(() => {
+      pillShownAtRef.current = Date.now();
       setShowFloatingPill(true);
       setIsLoading(true);
-    }, 220);
+    }, 60);
 
     prolongedTimerRef.current = setTimeout(() => {
       setIsProlonged(true);
-    }, 3200);
+    }, 2800);
   }, []);
 
+  // 🛡️ Smooth Dismiss: Pastikan animasi terlihat mulus (minimal 400ms) agar tidak hilang sekejap seperti glitch
   const dismissFloatingPill = useCallback(() => {
     if (pillTimerRef.current) clearTimeout(pillTimerRef.current);
     if (prolongedTimerRef.current) clearTimeout(prolongedTimerRef.current);
 
-    setShowFloatingPill(false);
-    setIsProlonged(false);
-    setIsLoading(false);
+    const now = Date.now();
+    const visibleDuration = pillShownAtRef.current > 0 ? now - pillShownAtRef.current : 0;
+    const minWait = pillShownAtRef.current > 0 && visibleDuration < 420 ? 420 - visibleDuration : 0;
+
+    setTimeout(() => {
+      setShowFloatingPill(false);
+      setIsProlonged(false);
+      setIsLoading(false);
+      pillShownAtRef.current = 0;
+    }, minWait);
   }, []);
 
   // Trigger brief anti-spam warning when user repeatedly clicks while busy
@@ -163,11 +174,24 @@ export function GlobalLoadingProvider({ children }: { children: React.ReactNode 
     const originalFetch = window.fetch;
     window.fetch = async function (...args) {
       const now = Date.now();
-      const isUserInitiated = now < userInteractionActiveUntilRef.current || manualLoadingCounterRef.current > 0;
+      const firstArg = args[0];
+      const secondArg = args[1];
+      const url = typeof firstArg === 'string' ? firstArg : (firstArg as any)?.url || '';
+      const method = (secondArg?.method || (firstArg as any)?.method || 'GET').toUpperCase();
+
+      // Silent ignore for automated background polls
+      const isBackgroundPoll = url.includes('/api/health') || url.includes('silent=true');
+
+      // Server actions in Next.js use POST. Every mutation or click interaction triggers loader:
+      const isUserAction = !isBackgroundPoll && (
+        method !== 'GET' ||
+        now < userInteractionActiveUntilRef.current || 
+        manualLoadingCounterRef.current > 0
+      );
 
       activeRequestsRef.current++;
 
-      if (isUserInitiated) {
+      if (isUserAction) {
         startProgressBar();
         scheduleFloatingPill();
       }
@@ -188,20 +212,20 @@ export function GlobalLoadingProvider({ children }: { children: React.ReactNode 
       const target = e.target as HTMLElement | null;
       if (!target) return;
 
+      const now = Date.now();
+      userInteractionActiveUntilRef.current = now + 6000;
+
       // Detect button or clickable submit trigger
       const interactiveBtn = target.closest(
-        'button, [role="button"], input[type="submit"], a[href]'
+        'button, [role="button"], input[type="submit"], a[href], [data-clickable="true"]'
       ) as HTMLElement | null;
 
       if (!interactiveBtn) return;
-
-      const now = Date.now();
 
       // Check if clicking internal navigation link
       if (interactiveBtn.tagName === 'A' && interactiveBtn.hasAttribute('href')) {
         const href = interactiveBtn.getAttribute('href') || '';
         if (href && !href.startsWith('http') && !href.startsWith('#') && !href.startsWith('mailto:') && !href.startsWith('tel:')) {
-          userInteractionActiveUntilRef.current = now + 4000;
           startProgressBar();
           scheduleFloatingPill('Memuat halaman...');
           return;
@@ -232,7 +256,6 @@ export function GlobalLoadingProvider({ children }: { children: React.ReactNode 
       // Record button interaction
       lastClickedButtonRef.current = interactiveBtn;
       lastClickTimeRef.current = now;
-      userInteractionActiveUntilRef.current = now + 4000;
 
       // Extract descriptive text from button for context-aware loading
       const rawText = (
@@ -248,12 +271,14 @@ export function GlobalLoadingProvider({ children }: { children: React.ReactNode 
         : 'Memproses permintaan...';
 
       setLoadingText(cleanLabel);
+      startProgressBar();
+      scheduleFloatingPill(cleanLabel);
     };
 
     // 3. Global Form Submit Guard
     const handleDocumentSubmit = (e: SubmitEvent) => {
       const now = Date.now();
-      userInteractionActiveUntilRef.current = now + 4000;
+      userInteractionActiveUntilRef.current = now + 6000;
       startProgressBar();
       scheduleFloatingPill('Menyimpan data ke server...');
     };
