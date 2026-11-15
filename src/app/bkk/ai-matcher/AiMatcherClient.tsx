@@ -1,15 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { 
-  Sparkles, Upload, FileText, Briefcase, CheckCircle, ArrowRight, 
+import {
+  Sparkles, Upload, FileText, Briefcase, CheckCircle, ArrowRight,
   Bot, AlertCircle, Loader2, Target, Check, RefreshCw, Star, BookOpen
 } from 'lucide-react';
 import JobDetailModal, { JobListing } from '@/components/bkk/JobDetailModal';
 import Link from 'next/link';
 
 const QUICK_SKILLS = [
-  'HTML & CSS', 'JavaScript', 'React', 'Next.js', 'Flutter Mobile', 
+  'HTML & CSS', 'JavaScript', 'React', 'Next.js', 'Flutter Mobile',
   'Mikrotik', 'Cisco Networking', 'Fiber Optik', 'Linux Server', 'Cyber Security',
   'UI/UX Design (Figma)', 'Desain Grafis (Photoshop/Illustrator)', 'Video Editing (Premiere/After Effects)',
   'Administrasi Perkantoran Digital', 'Microsoft Excel & Cloud Office', 'Manajemen Kearsipan', 'Public Relations'
@@ -118,7 +118,7 @@ export default function AiMatcherClient() {
       {/* INPUT FORM (If no results yet) */}
       {!results && (
         <div className="bg-white dark:bg-gray-900 p-6 md:p-10 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-800 space-y-8 animate-in fade-in">
-          
+
           {errorMsg && (
             <div className="p-4 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-300 rounded-2xl text-xs flex items-center gap-2">
               <AlertCircle size={18} />
@@ -141,10 +141,10 @@ export default function AiMatcherClient() {
             <label className="inline-flex items-center gap-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-2.5 rounded-xl font-bold text-xs cursor-pointer hover:bg-blue-600 dark:hover:bg-blue-500 hover:text-white transition-all shadow-sm">
               <FileText size={16} />
               {isUploading ? 'Sedang Memproses...' : uploadedFileName ? `Berkas: ${uploadedFileName}` : 'Pilih Berkas CV'}
-              <input 
-                type="file" 
-                accept=".pdf,.png,.jpg,.jpeg" 
-                className="hidden" 
+              <input
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg"
+                className="hidden"
                 onChange={handleFileUpload}
                 disabled={isUploading || isScanning}
               />
@@ -172,11 +172,10 @@ export default function AiMatcherClient() {
                     key={skill}
                     type="button"
                     onClick={() => toggleQuickSkill(skill)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
-                      isSelected
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${isSelected
                         ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                         : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-400'
-                    }`}
+                      }`}
                   >
                     {isSelected && <Check size={12} className="inline mr-1" />}
                     {skill}
@@ -212,10 +211,9 @@ export default function AiMatcherClient() {
                 className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl text-xs font-bold text-gray-800 dark:text-gray-200 outline-none"
               >
                 <option value="">Semua Program Keahlian</option>
-                <option value="RPL">RPL (Pengembangan Perangkat Lunak & Gim)</option>
-                <option value="MPLB">MPLB (Manajemen Perkantoran & Layanan Bisnis)</option>
-                <option value="DKV">DKV (Desain Komunikasi Visual)</option>
                 <option value="TJKT">TJKT (Teknik Jaringan Komputer & Telekomunikasi)</option>
+                <option value="DKV">DKV (Desain Komunikasi Visual)</option>
+                <option value="MPLB">MPLB (Manajemen Perkantoran & Layanan Bisnis)</option>
               </select>
             </div>
 
@@ -245,7 +243,7 @@ export default function AiMatcherClient() {
       {/* RESULTS DISPLAY */}
       {results && (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          
+
           {/* Result Alert Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 p-5 rounded-3xl border border-emerald-200 dark:border-emerald-800/40">
             <div className="flex items-center gap-3 font-bold text-sm">
@@ -270,12 +268,12 @@ export default function AiMatcherClient() {
           {/* Job Matches Cards */}
           <div className="space-y-6">
             {results.map((job) => (
-              <div 
-                key={job.id} 
+              <div
+                key={job.id}
                 className="bg-white dark:bg-gray-900 p-6 md:p-8 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-xl transition-all relative overflow-hidden group"
               >
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-                  
+
                   {/* Job & Company Info */}
                   <div className="flex-1 space-y-3">
                     <div className="flex items-center gap-3">
@@ -297,8 +295,8 @@ export default function AiMatcherClient() {
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="text-[11px] font-bold text-gray-400 mr-1">Keahlian Cocok:</span>
                         {job.matchedSkills.map((ms: string, idx: number) => (
-                          <span 
-                            key={idx} 
+                          <span
+                            key={idx}
                             className="px-2.5 py-0.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold rounded-lg border border-emerald-200 dark:border-emerald-800/40 flex items-center gap-1"
                           >
                             <Check size={11} /> {ms}
@@ -310,8 +308,8 @@ export default function AiMatcherClient() {
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span className="text-[11px] font-bold text-gray-400 mr-1">Saran Peningkatan:</span>
                           {job.missingSkills.map((mis: string, idx: number) => (
-                            <span 
-                              key={idx} 
+                            <span
+                              key={idx}
                               className="px-2.5 py-0.5 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 text-[11px] font-semibold rounded-lg border border-amber-200 dark:border-amber-800/40"
                             >
                               + {mis}

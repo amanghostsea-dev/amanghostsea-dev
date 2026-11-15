@@ -78,7 +78,7 @@ export default function MapelClient({
   initialSubjects,
   teachers,
   students,
-  classTargets = ['Semua Kelas', 'X RPL 1', 'XI RPL 1', 'XII RPL 1', 'X TJKT 1', 'XI TJKT 1', 'XII TJKT 1', 'X DKV 1', 'XI DKV 1', 'XII DKV 1', 'X MPLB 1', 'XI MPLB 1', 'XII MPLB 1'],
+  classTargets = ['Semua Kelas', 'X TJKT 1', 'XI TJKT 1', 'XII TJKT 1', 'X DKV 1', 'XI DKV 1', 'XII DKV 1', 'X MPLB 1', 'XI MPLB 1', 'XII MPLB 1'],
   jurusans = [],
 }: MapelClientProps) {
   const [subjects, setSubjects] = useState<SubjectItem[]>(initialSubjects);
@@ -99,8 +99,8 @@ export default function MapelClient({
   const [formCode, setFormCode] = useState('');
   const [formName, setFormName] = useState('');
   const [formCategory, setFormCategory] = useState('Muatan Kejuruan');
-  const [formJurusan, setFormJurusan] = useState(jurusans[0]?.code || 'RPL');
-  const [formClassTarget, setFormClassTarget] = useState('XI RPL 1');
+  const [formJurusan, setFormJurusan] = useState(jurusans[0]?.code || 'TJKT');
+  const [formClassTarget, setFormClassTarget] = useState(classTargets.find((c) => c !== 'Semua Kelas') || 'XI TJKT 1');
   const [formTeacherId, setFormTeacherId] = useState('');
   const [formTeacherName, setFormTeacherName] = useState('');
   const [formDay, setFormDay] = useState('Senin');
@@ -162,7 +162,7 @@ export default function MapelClient({
     setFormCode(`MAPEL-${subjects.length + 1}`);
     setFormName('');
     setFormCategory('Muatan Kejuruan');
-    const defaultJurusan = jurusans[0]?.code || 'RPL';
+    const defaultJurusan = jurusans[0]?.code || 'TJKT';
     setFormJurusan(defaultJurusan);
     const defaultClass = classTargets.find((c) => c !== 'Semua Kelas' && c.toUpperCase().includes(defaultJurusan.toUpperCase())) || `XI ${defaultJurusan} 1`;
     setFormClassTarget(defaultClass);
@@ -182,7 +182,7 @@ export default function MapelClient({
     setFormName(subject.name);
     setFormCategory(subject.category);
     setFormClassTarget(subject.classTarget);
-    const matchedJurusan = jurusans.find((j) => subject.classTarget.toUpperCase().includes(j.code.toUpperCase()))?.code || (subject.classTarget === 'Semua Kelas' ? 'ALL' : (jurusans[0]?.code || 'RPL'));
+    const matchedJurusan = jurusans.find((j) => subject.classTarget.toUpperCase().includes(j.code.toUpperCase()))?.code || (subject.classTarget === 'Semua Kelas' ? 'ALL' : (jurusans[0]?.code || 'TJKT'));
     setFormJurusan(matchedJurusan);
     setFormTeacherId(subject.teacherId || '');
     setFormTeacherName(subject.teacherName || '');

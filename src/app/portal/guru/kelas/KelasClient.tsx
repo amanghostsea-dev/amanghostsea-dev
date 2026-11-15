@@ -35,7 +35,7 @@ interface StudentItem {
 export default function KelasClient({
   students: initialStudents,
   teacherName,
-  classTargets = ['Semua Kelas', 'X RPL 1', 'XI RPL 1', 'XII RPL 1', 'X TJKT 1', 'XI TJKT 1', 'XII TJKT 1', 'X DKV 1', 'XI DKV 1', 'XII DKV 1', 'X MPLB 1', 'XI MPLB 1', 'XII MPLB 1'],
+  classTargets = ['Semua Kelas', 'X TJKT 1', 'XI TJKT 1', 'XII TJKT 1', 'X DKV 1', 'XI DKV 1', 'XII DKV 1', 'X MPLB 1', 'XI MPLB 1', 'XII MPLB 1'],
 }: {
   students: StudentItem[];
   teacherName: string;
@@ -56,7 +56,7 @@ export default function KelasClient({
   const [formNisn, setFormNisn] = useState('');
   const [formUsername, setFormUsername] = useState('');
   const [formPassword, setFormPassword] = useState('');
-  const [formClass, setFormClass] = useState('XI RPL 1');
+  const [formClass, setFormClass] = useState('XI TJKT 1');
 
   // Import Field
   const [importText, setImportText] = useState('');
@@ -72,7 +72,7 @@ export default function KelasClient({
       .filter((c) => c !== 'Semua Kelas')
       .map((c) => ({
         id: c,
-        label: c.includes('XI RPL 1') ? `${c} (Wali Kelas)` : c,
+        label: c.includes('XI TJKT 1') ? `${c} (Wali Kelas)` : c,
       })),
   ];
 
@@ -89,7 +89,7 @@ export default function KelasClient({
     setFormNisn('');
     setFormUsername('');
     setFormPassword('');
-    setFormClass(selectedClass !== 'ALL' ? selectedClass : 'XI RPL 1');
+    setFormClass(selectedClass !== 'ALL' ? selectedClass : 'XI TJKT 1');
     setIsAddModalOpen(true);
   };
 
@@ -204,7 +204,7 @@ export default function KelasClient({
             Daftar Kelas & Siswa
           </h1>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-            Wali Kelas: <strong className="text-gray-900 dark:text-white">{teacherName}</strong> (XI RPL 1)
+            Wali Kelas: <strong className="text-gray-900 dark:text-white">{teacherName}</strong> (XI TJKT 1)
           </p>
         </div>
 
@@ -255,7 +255,7 @@ export default function KelasClient({
             <GraduationCap size={24} />
           </div>
           <div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">XI RPL 1</div>
+            <div className="text-2xl font-bold text-gray-900 dark:text-white">XI TJKT 1</div>
             <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">Kelas Utama Wali</div>
           </div>
         </div>
@@ -330,7 +330,7 @@ export default function KelasClient({
                       )}
                     </td>
                     <td className="py-4 px-6 text-gray-700 dark:text-gray-300 font-medium">
-                      {selectedClass === 'ALL' ? 'XI RPL 1' : selectedClass}
+                      {selectedClass === 'ALL' ? 'XI TJKT 1' : selectedClass}
                     </td>
                     <td className="py-4 px-6">
                       <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300">

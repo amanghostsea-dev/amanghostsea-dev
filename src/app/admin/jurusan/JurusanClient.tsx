@@ -113,7 +113,7 @@ export default function JurusanClient({
     capacity: number;
   }>({
     level: 'X',
-    jurusanCode: initialJurusan[0]?.code || 'RPL',
+    jurusanCode: initialJurusan[0]?.code || 'TJKT',
     rombel: 1,
     waliKelas: '',
     waliKelasId: '',
@@ -211,7 +211,7 @@ export default function JurusanClient({
 
   // 🎓 Handlers Kelas / Rombel
   const handleOpenAddClass = (jurusanCode?: string) => {
-    const defaultJurusan = jurusanCode || (filterClassJurusan !== 'ALL' ? filterClassJurusan : (jurusan[0]?.code || 'RPL'));
+    const defaultJurusan = jurusanCode || (filterClassJurusan !== 'ALL' ? filterClassJurusan : (jurusan[0]?.code || 'TJKT'));
     
     // Hitung nomor rombel berikutnya untuk jurusan & tingkat X
     const existingRombels = classes
@@ -693,7 +693,7 @@ export default function JurusanClient({
                       value={formData.code} 
                       onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})} 
                       className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white font-mono font-bold text-xs focus:ring-2 focus:ring-emerald-500 outline-none" 
-                      placeholder="RPL"
+                      placeholder="TJKT"
                     />
                   </div>
                   <div>

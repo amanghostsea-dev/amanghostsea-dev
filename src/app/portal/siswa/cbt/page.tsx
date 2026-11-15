@@ -12,41 +12,45 @@ export default async function SiswaCbtListPage() {
     getKopSuratConfig(),
     getCbtTimezone(),
   ]);
-  const authName = cookieStore.get('auth_name')?.value;
-  const authUser = cookieStore.get('auth_user')?.value;
+  const authName = cookieStore.get('auth_name')?.value?.trim();
+  const authUser = cookieStore.get('auth_user')?.value?.trim();
 
-  let studentName = authName;
+  let studentName = authName || '';
   let studentNis = authUser || '';
-  let studentClass = 'XI RPL 1';
+  let studentClass = '';
 
-  if (authUser) {
-    try {
-      const user = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { username: authUser },
-            { nisn: authUser }
-          ]
-        }
-      });
-      if (user) {
-        studentName = user.name;
-        studentNis = user.nisn || user.username;
-      }
-    } catch {}
+  // 1. Temukan data user akun lengkap di database (baik lewat authUser maupun authName jika berisi NISN/username/nama)
+  try {
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          ...(authUser ? [{ username: authUser }, { nisn: authUser }] : []),
+          ...(authName ? [{ username: authName }, { nisn: authName }, { name: authName }] : []),
+        ],
+      },
+    });
+    if (user) {
+      studentName = user.name;
+      studentNis = user.nisn || user.username;
+    }
+  } catch (err) {
+    console.error('Error finding user in SiswaCbtListPage:', err);
   }
+
   if (!studentName) studentName = 'Siswa SMK';
 
-  // Sinkronkan kelas aktual siswa dari database rapor StudentGrade
+  // 2. Sinkronkan kelas aktual siswa dari database rapor StudentGrade
   try {
     const gradeRecord = await prisma.studentGrade.findFirst({
       where: {
         OR: [
           { studentName },
-          ...(studentNis ? [{ studentNis }] : [])
-        ]
+          ...(studentNis ? [{ studentNis }] : []),
+          ...(authUser ? [{ studentNis: authUser }] : []),
+          ...(authName ? [{ studentNis: authName }, { studentName: authName }] : []),
+        ],
       },
-      select: { studentClass: true, studentNis: true }
+      select: { studentClass: true, studentNis: true },
     });
 
     if (gradeRecord?.studentClass) {
@@ -57,6 +61,40 @@ export default async function SiswaCbtListPage() {
     }
   } catch (err) {
     console.error('Error querying student class:', err);
+  }
+
+  // 3. Jika belum ditemukan di rapor, cek riwayat pengerjaan ujian (ExamAttempt)
+  if (!studentClass) {
+    try {
+      const attemptRecord = await prisma.examAttempt.findFirst({
+        where: {
+          OR: [
+            { studentName },
+            ...(studentNis ? [{ studentNis }] : []),
+          ],
+          studentClass: { not: null },
+        },
+        select: { studentClass: true },
+        orderBy: { startedAt: 'desc' },
+      });
+      if (attemptRecord?.studentClass) {
+        studentClass = attemptRecord.studentClass;
+      }
+    } catch {}
+  }
+
+  // 4. Jika masih belum ada, gunakan kelas aktif dari master Jurusan sekolah
+  if (!studentClass) {
+    try {
+      const activeJurusans = await prisma.jurusan.findMany({
+        orderBy: { code: 'asc' },
+        select: { code: true },
+      });
+      const firstCode = activeJurusans[0]?.code || 'TJKT';
+      studentClass = `XI ${firstCode} 1`;
+    } catch {
+      studentClass = 'XI TJKT 1';
+    }
   }
 
   const initials = studentName

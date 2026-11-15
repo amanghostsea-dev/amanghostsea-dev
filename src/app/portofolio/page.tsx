@@ -19,7 +19,7 @@ export default async function PortofolioSiswa() {
     {
       id: 1,
       title: "Sistem Kasir Pintar Berbasis Cloud",
-      student: "Ahmad Rizky (Kelas XII RPL)",
+      student: "Ahmad Rizky (Kelas XII TJKT)",
       category: "Aplikasi Web",
       image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop",
       description: "Aplikasi point-of-sale untuk UMKM dengan fitur laporan penjualan otomatis.",

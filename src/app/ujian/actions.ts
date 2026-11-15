@@ -12,7 +12,26 @@ export async function quickJoinExamAction(formData: FormData) {
   
   // Set student session cookie if provided
   if (studentName) {
-    cookieStore.set('auth_name', studentName, { maxAge: 60 * 60 * 24 });
+    let resolvedName = studentName;
+    let resolvedUser = studentName;
+    try {
+      const user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { username: studentName },
+            { nisn: studentName },
+            { name: studentName },
+          ],
+        },
+      });
+      if (user) {
+        resolvedName = user.name;
+        resolvedUser = user.username;
+      }
+    } catch {}
+
+    cookieStore.set('auth_name', resolvedName, { maxAge: 60 * 60 * 24 });
+    cookieStore.set('auth_user', resolvedUser, { maxAge: 60 * 60 * 24 });
     cookieStore.set('auth_token', 'Siswa', { maxAge: 60 * 60 * 24 });
   }
 

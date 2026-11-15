@@ -168,9 +168,9 @@ export default function UsersCRUD({
     status: 'Aktif', 
     password: '',
     nisn: '',
-    studentClass: 'XI RPL 1',
+    studentClass: classTargets.find(c => c !== 'Semua Kelas' && !c.includes('Semua Jurusan')) || 'XI TJKT 1',
   });
-  const [selectedJurusanCode, setSelectedJurusanCode] = useState(jurusans[0]?.code || 'RPL');
+  const [selectedJurusanCode, setSelectedJurusanCode] = useState(jurusans[0]?.code || 'TJKT');
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
@@ -225,7 +225,7 @@ export default function UsersCRUD({
   const [bulkText, setBulkText] = useState('');
   const [bulkDefaultPassword, setBulkDefaultPassword] = useState('siswa123');
   const [bulkPasswordMode, setBulkPasswordMode] = useState<'default' | 'nisn'>('default');
-  const [bulkClass, setBulkClass] = useState('XI RPL 1');
+  const [bulkClass, setBulkClass] = useState(classTargets.find(c => c !== 'Semua Kelas' && !c.includes('Semua Jurusan')) || 'XI TJKT 1');
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkResult, setBulkResult] = useState<{
     success: boolean;
@@ -261,7 +261,7 @@ export default function UsersCRUD({
   };
 
   const handleAdd = () => {
-    const defaultJurusan = jurusans[0]?.code || 'RPL';
+    const defaultJurusan = jurusans[0]?.code || 'TJKT';
     setSelectedJurusanCode(defaultJurusan);
     const defaultClass = classTargets.find(c => c !== 'Semua Kelas' && c.toUpperCase().includes(defaultJurusan.toUpperCase())) || `XI ${defaultJurusan} 1`;
     setFormData({ 
@@ -279,8 +279,9 @@ export default function UsersCRUD({
   };
 
   const handleEdit = (item: User) => {
-    const userClass = studentClassMap[item.name] || (item.nisn && studentClassMap[item.nisn]) || 'XI RPL 1';
-    const matchedJurusan = jurusans.find(j => userClass.toUpperCase().includes(j.code.toUpperCase()))?.code || jurusans[0]?.code || 'RPL';
+    const defaultFallback = classTargets.find(c => c !== 'Semua Kelas' && !c.includes('Semua Jurusan')) || 'XI TJKT 1';
+    const userClass = studentClassMap[item.name] || (item.nisn && studentClassMap[item.nisn]) || defaultFallback;
+    const matchedJurusan = jurusans.find(j => userClass.toUpperCase().includes(j.code.toUpperCase()))?.code || jurusans[0]?.code || 'TJKT';
     setSelectedJurusanCode(matchedJurusan);
 
     setFormData({ 
@@ -527,10 +528,9 @@ export default function UsersCRUD({
     
     // Ambil daftar jurusan resmi sekolah
     const activeJurusans = jurusans.length > 0 ? jurusans : [
-      { id: '1', code: 'RPL', name: 'Pengembangan Perangkat Lunak & Gim', kuota: 36, description: '' },
-      { id: '2', code: 'TJKT', name: 'Teknik Jaringan Komputer & Telekomunikasi', kuota: 36, description: '' },
-      { id: '3', code: 'DKV', name: 'Desain Komunikasi Visual', kuota: 36, description: '' },
-      { id: '4', code: 'MPLB', name: 'Manajemen Perkantoran & Layanan Bisnis', kuota: 36, description: '' },
+      { id: '1', code: 'TJKT', name: 'Teknik Jaringan Komputer & Telekomunikasi', kuota: 36, description: '' },
+      { id: '2', code: 'DKV', name: 'Desain Komunikasi Visual', kuota: 36, description: '' },
+      { id: '3', code: 'MPLB', name: 'Manajemen Perkantoran & Layanan Bisnis', kuota: 36, description: '' },
     ];
 
     const sampleRows: string[][] = [];
@@ -579,7 +579,7 @@ export default function UsersCRUD({
       ...activeJurusans.map(j => `# - ${j.code} (${j.name}) -> Contoh: X ${j.code} 1, XI ${j.code} 1, XII ${j.code} 1`),
       '#',
       '# CONTOH PENULISAN ANTI-TYPO (SISTEM OTOMATIS MEMPERBAIKI FORMAT):',
-      '# - "x rpl 1" atau "10 rpl 1" atau "x-rpl-1" -> Otomatis dinormalisasi menjadi "X RPL 1"',
+      '# - "x tjkt 1" atau "10 tjkt 1" atau "x-tjkt-1" -> Otomatis dinormalisasi menjadi "X TJKT 1"',
       '# - "11 tjkt 1" atau "xi-tjkt-1"              -> Otomatis dinormalisasi menjadi "XI TJKT 1"',
       '# - "12 dkv 1" atau "xii-dkv-1"              -> Otomatis dinormalisasi menjadi "XII DKV 1"',
       '#',
@@ -611,10 +611,9 @@ export default function UsersCRUD({
   const handleLoadSampleData = () => {
     const validSpecificClasses = classTargets.filter(c => !c.toLowerCase().startsWith('semua'));
     const activeJurusans = jurusans.length > 0 ? jurusans : [
-      { id: '1', code: 'RPL', name: 'Pengembangan Perangkat Lunak & Gim', kuota: 36, description: '' },
-      { id: '2', code: 'TJKT', name: 'Teknik Jaringan Komputer & Telekomunikasi', kuota: 36, description: '' },
-      { id: '3', code: 'DKV', name: 'Desain Komunikasi Visual', kuota: 36, description: '' },
-      { id: '4', code: 'MPLB', name: 'Manajemen Perkantoran & Layanan Bisnis', kuota: 36, description: '' },
+      { id: '1', code: 'TJKT', name: 'Teknik Jaringan Komputer & Telekomunikasi', kuota: 36, description: '' },
+      { id: '2', code: 'DKV', name: 'Desain Komunikasi Visual', kuota: 36, description: '' },
+      { id: '3', code: 'MPLB', name: 'Manajemen Perkantoran & Layanan Bisnis', kuota: 36, description: '' },
     ];
 
     const lines: string[] = ['NISN\tNama Lengkap\tKelas\tUsername\tPassword'];
@@ -1869,7 +1868,7 @@ export default function UsersCRUD({
                     </div>
                     <div className="p-2 rounded-xl bg-white dark:bg-gray-900 border border-blue-100 dark:border-blue-900/40">
                       <span className="block font-bold text-gray-900 dark:text-white">3. Kelas</span>
-                      <span className="text-gray-500 text-[10px]">Misal: XI RPL 1</span>
+                      <span className="text-gray-500 text-[10px]">Misal: XI TJKT 1</span>
                     </div>
                     <div className="p-2 rounded-xl bg-white dark:bg-gray-900 border border-blue-100 dark:border-blue-900/40">
                       <span className="block font-bold text-gray-900 dark:text-white">4. Username</span>
@@ -1940,7 +1939,7 @@ export default function UsersCRUD({
                   </div>
 
                   <div className="flex items-center justify-between pt-1 text-[11px] text-purple-700 dark:text-purple-300 border-t border-purple-200/60 dark:border-purple-900/40">
-                    <span>💡 <em>Sistem memiliki auto-normalizer yang otomatis mengoreksi huruf kecil, tanda hubung, atau angka romawi (misal: &quot;10 rpl 1&quot; atau &quot;x-rpl-1&quot; otomatis menjadi &quot;X RPL 1&quot;).</em></span>
+                    <span>💡 <em>Sistem memiliki auto-normalizer yang otomatis mengoreksi huruf kecil, tanda hubung, atau angka romawi (misal: &quot;10 tjkt 1&quot; atau &quot;x-tjkt-1&quot; otomatis menjadi &quot;X TJKT 1&quot;).</em></span>
                     {copiedClass && (
                       <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 shrink-0 ml-2">
                         <Check size={12} /> Disalin: {copiedClass}
@@ -1984,7 +1983,7 @@ export default function UsersCRUD({
                     rows={6}
                     value={bulkText}
                     onChange={e => setBulkText(e.target.value)}
-                    placeholder="Contoh format CSV / Excel:&#10;NISN,Nama Lengkap,Kelas,Username,Password&#10;0081234501,Ahmad Fauzi Pratama,XI RPL 1,0081234501,siswa123&#10;0081234502,Budi Santoso,XI RPL 1,0081234502,siswa123&#10;0081234503,Citra Dewi Lestari,XI TJKT 1,0081234503,siswa123"
+                    placeholder="Contoh format CSV / Excel:&#10;NISN,Nama Lengkap,Kelas,Username,Password&#10;0081234501,Ahmad Fauzi Pratama,XI TJKT 1,0081234501,siswa123&#10;0081234502,Budi Santoso,XI DKV 1,0081234502,siswa123&#10;0081234503,Citra Dewi Lestari,XI MPLB 1,0081234503,siswa123"
                     className="w-full p-4 rounded-2xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 font-mono text-xs text-gray-900 dark:text-white placeholder:text-gray-400 focus:bg-white dark:focus:bg-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none transition-all leading-relaxed"
                   />
                 </div>

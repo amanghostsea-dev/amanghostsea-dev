@@ -110,7 +110,7 @@ export default async function PortalGuru() {
 
   const classes = teacherSubjects.map((s) => ({
     id: s.id,
-    name: s.classTarget || 'XI RPL 1',
+    name: s.classTarget || 'XI TJKT 1',
     subject: s.name,
     students: s._count?.grades || 32,
     dayTime: `${s.day || 'Senin'} (${s.time || '07:30 - 10:00'})`,
@@ -159,7 +159,7 @@ export default async function PortalGuru() {
                   <div className="bg-white/10 backdrop-blur-md border border-white/20 p-3 px-5 rounded-2xl text-center">
                     <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-200">Token Siswa</div>
                     <div className="text-2xl font-black font-mono tracking-widest text-white mt-0.5">
-                      {activeExams[0].token || 'RPL2026'}
+                      {activeExams[0].token || 'SMK2026'}
                     </div>
                   </div>
 

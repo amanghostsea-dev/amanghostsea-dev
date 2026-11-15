@@ -80,7 +80,7 @@ interface SiswaDashboardClientProps {
 export default function SiswaDashboardClient({
   studentName,
   studentNis,
-  studentClass = 'Kelas XI - Rekayasa Perangkat Lunak 1 (XI-RPL 1)',
+  studentClass = 'Kelas XI - Teknik Jaringan Komputer & Telekomunikasi 1 (XI TJKT 1)',
   initials,
   upcomingExams,
   schedule: initialSchedule,
@@ -109,7 +109,7 @@ export default function SiswaDashboardClient({
         { day: 'Selasa', subject: 'Basis Data & SQL Relasional', time: '07:30 - 09:45', teacher: 'Bpk. Budi S.Kom', room: 'Lab Komputer 2' },
         { day: 'Selasa', subject: 'Bahasa Inggris Kejuruan', time: '10:00 - 11:30', teacher: 'Mr. John', room: 'Ruang 10B' },
         { day: 'Rabu', subject: 'Administrasi Infrastruktur Jaringan', time: '07:30 - 10:00', teacher: 'Bpk. Farhan M.T', room: 'Lab Jaringan' },
-        { day: 'Kamis', subject: 'Pemrograman Berorientasi Objek', time: '07:30 - 10:30', teacher: 'Bpk. Hendra S.T', room: 'Lab RPL 2' },
+        { day: 'Kamis', subject: 'Pemrograman Berorientasi Objek', time: '07:30 - 10:30', teacher: 'Bpk. Hendra S.T', room: 'Lab Komputer 2' },
         { day: 'Kamis', subject: 'Produk Kreatif & Kewirausahaan', time: '10:45 - 13:00', teacher: 'Ibu Dewi SE', room: 'Ruang Kreatif' },
         { day: 'Jumat', subject: 'Pendidikan Agama & Budi Pekerti', time: '07:00 - 09:00', teacher: 'Ust. Nurul Huda M.Pd', room: 'Masjid Sekolah' },
       ];

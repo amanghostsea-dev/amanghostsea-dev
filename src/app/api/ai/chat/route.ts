@@ -52,10 +52,9 @@ export async function POST(req: Request) {
     const schoolName = webSettings?.schoolName || 'SMK Garuda Mahadhika';
     const cleanJurusans = jurusans.length > 0 
       ? jurusans.map(j => `• ${j.name} (${j.code || 'Program Keahlian'}): ${j.description || 'Kompetensi kejuruan vokasi digital unggulan'}`).join('\n')
-      : `• RPL (Pengembangan Perangkat Lunak & Gim): Rekayasa perangkat lunak, aplikasi web & mobile, game development dan AI.
-• MPLB (Manajemen Perkantoran & Layanan Bisnis): Administrasi perkantoran digital, korespondensi modern dan tata kelola bisnis.
+      : `• TJKT (Teknik Jaringan Komputer & Telekomunikasi): Jaringan komputer, cloud server, fiber optik & cyber security defense.
 • DKV (Desain Komunikasi Visual): Desain grafis, multimedia interaktif, video sinematografi & 3D animasi.
-• TJKT (Teknik Jaringan Komputer & Telekomunikasi): Jaringan komputer, cloud server, fiber optik & cyber security defense.`;
+• MPLB (Manajemen Perkantoran & Layanan Bisnis): Administrasi perkantoran digital, korespondensi modern dan tata kelola bisnis.`;
 
     const regulerAmount = paymentConfig?.reguler?.totalAmount ?? 150000;
     const afirmasiAmount = paymentConfig?.afirmasi?.totalAmount ?? 50000;

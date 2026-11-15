@@ -45,7 +45,7 @@ export async function getManagedClasses(): Promise<SchoolClassItem[]> {
           level: lvl,
           jurusanCode: code,
           rombel: 1,
-          waliKelas: lvl === 'XI' && code === 'RPL' ? 'Abdul Rahman' : 'Bpk. Guru Pengampu',
+          waliKelas: lvl === 'XI' && code === 'TJKT' ? 'Abdul Rahman' : 'Bpk. Guru Pengampu',
           room: `Ruang ${code} ${lvl}`,
           capacity: 36,
         });

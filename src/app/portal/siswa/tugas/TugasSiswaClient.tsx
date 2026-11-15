@@ -61,7 +61,7 @@ export default function TugasSiswaClient({
   assignments: initialAssignments,
   studentName,
   studentNis = '10293847',
-  studentClass = 'XI RPL 1',
+  studentClass = 'XI TJKT 1',
 }: TugasSiswaClientProps) {
   const [assignments, setAssignments] = useState(initialAssignments);
   const [selectedAssignment, setSelectedAssignment] = useState<AssignmentItem | null>(null);

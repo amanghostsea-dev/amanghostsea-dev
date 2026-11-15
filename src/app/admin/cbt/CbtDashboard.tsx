@@ -258,10 +258,6 @@ export default function CbtDashboard({
   const classPresets: string[] = useMemo(() => {
     const list = dynamicClassPresets && dynamicClassPresets.length > 0 ? dynamicClassPresets : [
       'Semua Kelas',
-      'X RPL 1',
-      'XI RPL 1',
-      'XI RPL 2',
-      'XII RPL 1',
       'X TJKT 1',
       'XI TJKT 1',
       'XII TJKT 1',
@@ -2379,7 +2375,7 @@ export default function CbtDashboard({
                   <Sparkles size={14} className="text-blue-600 shrink-0" />
                   <span>
                     {formData.classTarget.includes('Semua Kelas X') || formData.classTarget === 'Tingkat X' ? (
-                      <>Ujian otomatis dapat diakses oleh <strong>SEMUA siswa di seluruh jurusan Tingkat X</strong> (DKV, RPL, MPLB, TJKT, dll). Guru cukup upload 1 kali!</>
+                      <>Ujian otomatis dapat diakses oleh <strong>SEMUA siswa di seluruh jurusan Tingkat X</strong> (TJKT, DKV, MPLB, dll). Guru cukup upload 1 kali!</>
                     ) : formData.classTarget.includes('Semua Kelas XI') || formData.classTarget === 'Tingkat XI' ? (
                       <>Ujian otomatis dapat diakses oleh <strong>SEMUA siswa di seluruh jurusan Tingkat XI</strong>. Guru cukup upload 1 kali!</>
                     ) : formData.classTarget.includes('Semua Kelas XII') || formData.classTarget === 'Tingkat XII' ? (

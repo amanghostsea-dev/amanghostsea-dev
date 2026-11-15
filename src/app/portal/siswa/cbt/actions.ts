@@ -291,7 +291,7 @@ export async function submitExam(
               subjectId: matchedSubject.id,
               studentName: studentName,
               studentNis: attempt.studentNis || undefined,
-              studentClass: attempt.studentClass || 'XI RPL 1',
+              studentClass: attempt.studentClass || 'XI TJKT 1',
               assignment,
               midExam,
               finalExam,

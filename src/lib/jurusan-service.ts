@@ -12,12 +12,6 @@ export interface JurusanItem {
 
 const DEFAULT_JURUSANS = [
   {
-    name: 'Pengembangan Perangkat Lunak & Gim',
-    code: 'RPL',
-    kuota: 36,
-    description: 'Program keahlian unggulan dalam rekayasa perangkat lunak, pemrograman web & mobile, kecerdasan buatan, dan pengembangan gim.',
-  },
-  {
     name: 'Teknik Jaringan Komputer & Telekomunikasi',
     code: 'TJKT',
     kuota: 36,

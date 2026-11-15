@@ -1340,7 +1340,7 @@ Poin: 10
                   </div>
                   <div className="flex items-center justify-center gap-2 mt-1">
                     <span className="text-2xl font-black font-mono tracking-widest text-slate-900 dark:text-white">
-                      {examToken || 'RPL2026'}
+                      {examToken || 'SMK2026'}
                     </span>
                     <button
                       type="button"
@@ -3079,7 +3079,7 @@ Poin: 15`}
               </div>
 
               <div className="text-6xl sm:text-7xl font-black font-mono tracking-widest text-white selection:bg-emerald-500">
-                {examToken || 'RPL2026'}
+                {examToken || 'SMK2026'}
               </div>
 
               {/* 🔄 Dynamic 5-Minute Timer on Projector Screen */}

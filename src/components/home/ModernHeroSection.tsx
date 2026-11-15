@@ -94,15 +94,14 @@ export default function ModernHeroSection({
   const rawList = (jurusans && jurusans.length > 0)
     ? jurusans
     : [
-        { id: '1', name: 'Pengembangan Perangkat Lunak & Gim', code: 'RPL', kuota: 36, description: 'Program keahlian unggulan dalam rekayasa perangkat lunak, pemrograman web & mobile, kecerdasan buatan, dan pengembangan gim.' },
-        { id: '2', name: 'Manajemen Perkantoran & Layanan Bisnis', code: 'MPLB', kuota: 35, description: 'Program keahlian manajemen administrasi perkantoran modern, korespondensi digital, kearsipan elektronik, dan layanan prima.' },
-        { id: '3', name: 'Desain Komunikasi Visual', code: 'DKV', kuota: 35, description: 'Program keahlian kreatif yang mencakup desain grafis, animasi 2D/3D, videografi, fotografi, serta produksi media interaktif.' },
-        { id: '4', name: 'Teknik Jaringan Komputer & Telekomunikasi', code: 'TJKT', kuota: 35, description: 'Program keahlian yang berfokus pada instalasi jaringan komputer, administrasi server, keamanan siber, dan infrastruktur cloud.' },
+        { id: '1', name: 'Teknik Jaringan Komputer & Telekomunikasi', code: 'TJKT', kuota: 35, description: 'Program keahlian yang berfokus pada instalasi jaringan komputer, administrasi server, keamanan siber, dan infrastruktur cloud.' },
+        { id: '2', name: 'Desain Komunikasi Visual', code: 'DKV', kuota: 35, description: 'Program keahlian kreatif yang mencakup desain grafis, animasi 2D/3D, videografi, fotografi, serta produksi media interaktif.' },
+        { id: '3', name: 'Manajemen Perkantoran & Layanan Bisnis', code: 'MPLB', kuota: 35, description: 'Program keahlian manajemen administrasi perkantoran modern, korespondensi digital, kearsipan elektronik, dan layanan prima.' },
       ];
 
   const displayJurusans = rawList.map((j: any, idx: number) => {
     const code = (j.code || '').toUpperCase();
-    const meta = visualMeta[code] || visualMeta.RPL;
+    const meta = visualMeta[code] || visualMeta.TJKT || visualMeta.DKV;
     return {
       id: j.id || String(idx + 1),
       name: j.name,
@@ -145,7 +144,7 @@ export default function ModernHeroSection({
       location: 'Jakarta Barat',
       salary: 'Rp 5.5 - 7.5 Jt',
       type: 'Full-time',
-      department: 'RPL',
+      department: 'TJKT',
       isHot: true
     },
     {
@@ -188,10 +187,10 @@ export default function ModernHeroSection({
     setTimeout(() => {
       const text = aiInterestInput.toLowerCase();
       let res = {
-        major: 'Pengembangan Perangkat Lunak & Gim (RPL)',
+        major: 'Teknik Jaringan Komputer & Telekomunikasi (TJKT)',
         score: 96,
-        description: 'Karakter Anda sangat analitis dan cocok untuk berkarir di dunia coding, pembuatan aplikasi web modern, game development, dan implementasi kecerdasan buatan.',
-        careers: ['Full-stack Engineer', 'Mobile App Creator', 'Tech Founder']
+        description: 'Karakter Anda sangat analitis dan cocok untuk berkarir di bidang teknologi informasi, administrasi server, jaringan komputer, cloud computing, dan keamanan siber.',
+        careers: ['Network Engineer', 'Cloud Administrator', 'Cybersecurity Specialist']
       };
 
       if (text.includes('jaringan') || text.includes('internet') || text.includes('hacker') || text.includes('server') || text.includes('security') || text.includes('cyber') || text.includes('cisco') || text.includes('mikrotik') || text.includes('tjkt') || text.includes('tkj')) {
@@ -493,10 +492,9 @@ export default function ModernHeroSection({
                           {j.code}
                         </div>
                         <div className="text-[8px] sm:text-[9px] font-medium truncate max-w-full hidden sm:block opacity-80">
-                          {j.code === 'RPL' ? 'Software' : 
+                          {j.code === 'TJKT' || j.code === 'TKJ' ? 'Jaringan' : 
                            j.code === 'MPLB' ? 'Bisnis & Admin' : 
-                           j.code === 'DKV' ? 'Desain Grafis' : 
-                           j.code === 'TJKT' || j.code === 'TKJ' ? 'Jaringan' : (j.name || j.code)}
+                           j.code === 'DKV' ? 'Desain Grafis' : (j.name || j.code)}
                         </div>
                       </button>
                     );

@@ -1185,7 +1185,7 @@ export async function getCbtStudentCardsDataAction(options?: GetCbtStudentCardsO
         (s.nisn ? studentClassMap[s.nisn.trim().toLowerCase()] : null) ||
         studentClassMap[s.name.trim().toLowerCase()] ||
         studentClassMap[s.username.trim().toLowerCase()] ||
-        'XI RPL 1';
+        (dynamicClasses.find((c) => c !== 'Semua Kelas' && !c.includes('Semua Jurusan')) || 'XI TJKT 1');
 
       let gradeLevel = 'XI';
       if (assignedClass.startsWith('XII')) gradeLevel = 'XII';

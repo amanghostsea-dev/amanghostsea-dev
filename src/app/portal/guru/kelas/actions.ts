@@ -88,7 +88,7 @@ export async function createStudentByGuru(data: {
             subjectId: subj.id,
             studentName: name,
             studentNis: nisn || username,
-            studentClass: data.studentClass || subj.classTarget || 'XI RPL 1',
+            studentClass: data.studentClass || subj.classTarget || 'XI TJKT 1',
             assignment: 85,
             midExam: 80,
             finalExam: 85,
@@ -176,7 +176,7 @@ export async function importStudentsByGuru(studentsData: { name: string; nisn?: 
       createdStudents.push({
         name,
         nisnOrUser: nisn || username,
-        studentClass: item.studentClass || 'XI RPL 1',
+        studentClass: item.studentClass || 'XI TJKT 1',
       });
       successCount++;
     }
@@ -197,7 +197,7 @@ export async function importStudentsByGuru(studentsData: { name: string; nisn?: 
                 subjectId: subj.id,
                 studentName: st.name,
                 studentNis: st.nisnOrUser,
-                studentClass: st.studentClass || subj.classTarget || 'XI RPL 1',
+                studentClass: st.studentClass || subj.classTarget || 'XI TJKT 1',
                 assignment: 85,
                 midExam: 80,
                 finalExam: 85,

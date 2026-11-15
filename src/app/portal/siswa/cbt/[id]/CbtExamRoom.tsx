@@ -325,7 +325,7 @@ export default function CbtExamRoom({
     const res = await startOrResumeAttempt({
       examId: exam.id,
       studentName,
-      studentClass: studentClass || exam.classTarget || 'XI RPL 1',
+      studentClass: studentClass || exam.classTarget || 'XI TJKT 1',
       studentNis: studentNis || undefined,
       token: tokenInput,
     });
@@ -692,7 +692,7 @@ export default function CbtExamRoom({
                         type="text"
                         required
                         autoFocus
-                        placeholder="Contoh: RPL2026"
+                        placeholder="Contoh: SMK2026"
                         value={tokenInput}
                         onChange={(e) => setTokenInput(e.target.value.toUpperCase())}
                         className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-base font-bold uppercase tracking-widest text-center focus:ring-2 focus:ring-purple-500 font-mono shadow-inner"

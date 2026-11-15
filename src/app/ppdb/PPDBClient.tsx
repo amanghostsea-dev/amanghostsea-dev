@@ -161,16 +161,16 @@ export default function PPDBClient({
   // Active Major Codes derived strictly from Admin DB
   const activeMajorCodes = (jurusanList && jurusanList.length > 0)
     ? jurusanList.map((j) => (j.code || '').toUpperCase()).filter(Boolean)
-    : ['RPL', 'MPLB', 'DKV', 'TJKT'];
+    : ['TJKT', 'DKV', 'MPLB'];
 
   // Active Theme State
   const [theme, setTheme] = useState<PPDBTheme>(defaultTheme || 'cyber-cards');
 
   // Selected Jurusan for FORM REGISTRATION (100% independent from showcase)
-  const [selectedMajor, setSelectedMajor] = useState<string>(activeMajorCodes[0] || 'RPL');
+  const [selectedMajor, setSelectedMajor] = useState<string>(activeMajorCodes[0] || 'TJKT');
 
   // 10-Second Auto-Rotating Showcase for Header Logos (Visual only, does not affect form registration!)
-  const [showcaseMajor, setShowcaseMajor] = useState<string>(activeMajorCodes[0] || 'RPL');
+  const [showcaseMajor, setShowcaseMajor] = useState<string>(activeMajorCodes[0] || 'TJKT');
   const [isPausedShowcase, setIsPausedShowcase] = useState(false);
   const [showcaseTimerKey, setShowcaseTimerKey] = useState(0);
   const [isMounted, setIsMounted] = useState(false);

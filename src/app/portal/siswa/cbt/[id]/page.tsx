@@ -25,35 +25,36 @@ export default async function SiswaExamRoomPage({ params }: { params: Promise<{ 
     notFound();
   }
 
-  let studentName = authName;
+  let studentName = authName || '';
   let studentNis = authUser || '';
-  const examLevel = extractClassLevel(exam.classTarget);
-  let studentClass = examLevel === 'X' ? 'X RPL 1' : examLevel === 'XII' ? 'XII RPL 1' : 'XI RPL 1';
-  if (exam.classTarget && !exam.classTarget.includes(',') && !exam.classTarget.toLowerCase().includes('semua')) {
-    studentClass = exam.classTarget;
-  }
 
-  if (authUser) {
-    try {
-      const user = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { username: authUser },
-            { nisn: authUser }
-          ]
-        }
-      });
-      if (user) {
-        studentName = user.name;
-        studentNis = user.nisn || user.username;
-      }
-    } catch (e) {
-      console.error(e);
+  // Cari user di database
+  try {
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          ...(authUser ? [{ username: authUser }, { nisn: authUser }] : []),
+          ...(authName ? [{ username: authName }, { nisn: authName }, { name: authName }] : []),
+        ],
+      },
+    });
+    if (user) {
+      studentName = user.name;
+      studentNis = user.nisn || user.username;
     }
+  } catch (e) {
+    console.error(e);
   }
 
   if (!studentName) {
     studentName = 'Siswa SMK';
+  }
+
+  const examLevel = extractClassLevel(exam.classTarget) || 'XI';
+  let studentClass = '';
+
+  if (exam.classTarget && !exam.classTarget.includes(',') && !exam.classTarget.toLowerCase().includes('semua')) {
+    studentClass = exam.classTarget;
   }
 
   // Cari kelas & NISN aktual siswa dari database StudentGrade
@@ -62,10 +63,12 @@ export default async function SiswaExamRoomPage({ params }: { params: Promise<{ 
       where: {
         OR: [
           { studentName },
-          ...(studentNis ? [{ studentNis }] : [])
-        ]
+          ...(studentNis ? [{ studentNis }] : []),
+          ...(authUser ? [{ studentNis: authUser }] : []),
+          ...(authName ? [{ studentNis: authName }, { studentName: authName }] : []),
+        ],
       },
-      select: { studentClass: true, studentNis: true }
+      select: { studentClass: true, studentNis: true },
     });
 
     if (gradeRecord?.studentClass) {
@@ -76,6 +79,19 @@ export default async function SiswaExamRoomPage({ params }: { params: Promise<{ 
     }
   } catch (err) {
     console.error('Error fetching student class info:', err);
+  }
+
+  if (!studentClass) {
+    try {
+      const activeJurusans = await prisma.jurusan.findMany({
+        orderBy: { code: 'asc' },
+        select: { code: true },
+      });
+      const firstCode = activeJurusans[0]?.code || 'TJKT';
+      studentClass = `${examLevel} ${firstCode} 1`;
+    } catch {
+      studentClass = `${examLevel} TJKT 1`;
+    }
   }
 
   // Find any existing attempt

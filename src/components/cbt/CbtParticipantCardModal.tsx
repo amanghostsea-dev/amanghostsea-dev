@@ -263,10 +263,10 @@ export default function CbtParticipantCardModal({
       }
     });
 
-    // 2. Tambahkan jika ada data jurusan dari siswa yang belum terdaftar di master
+    // 2. Tambahkan jika ada data jurusan dari siswa yang belum terdaftar di master (kecuali jurusan usang)
     students.forEach((s) => {
       const code = (s.major || '').trim().toUpperCase();
-      if (code && code !== 'UMUM' && !addedCodes.has(code)) {
+      if (code && code !== 'UMUM' && code !== 'RPL' && !addedCodes.has(code)) {
         addedCodes.add(code);
         const count = students.filter((st) => {
           const stMajor = (st.major || '').trim().toUpperCase();

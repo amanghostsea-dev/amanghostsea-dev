@@ -48,7 +48,7 @@ interface AssignmentItem {
 
 export default function TugasDashboard({
   assignments: initialAssignments,
-  dynamicClassPresets = ['Semua Kelas', 'X RPL 1', 'XI RPL 1', 'XII RPL 1', 'X TJKT 1', 'XI TJKT 1', 'XII TJKT 1', 'X DKV 1', 'XI DKV 1', 'XII DKV 1', 'X MPLB 1', 'XI MPLB 1', 'XII MPLB 1'],
+  dynamicClassPresets = ['Semua Kelas', 'X TJKT 1', 'XI TJKT 1', 'XII TJKT 1', 'X DKV 1', 'XI DKV 1', 'XII DKV 1', 'X MPLB 1', 'XI MPLB 1', 'XII MPLB 1'],
 }: {
   assignments: AssignmentItem[];
   dynamicClassPresets?: string[];

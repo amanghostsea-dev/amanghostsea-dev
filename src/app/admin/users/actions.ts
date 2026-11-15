@@ -301,7 +301,7 @@ export async function createBulkStudents(
     const defaultPwd = options?.defaultPassword?.trim() || 'siswa123';
     const useNisnAsPassword = !!options?.useNisnAsPassword;
     const useNisnAsUsername = options?.useNisnAsUsername ?? true;
-    const fallbackClass = options?.studentClass?.trim() || 'XI RPL 1';
+    const fallbackClass = options?.studentClass?.trim() || 'XI TJKT 1';
 
     // Fetch existing users to check duplicates quickly in memory
     const existingUsers = await prisma.user.findMany({

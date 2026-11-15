@@ -126,11 +126,41 @@ export default async function PortalSiswa() {
     finalGrade: g.finalGrade,
   }));
 
+  // Ambil kelas aktual siswa dari database
+  let studentClass = '';
+  try {
+    const gradeRecord = await prisma.studentGrade.findFirst({
+      where: {
+        OR: [
+          { studentName },
+          ...(studentNis ? [{ studentNis }] : []),
+        ],
+      },
+      select: { studentClass: true },
+    });
+    if (gradeRecord?.studentClass) {
+      studentClass = gradeRecord.studentClass;
+    }
+  } catch {}
+
+  if (!studentClass) {
+    try {
+      const activeJurusans = await prisma.jurusan.findMany({
+        orderBy: { code: 'asc' },
+        select: { code: true, name: true },
+      });
+      const first = activeJurusans[0];
+      studentClass = first ? `Kelas XI - ${first.name} 1 (XI ${first.code} 1)` : 'Kelas XI TJKT 1';
+    } catch {
+      studentClass = 'Kelas XI TJKT 1';
+    }
+  }
+
   return (
     <SiswaDashboardClient
       studentName={studentName}
       studentNis={studentNis}
-      studentClass="Kelas XI - Rekayasa Perangkat Lunak 1 (XI-RPL 1)"
+      studentClass={studentClass}
       initials={initials}
       upcomingExams={upcomingExams}
       schedule={schedule}

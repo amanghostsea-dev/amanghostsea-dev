@@ -136,7 +136,7 @@ export async function saveSubject(data: {
         }
 
         for (const st of allStudents) {
-          const studentClass = classMap.get(st.name) || 'XI RPL 1';
+          const studentClass = classMap.get(st.name) || 'XI TJKT 1';
           if (targetClass === 'Semua Kelas' || targetClass === studentClass || !classMap.has(st.name)) {
             await prisma.studentGrade.create({
               data: {

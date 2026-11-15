@@ -22,7 +22,7 @@ export default function PresensiClient({ students, teacherName }: { students: St
   });
 
   const [saved, setSaved] = useState(false);
-  const [selectedClass, setSelectedClass] = useState('XI RPL 1');
+  const [selectedClass, setSelectedClass] = useState('XI TJKT 1');
 
   const handleStatusChange = (studentId: string, status: AttendanceStatus) => {
     setAttendance((prev) => ({

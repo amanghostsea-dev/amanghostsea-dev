@@ -48,10 +48,9 @@ export default function JobsListClient({ initialJobs }: { initialJobs: JobListin
   // Departments list for filter
   const departments = [
     'Semua',
-    'RPL',
-    'MPLB',
+    'TJKT',
     'DKV',
-    'TJKT'
+    'MPLB'
   ];
 
   // Types list
