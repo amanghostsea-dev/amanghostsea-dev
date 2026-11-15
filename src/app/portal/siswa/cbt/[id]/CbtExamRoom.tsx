@@ -24,7 +24,7 @@ import {
   Calendar
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
-import { startOrResumeAttempt, saveProgress, submitExam, getExamSessionStatus } from '../actions';
+import { startOrResumeAttempt, saveProgress, submitExam, getExamSessionStatus, checkStudentExamLockStatus } from '../actions';
 import { formatExamScheduleRange, getExamScheduleState, formatClassTargetDisplay } from '@/lib/cbt-schedule';
 import CbtRichText from '@/components/cbt/CbtRichText';
 import CbtQuestionImageViewer from '@/components/cbt/CbtQuestionImageViewer';
@@ -152,6 +152,12 @@ export default function CbtExamRoom({
   const [doubtful, setDoubtful] = useState<Record<string, boolean>>({});
   const [tabSwitchCount, setTabSwitchCount] = useState<number>(existingAttempt?.tabSwitchCount || 0);
   const [showCheatWarning, setShowCheatWarning] = useState(false);
+  const [isStrike2Locked, setIsStrike2Locked] = useState<boolean>(() => {
+    const att = existingAttempt;
+    if (!att) return false;
+    return ((att as any).tabSwitchCount === 2) && !((att as any).proctorNotes?.includes('[IZIN_LANJUT_P2]'));
+  });
+  const [isCheckingLock, setIsCheckingLock] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Timer state
@@ -187,7 +193,12 @@ export default function CbtExamRoom({
           const parsed = JSON.parse(saved);
           if (parsed.answers) setAnswers(parsed.answers);
           if (parsed.doubtful) setDoubtful(parsed.doubtful);
-          if (parsed.tabSwitchCount) setTabSwitchCount(parsed.tabSwitchCount);
+          if (parsed.tabSwitchCount) {
+            setTabSwitchCount(parsed.tabSwitchCount);
+            if (parsed.tabSwitchCount === 2 && !(attempt as any).proctorNotes?.includes('[IZIN_LANJUT_P2]')) {
+              setIsStrike2Locked(true);
+            }
+          }
         } else if (attempt.answers) {
           const dbAnswers = JSON.parse(attempt.answers);
           setAnswers(dbAnswers);
@@ -198,14 +209,24 @@ export default function CbtExamRoom({
     }
   }, [attempt, storageKey]);
 
-  // Anti-Cheat: Visibility and Window Blur Detection
+  // Anti-Cheat: Progressive 3-Strike Visibility and Window Blur Detection
   useEffect(() => {
     if (!attempt || attempt.status !== 'IN_PROGRESS' || finalResult) return;
 
     const handleViolation = () => {
       setTabSwitchCount((prev) => {
         const next = prev + 1;
-        setShowCheatWarning(true);
+
+        if (next === 1) {
+          setShowCheatWarning(true);
+        } else if (next === 2) {
+          setIsStrike2Locked(true);
+          setShowCheatWarning(false);
+        } else if (next >= 3) {
+          setAttempt((prevAtt) => prevAtt ? { ...prevAtt, isBlocked: true } : prevAtt);
+          setIsStrike2Locked(false);
+          setShowCheatWarning(false);
+        }
 
         // Update local storage
         try {
@@ -216,8 +237,17 @@ export default function CbtExamRoom({
           );
         } catch { }
 
-        // Background sync to server
-        saveProgress(attempt.id, answers, next).catch(console.error);
+        // Background sync to server with 3-strike handling
+        saveProgress(attempt.id, answers, next).then((res) => {
+          if (res && res.success) {
+            if (res.isBlocked) {
+              setAttempt((prevAtt) => prevAtt ? { ...prevAtt, isBlocked: true, proctorNotes: res.proctorNotes } : prevAtt);
+            }
+            if (res.isStrike2Locked !== undefined) {
+              setIsStrike2Locked(res.isStrike2Locked);
+            }
+          }
+        }).catch(console.error);
 
         return next;
       });
@@ -284,16 +314,22 @@ export default function CbtExamRoom({
     return () => clearInterval(timer);
   }, [attempt, finalResult, exam.duration, handleFinalSubmit]);
 
-  // Periodic background heartbeat to sync answers & check proctor directives (extra time, block, force submit)
+  // Periodic background heartbeat to sync answers & check proctor directives (extra time, block, strike 2 unlock, force submit)
   useEffect(() => {
     if (!attempt || attempt.status !== 'IN_PROGRESS' || finalResult) return;
+
+    // Polling interval: 4 seconds if Strike 2 locked so student instantly resumes when proctor unlocks, otherwise 15 seconds
+    const intervalMs = isStrike2Locked ? 4000 : 15000;
 
     const interval = setInterval(async () => {
       try {
         const res = await saveProgress(attempt.id, answers, tabSwitchCount);
         if (res && res.success) {
           if (res.isBlocked) {
-            setAttempt((prev) => prev ? { ...prev, isBlocked: true } : prev);
+            setAttempt((prev) => prev ? { ...prev, isBlocked: true, proctorNotes: res.proctorNotes } : prev);
+          }
+          if (res.isStrike2Locked !== undefined) {
+            setIsStrike2Locked(res.isStrike2Locked);
           }
           if (typeof res.extraTimeMinutes === 'number' && res.extraTimeMinutes !== (attempt as any).extraTimeMinutes) {
             setAttempt((prev) => prev ? { ...prev, extraTimeMinutes: res.extraTimeMinutes } : prev);
@@ -311,10 +347,10 @@ export default function CbtExamRoom({
       } catch (err) {
         // silent fail for heartbeat
       }
-    }, 15000);
+    }, intervalMs);
 
     return () => clearInterval(interval);
-  }, [attempt, answers, tabSwitchCount, finalResult, questions.length, storageKey]);
+  }, [attempt, answers, tabSwitchCount, finalResult, questions.length, storageKey, isStrike2Locked]);
 
   // Handle Start Attempt
   const handleStartExam = async (e: React.FormEvent) => {
@@ -332,6 +368,10 @@ export default function CbtExamRoom({
 
     if (res.success && res.attempt) {
       setAttempt(res.attempt);
+      const isS2Locked = res.attempt.tabSwitchCount === 2 && !res.attempt.proctorNotes?.includes('[IZIN_LANJUT_P2]');
+      setIsStrike2Locked(isS2Locked);
+      setTabSwitchCount(res.attempt.tabSwitchCount || 0);
+
       if (res.questions) {
         const processedQ =
           exam.shuffleQuestions && res.questions.length > 1
@@ -504,27 +544,69 @@ export default function CbtExamRoom({
   }
 
   if (attempt && (attempt as any).isBlocked) {
+    const isStrike3 = tabSwitchCount >= 3 || (attempt as any).tabSwitchCount >= 3 || (attempt as any).proctorNotes?.includes('[STRIKE_3_BLOKIR]');
+
     return (
       <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-6 font-sans">
-        <div className="max-w-md w-full bg-slate-900 border border-rose-500/40 rounded-3xl p-8 text-center space-y-4 shadow-2xl">
-          <div className="w-16 h-16 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto text-3xl font-black">
+        <div className="max-w-lg w-full bg-slate-900 border-2 border-rose-500/60 rounded-3xl p-8 text-center space-y-5 shadow-2xl animate-in zoom-in-95">
+          <div className="w-20 h-20 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto text-4xl font-black shadow-lg shadow-rose-500/30">
             🚫
           </div>
-          <h2 className="text-xl font-black text-rose-300">Ujian Ditangguhkan Pengawas</h2>
-          <p className="text-xs text-slate-300 leading-relaxed">
-            Sesi ujian Anda dihentikan sementara oleh Pengawas Ruangan karena pelanggaran tata tertib ujian. Silakan melapor ke meja Pengawas di depan kelas.
-          </p>
-          {(attempt as any).proctorNotes && (
-            <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-800 text-rose-300 text-xs font-mono">
-              Catatan: {(attempt as any).proctorNotes}
+
+          <div>
+            <span className="px-3 py-1 rounded-full text-xs font-black bg-rose-500/30 text-rose-300 border border-rose-500/50 uppercase tracking-wider">
+              {isStrike3 ? 'Pelanggaran ke-3 (Blokir Total CBT)' : 'Sesi Ujian Ditangguhkan'}
+            </span>
+            <h2 className="text-2xl font-black text-rose-300 mt-3">
+              {isStrike3 ? 'Akun CBT Anda Diblokir Sistem' : 'Ujian Ditangguhkan Pengawas'}
+            </h2>
+          </div>
+
+          <div className="text-xs sm:text-sm text-slate-300 leading-relaxed text-left space-y-2">
+            {isStrike3 ? (
+              <>
+                <p>
+                  Pengerjaan ujian Anda telah <strong>dihentikan secara permanen oleh sistem</strong> karena Anda terdeteksi melakukan <strong>pelanggaran tata tertib sebanyak 3 kali berturut-turut</strong> (berpindah tab / jendela layar / aplikasi).
+                </p>
+                <div className="p-3.5 rounded-xl bg-rose-950/70 border border-rose-600/60 text-rose-200 text-xs space-y-1">
+                  <div className="font-bold text-rose-300 flex items-center gap-1.5">
+                    <ShieldAlert size={16} /> PERHATIAN PENTING:
+                  </div>
+                  <p>
+                    Sesuai tata tertib ujian, <strong>Pengawas Ruangan TIDAK DAPAT membuka blokir ini</strong>. Anda diwajibkan segera melapor langsung ke <strong>ADMIN UTAMA SEKOLAH</strong> untuk proses tindak lanjut dan pengaktifan akun.
+                  </p>
+                </div>
+              </>
+            ) : (
+              <p>
+                Sesi ujian Anda dihentikan sementara oleh Pengawas Ruangan karena pelanggaran tata tertib ujian. Silakan melapor ke meja Pengawas di depan kelas.
+              </p>
+            )}
+          </div>
+
+          {/* Rincian Identitas Pelanggaran */}
+          <div className="p-4 rounded-2xl bg-slate-950/80 border border-rose-900/60 text-left text-xs space-y-1.5 font-mono">
+            <div className="text-rose-400 font-bold flex items-center justify-between">
+              <span>Status Pelanggaran:</span>
+              <span className="text-rose-300 font-black">{Math.max(tabSwitchCount, (attempt as any).tabSwitchCount || 0)}x Pindah Tab</span>
             </div>
-          )}
-          <div className="pt-2">
+            <div className="text-slate-300">Nama Peserta: <strong className="text-white">{studentName}</strong></div>
+            <div className="text-slate-300">NISN / No Induk: <strong className="text-white">{studentNis || '-'}</strong></div>
+            <div className="text-slate-300">Kelas Terdaftar: <strong className="text-white">{studentClass || '-'}</strong></div>
+            <div className="text-slate-300">Paket Ujian: <strong className="text-white">{exam.title}</strong></div>
+            {(attempt as any).proctorNotes && (
+              <div className="pt-2 border-t border-rose-900/60 text-amber-300 text-[11px] font-sans italic">
+                Catatan Sistem: {(attempt as any).proctorNotes}
+              </div>
+            )}
+          </div>
+
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
               href="/portal/siswa/cbt"
-              className="inline-block px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition"
+              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition flex items-center justify-center gap-1.5"
             >
-              Kembali ke Beranda Ujian
+              <ArrowLeft size={14} /> Kembali ke Beranda Ujian
             </Link>
           </div>
         </div>
@@ -948,22 +1030,94 @@ export default function CbtExamRoom({
         </div>
       </div>
 
-      {/* Anti-Cheat Toast / Warning Modal */}
-      {showCheatWarning && (
-        <div className="fixed bottom-6 right-6 z-50 max-w-sm bg-red-600 text-white p-4 rounded-2xl shadow-2xl border border-red-700 animate-in slide-in-from-bottom flex items-start gap-3">
-          <AlertTriangle size={24} className="flex-shrink-0 mt-0.5 text-amber-300" />
+      {/* ⚠️ STRIKE 1: TOAST PERINGATAN AWAL ANTI-CURANG */}
+      {showCheatWarning && tabSwitchCount === 1 && !isStrike2Locked && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-sm bg-amber-600 text-white p-4 rounded-2xl shadow-2xl border border-amber-500 animate-in slide-in-from-bottom flex items-start gap-3">
+          <AlertTriangle size={24} className="flex-shrink-0 mt-0.5 text-amber-200" />
           <div className="flex-1 text-xs">
-            <h4 className="font-bold text-sm mb-0.5">Peringatan Anti-Curang!</h4>
-            <p className="text-red-100 leading-snug">
-              Anda terdeteksi membuka tab atau aplikasi lain. Pelanggaran ini ({tabSwitchCount}x) telah dicatat ke sistem pengawas.
+            <h4 className="font-bold text-sm mb-0.5 text-amber-100">⚠️ Peringatan Anti-Curang (Ke-1)</h4>
+            <p className="text-amber-50 leading-snug">
+              Anda terdeteksi membuka tab atau aplikasi lain. Pelanggaran ke-1 ini telah dicatat ke sistem Pengawas Ruangan. Harap tetap berada di lembar soal!
             </p>
           </div>
           <button
             onClick={() => setShowCheatWarning(false)}
-            className="text-red-200 hover:text-white text-xs font-bold"
+            className="text-amber-200 hover:text-white text-xs font-bold p-1 cursor-pointer"
           >
             ✕
           </button>
+        </div>
+      )}
+
+      {/* 🔒 STRIKE 2: MODAL BESAR MENUTUPI PENGERJAAN SOAL (KUNCI SEMENTARA) */}
+      {isStrike2Locked && (
+        <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
+          <div className="max-w-lg w-full bg-slate-900 border-2 border-amber-500 rounded-3xl p-6 sm:p-8 text-center space-y-5 shadow-2xl animate-in zoom-in-95">
+            <div className="w-20 h-20 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto text-4xl shadow-lg shadow-amber-500/20">
+              <Lock size={40} className="text-amber-400 animate-pulse" />
+            </div>
+
+            <div>
+              <span className="px-3 py-1 rounded-full text-xs font-black bg-amber-500/30 text-amber-300 border border-amber-500/50 uppercase tracking-wider">
+                Peringatan Kedua (Terkunci)
+              </span>
+              <h2 className="text-2xl font-black text-white mt-3">
+                Pengerjaan Soal Terkunci Sementara
+              </h2>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-amber-950/40 border border-amber-500/40 text-left text-xs text-amber-200/90 space-y-2 leading-relaxed">
+              <p className="font-semibold text-amber-300">
+                ⚠️ Anda terdeteksi keluar dari layar ujian sebanyak 2 kali (berpindah tab / aplikasi / minimize).
+              </p>
+              <p>
+                Sistem telah <strong>menonaktifkan dan mengunci seluruh lembar pengerjaan soal</strong>.
+              </p>
+              <div className="pt-2 border-t border-amber-500/30 space-y-1">
+                <div className="font-bold text-white uppercase text-[11px] tracking-wide">
+                  👉 Langkah Penyelesaian:
+                </div>
+                <ol className="list-decimal list-inside space-y-1 text-slate-300">
+                  <li>Segera temui <strong>Pengawas Ruangan</strong> di depan kelas sekarang.</li>
+                  <li>Pengawas akan memverifikasi dan mengaktifkan <strong>tombol izin melanjutkan ujian</strong> di meja pengawas.</li>
+                  <li>Tindakan ini akan <strong>tercatat secara resmi di Berita Acara Ujian (BAP)</strong>.</li>
+                </ol>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-slate-300 flex items-center justify-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+              <span>Menunggu konfirmasi buka kunci dari Pengawas Ruangan...</span>
+            </div>
+
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!attempt) return;
+                  setIsCheckingLock(true);
+                  try {
+                    const res = await checkStudentExamLockStatus(attempt.id);
+                    if (res && res.success) {
+                      if (res.isStrike2Locked !== undefined) {
+                        setIsStrike2Locked(res.isStrike2Locked);
+                      }
+                      if (res.isBlocked) {
+                        setAttempt((prev) => prev ? { ...prev, isBlocked: true, proctorNotes: res.proctorNotes } : prev);
+                      }
+                    }
+                  } finally {
+                    setIsCheckingLock(false);
+                  }
+                }}
+                disabled={isCheckingLock}
+                className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-black text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-amber-500/25"
+              >
+                <RefreshCw size={14} className={isCheckingLock ? 'animate-spin' : ''} />
+                <span>{isCheckingLock ? 'Memeriksa...' : 'Periksa Izin Pengawas'}</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

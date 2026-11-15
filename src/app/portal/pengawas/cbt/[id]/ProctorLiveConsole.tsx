@@ -36,7 +36,8 @@ import {
   proctorResetStudentLoginAction,
   proctorAddExtraTimeAction,
   proctorToggleBlockAction,
-  proctorForceSubmitAction
+  proctorForceSubmitAction,
+  proctorUnlockStrike2Action
 } from '@/app/admin/cbt/actions';
 import { formatExamScheduleRange, getExamScheduleState } from '@/lib/cbt-schedule';
 import { KopSuratConfig } from '@/app/admin/settings/types';
@@ -123,7 +124,7 @@ export default function ProctorLiveConsole({
   const [actionTargetAttempt, setActionTargetAttempt] = useState<{
     attemptId: string;
     studentName: string;
-    type: 'RESET' | 'SUBMIT' | 'BLOCK' | 'UNBLOCK';
+    type: 'RESET' | 'SUBMIT' | 'BLOCK' | 'UNBLOCK' | 'UNLOCK_STRIKE_2';
   } | null>(null);
 
   const [extraTimeTarget, setExtraTimeTarget] = useState<{
@@ -327,6 +328,14 @@ export default function ProctorLiveConsole({
         refreshAttemptsLive();
       } else {
         alert(res.error || 'Gagal mengubah status blokir.');
+      }
+    } else if (type === 'UNLOCK_STRIKE_2') {
+      const res = await proctorUnlockStrike2Action(attemptId, currentUser.name);
+      if (res.success) {
+        showToast(res.message);
+        refreshAttemptsLive();
+      } else {
+        alert(res.error || 'Gagal membuka kunci ujian.');
       }
     }
 
@@ -712,10 +721,24 @@ export default function ProctorLiveConsole({
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-300">
                             Tertib
                           </span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-black bg-rose-950 text-rose-300 border border-rose-800 animate-pulse flex items-center justify-center gap-1 mx-auto w-fit">
+                        ) : item.tabSwitchCount === 1 ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-800 flex items-center justify-center gap-1 mx-auto w-fit" title="Peringatan Awal: Siswa ditegur di layar">
                             <AlertTriangle size={11} />
-                            <span>{item.tabSwitchCount}x Pindah Tab</span>
+                            <span>1x Pindah Tab (Peringatan)</span>
+                          </span>
+                        ) : item.tabSwitchCount === 2 ? (
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-black border flex items-center justify-center gap-1 mx-auto w-fit ${
+                            att?.proctorNotes?.includes('[IZIN_LANJUT_P2]')
+                              ? 'bg-amber-950/70 text-amber-300 border-amber-700'
+                              : 'bg-amber-500 text-slate-950 border-amber-400 animate-pulse'
+                          }`} title={att?.proctorNotes?.includes('[IZIN_LANJUT_P2]') ? 'Pelanggaran ke-2: Izin lanjut sudah diberikan oleh Pengawas' : 'Pelanggaran ke-2: Pengerjaan soal terkunci. Menunggu izin pengawas!'}>
+                            <Lock size={11} />
+                            <span>{att?.proctorNotes?.includes('[IZIN_LANJUT_P2]') ? '2x Tab (Izin Diberikan)' : '2x Tab (TERKUNCI)'}</span>
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-black bg-rose-950 text-rose-300 border border-rose-800 animate-pulse flex items-center justify-center gap-1 mx-auto w-fit" title="Pelanggaran ke-3: Akun diblokir otomatis oleh sistem">
+                            <AlertTriangle size={11} />
+                            <span>{item.tabSwitchCount}x (BLOKIR SISTEM)</span>
                           </span>
                         )}
                       </td>
@@ -734,7 +757,22 @@ export default function ProctorLiveConsole({
                       {/* Actions */}
                       <td className="py-3 px-4 text-center">
                         {att ? (
-                          <div className="flex items-center justify-center gap-1.5">
+                          <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                            {/* 🔓 Tombol Khusus Strike 2: Buka Kunci Pengerjaan Ujian */}
+                            {item.tabSwitchCount === 2 && !att?.proctorNotes?.includes('[IZIN_LANJUT_P2]') && !isBlocked && (
+                              <button
+                                onClick={() => setActionTargetAttempt({
+                                  attemptId: att.id,
+                                  studentName: item.studentName,
+                                  type: 'UNLOCK_STRIKE_2',
+                                })}
+                                className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] shadow-sm animate-pulse transition flex items-center gap-1 cursor-pointer"
+                                title="Buka Kunci Pelanggaran ke-2 agar siswa bisa melanjutkan ujian (Tercatat di BAP)"
+                              >
+                                <Unlock size={12} /> Buka Kunci P2
+                              </button>
+                            )}
+
                             {/* Reset Login Siswa */}
                             <button
                               onClick={() => setActionTargetAttempt({
@@ -742,7 +780,7 @@ export default function ProctorLiveConsole({
                                 studentName: item.studentName,
                                 type: 'RESET',
                               })}
-                              className="px-2.5 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 font-bold text-[11px] border border-blue-500/30 transition flex items-center gap-1 cursor-pointer"
+                              className="px-2 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 font-bold text-[11px] border border-blue-500/30 transition flex items-center gap-1 cursor-pointer"
                               title="Buka Kunci Login (jika siswa restart/ganti HP)"
                             >
                               <Unlock size={11} /> Reset
@@ -755,7 +793,7 @@ export default function ProctorLiveConsole({
                                 studentName: item.studentName,
                                 minutes: 5,
                               })}
-                              className="px-2 py-1 rounded-lg bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 font-bold text-[11px] border border-purple-500/30 transition cursor-pointer"
+                              className="px-1.5 py-1 rounded-lg bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 font-bold text-[11px] border border-purple-500/30 transition cursor-pointer"
                               title="Tambah Waktu Dispensasi +5 Menit"
                             >
                               +5m
@@ -766,25 +804,34 @@ export default function ProctorLiveConsole({
                                 studentName: item.studentName,
                                 minutes: 10,
                               })}
-                              className="px-2 py-1 rounded-lg bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 font-bold text-[11px] border border-purple-500/30 transition cursor-pointer"
+                              className="px-1.5 py-1 rounded-lg bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 font-bold text-[11px] border border-purple-500/30 transition cursor-pointer"
                               title="Tambah Waktu Dispensasi +10 Menit"
                             >
                               +10m
                             </button>
 
-                            {/* Toggle Block */}
+                            {/* Toggle Block / Status Blokir */}
                             {isBlocked ? (
-                              <button
-                                onClick={() => setActionTargetAttempt({
-                                  attemptId: att.id,
-                                  studentName: item.studentName,
-                                  type: 'UNBLOCK',
-                                })}
-                                className="px-2 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 font-bold text-[11px] border border-emerald-500/30 transition cursor-pointer"
-                                title="Buka Blokir"
-                              >
-                                Buka
-                              </button>
+                              item.tabSwitchCount >= 3 || att?.proctorNotes?.includes('[STRIKE_3_BLOKIR]') ? (
+                                <span 
+                                  className="px-2 py-1 rounded-lg bg-rose-950 text-rose-300 font-bold text-[10px] border border-rose-800"
+                                  title="Siswa telah 3x melanggar tata tertib. Pembukaan blokir hanya dapat dilakukan oleh Admin Utama sekolah."
+                                >
+                                  Wajib Admin Utama
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => setActionTargetAttempt({
+                                    attemptId: att.id,
+                                    studentName: item.studentName,
+                                    type: 'UNBLOCK',
+                                  })}
+                                  className="px-2 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 font-bold text-[11px] border border-emerald-500/30 transition cursor-pointer"
+                                  title="Buka Blokir Manual Pengawas"
+                                >
+                                  Buka
+                                </button>
+                              )
                             ) : (
                               <button
                                 onClick={() => setActionTargetAttempt({
@@ -901,6 +948,8 @@ export default function ProctorLiveConsole({
             ? 'Paksa Kumpulkan Ujian Siswa'
             : actionTargetAttempt?.type === 'BLOCK'
             ? 'Tegur & Blokir Siswa'
+            : actionTargetAttempt?.type === 'UNLOCK_STRIKE_2'
+            ? 'Izinkan Lanjut Ujian (Buka Kunci Pelanggaran ke-2)'
             : 'Buka Blokir Siswa'
         }
         message={
@@ -910,6 +959,8 @@ export default function ProctorLiveConsole({
             ? `Apakah Anda yakin ingin memaksa mengumpulkan lembar ujian milik "${actionTargetAttempt?.studentName}"? Skor akan langsung dihitung berdasarkan jawaban yang tersimpan saat ini.`
             : actionTargetAttempt?.type === 'BLOCK'
             ? `Apakah Anda yakin ingin memblokir akses ujian untuk "${actionTargetAttempt?.studentName}"? Ujian siswa akan dihentikan sementara.`
+            : actionTargetAttempt?.type === 'UNLOCK_STRIKE_2'
+            ? `Apakah Anda yakin ingin mengizinkan siswa "${actionTargetAttempt?.studentName}" melanjutkan ujian? Siswa telah terdeteksi melakukan pelanggaran ke-2 (keluar layar). Pemberian izin ini akan dicatat secara otomatis ke Berita Acara Ujian (BAP).`
             : `Apakah Anda yakin ingin mencabut status blokir untuk "${actionTargetAttempt?.studentName}"?`
         }
         confirmText={
@@ -919,6 +970,8 @@ export default function ProctorLiveConsole({
             ? 'Ya, Paksa Kumpul'
             : actionTargetAttempt?.type === 'BLOCK'
             ? 'Ya, Blokir Siswa'
+            : actionTargetAttempt?.type === 'UNLOCK_STRIKE_2'
+            ? 'Ya, Izinkan Lanjut Ujian'
             : 'Ya, Cabut Blokir'
         }
       />
@@ -1108,9 +1161,20 @@ export default function ProctorLiveConsole({
                 <div className="font-bold mb-1 border-b border-black pb-1">Catatan Kejadian Khusus / Integritas Pengawasan:</div>
                 <p className="text-slate-800 italic">{bapNotes}</p>
                 {violationCount > 0 && (
-                  <p className="text-rose-800 font-bold text-[11px] pt-1">
-                    ⚠️ Terdeteksi {violationCount} siswa yang melakukan perpindahan tab / jendela layar selama ujian.
-                  </p>
+                  <div className="space-y-1 pt-1 text-[11px]">
+                    <p className="text-rose-800 font-bold">
+                      ⚠️ Terdeteksi {violationCount} siswa yang melakukan perpindahan tab / jendela layar selama ujian:
+                    </p>
+                    <div className="text-slate-800 font-mono text-[10px] pl-2 border-l-2 border-slate-400 space-y-0.5">
+                      {combinedRoster
+                        .filter((r) => r.tabSwitchCount > 0 || r.isBlocked)
+                        .map((r) => (
+                          <div key={r.studentNis + r.studentName}>
+                            • <strong>{r.studentName}</strong> ({r.studentNis}): {r.tabSwitchCount}x Pindah Tab {r.attempt?.proctorNotes ? `— ${r.attempt.proctorNotes}` : ''}
+                          </div>
+                        ))}
+                    </div>
+                  </div>
                 )}
               </div>
 

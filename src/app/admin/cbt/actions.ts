@@ -1038,6 +1038,13 @@ export async function proctorToggleBlockAction(attemptId: string, shouldBlock: b
       return { error: 'Data pengerjaan siswa tidak ditemukan.' };
     }
 
+    // Jika siswa diblokir karena Strike 3 (3x pelanggaran), pengawas tidak bisa membuka blokir
+    if (!shouldBlock && (attempt.tabSwitchCount >= 3 || attempt.proctorNotes?.includes('[STRIKE_3_BLOKIR]'))) {
+      return { 
+        error: 'Siswa diblokir otomatis oleh sistem karena mencapai 3x pelanggaran kecurangan. Pengawas ruangan tidak berwenang membuka blokir ini. Siswa wajib melapor ke Admin Utama!' 
+      };
+    }
+
     const updated = await prisma.examAttempt.update({
       where: { id: attemptId },
       data: {
@@ -1057,6 +1064,106 @@ export async function proctorToggleBlockAction(attemptId: string, shouldBlock: b
       message: shouldBlock
         ? `Siswa "${attempt.studentName}" telah diblokir sementara oleh pengawas!`
         : `Blokir untuk siswa "${attempt.studentName}" telah dicabut.`,
+      attempt: updated,
+    };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+/**
+ * 🔓 Buka Kunci Pengerjaan Ujian (Pelanggaran ke-2 / Strike 2) oleh Pengawas Ruangan
+ * Dicatat secara resmi ke Berita Acara Ujian (BAP)
+ */
+export async function proctorUnlockStrike2Action(attemptId: string, proctorName?: string) {
+  try {
+    const attempt = await prisma.examAttempt.findUnique({
+      where: { id: attemptId },
+    });
+
+    if (!attempt) {
+      return { error: 'Data pengerjaan siswa tidak ditemukan.' };
+    }
+
+    if (attempt.tabSwitchCount >= 3 || attempt.proctorNotes?.includes('[STRIKE_3_BLOKIR]')) {
+      return { 
+        error: 'Siswa telah melanggar tata tertib sebanyak 3 kali dan diblokir total oleh sistem. Hanya Admin Utama yang berwenang membuka blokir ini!' 
+      };
+    }
+
+    const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    const pName = proctorName?.trim() || 'Pengawas Ruang';
+    const noteEntry = `[IZIN_LANJUT_P2] Izin lanjut ujian (Pelanggaran ke-2) diberikan oleh Pengawas (${pName}) pada ${timeStr} (Tercatat di BAP)`;
+    
+    // Jangan duplikasi tag jika sudah ada
+    let updatedNotes = attempt.proctorNotes || '';
+    if (!updatedNotes.includes('[IZIN_LANJUT_P2]')) {
+      updatedNotes = updatedNotes ? `${updatedNotes} | ${noteEntry}` : noteEntry;
+    }
+
+    const updated = await prisma.examAttempt.update({
+      where: { id: attemptId },
+      data: {
+        isBlocked: false,
+        proctorNotes: updatedNotes,
+      },
+    });
+
+    revalidatePath(`/admin/cbt/${attempt.examId}`);
+    revalidatePath(`/portal/pengawas/cbt/${attempt.examId}`);
+    revalidatePath(`/portal/siswa/cbt/${attempt.examId}`);
+
+    return {
+      success: true,
+      message: `Izin melanjutkan ujian berhasil diberikan untuk "${attempt.studentName}". Layar siswa terbuka kembali dan tercatat di Berita Acara (BAP)!`,
+      attempt: updated,
+    };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+/**
+ * 🛡️ Buka Blokir Akun CBT Siswa oleh Admin Utama (Super Admin)
+ * Khusus untuk siswa yang terblokir permanen pada Pelanggaran ke-3 (Strike 3)
+ */
+export async function adminUnblockStrike3Action(attemptId: string, adminName?: string) {
+  try {
+    const attempt = await prisma.examAttempt.findUnique({
+      where: { id: attemptId },
+    });
+
+    if (!attempt) {
+      return { error: 'Data pengerjaan siswa tidak ditemukan.' };
+    }
+
+    const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    const aName = adminName?.trim() || 'Admin Utama';
+    const noteEntry = `[ADMIN_UNBLOCK] Blokir CBT Pelanggaran ke-3 dicabut oleh Admin Utama (${aName}) pada ${timeStr}. Siswa diberi dispensasi melanjutkan ujian.`;
+    
+    const existingNotes = attempt.proctorNotes || '';
+    const updatedNotes = `${existingNotes} | ${noteEntry} | [IZIN_LANJUT_P2] Dispensasi Admin Utama`;
+
+    // Reset tabSwitchCount ke 2 agar siswa tetap membawa riwayat pelanggaran namun tidak langsung terblokir lagi
+    const updated = await prisma.examAttempt.update({
+      where: { id: attemptId },
+      data: {
+        isBlocked: false,
+        tabSwitchCount: 2,
+        proctorNotes: updatedNotes,
+      },
+    });
+
+    revalidatePath('/admin/cbt');
+    revalidatePath(`/admin/cbt/${attempt.examId}`);
+    revalidatePath('/portal/pengawas/cbt');
+    revalidatePath(`/portal/pengawas/cbt/${attempt.examId}`);
+    revalidatePath('/portal/siswa/cbt');
+    revalidatePath(`/portal/siswa/cbt/${attempt.examId}`);
+
+    return {
+      success: true,
+      message: `Blokir akun siswa "${attempt.studentName}" berhasil dibuka oleh Admin Utama! Siswa dapat melanjutkan ujian kembali.`,
       attempt: updated,
     };
   } catch (error: any) {

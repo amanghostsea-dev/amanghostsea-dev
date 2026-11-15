@@ -181,30 +181,100 @@ export async function saveProgress(
   tabSwitchCount: number
 ) {
   try {
+    const current = await prisma.examAttempt.findUnique({
+      where: { id: attemptId },
+      select: { proctorNotes: true, isBlocked: true, tabSwitchCount: true },
+    });
+
+    if (!current) {
+      return { error: 'Data pengerjaan tidak ditemukan.' };
+    }
+
+    const effectiveTabCount = Math.max(current.tabSwitchCount || 0, tabSwitchCount);
+    let shouldBlock = current.isBlocked;
+    let newNotes = current.proctorNotes || '';
+
+    // 🛡️ PROGRESSIVE 3-STRIKE ENFORCEMENT
+    // Strike 3: Otomatis Blokir Total Sistem jika mencapai 3x pelanggaran
+    if (effectiveTabCount >= 3) {
+      shouldBlock = true;
+      if (!newNotes.includes('[STRIKE_3_BLOKIR]')) {
+        const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        const strike3Msg = `[STRIKE_3_BLOKIR] DIBLOKIR OTOMATIS SISTEM: 3x Pelanggaran Tata Tertib (Pindah Tab/Layar) pada ${timeStr}. Pengerjaan dihentikan permanen. Wajib Lapor ke Admin Utama!`;
+        newNotes = newNotes ? `${newNotes} | ${strike3Msg}` : strike3Msg;
+      }
+    } else if (effectiveTabCount === 2 && !newNotes.includes('[STRIKE_2_TERKUNCI]') && !newNotes.includes('[IZIN_LANJUT_P2]')) {
+      const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      const strike2Msg = `[STRIKE_2_TERKUNCI] Pelanggaran ke-2 pada ${timeStr} (Pengerjaan Soal Terkunci Sementara Menunggu Pengawas)`;
+      newNotes = newNotes ? `${newNotes} | ${strike2Msg}` : strike2Msg;
+    }
+
     const updated = await prisma.examAttempt.update({
       where: { id: attemptId },
       data: {
         answers: JSON.stringify(answers),
-        tabSwitchCount,
+        tabSwitchCount: effectiveTabCount,
+        isBlocked: shouldBlock,
+        proctorNotes: newNotes,
       },
       select: {
         id: true,
         status: true,
         isBlocked: true,
+        tabSwitchCount: true,
+        proctorNotes: true,
         extraTimeMinutes: true,
         score: true,
         totalCorrect: true,
         totalQuestions: true,
       },
     });
+
+    const isStrike2Locked = updated.tabSwitchCount === 2 && !updated.proctorNotes?.includes('[IZIN_LANJUT_P2]');
+
     return {
       success: true,
       status: updated.status,
       isBlocked: updated.isBlocked,
+      isStrike2Locked,
+      tabSwitchCount: updated.tabSwitchCount,
+      proctorNotes: updated.proctorNotes,
       extraTimeMinutes: updated.extraTimeMinutes,
       score: updated.score,
       totalCorrect: updated.totalCorrect,
       totalQuestions: updated.totalQuestions,
+    };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+export async function checkStudentExamLockStatus(attemptId: string) {
+  try {
+    const attempt = await prisma.examAttempt.findUnique({
+      where: { id: attemptId },
+      select: {
+        id: true,
+        status: true,
+        isBlocked: true,
+        tabSwitchCount: true,
+        proctorNotes: true,
+        extraTimeMinutes: true,
+      },
+    });
+
+    if (!attempt) return { error: 'Attempt tidak ditemukan' };
+
+    const isStrike2Locked = attempt.tabSwitchCount === 2 && !attempt.proctorNotes?.includes('[IZIN_LANJUT_P2]');
+
+    return {
+      success: true,
+      isBlocked: attempt.isBlocked,
+      isStrike2Locked,
+      tabSwitchCount: attempt.tabSwitchCount,
+      proctorNotes: attempt.proctorNotes,
+      extraTimeMinutes: attempt.extraTimeMinutes,
+      status: attempt.status,
     };
   } catch (error: any) {
     return { error: error.message };

@@ -57,7 +57,8 @@ import {
   createBatchQuestions, 
   updateQuestion, 
   rotateExamToken,
-  autoDistributeExamPointsAction
+  autoDistributeExamPointsAction,
+  adminUnblockStrike3Action
 } from '../actions';
 import { 
   formatExamScheduleRange, 
@@ -359,6 +360,8 @@ interface AttemptItem {
   totalCorrect: number;
   status: string;
   tabSwitchCount: number;
+  isBlocked?: boolean;
+  proctorNotes?: string | null;
   startedAt: Date | string;
   submittedAt: Date | string | null;
 }
@@ -1980,31 +1983,59 @@ Poin: 10
                           )}
                         </td>
                         <td className="py-4 px-6">
-                          <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                            att.status === 'SUBMITTED'
-                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30'
-                              : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30'
-                          }`}>
-                            {att.status === 'SUBMITTED' ? 'Selesai' : 'Sedang Ujian'}
-                          </span>
-                        </td>
-                        <td className="py-4 px-6 text-right">
-                          {!isProctorOnly ? (
-                            <button
-                              onClick={() => {
-                                setDeleteAttemptId(att.id);
-                                setIsDeleteAttemptModal(true);
-                              }}
-                              className="p-1.5 text-slate-400 hover:text-red-600 transition-colors rounded-lg cursor-pointer"
-                              title="Reset / Hapus Pengerjaan"
-                            >
-                              <Trash2 size={16} />
-                            </button>
+                          {att.isBlocked ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-500/40">
+                              DIBLOKIR SISTEM
+                            </span>
                           ) : (
-                            <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
-                              Terkunci
+                            <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                              att.status === 'SUBMITTED'
+                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30'
+                                : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30'
+                            }`}>
+                              {att.status === 'SUBMITTED' ? 'Selesai' : 'Sedang Ujian'}
                             </span>
                           )}
+                        </td>
+                        <td className="py-4 px-6 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {isSuperAdmin && att.isBlocked && (
+                              <button
+                                onClick={async () => {
+                                  if (confirm(`Buka blokir akun CBT untuk siswa "${att.studentName}"? Siswa akan dapat melanjutkan ujian kembali.`)) {
+                                    const res = await adminUnblockStrike3Action(att.id, currentUser?.name);
+                                    if (res.success) {
+                                      alert(res.message);
+                                      window.location.reload();
+                                    } else {
+                                      alert(res.error || 'Gagal membuka blokir');
+                                    }
+                                  }
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition inline-flex items-center gap-1 cursor-pointer"
+                                title="Buka Blokir Siswa (Wewenang Admin Utama)"
+                              >
+                                <ShieldCheck size={13} /> Buka Blokir
+                              </button>
+                            )}
+
+                            {!isProctorOnly ? (
+                              <button
+                                onClick={() => {
+                                  setDeleteAttemptId(att.id);
+                                  setIsDeleteAttemptModal(true);
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-red-600 transition-colors rounded-lg cursor-pointer"
+                                title="Reset / Hapus Pengerjaan"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            ) : (
+                              <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
+                                Terkunci
+                              </span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                       );
