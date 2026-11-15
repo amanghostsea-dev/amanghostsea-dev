@@ -49,23 +49,48 @@ export default async function UjianPage({
       });
 
       if (user) {
-        const grade = await prisma.studentGrade.findFirst({
-          where: {
-            OR: [
-              { studentName: user.name },
-              ...(user.nisn ? [{ studentNis: user.nisn }] : []),
-              { studentNis: user.username },
-            ],
-          },
-          select: { studentClass: true },
-        });
+        let studentClass = user.studentClass || '';
+
+        if (!studentClass) {
+          const attempt = await prisma.examAttempt.findFirst({
+            where: {
+              OR: [
+                { studentName: user.name },
+                ...(user.nisn ? [{ studentNis: user.nisn }] : []),
+                { studentNis: user.username },
+              ],
+              studentClass: { not: null },
+            },
+            select: { studentClass: true },
+            orderBy: { startedAt: 'desc' },
+          });
+          if (attempt?.studentClass) {
+            studentClass = attempt.studentClass;
+          }
+        }
+
+        if (!studentClass) {
+          const grade = await prisma.studentGrade.findFirst({
+            where: {
+              OR: [
+                { studentName: user.name },
+                ...(user.nisn ? [{ studentNis: user.nisn }] : []),
+                { studentNis: user.username },
+              ],
+            },
+            select: { studentClass: true },
+          });
+          if (grade?.studentClass) {
+            studentClass = grade.studentClass;
+          }
+        }
 
         authenticatedStudent = {
           id: user.id,
           name: user.name,
           username: user.username,
           nisn: user.nisn || user.username,
-          studentClass: grade?.studentClass || 'XI TJKT 1',
+          studentClass: studentClass || '',
         };
       }
     } catch (err) {

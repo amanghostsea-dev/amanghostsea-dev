@@ -55,6 +55,7 @@ export async function createUser(data: {
         status: data.status,
         nisn,
         password,
+        studentClass: data.role === 'Siswa' ? (data.studentClass?.trim() || null) : null,
       }
     });
 
@@ -147,12 +148,14 @@ export async function updateUser(id: string, data: {
       status: string;
       nisn: string | null;
       password?: string;
+      studentClass?: string | null;
     } = {
       name: data.name.trim(),
       username,
       role: data.role,
       status: data.status,
       nisn,
+      studentClass: data.role === 'Siswa' ? (data.studentClass?.trim() || null) : null,
     };
     
     if (data.password && data.password.trim() !== '') {
@@ -365,6 +368,7 @@ export async function createBulkStudents(
             password,
             role: 'Siswa',
             status: 'Aktif',
+            studentClass: assignedClass,
           }
         });
         createdUsers.push({

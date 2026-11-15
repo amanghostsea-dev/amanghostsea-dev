@@ -1122,6 +1122,7 @@ export async function getCbtStudentCardsDataAction(options?: GetCbtStudentCardsO
           username: true,
           password: true,
           nisn: true,
+          studentClass: true,
           createdAt: true,
         },
         orderBy: [{ name: 'asc' }],
@@ -1182,6 +1183,7 @@ export async function getCbtStudentCardsDataAction(options?: GetCbtStudentCardsO
 
     let students: CbtStudentCardItem[] = rawStudents.map((s) => {
       const assignedClass =
+        s.studentClass ||
         (s.nisn ? studentClassMap[s.nisn.trim().toLowerCase()] : null) ||
         studentClassMap[s.name.trim().toLowerCase()] ||
         studentClassMap[s.username.trim().toLowerCase()] ||

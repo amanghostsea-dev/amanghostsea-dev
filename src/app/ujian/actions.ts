@@ -49,23 +49,47 @@ export async function lookupStudentIdentityAction(query: string) {
         name: true,
         nisn: true,
         username: true,
+        studentClass: true,
       },
     });
 
     if (!user) return { success: false };
 
-    const grade = await prisma.studentGrade.findFirst({
-      where: {
-        OR: [
-          { studentName: user.name },
-          ...(user.nisn ? [{ studentNis: user.nisn }] : []),
-          { studentNis: user.username },
-        ],
-      },
-      select: { studentClass: true },
-    });
+    let studentClass = user.studentClass || '';
 
-    const studentClass = grade?.studentClass || 'XI TJKT 1';
+    if (!studentClass) {
+      const attempt = await prisma.examAttempt.findFirst({
+        where: {
+          OR: [
+            { studentName: user.name },
+            ...(user.nisn ? [{ studentNis: user.nisn }] : []),
+            { studentNis: user.username },
+          ],
+          studentClass: { not: null },
+        },
+        select: { studentClass: true },
+        orderBy: { startedAt: 'desc' },
+      });
+      if (attempt?.studentClass) {
+        studentClass = attempt.studentClass;
+      }
+    }
+
+    if (!studentClass) {
+      const grade = await prisma.studentGrade.findFirst({
+        where: {
+          OR: [
+            { studentName: user.name },
+            ...(user.nisn ? [{ studentNis: user.nisn }] : []),
+            { studentNis: user.username },
+          ],
+        },
+        select: { studentClass: true },
+      });
+      if (grade?.studentClass) {
+        studentClass = grade.studentClass;
+      }
+    }
 
     return {
       success: true,
@@ -343,19 +367,42 @@ export async function confirmAndJoinExamAction(params: {
     return { error: 'Verifikasi gagal: Akun siswa tidak ditemukan atau berstatus tidak aktif.' };
   }
 
-  // Ambil kelas resmi siswa
-  const grade = await prisma.studentGrade.findFirst({
-    where: {
-      OR: [
-        { studentName: user.name },
-        ...(user.nisn ? [{ studentNis: user.nisn }] : []),
-        { studentNis: user.username },
-      ],
-    },
-    select: { studentClass: true },
-  });
+  // Ambil kelas resmi siswa: Utamakan dari User.studentClass
+  let studentClass = user.studentClass || '';
 
-  const studentClass = grade?.studentClass || 'XI TJKT 1';
+  if (!studentClass) {
+    const attempt = await prisma.examAttempt.findFirst({
+      where: {
+        OR: [
+          { studentName: user.name },
+          ...(user.nisn ? [{ studentNis: user.nisn }] : []),
+          { studentNis: user.username },
+        ],
+        studentClass: { not: null },
+      },
+      select: { studentClass: true },
+      orderBy: { startedAt: 'desc' },
+    });
+    if (attempt?.studentClass) {
+      studentClass = attempt.studentClass;
+    }
+  }
+
+  if (!studentClass) {
+    const grade = await prisma.studentGrade.findFirst({
+      where: {
+        OR: [
+          { studentName: user.name },
+          ...(user.nisn ? [{ studentNis: user.nisn }] : []),
+          { studentNis: user.username },
+        ],
+      },
+      select: { studentClass: true },
+    });
+    if (grade?.studentClass) {
+      studentClass = grade.studentClass;
+    }
+  }
 
   // Simpan session cookies terverifikasi resmi
   cookieStore.set('auth_name', user.name, { maxAge: 60 * 60 * 24 });
@@ -413,18 +460,41 @@ export async function studentDirectLoginAction(formData: FormData) {
     return { error: 'Username atau password salah! Periksa kembali kartu login Anda.' };
   }
 
-  const grade = await prisma.studentGrade.findFirst({
-    where: {
-      OR: [
-        { studentName: user.name },
-        ...(user.nisn ? [{ studentNis: user.nisn }] : []),
-        { studentNis: user.username },
-      ],
-    },
-    select: { studentClass: true },
-  });
+  let studentClass = user.studentClass || '';
 
-  const studentClass = grade?.studentClass || 'XI TJKT 1';
+  if (!studentClass) {
+    const attempt = await prisma.examAttempt.findFirst({
+      where: {
+        OR: [
+          { studentName: user.name },
+          ...(user.nisn ? [{ studentNis: user.nisn }] : []),
+          { studentNis: user.username },
+        ],
+        studentClass: { not: null },
+      },
+      select: { studentClass: true },
+      orderBy: { startedAt: 'desc' },
+    });
+    if (attempt?.studentClass) {
+      studentClass = attempt.studentClass;
+    }
+  }
+
+  if (!studentClass) {
+    const grade = await prisma.studentGrade.findFirst({
+      where: {
+        OR: [
+          { studentName: user.name },
+          ...(user.nisn ? [{ studentNis: user.nisn }] : []),
+          { studentNis: user.username },
+        ],
+      },
+      select: { studentClass: true },
+    });
+    if (grade?.studentClass) {
+      studentClass = grade.studentClass;
+    }
+  }
 
   const cookieStore = await cookies();
   cookieStore.set('auth_token', 'Siswa', { maxAge: 60 * 60 * 24 });

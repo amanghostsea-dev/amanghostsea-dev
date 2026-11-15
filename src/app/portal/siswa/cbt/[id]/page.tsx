@@ -53,6 +53,9 @@ export default async function SiswaExamRoomPage({ params }: { params: Promise<{ 
     if (user) {
       studentName = user.name;
       studentNis = user.nisn || user.username;
+      if (user.studentClass) {
+        studentClass = user.studentClass;
+      }
     }
   } catch (e) {
     console.error('Error fetching user for exam room:', e);

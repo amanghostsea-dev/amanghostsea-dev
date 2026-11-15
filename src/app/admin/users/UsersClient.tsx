@@ -280,7 +280,7 @@ export default function UsersCRUD({
 
   const handleEdit = (item: User) => {
     const defaultFallback = classTargets.find(c => c !== 'Semua Kelas' && !c.includes('Semua Jurusan')) || 'XI TJKT 1';
-    const userClass = studentClassMap[item.name] || (item.nisn && studentClassMap[item.nisn]) || defaultFallback;
+    const userClass = (item as any).studentClass || studentClassMap[item.id] || studentClassMap[item.name] || (item.nisn && studentClassMap[item.nisn]) || defaultFallback;
     const matchedJurusan = jurusans.find(j => userClass.toUpperCase().includes(j.code.toUpperCase()))?.code || jurusans[0]?.code || 'TJKT';
     setSelectedJurusanCode(matchedJurusan);
 
@@ -720,7 +720,7 @@ export default function UsersCRUD({
   // Helper untuk mendapatkan kelas siswa
   const getUserClass = (u: User) => {
     if (u.role !== 'Siswa') return '';
-    return studentClassMap[u.name] || (u.nisn && studentClassMap[u.nisn]) || '';
+    return (u as any).studentClass || studentClassMap[u.id] || studentClassMap[u.name] || (u.nisn && studentClassMap[u.nisn]) || '';
   };
 
   // Daftar seluruh kelas resmi & rombel yang ada
@@ -1386,9 +1386,9 @@ export default function UsersCRUD({
                               ) : (
                                 <span className="text-[11px] text-amber-600 dark:text-amber-400 font-mono">NISN: Belum diisi</span>
                               )}
-                              {(studentClassMap[item.name] || (item.nisn && studentClassMap[item.nisn])) && (
+                              {((item as any).studentClass || studentClassMap[item.id] || studentClassMap[item.name] || (item.nisn && studentClassMap[item.nisn])) && (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-                                  {studentClassMap[item.name] || (item.nisn && studentClassMap[item.nisn])}
+                                  {(item as any).studentClass || studentClassMap[item.id] || studentClassMap[item.name] || (item.nisn && studentClassMap[item.nisn])}
                                 </span>
                               )}
                             </div>

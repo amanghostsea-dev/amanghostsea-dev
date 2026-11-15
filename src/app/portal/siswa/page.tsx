@@ -21,6 +21,7 @@ export default async function PortalSiswa() {
 
   let studentName = authName || '';
   let studentNis = authUser || '';
+  let studentClass = '';
 
   if (authUser) {
     try {
@@ -35,6 +36,9 @@ export default async function PortalSiswa() {
       if (user) {
         studentName = user.name;
         studentNis = user.nisn || user.username;
+        if (user.studentClass) {
+          studentClass = user.studentClass;
+        }
       }
     } catch (e) {
       console.error(e);
@@ -45,27 +49,9 @@ export default async function PortalSiswa() {
     redirect('/login?redirect=/portal/siswa');
   }
 
-  // Ambil kelas aktual siswa (dari cookie / database rapor / riwayat ujian)
-  let studentClass = cookieStore.get('auth_class')?.value?.trim() || '';
-
+  // Ambil kelas aktual siswa (User -> Cookie -> ExamAttempt -> StudentGrade)
   if (!studentClass) {
-    try {
-      const gradeRecord = await prisma.studentGrade.findFirst({
-        where: {
-          OR: [
-            { studentName },
-            ...(studentNis ? [{ studentNis }] : []),
-            ...(authUser ? [{ studentNis: authUser }] : []),
-          ],
-        },
-        select: { studentClass: true },
-      });
-      if (gradeRecord?.studentClass) {
-        studentClass = gradeRecord.studentClass;
-      }
-    } catch (err) {
-      console.error('Error fetching student class from gradeRecord:', err);
-    }
+    studentClass = cookieStore.get('auth_class')?.value?.trim() || '';
   }
 
   if (!studentClass) {
@@ -85,6 +71,26 @@ export default async function PortalSiswa() {
         studentClass = attemptRecord.studentClass;
       }
     } catch {}
+  }
+
+  if (!studentClass) {
+    try {
+      const gradeRecord = await prisma.studentGrade.findFirst({
+        where: {
+          OR: [
+            { studentName },
+            ...(studentNis ? [{ studentNis }] : []),
+            ...(authUser ? [{ studentNis: authUser }] : []),
+          ],
+        },
+        select: { studentClass: true },
+      });
+      if (gradeRecord?.studentClass) {
+        studentClass = gradeRecord.studentClass;
+      }
+    } catch (err) {
+      console.error('Error fetching student class from gradeRecord:', err);
+    }
   }
 
   if (!studentClass) {

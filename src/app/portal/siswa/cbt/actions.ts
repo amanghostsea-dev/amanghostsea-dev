@@ -106,17 +106,30 @@ export async function startOrResumeAttempt(data: {
     // 🔒 STRICT CLASS TARGET VERIFICATION (ANTI SALAH KAMAR & BOCOR SOAL)
     let verifiedClass = data.studentClass;
     if (data.studentNis || data.studentName) {
-      const gradeRec = await prisma.studentGrade.findFirst({
+      const userRec = await prisma.user.findFirst({
         where: {
           OR: [
-            ...(data.studentNis ? [{ studentNis: data.studentNis }] : []),
-            { studentName: { equals: data.studentName, mode: 'insensitive' as const } },
+            ...(data.studentNis ? [{ username: data.studentNis }, { nisn: data.studentNis }] : []),
+            { name: { equals: data.studentName, mode: 'insensitive' as const } },
           ],
         },
         select: { studentClass: true },
       });
-      if (gradeRec?.studentClass) {
-        verifiedClass = gradeRec.studentClass;
+      if (userRec?.studentClass) {
+        verifiedClass = userRec.studentClass;
+      } else {
+        const gradeRec = await prisma.studentGrade.findFirst({
+          where: {
+            OR: [
+              ...(data.studentNis ? [{ studentNis: data.studentNis }] : []),
+              { studentName: { equals: data.studentName, mode: 'insensitive' as const } },
+            ],
+          },
+          select: { studentClass: true },
+        });
+        if (gradeRec?.studentClass) {
+          verifiedClass = gradeRec.studentClass;
+        }
       }
     }
 
@@ -148,7 +161,7 @@ export async function startOrResumeAttempt(data: {
         examId: data.examId,
         studentName: data.studentName,
         studentNis: data.studentNis || null,
-        studentClass: data.studentClass || null,
+        studentClass: verifiedClass || data.studentClass || null,
         totalQuestions: exam.questions.length,
         answers: '{}',
         status: 'IN_PROGRESS',

@@ -29,14 +29,14 @@ export default async function UsersPage() {
     }),
   ]);
 
-  // Ambil peta kelas siswa dari buku rapor StudentGrade & riwayat ujian CBT ExamAttempt
+  // Ambil peta kelas siswa dari User, riwayat ujian CBT ExamAttempt & buku rapor StudentGrade
   const studentClassMap: Record<string, string> = {};
-  for (const sg of studentGrades) {
-    if (sg.studentName && sg.studentClass) {
-      studentClassMap[sg.studentName] = sg.studentClass;
-    }
-    if (sg.studentNis && sg.studentClass) {
-      studentClassMap[sg.studentNis] = sg.studentClass;
+  for (const u of users) {
+    if (u.studentClass) {
+      studentClassMap[u.id] = u.studentClass;
+      studentClassMap[u.name] = u.studentClass;
+      if (u.username) studentClassMap[u.username] = u.studentClass;
+      if (u.nisn) studentClassMap[u.nisn] = u.studentClass;
     }
   }
   for (const ea of examAttempts) {
@@ -47,6 +47,14 @@ export default async function UsersPage() {
       if (ea.studentNis && !studentClassMap[ea.studentNis]) {
         studentClassMap[ea.studentNis] = ea.studentClass;
       }
+    }
+  }
+  for (const sg of studentGrades) {
+    if (sg.studentName && sg.studentClass && !studentClassMap[sg.studentName]) {
+      studentClassMap[sg.studentName] = sg.studentClass;
+    }
+    if (sg.studentNis && sg.studentClass && !studentClassMap[sg.studentNis]) {
+      studentClassMap[sg.studentNis] = sg.studentClass;
     }
   }
 

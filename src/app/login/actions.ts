@@ -54,18 +54,44 @@ export async function loginAction(formData: FormData) {
 
   if (user.role === 'Siswa') {
     // Sinkronkan kelas siswa
-    const grade = await prisma.studentGrade.findFirst({
-      where: {
-        OR: [
-          { studentName: user.name },
-          ...(user.nisn ? [{ studentNis: user.nisn }] : []),
-          { studentNis: user.username },
-        ],
-      },
-      select: { studentClass: true },
-    });
-    if (grade?.studentClass) {
-      cookieStore.set('auth_class', grade.studentClass, { maxAge: 60 * 60 * 24 });
+    let studentClass = user.studentClass || '';
+
+    if (!studentClass) {
+      const attempt = await prisma.examAttempt.findFirst({
+        where: {
+          OR: [
+            { studentName: user.name },
+            ...(user.nisn ? [{ studentNis: user.nisn }] : []),
+            { studentNis: user.username },
+          ],
+          studentClass: { not: null },
+        },
+        select: { studentClass: true },
+        orderBy: { startedAt: 'desc' },
+      });
+      if (attempt?.studentClass) {
+        studentClass = attempt.studentClass;
+      }
+    }
+
+    if (!studentClass) {
+      const grade = await prisma.studentGrade.findFirst({
+        where: {
+          OR: [
+            { studentName: user.name },
+            ...(user.nisn ? [{ studentNis: user.nisn }] : []),
+            { studentNis: user.username },
+          ],
+        },
+        select: { studentClass: true },
+      });
+      if (grade?.studentClass) {
+        studentClass = grade.studentClass;
+      }
+    }
+
+    if (studentClass) {
+      cookieStore.set('auth_class', studentClass, { maxAge: 60 * 60 * 24 });
     }
   }
 

@@ -72,6 +72,7 @@ export async function createStudentByGuru(data: {
         role: 'Siswa',
         status: 'Aktif',
         password,
+        studentClass: data.studentClass?.trim() || null,
       },
     });
 
@@ -170,6 +171,7 @@ export async function importStudentsByGuru(studentsData: { name: string; nisn?: 
           role: 'Siswa',
           status: 'Aktif',
           password,
+          studentClass: item.studentClass?.trim() || null,
         },
       });
 

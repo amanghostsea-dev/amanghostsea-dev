@@ -27,6 +27,9 @@ export default async function SiswaTugasPage() {
     if (user) {
       studentName = user.name;
       studentNis = user.nisn || user.username;
+      if (user.studentClass) {
+        studentClass = user.studentClass;
+      }
     }
   } catch (e) {
     console.error(e);
@@ -34,20 +37,41 @@ export default async function SiswaTugasPage() {
 
   if (!studentName) studentName = 'Siswa SMK';
 
-  try {
-    const gradeRecord = await prisma.studentGrade.findFirst({
-      where: {
-        OR: [
-          { studentName },
-          ...(studentNis ? [{ studentNis }] : []),
-        ],
-      },
-      select: { studentClass: true },
-    });
-    if (gradeRecord?.studentClass) {
-      studentClass = gradeRecord.studentClass;
-    }
-  } catch { }
+  if (!studentClass) {
+    try {
+      const attemptRecord = await prisma.examAttempt.findFirst({
+        where: {
+          OR: [
+            { studentName },
+            ...(studentNis ? [{ studentNis }] : []),
+          ],
+          studentClass: { not: null },
+        },
+        select: { studentClass: true },
+        orderBy: { startedAt: 'desc' },
+      });
+      if (attemptRecord?.studentClass) {
+        studentClass = attemptRecord.studentClass;
+      }
+    } catch { }
+  }
+
+  if (!studentClass) {
+    try {
+      const gradeRecord = await prisma.studentGrade.findFirst({
+        where: {
+          OR: [
+            { studentName },
+            ...(studentNis ? [{ studentNis }] : []),
+          ],
+        },
+        select: { studentClass: true },
+      });
+      if (gradeRecord?.studentClass) {
+        studentClass = gradeRecord.studentClass;
+      }
+    } catch { }
+  }
 
   if (!studentClass) {
     try {

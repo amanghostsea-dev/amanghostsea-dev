@@ -41,6 +41,9 @@ export default async function SiswaCbtListPage() {
     if (user) {
       studentName = user.name;
       studentNis = user.nisn || user.username;
+      if (user.studentClass) {
+        studentClass = user.studentClass;
+      }
     }
   } catch (err) {
     console.error('Error finding user in SiswaCbtListPage:', err);
@@ -48,28 +51,49 @@ export default async function SiswaCbtListPage() {
 
   if (!studentName) studentName = 'Siswa SMK';
 
-  // 2. Sinkronkan kelas aktual siswa dari database rapor StudentGrade
-  try {
-    const gradeRecord = await prisma.studentGrade.findFirst({
-      where: {
-        OR: [
-          { studentName },
-          ...(studentNis ? [{ studentNis }] : []),
-          ...(authUser ? [{ studentNis: authUser }] : []),
-          ...(authName ? [{ studentNis: authName }, { studentName: authName }] : []),
-        ],
-      },
-      select: { studentClass: true, studentNis: true },
-    });
-
-    if (gradeRecord?.studentClass) {
-      studentClass = gradeRecord.studentClass;
-      if (!studentNis && gradeRecord.studentNis) {
-        studentNis = gradeRecord.studentNis;
+  // 2. Sinkronkan kelas aktual siswa jika belum ada di User
+  if (!studentClass) {
+    try {
+      const attemptRecord = await prisma.examAttempt.findFirst({
+        where: {
+          OR: [
+            { studentName },
+            ...(studentNis ? [{ studentNis }] : []),
+          ],
+          studentClass: { not: null },
+        },
+        select: { studentClass: true },
+        orderBy: { startedAt: 'desc' },
+      });
+      if (attemptRecord?.studentClass) {
+        studentClass = attemptRecord.studentClass;
       }
+    } catch {}
+  }
+
+  if (!studentClass) {
+    try {
+      const gradeRecord = await prisma.studentGrade.findFirst({
+        where: {
+          OR: [
+            { studentName },
+            ...(studentNis ? [{ studentNis }] : []),
+            ...(authUser ? [{ studentNis: authUser }] : []),
+            ...(authName ? [{ studentNis: authName }, { studentName: authName }] : []),
+          ],
+        },
+        select: { studentClass: true, studentNis: true },
+      });
+
+      if (gradeRecord?.studentClass) {
+        studentClass = gradeRecord.studentClass;
+        if (!studentNis && gradeRecord.studentNis) {
+          studentNis = gradeRecord.studentNis;
+        }
+      }
+    } catch (err) {
+      console.error('Error querying student class:', err);
     }
-  } catch (err) {
-    console.error('Error querying student class:', err);
   }
 
   // 3. Jika belum ditemukan di rapor, cek riwayat pengerjaan ujian (ExamAttempt)
