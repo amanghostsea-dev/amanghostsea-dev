@@ -11,15 +11,16 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  username  String   @unique
-  password  String
-  role      String   @default("Siswa") // Super Admin, Panitia PPDB, Guru, Siswa
-  status    String   @default("Aktif") // Aktif, Nonaktif
-  nisn      String?  @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  name         String
+  username     String   @unique
+  password     String
+  role         String   @default("Siswa") // Super Admin, Panitia PPDB, Guru, Siswa
+  status       String   @default("Aktif") // Aktif, Nonaktif
+  nisn         String?  @unique
+  studentClass String?  // Kelas resmi siswa (misal: "X MPLB 1", "X TJKT 1", "XI DKV 1")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model Berita {
