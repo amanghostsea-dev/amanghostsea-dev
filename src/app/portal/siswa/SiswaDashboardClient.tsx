@@ -102,12 +102,12 @@ interface SiswaDashboardClientProps {
 export default function SiswaDashboardClient({
   studentName,
   studentNis,
-  studentClass = 'Kelas XI - Teknik Jaringan Komputer & Telekomunikasi 1 (XI TJKT 1)',
+  studentClass = 'XI TJKT 1',
   initials,
   upcomingExams,
   schedule: initialSchedule,
   grades: initialGrades,
-  pendingAssignmentsCount = 2,
+  pendingAssignmentsCount = 0,
   logoutAction,
 }: SiswaDashboardClientProps) {
   // Navigation tabs: 'dashboard' | 'jadwal' | 'nilai'
