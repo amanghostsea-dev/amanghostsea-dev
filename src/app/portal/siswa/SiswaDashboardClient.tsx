@@ -102,37 +102,30 @@ export default function SiswaDashboardClient({
   const [selectedDay, setSelectedDay] = useState<string>('ALL');
 
   // Full Weekly Schedule Data (tersinkronisasi dari DB)
-  const fullSchedule: ScheduleItem[] = (initialSchedule && initialSchedule.length > 0)
-    ? initialSchedule
-    : [
-        { day: 'Senin', subject: 'Pemrograman Web & Mobile', time: '07:30 - 10:00', teacher: 'Abdul Rahman', room: 'Lab Komputer 1' },
-        { day: 'Senin', subject: 'Matematika Terapan', time: '10:15 - 12:30', teacher: 'Ibu Siti S.Pd', room: 'Ruang 12A' },
-        { day: 'Selasa', subject: 'Basis Data & SQL Relasional', time: '07:30 - 09:45', teacher: 'Bpk. Budi S.Kom', room: 'Lab Komputer 2' },
-        { day: 'Selasa', subject: 'Bahasa Inggris Kejuruan', time: '10:00 - 11:30', teacher: 'Mr. John', room: 'Ruang 10B' },
-        { day: 'Rabu', subject: 'Administrasi Infrastruktur Jaringan', time: '07:30 - 10:00', teacher: 'Bpk. Farhan M.T', room: 'Lab Jaringan' },
-        { day: 'Kamis', subject: 'Pemrograman Berorientasi Objek', time: '07:30 - 10:30', teacher: 'Bpk. Hendra S.T', room: 'Lab Komputer 2' },
-        { day: 'Kamis', subject: 'Produk Kreatif & Kewirausahaan', time: '10:45 - 13:00', teacher: 'Ibu Dewi SE', room: 'Ruang Kreatif' },
-        { day: 'Jumat', subject: 'Pendidikan Agama & Budi Pekerti', time: '07:00 - 09:00', teacher: 'Ust. Nurul Huda M.Pd', room: 'Masjid Sekolah' },
-      ];
+  const fullSchedule: ScheduleItem[] = initialSchedule || [];
 
   // Full Grades Data (tersinkronisasi dari DB)
-  const fullGrades: GradeItem[] = (initialGrades && initialGrades.length > 0)
-    ? initialGrades
-    : [
-        { subject: 'Pemrograman Web & Mobile', assignment: 88, midExam: 85, finalExam: 92, finalGrade: 'A' },
-        { subject: 'Basis Data & SQL Relasional', assignment: 90, midExam: 86, finalExam: 94, finalGrade: 'A' },
-        { subject: 'Pemrograman Berorientasi Objek', assignment: 86, midExam: 82, finalExam: 89, finalGrade: 'A-' },
-        { subject: 'Matematika Terapan', assignment: 80, midExam: 76, finalExam: 84, finalGrade: 'B+' },
-        { subject: 'Bahasa Inggris Kejuruan', assignment: 88, midExam: 85, finalExam: 88, finalGrade: 'A-' },
-        { subject: 'Produk Kreatif & Kewirausahaan', assignment: 92, midExam: 90, finalExam: 95, finalGrade: 'A' },
-        { subject: 'Administrasi Infrastruktur Jaringan', assignment: 84, midExam: 80, finalExam: 85, finalGrade: 'B+' },
-        { subject: 'Pendidikan Agama & Budi Pekerti', assignment: 95, midExam: 92, finalExam: 96, finalGrade: 'A' },
-      ];
+  const fullGrades: GradeItem[] = initialGrades || [];
 
-  const calculatedAvgScore = fullGrades.length > 0 
-    ? Math.round(fullGrades.reduce((acc, g) => acc + (g.finalExam || 0), 0) / fullGrades.length * 10) / 10 
-    : 88.5;
-  const calculatedGpa = Math.min(4.0, Math.round((calculatedAvgScore / 24) * 100) / 100);
+  // Hitung Nilai Rata-Rata & IPK hanya dari mata pelajaran yang telah dinilai
+  const gradedList = fullGrades.filter(
+    (g) => g.assignment > 0 || g.midExam > 0 || g.finalExam > 0
+  );
+
+  const calculatedAvgScore = gradedList.length > 0
+    ? Math.round(
+        (gradedList.reduce(
+          (acc, g) => acc + (g.assignment * 0.3 + g.midExam * 0.3 + g.finalExam * 0.4),
+          0
+        ) /
+          gradedList.length) *
+          10
+      ) / 10
+    : 0;
+
+  const calculatedGpa = gradedList.length > 0
+    ? Math.min(4.0, Math.round((calculatedAvgScore / 25) * 100) / 100)
+    : 0;
 
   const filteredSchedule = selectedDay === 'ALL'
     ? fullSchedule
@@ -535,8 +528,12 @@ export default function SiswaDashboardClient({
                   <GraduationCap size={22} />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-slate-900 dark:text-white">88.5</div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Rata-Rata Nilai (IPK 3.85)</div>
+                  <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                    {calculatedAvgScore > 0 ? calculatedAvgScore : '-'}
+                  </div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    {calculatedGpa > 0 ? `Rata-Rata Nilai (IPK ${calculatedGpa.toFixed(2)})` : 'Nilai Belum Dirilis'}
+                  </div>
                 </div>
               </div>
             </div>
@@ -558,20 +555,26 @@ export default function SiswaDashboardClient({
                   </button>
                 </div>
                 <div className="space-y-3">
-                  {fullSchedule.slice(0, 4).map((item, idx) => (
-                    <div key={idx} className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 flex items-start justify-between text-xs">
-                      <div className="space-y-1">
-                        <strong className="font-bold text-slate-900 dark:text-white block text-sm">{item.subject}</strong>
-                        <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400">
-                          <span className="flex items-center gap-1"><Clock size={12} /> {item.time}</span>
-                          <span className="flex items-center gap-1"><User size={12} /> {item.teacher}</span>
-                        </div>
-                      </div>
-                      <span className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-bold text-[11px] text-blue-600">
-                        {item.day}
-                      </span>
+                  {fullSchedule.length === 0 ? (
+                    <div className="py-8 text-center text-xs text-slate-400">
+                      Belum ada jadwal mata pelajaran untuk kelas Anda.
                     </div>
-                  ))}
+                  ) : (
+                    fullSchedule.slice(0, 4).map((item, idx) => (
+                      <div key={idx} className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 flex items-start justify-between text-xs">
+                        <div className="space-y-1">
+                          <strong className="font-bold text-slate-900 dark:text-white block text-sm">{item.subject}</strong>
+                          <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400">
+                            <span className="flex items-center gap-1"><Clock size={12} /> {item.time}</span>
+                            <span className="flex items-center gap-1"><User size={12} /> {item.teacher}</span>
+                          </div>
+                        </div>
+                        <span className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-bold text-[11px] text-blue-600">
+                          {item.day}
+                        </span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -590,17 +593,32 @@ export default function SiswaDashboardClient({
                   </button>
                 </div>
                 <div className="space-y-2.5">
-                  {fullGrades.slice(0, 4).map((g, idx) => (
-                    <div key={idx} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 flex items-center justify-between text-xs">
-                      <div>
-                        <strong className="font-bold text-slate-900 dark:text-white block">{g.subject}</strong>
-                        <span className="text-[11px] text-slate-500">Tugas: {g.assignment} • UTS: {g.midExam} • UAS: {g.finalExam}</span>
-                      </div>
-                      <span className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 font-bold flex items-center justify-center text-sm shadow-2xs">
-                        {g.finalGrade}
-                      </span>
+                  {fullGrades.length === 0 ? (
+                    <div className="py-8 text-center text-xs text-slate-400">
+                      Belum ada data nilai mata pelajaran untuk kelas Anda.
                     </div>
-                  ))}
+                  ) : (
+                    fullGrades.slice(0, 4).map((g, idx) => {
+                      const isGraded = g.assignment > 0 || g.midExam > 0 || g.finalExam > 0;
+                      return (
+                        <div key={idx} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 flex items-center justify-between text-xs">
+                          <div>
+                            <strong className="font-bold text-slate-900 dark:text-white block">{g.subject}</strong>
+                            <span className="text-[11px] text-slate-500">
+                              {isGraded ? `Tugas: ${g.assignment} • UTS: ${g.midExam} • UAS: ${g.finalExam}` : 'Menunggu penilaian guru'}
+                            </span>
+                          </div>
+                          <span className={`px-2.5 py-1 rounded-xl font-bold text-xs shadow-2xs ${
+                            isGraded
+                              ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+                              : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                          }`}>
+                            {isGraded ? g.finalGrade : '-'}
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </div>
@@ -652,37 +670,45 @@ export default function SiswaDashboardClient({
                       : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50'
                   }`}
                 >
-                  {day === 'ALL' ? 'Semua Hari (10 Mapel)' : day}
+                  {day === 'ALL' ? `Semua Hari (${fullSchedule.length} Mapel)` : day}
                 </button>
               ))}
             </div>
 
             {/* Schedule Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredSchedule.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between space-y-4 hover:border-blue-400 transition-all"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
-                        {item.day}
+            {filteredSchedule.length === 0 ? (
+              <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 text-slate-400 text-xs">
+                <Calendar className="w-10 h-10 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+                <p className="font-bold text-sm text-slate-700 dark:text-slate-200">Tidak ada jadwal pelajaran untuk filter ini.</p>
+                <p className="text-[11px] text-slate-500 mt-1">Jadwal akan diperbarui secara otomatis setelah guru menetapkan jam tatap muka.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredSchedule.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between space-y-4 hover:border-blue-400 transition-all"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                          {item.day}
+                        </span>
+                        <h4 className="font-bold text-base text-slate-900 dark:text-white mt-1.5">{item.subject}</h4>
+                      </div>
+                      <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 rounded-lg">
+                        {item.time}
                       </span>
-                      <h4 className="font-bold text-base text-slate-900 dark:text-white mt-1.5">{item.subject}</h4>
                     </div>
-                    <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 rounded-lg">
-                      {item.time}
-                    </span>
-                  </div>
 
-                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                    <span className="flex items-center gap-1.5 font-medium"><User size={13} className="text-slate-400" /> {item.teacher}</span>
-                    <span className="flex items-center gap-1.5 font-medium text-purple-600 dark:text-purple-400"><MapPin size={13} /> {item.room}</span>
+                    <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                      <span className="flex items-center gap-1.5 font-medium"><User size={13} className="text-slate-400" /> {item.teacher}</span>
+                      <span className="flex items-center gap-1.5 font-medium text-purple-600 dark:text-purple-400"><MapPin size={13} /> {item.room}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -722,11 +748,16 @@ export default function SiswaDashboardClient({
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
                 <div className="text-xs text-slate-400 font-semibold mb-1">Indeks Prestasi Kumulatif</div>
-                <div className="text-3xl font-extrabold text-purple-600">{calculatedGpa.toFixed(2)} <span className="text-xs text-slate-400 font-normal">/ 4.00</span></div>
+                <div className="text-3xl font-extrabold text-purple-600">
+                  {calculatedGpa > 0 ? calculatedGpa.toFixed(2) : '0.00'}{' '}
+                  <span className="text-xs text-slate-400 font-normal">/ 4.00</span>
+                </div>
               </div>
               <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
                 <div className="text-xs text-slate-400 font-semibold mb-1">Rata-Rata Nilai Angka</div>
-                <div className="text-3xl font-extrabold text-blue-600">{calculatedAvgScore}</div>
+                <div className="text-3xl font-extrabold text-blue-600">
+                  {calculatedAvgScore > 0 ? calculatedAvgScore : '-'}
+                </div>
               </div>
               <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
                 <div className="text-xs text-slate-400 font-semibold mb-1">Total Mata Pelajaran</div>
@@ -734,7 +765,15 @@ export default function SiswaDashboardClient({
               </div>
               <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
                 <div className="text-xs text-slate-400 font-semibold mb-1">Predikat Kelulusan</div>
-                <div className="text-2xl font-extrabold text-amber-500">{calculatedAvgScore >= 85 ? 'Sangat Memuaskan' : calculatedAvgScore >= 75 ? 'Memuaskan' : 'Cukup'}</div>
+                <div className="text-2xl font-extrabold text-amber-500">
+                  {calculatedAvgScore >= 85
+                    ? 'Sangat Memuaskan'
+                    : calculatedAvgScore >= 75
+                    ? 'Memuaskan'
+                    : calculatedAvgScore > 0
+                    ? 'Cukup'
+                    : 'Dalam Proses'}
+                </div>
               </div>
             </div>
 
@@ -754,35 +793,62 @@ export default function SiswaDashboardClient({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {fullGrades.map((g, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
-                        <td className="py-3.5 px-4 text-center font-bold text-slate-400">{idx + 1}</td>
-                        <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white text-sm">
-                          {g.subject}
-                        </td>
-                        <td className="py-3.5 px-4 text-center font-semibold text-slate-700 dark:text-slate-300">
-                          {g.assignment}
-                        </td>
-                        <td className="py-3.5 px-4 text-center font-semibold text-slate-700 dark:text-slate-300">
-                          {g.midExam}
-                        </td>
-                        <td className="py-3.5 px-4 text-center font-semibold text-slate-700 dark:text-slate-300">
-                          {g.finalExam}
-                        </td>
-                        <td className="py-3.5 px-4 text-center font-bold text-purple-600 dark:text-purple-400">
-                          {Math.round((g.assignment * 0.3) + (g.midExam * 0.3) + (g.finalExam * 0.4))}
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          <span className={`inline-flex w-7 h-7 items-center justify-center rounded-lg font-bold text-xs ${
-                            g.finalGrade.includes('A')
-                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
-                              : 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300'
-                          }`}>
-                            {g.finalGrade}
-                          </span>
+                    {fullGrades.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-12 px-6 text-center text-slate-400 text-xs">
+                          <GraduationCap className="w-10 h-10 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+                          <p className="font-bold text-sm text-slate-700 dark:text-slate-200">Belum Ada Transkrip Nilai</p>
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            Mata pelajaran dan penilaian resmi untuk kelas Anda akan muncul secara otomatis di sini setelah Guru Pengampu menginput data nilai atau memberikan tugas.
+                          </p>
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      fullGrades.map((g, idx) => {
+                        const isEvaluated = g.assignment > 0 || g.midExam > 0 || g.finalExam > 0;
+                        const finalScore = Math.round(g.assignment * 0.3 + g.midExam * 0.3 + g.finalExam * 0.4);
+
+                        return (
+                          <tr key={idx} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                            <td className="py-3.5 px-4 text-center font-bold text-slate-400">{idx + 1}</td>
+                            <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white text-sm">
+                              {g.subject}
+                            </td>
+                            <td className="py-3.5 px-4 text-center font-semibold text-slate-700 dark:text-slate-300">
+                              {g.assignment > 0 ? g.assignment : '-'}
+                            </td>
+                            <td className="py-3.5 px-4 text-center font-semibold text-slate-700 dark:text-slate-300">
+                              {g.midExam > 0 ? g.midExam : '-'}
+                            </td>
+                            <td className="py-3.5 px-4 text-center font-semibold text-slate-700 dark:text-slate-300">
+                              {g.finalExam > 0 ? g.finalExam : '-'}
+                            </td>
+                            <td className="py-3.5 px-4 text-center font-bold text-purple-600 dark:text-purple-400">
+                              {isEvaluated ? finalScore : '-'}
+                            </td>
+                            <td className="py-3.5 px-4 text-center">
+                              {isEvaluated ? (
+                                <span
+                                  className={`inline-flex px-2 py-0.5 items-center justify-center rounded-lg font-bold text-xs ${
+                                    g.finalGrade.includes('A')
+                                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                      : g.finalGrade.includes('B')
+                                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300'
+                                      : 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
+                                  }`}
+                                >
+                                  {g.finalGrade}
+                                </span>
+                              ) : (
+                                <span className="inline-flex px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                                  Belum Dinilai
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>

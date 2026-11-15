@@ -269,13 +269,20 @@ export default async function PortalGuru() {
 
         {/* Schedule Table */}
         <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+          <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
               <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <Calendar className="text-amber-500" size={18} /> Jadwal Mengajar Terdekat
               </h2>
               <p className="text-xs text-gray-500">Jadwal tatap muka dan sesi kelas daring mingguan</p>
             </div>
+            <Link
+              href="/admin/mapel"
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold inline-flex items-center gap-2 shadow-sm shadow-blue-500/20 transition-all"
+            >
+              <BookOpen size={14} />
+              <span>Kelola & Tambah Mapel</span>
+            </Link>
           </div>
           <div className="p-0 overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -298,8 +305,14 @@ export default async function PortalGuru() {
                           Belum ada mata pelajaran yang di-plotting untuk Anda
                         </span>
                         <span className="text-[11px] text-gray-400">
-                          Super Admin belum menetapkan jadwal mengajar untuk akun Anda di menu Plotting & Mapel.
+                          Anda dapat menambahkan mata pelajaran baru atau menetapkan jadwal mengajar di menu Mata Pelajaran.
                         </span>
+                        <Link
+                          href="/admin/mapel"
+                          className="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition-colors"
+                        >
+                          <BookOpen size={14} /> Tambah / Plotting Mapel Saya
+                        </Link>
                       </div>
                     </td>
                   </tr>

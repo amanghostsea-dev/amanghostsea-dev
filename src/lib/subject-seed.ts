@@ -1,4 +1,5 @@
 import prisma from './prisma';
+import { isClassTargetMatch } from './cbt-schedule';
 
 export interface DefaultSubjectItem {
   code: string;
@@ -163,11 +164,15 @@ export function computeFinalScore(assignment: number, midExam: number, finalExam
 
 /**
  * Memastikan Mapel dasar dan nilai awal siswa terdaftar di PostgreSQL
- * Dioptimalkan agar tidak melakukan loop lambat pada setiap pemanggilan halaman.
+ * Menggunakan pencocokan kelas yang akurat dan nilai bersih (tanpa dummy values).
  */
-export async function ensureDefaultSubjectsAndGrades(targetStudentName?: string, targetStudentNis?: string) {
+export async function ensureDefaultSubjectsAndGrades(
+  targetStudentName?: string,
+  targetStudentNis?: string,
+  targetStudentClass?: string
+) {
   try {
-    // 1. Inisialisasi awal Mapel jika tabel Subject masih kosong
+    // 1. Inisialisasi awal Mapel jika tabel Subject masih kosong sama sekali
     const subjectCount = await prisma.subject.count();
     if (subjectCount === 0) {
       for (const def of DEFAULT_SUBJECTS) {
@@ -189,83 +194,50 @@ export async function ensureDefaultSubjectsAndGrades(targetStudentName?: string,
       }
     }
 
-    // 2. Jika dipanggil khusus untuk 1 siswa tertentu (misal setelah registrasi baru)
+    // 2. Jika dipanggil khusus untuk 1 siswa tertentu (inisialisasi daftar mapel kelasnya)
     if (targetStudentName) {
+      let studentClass = targetStudentClass || '';
+      if (!studentClass) {
+        const found = await prisma.studentGrade.findFirst({
+          where: { studentName: targetStudentName },
+          select: { studentClass: true },
+        });
+        studentClass = found?.studentClass || 'XI TJKT 1';
+      }
+
       const activeSubjects = await prisma.subject.findMany({
         where: { status: 'ACTIVE' },
-        select: { id: true, code: true, classTarget: true, teacherName: true },
+        select: { id: true, code: true, name: true, classTarget: true, teacherName: true },
       });
 
-      for (const subj of activeSubjects) {
-        const defMatch = DEFAULT_SUBJECTS.find((d) => d.code === subj.code);
-        const assignment = defMatch ? defMatch.defaultAssignment : 85;
-        const midExam = defMatch ? defMatch.defaultMid : 80;
-        const finalExam = defMatch ? defMatch.defaultFinal : 85;
-        const finalGrade = defMatch ? defMatch.defaultGrade : 'A';
+      // Filter HANYA mata pelajaran yang diperuntukkan bagi kelas siswa
+      const relevantSubjects = activeSubjects.filter((subj) =>
+        isClassTargetMatch(subj.classTarget, studentClass)
+      );
 
-        await prisma.studentGrade.upsert({
+      for (const subj of relevantSubjects) {
+        const existingGrade = await prisma.studentGrade.findUnique({
           where: {
             subjectId_studentName: {
               subjectId: subj.id,
               studentName: targetStudentName,
             },
           },
-          update: {},
-          create: {
-            subjectId: subj.id,
-            studentName: targetStudentName,
-            studentNis: targetStudentNis || '10293847',
-            studentClass: subj.classTarget,
-            assignment,
-            midExam,
-            finalExam,
-            finalGrade,
-            notes: 'Kemajuan belajar sangat baik, aktif dalam praktikum dan diskusi kelas.',
-            updatedBy: subj.teacherName || 'Admin',
-          },
         });
-      }
-      return { success: true };
-    }
 
-    // 3. Jika inisialisasi awal dan StudentGrade masih kosong sama sekali
-    const gradeCount = await prisma.studentGrade.count();
-    if (gradeCount === 0) {
-      const allSubjects = await prisma.subject.findMany({
-        where: { status: 'ACTIVE' },
-      });
-
-      const dbStudents = await prisma.user.findMany({
-        where: { role: 'Siswa' },
-        select: { name: true, nisn: true, username: true },
-      });
-
-      const seedList = dbStudents.length > 0 
-        ? dbStudents.map((s) => ({ name: s.name, nisn: s.nisn || s.username }))
-        : [{ name: 'Aman Rahman', nisn: '10293847' }];
-
-      for (const student of seedList) {
-        for (const subj of allSubjects) {
-          const defMatch = DEFAULT_SUBJECTS.find((d) => d.code === subj.code);
-          await prisma.studentGrade.upsert({
-            where: {
-              subjectId_studentName: {
-                subjectId: subj.id,
-                studentName: student.name,
-              },
-            },
-            update: {},
-            create: {
+        if (!existingGrade) {
+          await prisma.studentGrade.create({
+            data: {
               subjectId: subj.id,
-              studentName: student.name,
-              studentNis: student.nisn || '10293847',
-              studentClass: subj.classTarget,
-              assignment: defMatch?.defaultAssignment ?? 85,
-              midExam: defMatch?.defaultMid ?? 80,
-              finalExam: defMatch?.defaultFinal ?? 85,
-              finalGrade: defMatch?.defaultGrade ?? 'A',
-              notes: 'Kemajuan belajar sangat baik, aktif dalam praktikum dan diskusi kelas.',
-              updatedBy: subj.teacherName || 'Admin',
+              studentName: targetStudentName,
+              studentNis: targetStudentNis || undefined,
+              studentClass: studentClass,
+              assignment: 0,
+              midExam: 0,
+              finalExam: 0,
+              finalGrade: '-',
+              notes: 'Menunggu penilaian guru pengampu.',
+              updatedBy: subj.teacherName || 'Guru Pengampu',
             },
           });
         }

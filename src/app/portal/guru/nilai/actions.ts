@@ -4,14 +4,13 @@ import prisma from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { computeFinalScore, computeGradePredicate, ensureDefaultSubjectsAndGrades } from '@/lib/subject-seed';
+import { isClassTargetMatch } from '@/lib/cbt-schedule';
 
 export async function getTeacherGradingData(selectedSubjectId?: string) {
   const cookieStore = await cookies();
   const authName = cookieStore.get('auth_name')?.value;
   const authUser = cookieStore.get('auth_user')?.value;
   const authRole = cookieStore.get('auth_token')?.value;
-
-  await ensureDefaultSubjectsAndGrades();
 
   const isSuperAdmin = authRole === 'Super Admin';
 
@@ -74,45 +73,68 @@ export async function getTeacherGradingData(selectedSubjectId?: string) {
     }
   }
 
-  // 3. Pastikan semua siswa kelas tersebut memiliki record nilai
-  const dbStudents = await prisma.user.findMany({
-    where: { role: 'Siswa' },
+  // 3. Pastikan siswa di kelas target memiliki record nilai
+  const allStudents = await prisma.user.findMany({
+    where: { role: 'Siswa', status: 'Aktif' },
     select: { name: true, nisn: true, username: true },
     orderBy: { name: 'asc' },
   });
 
-  for (const st of dbStudents) {
-    await prisma.studentGrade.upsert({
+  const existingGradesForClass = await prisma.studentGrade.findMany({
+    select: { studentName: true, studentClass: true },
+    distinct: ['studentName'],
+  });
+  const studentClassMap = new Map<string, string>();
+  for (const g of existingGradesForClass) {
+    if (g.studentName) studentClassMap.set(g.studentName, g.studentClass);
+  }
+
+  // Filter siswa yang berada di kelas target mapel ini
+  const targetStudents = allStudents.filter((st) => {
+    const sClass = studentClassMap.get(st.name) || '';
+    if (!sClass) return true;
+    return isClassTargetMatch(activeSubject.classTarget, sClass);
+  });
+
+  for (const st of targetStudents) {
+    const sClass = studentClassMap.get(st.name) || activeSubject.classTarget;
+    const existing = await prisma.studentGrade.findUnique({
       where: {
         subjectId_studentName: {
           subjectId: activeSubject.id,
           studentName: st.name,
         },
       },
-      update: {},
-      create: {
-        subjectId: activeSubject.id,
-        studentName: st.name,
-        studentNis: st.nisn || st.username,
-        studentClass: activeSubject.classTarget,
-        assignment: 85,
-        midExam: 80,
-        finalExam: 85,
-        finalGrade: 'A',
-        notes: 'Kemajuan belajar baik.',
-        updatedBy: teacherName,
-      },
     });
+
+    if (!existing) {
+      await prisma.studentGrade.create({
+        data: {
+          subjectId: activeSubject.id,
+          studentName: st.name,
+          studentNis: st.nisn || st.username,
+          studentClass: sClass,
+          assignment: 0,
+          midExam: 0,
+          finalExam: 0,
+          finalGrade: '-',
+          notes: '',
+          updatedBy: teacherName,
+        },
+      });
+    }
   }
 
-  // 4. Ambil data nilai HANYA untuk subject aktif milik guru ini
-  const grades = await prisma.studentGrade.findMany({
+  // 4. Ambil data nilai HANYA untuk siswa kelas terkait
+  const allGrades = await prisma.studentGrade.findMany({
     where: { subjectId: activeSubject.id },
     orderBy: { studentName: 'asc' },
   });
 
+  const grades = allGrades.filter((g) => isClassTargetMatch(activeSubject.classTarget, g.studentClass));
+
   return {
-    subjects: teacherSubjects, // HANYA MAPEL MILIK GURU INI
+    subjects: teacherSubjects,
     activeSubject,
     grades,
     teacherName,

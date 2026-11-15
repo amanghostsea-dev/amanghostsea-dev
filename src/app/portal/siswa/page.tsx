@@ -102,7 +102,7 @@ export default async function PortalSiswa() {
 
   // Pastikan master mapel dan nilai siswa tersinkronisasi di Postgres secara aman
   try {
-    await ensureDefaultSubjectsAndGrades(studentName, studentNis);
+    await ensureDefaultSubjectsAndGrades(studentName, studentNis, studentClass);
   } catch (err) {
     console.error('ensureDefaultSubjectsAndGrades error:', err);
   }
@@ -170,27 +170,30 @@ export default async function PortalSiswa() {
     })
     .slice(0, 6);
 
-  // 1. Ambil data Jadwal Pelajaran (Mapel yang aktif & Guru Pengampu)
+  // 1. Ambil data Jadwal Pelajaran (Mapel yang aktif & relevan dengan kelas siswa)
   let dbSubjects: any[] = [];
   try {
     dbSubjects = await prisma.subject.findMany({
       where: { status: 'ACTIVE' },
-      orderBy: [{ code: 'asc' }],
+      orderBy: [{ day: 'asc' }, { time: 'asc' }, { code: 'asc' }],
     });
   } catch (err) {
     console.error('Error querying subjects:', err);
     dbSubjects = [];
   }
 
-  const schedule = dbSubjects.map((s) => ({
+  // Filter jadwal mata pelajaran hanya untuk kelas siswa ini
+  const classSubjects = dbSubjects.filter((s) => isClassTargetMatch(s.classTarget, studentClass));
+
+  const schedule = classSubjects.map((s) => ({
     day: s.day || 'Senin',
     subject: s.name,
     time: s.time || '07:30 - 10:00',
     teacher: s.teacherName || 'Guru Pengampu',
-    room: s.room || 'Lab Komputer 1',
+    room: s.room || 'Ruang Kelas',
   }));
 
-  // 2. Ambil data Transkrip Nilai Siswa langsung dari Database
+  // 2. Ambil data Transkrip Nilai Siswa langsung dari Database yang sesuai kelasnya
   let dbGrades: any[] = [];
   try {
     dbGrades = await prisma.studentGrade.findMany({
@@ -211,13 +214,34 @@ export default async function PortalSiswa() {
     dbGrades = [];
   }
 
-  const grades = dbGrades.map((g) => ({
-    subject: g.subject?.name || 'Mata Pelajaran',
-    assignment: g.assignment,
-    midExam: g.midExam,
-    finalExam: g.finalExam,
-    finalGrade: g.finalGrade,
-  }));
+  // Filter nilai hanya untuk mata pelajaran yang relevan dengan kelas siswa
+  const classGrades = dbGrades.filter((g) => {
+    const target = g.subject?.classTarget || g.studentClass;
+    return isClassTargetMatch(target, studentClass);
+  });
+
+  // Gabungkan mapel aktif kelas yang belum memiliki baris StudentGrade (status Belum Dinilai)
+  const existingSubjectNames = new Set(classGrades.map((g) => g.subject?.name?.toLowerCase()));
+  const unassignedGrades = classSubjects
+    .filter((s) => !existingSubjectNames.has(s.name.toLowerCase()))
+    .map((s) => ({
+      subject: s.name,
+      assignment: 0,
+      midExam: 0,
+      finalExam: 0,
+      finalGrade: '-',
+    }));
+
+  const grades = [
+    ...classGrades.map((g) => ({
+      subject: g.subject?.name || 'Mata Pelajaran',
+      assignment: g.assignment,
+      midExam: g.midExam,
+      finalExam: g.finalExam,
+      finalGrade: g.finalGrade,
+    })),
+    ...unassignedGrades,
+  ];
 
   return (
     <SiswaDashboardClient

@@ -93,6 +93,7 @@ export default function AdminSidebar({ logoUrl, userRole = 'Super Admin', userNa
 
   const guruMenuItems: MenuItem[] = [
     { name: 'Jadwal & Dashboard', path: '/portal/guru', icon: <Calendar size={20} /> },
+    { name: 'Mata Pelajaran & Jadwal', path: '/admin/mapel', icon: <BookOpen size={20} /> },
     { name: 'Smart CBT & Jadwal Ujian', path: '/admin/cbt', icon: <MonitorPlay size={20} /> },
     { name: 'Tugas Siswa', path: '/admin/tugas', icon: <FileText size={20} /> },
     { name: 'Penilaian Siswa', path: '/portal/guru/nilai', icon: <Award size={20} /> },

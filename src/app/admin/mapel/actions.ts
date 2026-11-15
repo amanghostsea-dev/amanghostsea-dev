@@ -1,16 +1,46 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import { requireSuperAdmin } from '@/lib/auth';
+import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { ensureDefaultSubjectsAndGrades } from '@/lib/subject-seed';
 import { ensureDefaultJurusans, getDynamicClassTargets } from '@/lib/jurusan-service';
+import { isClassTargetMatch } from '@/lib/cbt-schedule';
+
+async function requireGuruOrAdmin() {
+  const cookieStore = await cookies();
+  const role = cookieStore.get('auth_token')?.value;
+  const name = cookieStore.get('auth_name')?.value || 'Admin';
+  const username = cookieStore.get('auth_user')?.value || '';
+
+  if (!role || (role !== 'Super Admin' && role !== 'Guru')) {
+    throw new Error('Forbidden: Hanya Guru atau Super Admin yang diizinkan.');
+  }
+
+  let dbUser = null;
+  if (username || name) {
+    dbUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          ...(username ? [{ username }] : []),
+          ...(name ? [{ name }] : []),
+        ],
+      },
+      select: { id: true, name: true, role: true },
+    });
+  }
+
+  return {
+    role,
+    name: dbUser?.name || name,
+    userId: dbUser?.id,
+    isSuperAdmin: role === 'Super Admin',
+  };
+}
 
 export async function getSubjects() {
-  await requireSuperAdmin();
+  await requireGuruOrAdmin();
 
-  // Pastikan data awal tersedia
-  await ensureDefaultSubjectsAndGrades();
   const [classTargets, jurusans] = await Promise.all([
     getDynamicClassTargets(),
     ensureDefaultJurusans(),
@@ -69,11 +99,20 @@ export async function saveSubject(data: {
   kkm: number;
   credits: number;
 }) {
-  await requireSuperAdmin();
+  const auth = await requireGuruOrAdmin();
 
   try {
     const code = data.code.trim().toUpperCase();
     const name = data.name.trim();
+
+    // Tentukan guru pengampu (jika user adalah Guru dan belum diisi, otomatis akun dirinya)
+    let teacherId = data.teacherId || null;
+    let teacherName = data.teacherName || null;
+
+    if (!teacherId && !teacherName && auth.role === 'Guru') {
+      teacherId = auth.userId || null;
+      teacherName = auth.name;
+    }
 
     // Check code uniqueness if creating new or changing code
     if (!data.id) {
@@ -92,8 +131,8 @@ export async function saveSubject(data: {
           name,
           category: data.category,
           classTarget: data.classTarget,
-          teacherId: data.teacherId || null,
-          teacherName: data.teacherName || null,
+          teacherId,
+          teacherName,
           day: data.day || null,
           time: data.time || null,
           room: data.room || null,
@@ -108,8 +147,8 @@ export async function saveSubject(data: {
           name,
           category: data.category,
           classTarget: data.classTarget,
-          teacherId: data.teacherId || null,
-          teacherName: data.teacherName || null,
+          teacherId,
+          teacherName,
           day: data.day || null,
           time: data.time || null,
           room: data.room || null,
@@ -118,7 +157,7 @@ export async function saveSubject(data: {
         },
       });
 
-      // Sinkronkan buku nilai hanya untuk siswa yang berada di kelas target mapel tersebut (atau semua jika 'Semua Kelas')
+      // Sinkronkan buku nilai hanya untuk siswa yang berada di kelas target mapel tersebut
       try {
         const targetClass = data.classTarget;
         const allStudents = await prisma.user.findMany({
@@ -137,19 +176,19 @@ export async function saveSubject(data: {
 
         for (const st of allStudents) {
           const studentClass = classMap.get(st.name) || 'XI TJKT 1';
-          if (targetClass === 'Semua Kelas' || targetClass === studentClass || !classMap.has(st.name)) {
+          if (isClassTargetMatch(targetClass, studentClass)) {
             await prisma.studentGrade.create({
               data: {
                 subjectId: subject.id,
                 studentName: st.name,
                 studentNis: st.nisn || st.username,
                 studentClass: studentClass,
-                assignment: 85,
-                midExam: 80,
-                finalExam: 85,
-                finalGrade: 'A',
+                assignment: 0,
+                midExam: 0,
+                finalExam: 0,
+                finalGrade: '-',
                 notes: 'Mata pelajaran baru ditambahkan.',
-                updatedBy: data.teacherName || 'Admin',
+                updatedBy: teacherName || auth.name || 'Guru Pengampu',
               },
             });
           }
@@ -172,9 +211,16 @@ export async function saveSubject(data: {
 }
 
 export async function deleteSubject(id: string) {
-  await requireSuperAdmin();
+  const auth = await requireGuruOrAdmin();
 
   try {
+    if (!auth.isSuperAdmin) {
+      const existing = await prisma.subject.findUnique({ where: { id } });
+      if (existing && existing.teacherName !== auth.name && existing.teacherId !== auth.userId) {
+        return { error: 'Anda hanya dapat menghapus mata pelajaran yang Anda ampu.' };
+      }
+    }
+
     await prisma.subject.delete({
       where: { id },
     });
@@ -196,7 +242,7 @@ export async function plotTeacherToSubject(data: {
   teacherId?: string | null;
   teacherName?: string | null;
 }) {
-  await requireSuperAdmin();
+  await requireGuruOrAdmin();
 
   try {
     const updated = await prisma.subject.update({
