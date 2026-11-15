@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { logoutAction } from "@/app/login/actions";
 import SiswaDashboardClient from "./SiswaDashboardClient";
-import { ensureDefaultSubjectsAndGrades } from "@/lib/subject-seed";
+import { ensureDefaultSubjectsAndGrades, computeGradePredicate } from "@/lib/subject-seed";
 import { isClassTargetMatch } from "@/lib/cbt-schedule";
 
 export const dynamic = 'force-dynamic';
@@ -170,78 +170,102 @@ export default async function PortalSiswa() {
     })
     .slice(0, 6);
 
-  // 1. Ambil data Jadwal Pelajaran (Mapel yang aktif & relevan dengan kelas siswa)
-  let dbSubjects: any[] = [];
+  // 1. Ambil seluruh data Mata Pelajaran Aktif dari Database Sekolah
+  let allActiveSubjects: any[] = [];
   try {
-    dbSubjects = await prisma.subject.findMany({
+    allActiveSubjects = await prisma.subject.findMany({
       where: { status: 'ACTIVE' },
-      orderBy: [{ day: 'asc' }, { time: 'asc' }, { code: 'asc' }],
-    });
-  } catch (err) {
-    console.error('Error querying subjects:', err);
-    dbSubjects = [];
-  }
-
-  // Filter jadwal mata pelajaran hanya untuk kelas siswa ini
-  const classSubjects = dbSubjects.filter((s) => isClassTargetMatch(s.classTarget, studentClass));
-
-  const schedule = classSubjects.map((s) => ({
-    day: s.day || 'Senin',
-    subject: s.name,
-    time: s.time || '07:30 - 10:00',
-    teacher: s.teacherName || 'Guru Pengampu',
-    room: s.room || 'Ruang Kelas',
-  }));
-
-  // 2. Ambil data Transkrip Nilai Siswa langsung dari Database yang sesuai kelasnya
-  let dbGrades: any[] = [];
-  try {
-    dbGrades = await prisma.studentGrade.findMany({
-      where: {
-        studentName: studentName,
-      },
       include: {
-        subject: true,
-      },
-      orderBy: {
-        subject: {
-          code: 'asc',
+        grades: {
+          where: {
+            OR: [
+              { studentName },
+              ...(studentNis ? [{ studentNis }] : []),
+              ...(authUser ? [{ studentNis: authUser }] : []),
+            ],
+          },
         },
       },
+      orderBy: [{ classTarget: 'asc' }, { code: 'asc' }],
     });
   } catch (err) {
-    console.error('Error querying student grades:', err);
-    dbGrades = [];
+    console.error('Error querying active subjects:', err);
+    allActiveSubjects = [];
   }
 
-  // Filter nilai hanya untuk mata pelajaran yang relevan dengan kelas siswa
-  const classGrades = dbGrades.filter((g) => {
-    const target = g.subject?.classTarget || g.studentClass;
-    return isClassTargetMatch(target, studentClass);
-  });
+  // 2. Filter HANYA mata pelajaran yang diperuntukkan bagi kelas siswa ini
+  const classSubjects = allActiveSubjects.filter((s) => isClassTargetMatch(s.classTarget, studentClass));
 
-  // Gabungkan mapel aktif kelas yang belum memiliki baris StudentGrade (status Belum Dinilai)
-  const existingSubjectNames = new Set(classGrades.map((g) => g.subject?.name?.toLowerCase()));
-  const unassignedGrades = classSubjects
-    .filter((s) => !existingSubjectNames.has(s.name.toLowerCase()))
+  // 3. Susun Jadwal Pelajaran (Schedule) secara kronologis Senin - Jumat
+  const dayOrder: Record<string, number> = {
+    senin: 1,
+    selasa: 2,
+    rabu: 3,
+    kamis: 4,
+    jumat: 5,
+    sabtu: 6,
+    minggu: 7,
+  };
+
+  const schedule = [...classSubjects]
+    .sort((a, b) => {
+      const orderA = dayOrder[(a.day || 'senin').toLowerCase().trim()] || 99;
+      const orderB = dayOrder[(b.day || 'senin').toLowerCase().trim()] || 99;
+      if (orderA !== orderB) return orderA - orderB;
+      return (a.time || '').localeCompare(b.time || '');
+    })
     .map((s) => ({
+      day: s.day || 'Senin',
       subject: s.name,
-      assignment: 0,
-      midExam: 0,
-      finalExam: 0,
-      finalGrade: '-',
+      code: s.code,
+      time: s.time || '07:30 - 10:00',
+      teacher: s.teacherName || 'Guru Pengampu',
+      room: s.room || 'Ruang Kelas',
+      category: s.category || 'Muatan Kejuruan',
+      kkm: s.kkm || 75,
+      credits: s.credits || 3,
     }));
 
-  const grades = [
-    ...classGrades.map((g) => ({
-      subject: g.subject?.name || 'Mata Pelajaran',
-      assignment: g.assignment,
-      midExam: g.midExam,
-      finalExam: g.finalExam,
-      finalGrade: g.finalGrade,
-    })),
-    ...unassignedGrades,
-  ];
+  // 4. Susun Transkrip & Capaian Nilai Siswa per Mapel
+  const grades = classSubjects.map((s) => {
+    const g = s.grades && s.grades.length > 0 ? s.grades[0] : null;
+    const assignment = Number(g?.assignment) || 0;
+    const midExam = Number(g?.midExam) || 0;
+    const finalExam = Number(g?.finalExam) || 0;
+    const isEvaluated = Boolean(g && (assignment > 0 || midExam > 0 || finalExam > 0));
+    const finalScore = isEvaluated
+      ? Math.round((assignment * 0.3 + midExam * 0.3 + finalExam * 0.4) * 10) / 10
+      : 0;
+    const kkm = s.kkm || 75;
+    const isPassed = isEvaluated ? finalScore >= kkm : false;
+    const finalGrade = isEvaluated
+      ? g?.finalGrade && g?.finalGrade !== '-'
+        ? g.finalGrade
+        : computeGradePredicate(finalScore)
+      : '-';
+
+    return {
+      id: s.id,
+      code: s.code,
+      subject: s.name,
+      category: s.category || 'Muatan Kejuruan',
+      teacherName: s.teacherName || 'Guru Pengampu',
+      classTarget: s.classTarget,
+      kkm,
+      credits: s.credits || 3,
+      day: s.day || 'Senin',
+      time: s.time || '07:30 - 10:00',
+      room: s.room || 'Ruang Kelas',
+      assignment,
+      midExam,
+      finalExam,
+      finalScore,
+      finalGrade,
+      isEvaluated,
+      isPassed,
+      notes: g?.notes || '',
+    };
+  });
 
   return (
     <SiswaDashboardClient

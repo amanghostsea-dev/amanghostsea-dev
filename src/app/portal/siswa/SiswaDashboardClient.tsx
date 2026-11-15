@@ -28,7 +28,10 @@ import {
   MapPinCheck,
   ShieldCheck,
   Camera,
-  Key
+  Key,
+  Search,
+  Filter,
+  Layers
 } from 'lucide-react';
 import { formatExamScheduleRange, getExamScheduleDetails, getExamScheduleState } from '@/lib/cbt-schedule';
 
@@ -53,17 +56,35 @@ interface ExamItem {
 interface ScheduleItem {
   day: string;
   subject: string;
+  code?: string;
   time: string;
   teacher: string;
   room: string;
+  category?: string;
+  kkm?: number;
+  credits?: number;
 }
 
 interface GradeItem {
+  id?: string;
+  code?: string;
   subject: string;
+  category?: string;
+  teacherName?: string;
+  classTarget?: string;
+  kkm?: number;
+  credits?: number;
+  day?: string;
+  time?: string;
+  room?: string;
   assignment: number;
   midExam: number;
   finalExam: number;
+  finalScore?: number;
   finalGrade: string;
+  isEvaluated?: boolean;
+  isPassed?: boolean;
+  notes?: string;
 }
 
 interface SiswaDashboardClientProps {
@@ -107,6 +128,11 @@ export default function SiswaDashboardClient({
   // Full Grades Data (tersinkronisasi dari DB)
   const fullGrades: GradeItem[] = initialGrades || [];
 
+  // Nilai filter & search
+  const [gradeSearch, setGradeSearch] = useState('');
+  const [gradeCategoryFilter, setGradeCategoryFilter] = useState('ALL');
+  const [gradeStatusFilter, setGradeStatusFilter] = useState('ALL');
+
   // Hitung Nilai Rata-Rata & IPK hanya dari mata pelajaran yang telah dinilai
   const gradedList = fullGrades.filter(
     (g) => g.assignment > 0 || g.midExam > 0 || g.finalExam > 0
@@ -127,9 +153,39 @@ export default function SiswaDashboardClient({
     ? Math.min(4.0, Math.round((calculatedAvgScore / 25) * 100) / 100)
     : 0;
 
+  const passedCount = gradedList.filter((g) => {
+    const score = Math.round(g.assignment * 0.3 + g.midExam * 0.3 + g.finalExam * 0.4);
+    return score >= (g.kkm || 75);
+  }).length;
+
+  const totalCredits = fullGrades.reduce((acc, curr) => acc + (curr.credits || 3), 0);
+
   const filteredSchedule = selectedDay === 'ALL'
     ? fullSchedule
     : fullSchedule.filter((s) => s.day.toLowerCase() === selectedDay.toLowerCase());
+
+  const filteredGrades = fullGrades.filter((g) => {
+    const q = gradeSearch.toLowerCase();
+    const matchSearch =
+      !q ||
+      g.subject.toLowerCase().includes(q) ||
+      (g.code && g.code.toLowerCase().includes(q)) ||
+      (g.teacherName && g.teacherName.toLowerCase().includes(q));
+
+    const matchCategory =
+      gradeCategoryFilter === 'ALL' ||
+      (g.category && g.category.toLowerCase() === gradeCategoryFilter.toLowerCase());
+
+    const isGraded = g.assignment > 0 || g.midExam > 0 || g.finalExam > 0;
+    const matchStatus =
+      gradeStatusFilter === 'ALL'
+        ? true
+        : gradeStatusFilter === 'GRADED'
+        ? isGraded
+        : !isGraded;
+
+    return matchSearch && matchCategory && matchStatus;
+  });
 
   const handleDoAbsensi = () => {
     const now = new Date();
@@ -690,20 +746,41 @@ export default function SiswaDashboardClient({
                     className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between space-y-4 hover:border-blue-400 transition-all"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
-                          {item.day}
-                        </span>
-                        <h4 className="font-bold text-base text-slate-900 dark:text-white mt-1.5">{item.subject}</h4>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                            {item.day}
+                          </span>
+                          {item.code && (
+                            <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                              {item.code}
+                            </span>
+                          )}
+                          {item.category && (
+                            <span className="text-[10px] text-slate-400 font-medium">
+                              • {item.category}
+                            </span>
+                          )}
+                        </div>
+                        <h4 className="font-bold text-base text-slate-900 dark:text-white pt-1">{item.subject}</h4>
                       </div>
-                      <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 rounded-lg">
+                      <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 rounded-lg shrink-0">
                         {item.time}
                       </span>
                     </div>
 
                     <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                      <span className="flex items-center gap-1.5 font-medium"><User size={13} className="text-slate-400" /> {item.teacher}</span>
-                      <span className="flex items-center gap-1.5 font-medium text-purple-600 dark:text-purple-400"><MapPin size={13} /> {item.room}</span>
+                      <span className="flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
+                        <User size={13} className="text-blue-500" /> {item.teacher}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/40">
+                          KKM: {item.kkm || 75}
+                        </span>
+                        <span className="flex items-center gap-1.5 font-medium text-purple-600 dark:text-purple-400">
+                          <MapPin size={13} /> {item.room}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -719,11 +796,14 @@ export default function SiswaDashboardClient({
           <div className="space-y-6 animate-in fade-in duration-200">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
               <div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 text-xs font-bold mb-2">
+                  <CheckCircle2 size={13} /> Data Tersinkronisasi Otomatis dengan Guru & Kurikulum
+                </div>
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <GraduationCap size={22} className="text-purple-600" /> Transkrip & Laporan Capaian Nilai Siswa
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Rekapitulasi Tugas, Penilaian Tengah Semester (PTS), & Penilaian Akhir Semester (PAS)
+                  Rekapitulasi Tugas, Penilaian Tengah Semester (PTS), & Penilaian Akhir Semester (PAS) • <strong>{studentClass}</strong>
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -745,35 +825,82 @@ export default function SiswaDashboardClient({
             </div>
 
             {/* GPA Summary Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
-                <div className="text-xs text-slate-400 font-semibold mb-1">Indeks Prestasi Kumulatif</div>
+                <div className="text-xs text-slate-400 font-semibold mb-1">Indeks Prestasi (IPK)</div>
                 <div className="text-3xl font-extrabold text-purple-600">
                   {calculatedGpa > 0 ? calculatedGpa.toFixed(2) : '0.00'}{' '}
                   <span className="text-xs text-slate-400 font-normal">/ 4.00</span>
                 </div>
+                <div className="text-[11px] text-slate-500 mt-1">Skala Maksimal 4.00</div>
               </div>
+
               <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
                 <div className="text-xs text-slate-400 font-semibold mb-1">Rata-Rata Nilai Angka</div>
                 <div className="text-3xl font-extrabold text-blue-600">
                   {calculatedAvgScore > 0 ? calculatedAvgScore : '-'}
                 </div>
+                <div className="text-[11px] text-slate-500 mt-1">Bobot: Tugas 30%, PTS 30%, PAS 40%</div>
               </div>
+
               <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
-                <div className="text-xs text-slate-400 font-semibold mb-1">Total Mata Pelajaran</div>
-                <div className="text-3xl font-extrabold text-emerald-600">{fullGrades.length} <span className="text-xs text-slate-400 font-normal">Mapel</span></div>
-              </div>
-              <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
-                <div className="text-xs text-slate-400 font-semibold mb-1">Predikat Kelulusan</div>
-                <div className="text-2xl font-extrabold text-amber-500">
-                  {calculatedAvgScore >= 85
-                    ? 'Sangat Memuaskan'
-                    : calculatedAvgScore >= 75
-                    ? 'Memuaskan'
-                    : calculatedAvgScore > 0
-                    ? 'Cukup'
-                    : 'Dalam Proses'}
+                <div className="text-xs text-slate-400 font-semibold mb-1">Mata Pelajaran Kelas</div>
+                <div className="text-3xl font-extrabold text-emerald-600">
+                  {fullGrades.length}{' '}
+                  <span className="text-xs text-slate-400 font-normal">Mapel</span>
                 </div>
+                <div className="text-[11px] text-slate-500 mt-1">Total Beban: {totalCredits} JP/Minggu</div>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
+                <div className="text-xs text-slate-400 font-semibold mb-1">Status Ketuntasan Belajar</div>
+                <div className="text-2xl font-extrabold text-amber-500">
+                  {gradedList.length === 0
+                    ? 'Dalam Proses'
+                    : `${passedCount} / ${gradedList.length} Tuntas`}
+                </div>
+                <div className="text-[11px] text-slate-500 mt-1">
+                  {gradedList.length === 0 ? 'Menunggu Penilaian Guru' : 'Berdasarkan Nilai Akhir >= KKM'}
+                </div>
+              </div>
+            </div>
+
+            {/* Filter and Search Bar for Grades */}
+            <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
+              <div className="relative w-full sm:w-80">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <input
+                  type="text"
+                  placeholder="Cari mapel, kode, atau guru pengampu..."
+                  value={gradeSearch}
+                  onChange={(e) => setGradeSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 text-slate-900 dark:text-white placeholder-slate-400"
+                />
+              </div>
+
+              <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                <select
+                  value={gradeCategoryFilter}
+                  onChange={(e) => setGradeCategoryFilter(e.target.value)}
+                  aria-label="Filter Berdasarkan Kategori"
+                  className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="ALL">Semua Kategori</option>
+                  <option value="Muatan Kejuruan">Muatan Kejuruan</option>
+                  <option value="Muatan Umum">Muatan Umum</option>
+                  <option value="Muatan Lokal">Muatan Lokal</option>
+                </select>
+
+                <select
+                  value={gradeStatusFilter}
+                  onChange={(e) => setGradeStatusFilter(e.target.value)}
+                  aria-label="Filter Berdasarkan Status Penilaian"
+                  className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="ALL">Semua Status</option>
+                  <option value="GRADED">Sudah Dinilai</option>
+                  <option value="UNGRADED">Belum Dinilai</option>
+                </select>
               </div>
             </div>
 
@@ -784,64 +911,142 @@ export default function SiswaDashboardClient({
                   <thead className="bg-slate-50/80 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[11px] border-b border-slate-200/80 dark:border-slate-800">
                     <tr>
                       <th className="py-4 px-4 text-center w-12">No</th>
-                      <th className="py-4 px-4">Mata Pelajaran</th>
-                      <th className="py-4 px-4 text-center">Tugas & Kuis</th>
-                      <th className="py-4 px-4 text-center">UTS (PTS)</th>
-                      <th className="py-4 px-4 text-center">UAS (PAS)</th>
+                      <th className="py-4 px-4">Mata Pelajaran & Guru Pengampu</th>
+                      <th className="py-4 px-4 text-center">Tugas & Kuis (30%)</th>
+                      <th className="py-4 px-4 text-center">UTS / PTS (30%)</th>
+                      <th className="py-4 px-4 text-center">UAS / PAS (40%)</th>
                       <th className="py-4 px-4 text-center">Nilai Akhir</th>
-                      <th className="py-4 px-4 text-center">Grade</th>
+                      <th className="py-4 px-4 text-center">Predikat & Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {fullGrades.length === 0 ? (
+                    {filteredGrades.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="py-12 px-6 text-center text-slate-400 text-xs">
                           <GraduationCap className="w-10 h-10 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
-                          <p className="font-bold text-sm text-slate-700 dark:text-slate-200">Belum Ada Transkrip Nilai</p>
+                          <p className="font-bold text-sm text-slate-700 dark:text-slate-200">Tidak ada mata pelajaran yang cocok.</p>
                           <p className="text-[11px] text-slate-500 mt-1">
-                            Mata pelajaran dan penilaian resmi untuk kelas Anda akan muncul secara otomatis di sini setelah Guru Pengampu menginput data nilai atau memberikan tugas.
+                            Mata pelajaran untuk kelas Anda otomatis tersinkronisasi langsung dari sistem kurikulum sekolah.
                           </p>
                         </td>
                       </tr>
                     ) : (
-                      fullGrades.map((g, idx) => {
+                      filteredGrades.map((g, idx) => {
                         const isEvaluated = g.assignment > 0 || g.midExam > 0 || g.finalExam > 0;
-                        const finalScore = Math.round(g.assignment * 0.3 + g.midExam * 0.3 + g.finalExam * 0.4);
+                        const finalScore = isEvaluated
+                          ? Math.round(g.assignment * 0.3 + g.midExam * 0.3 + g.finalExam * 0.4)
+                          : 0;
+                        const kkm = g.kkm || 75;
+                        const isPassed = isEvaluated ? finalScore >= kkm : false;
 
                         return (
-                          <tr key={idx} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
-                            <td className="py-3.5 px-4 text-center font-bold text-slate-400">{idx + 1}</td>
-                            <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white text-sm">
-                              {g.subject}
-                            </td>
-                            <td className="py-3.5 px-4 text-center font-semibold text-slate-700 dark:text-slate-300">
-                              {g.assignment > 0 ? g.assignment : '-'}
-                            </td>
-                            <td className="py-3.5 px-4 text-center font-semibold text-slate-700 dark:text-slate-300">
-                              {g.midExam > 0 ? g.midExam : '-'}
-                            </td>
-                            <td className="py-3.5 px-4 text-center font-semibold text-slate-700 dark:text-slate-300">
-                              {g.finalExam > 0 ? g.finalExam : '-'}
-                            </td>
-                            <td className="py-3.5 px-4 text-center font-bold text-purple-600 dark:text-purple-400">
-                              {isEvaluated ? finalScore : '-'}
-                            </td>
-                            <td className="py-3.5 px-4 text-center">
-                              {isEvaluated ? (
-                                <span
-                                  className={`inline-flex px-2 py-0.5 items-center justify-center rounded-lg font-bold text-xs ${
-                                    g.finalGrade.includes('A')
-                                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
-                                      : g.finalGrade.includes('B')
-                                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300'
-                                      : 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
-                                  }`}
-                                >
-                                  {g.finalGrade}
+                          <tr key={g.id || idx} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                            <td className="py-4 px-4 text-center font-bold text-slate-400">{idx + 1}</td>
+                            
+                            {/* Mata Pelajaran & Guru Pengampu */}
+                            <td className="py-4 px-4">
+                              <div className="space-y-1">
+                                <span className="font-bold text-slate-900 dark:text-white text-sm block">
+                                  {g.subject}
                                 </span>
+                                <div className="flex items-center gap-1.5 flex-wrap text-[11px]">
+                                  {g.code && (
+                                    <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/40">
+                                      {g.code}
+                                    </span>
+                                  )}
+                                  {g.category && (
+                                    <span className="text-[10px] text-slate-500 font-medium">
+                                      {g.category}
+                                    </span>
+                                  )}
+                                  <span className="text-slate-300">•</span>
+                                  <span className="text-[10px] text-slate-600 dark:text-slate-400 font-semibold flex items-center gap-1">
+                                    <User size={11} className="text-slate-400" /> {g.teacherName || 'Guru Pengampu'}
+                                  </span>
+                                  <span className="text-slate-300">•</span>
+                                  <span className="text-[10px] text-amber-700 dark:text-amber-300 font-bold bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-200/60 dark:border-amber-800/40">
+                                    KKM: {kkm}
+                                  </span>
+                                  {g.credits && (
+                                    <span className="text-[10px] text-slate-400">
+                                      {g.credits} JP
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Nilai Tugas */}
+                            <td className="py-4 px-4 text-center font-semibold text-slate-700 dark:text-slate-300">
+                              {g.assignment > 0 ? (
+                                <span className="font-bold text-slate-900 dark:text-white">{g.assignment}</span>
                               ) : (
-                                <span className="inline-flex px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                                  Belum Dinilai
+                                <span className="text-slate-400">-</span>
+                              )}
+                            </td>
+
+                            {/* Nilai UTS */}
+                            <td className="py-4 px-4 text-center font-semibold text-slate-700 dark:text-slate-300">
+                              {g.midExam > 0 ? (
+                                <span className="font-bold text-slate-900 dark:text-white">{g.midExam}</span>
+                              ) : (
+                                <span className="text-slate-400">-</span>
+                              )}
+                            </td>
+
+                            {/* Nilai UAS */}
+                            <td className="py-4 px-4 text-center font-semibold text-slate-700 dark:text-slate-300">
+                              {g.finalExam > 0 ? (
+                                <span className="font-bold text-slate-900 dark:text-white">{g.finalExam}</span>
+                              ) : (
+                                <span className="text-slate-400">-</span>
+                              )}
+                            </td>
+
+                            {/* Nilai Akhir */}
+                            <td className="py-4 px-4 text-center">
+                              {isEvaluated ? (
+                                <div className="inline-flex flex-col items-center">
+                                  <span className={`text-sm font-black ${
+                                    isPassed
+                                      ? 'text-emerald-600 dark:text-emerald-400'
+                                      : 'text-rose-600 dark:text-rose-400'
+                                  }`}>
+                                    {finalScore}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 font-medium">-</span>
+                              )}
+                            </td>
+
+                            {/* Predikat & Status */}
+                            <td className="py-4 px-4 text-center">
+                              {isEvaluated ? (
+                                <div className="inline-flex items-center gap-1.5 justify-center">
+                                  <span
+                                    className={`px-2 py-0.5 rounded-lg font-black text-xs ${
+                                      g.finalGrade.includes('A')
+                                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                        : g.finalGrade.includes('B')
+                                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300'
+                                        : 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
+                                    }`}
+                                  >
+                                    {g.finalGrade}
+                                  </span>
+                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                    isPassed
+                                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
+                                      : 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400'
+                                  }`}>
+                                    {isPassed ? 'Tuntas' : 'Remedial'}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                                  ⏳ Menunggu Nilai
                                 </span>
                               )}
                             </td>
