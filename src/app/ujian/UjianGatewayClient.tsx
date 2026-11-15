@@ -237,11 +237,11 @@ export default function UjianGatewayClient({
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between font-sans selection:bg-purple-500 selection:text-white">
-      {/* Background cyber ambient glow */}
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between font-sans selection:bg-[#5fa08d] selection:text-white">
+      {/* Background cyber ambient glow matching loading book logo */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[500px] bg-purple-600/15 blur-[140px] rounded-full"></div>
-        <div className="absolute bottom-0 right-0 w-[500px] h-[400px] bg-indigo-600/10 blur-[130px] rounded-full"></div>
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[500px] bg-[#5fa08d]/18 blur-[140px] rounded-full"></div>
+        <div className="absolute bottom-0 right-0 w-[500px] h-[400px] bg-[#caa55d]/12 blur-[130px] rounded-full"></div>
       </div>
 
       {/* Top Header */}
@@ -270,12 +270,12 @@ export default function UjianGatewayClient({
 
         {/* Hero Title */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-2 bg-purple-500/10 border border-purple-500/30 text-purple-300 px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider mb-2">
-            <Sparkles size={13} className="text-purple-400" />
+          <div className="inline-flex items-center gap-2 bg-[#5fa08d]/15 border border-[#5fa08d]/35 text-[#8bb79e] px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider mb-2">
+            <Sparkles size={13} className="text-[#caa55d]" />
             Gerbang Masuk Ujian Mandiri Siswa
           </div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight">
-            Smart CBT <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-indigo-300 to-sky-400">Ruang Ujian Online</span>
+            Smart CBT <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#5fa08d] via-[#8bb79e] via-[#f5d076] to-[#caa55d]">Ruang Ujian Online</span>
           </h1>
           <p className="text-sm sm:text-base text-slate-400 max-w-xl mx-auto leading-relaxed">
             {authenticatedStudent
@@ -286,8 +286,8 @@ export default function UjianGatewayClient({
 
         {/* Quick Login Form Card */}
         <div className="max-w-md mx-auto">
-          <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-purple-950/40 relative overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-indigo-500 to-sky-500"></div>
+          <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-[#5fa08d]/10 relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#5fa08d] via-[#8bb79e] via-[#f5d076] to-[#caa55d]"></div>
 
             {/* TAB SELECTOR: Hanya tampil jika siswa BELUM login */}
             {!authenticatedStudent && (
@@ -300,7 +300,7 @@ export default function UjianGatewayClient({
                   }}
                   className={`py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     activeTab === 'exam'
-                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
+                      ? 'bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] text-white shadow-md shadow-[#5fa08d]/25'
                       : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
                   }`}
                 >
@@ -315,7 +315,7 @@ export default function UjianGatewayClient({
                   }}
                   className={`py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     activeTab === 'portal'
-                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
+                      ? 'bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] text-white shadow-md shadow-[#5fa08d]/25'
                       : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
                   }`}
                 >
@@ -359,7 +359,7 @@ export default function UjianGatewayClient({
                 </div>
 
                 <div className="text-[11px] text-slate-300/80 flex items-center gap-1.5 pt-0.5">
-                  <Info size={13} className="text-purple-400 shrink-0" />
+                  <Info size={13} className="text-[#caa55d] shrink-0" />
                   <span>Silakan tanyakan token ujian yang sesuai dengan kelas Anda ke pengawas ruangan.</span>
                 </div>
               </div>
@@ -386,10 +386,10 @@ export default function UjianGatewayClient({
                 {authenticatedStudent ? (
                   <div className="space-y-4">
                     {/* Kartu Profil Siswa Terautentikasi */}
-                    <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/60 via-indigo-950/40 to-slate-950 border border-purple-500/30 shadow-lg space-y-3">
+                    <div className="p-4 rounded-2xl bg-gradient-to-r from-[#14231e]/80 via-[#232014]/60 to-slate-950 border border-[#5fa08d]/35 shadow-lg space-y-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white font-black text-lg flex items-center justify-center shadow-md shadow-purple-900/40 shrink-0">
+                          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#4d8675] via-[#5fa08d] to-[#caa55d] text-white font-black text-lg flex items-center justify-center shadow-md shadow-[#5fa08d]/30 shrink-0">
                             {getInitials(authenticatedStudent.name)}
                           </div>
                           <div className="min-w-0">
@@ -398,7 +398,7 @@ export default function UjianGatewayClient({
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                                 Kartu Login Aktif
                               </span>
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#caa55d]/20 text-[#f5d076] border border-[#caa55d]/40">
                                 {authenticatedStudent.studentClass}
                               </span>
                             </div>
@@ -430,7 +430,7 @@ export default function UjianGatewayClient({
                       <div>
                         <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 flex items-center justify-between">
                           <span className="flex items-center gap-1.5">
-                            <Key size={14} className="text-amber-400" /> Masukkan Token Ujian
+                            <Key size={14} className="text-[#caa55d]" /> Masukkan Token Ujian
                           </span>
                           <span className="text-[10px] text-slate-400 font-normal">
                             (Diberikan Pengawas)
@@ -444,10 +444,10 @@ export default function UjianGatewayClient({
                           maxLength={12}
                           required
                           autoFocus
-                          className="w-full px-4 py-3.5 rounded-2xl bg-slate-950/70 border border-slate-700/80 text-white placeholder-slate-600 text-center text-lg sm:text-xl font-mono font-bold tracking-widest uppercase focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                          className="w-full px-4 py-3.5 rounded-2xl bg-slate-950/70 border border-slate-700/80 text-white placeholder-slate-600 text-center text-lg sm:text-xl font-mono font-bold tracking-widest uppercase focus:outline-none focus:border-[#caa55d] focus:ring-2 focus:ring-[#caa55d]/25 transition-all"
                         />
                         <p className="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1">
-                          <Info size={12} className="text-amber-400 shrink-0" />
+                          <Info size={12} className="text-[#caa55d] shrink-0" />
                           <span>Minta 6 karakter token kepada pengawas ruangan Anda.</span>
                         </p>
                       </div>
@@ -456,7 +456,7 @@ export default function UjianGatewayClient({
                       <button
                         type="submit"
                         disabled={loading}
-                        className="w-full py-3.5 px-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-2xl shadow-lg shadow-purple-600/30 transition-all transform active:scale-[0.98] disabled:opacity-50 text-sm flex items-center justify-center gap-2 cursor-pointer"
+                        className="w-full py-3.5 px-4 bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#5aa08c] hover:to-[#dfba6f] text-white font-extrabold rounded-2xl shadow-lg shadow-[#5fa08d]/30 transition-all transform active:scale-[0.98] disabled:opacity-50 text-sm flex items-center justify-center gap-2 cursor-pointer"
                       >
                         {loading ? (
                           <div className="flex items-center gap-2">
@@ -476,8 +476,8 @@ export default function UjianGatewayClient({
                   /* 🪪 TAMPILAN JIKA SISWA BELUM LOGIN: FORM OTENTIKASI KARTU PESERTA + TOKEN */
                   <form onSubmit={handleVerifySubmit} className="space-y-4">
                     {/* Notice Wajib Kartu Login */}
-                    <div className="p-3 rounded-2xl bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-transparent border border-purple-500/25 flex items-start gap-2.5 text-xs text-purple-200">
-                      <CreditCard size={18} className="text-purple-400 shrink-0 mt-0.5" />
+                    <div className="p-3 rounded-2xl bg-gradient-to-r from-[#5fa08d]/15 via-[#caa55d]/10 to-transparent border border-[#5fa08d]/30 flex items-start gap-2.5 text-xs text-[#a2c8ba]">
+                      <CreditCard size={18} className="text-[#caa55d] shrink-0 mt-0.5" />
                       <div className="leading-relaxed">
                         <strong>Wajib Kredensial Kartu:</strong> Masukkan Username/NISN & Password sesuai <strong>Kartu Login Peserta Ujian</strong> Anda.
                       </div>
@@ -487,9 +487,9 @@ export default function UjianGatewayClient({
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
                         <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                          <User size={14} className="text-purple-400" /> Username / NISN Siswa
+                          <User size={14} className="text-[#8bb79e]" /> Username / NISN Siswa
                         </label>
-                        <span className="text-[10px] text-purple-400/80 font-medium">Dari Kartu Login</span>
+                        <span className="text-[10px] text-[#caa55d] font-medium">Dari Kartu Login</span>
                       </div>
                       <div className="relative">
                         <input
@@ -498,10 +498,10 @@ export default function UjianGatewayClient({
                           onChange={(e) => setUsernameOrNisn(e.target.value)}
                           placeholder="Contoh: 105802928"
                           required
-                          className="w-full pl-4 pr-10 py-3 rounded-2xl bg-slate-950/70 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all font-mono font-medium tracking-wide"
+                          className="w-full pl-4 pr-10 py-3 rounded-2xl bg-slate-950/70 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-[#5fa08d] focus:ring-2 focus:ring-[#5fa08d]/20 transition-all font-mono font-medium tracking-wide"
                         />
                         {isLookingUp && (
-                          <div className="absolute right-3.5 top-3.5 text-purple-400">
+                          <div className="absolute right-3.5 top-3.5 text-[#5fa08d]">
                             <Loader2 size={16} className="animate-spin" />
                           </div>
                         )}
@@ -527,7 +527,7 @@ export default function UjianGatewayClient({
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
                         <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                          <Lock size={14} className="text-indigo-400" /> Password Akun Ujian
+                          <Lock size={14} className="text-[#caa55d]" /> Password Akun Ujian
                         </label>
                         <span className="text-[10px] text-slate-500">Kredensial Kartu</span>
                       </div>
@@ -538,7 +538,7 @@ export default function UjianGatewayClient({
                           onChange={(e) => setPassword(e.target.value)}
                           placeholder="••••••••"
                           required
-                          className="w-full pl-4 pr-11 py-3 rounded-2xl bg-slate-950/70 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all font-medium"
+                          className="w-full pl-4 pr-11 py-3 rounded-2xl bg-slate-950/70 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-[#5fa08d] focus:ring-2 focus:ring-[#5fa08d]/20 transition-all font-medium"
                         />
                         <button
                           type="button"
@@ -558,9 +558,9 @@ export default function UjianGatewayClient({
                     <div>
                       <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
                         <span className="flex items-center gap-1.5">
-                          <Key size={14} className="text-amber-400" /> Token Ujian
+                          <Key size={14} className="text-[#caa55d]" /> Token Ujian
                         </span>
-                        <span className="text-[10px] text-amber-400/90 font-medium">
+                        <span className="text-[10px] text-[#caa55d] font-medium">
                           (Diberikan Pengawas)
                         </span>
                       </label>
@@ -571,7 +571,7 @@ export default function UjianGatewayClient({
                         placeholder="CONTOH: PAS24G"
                         maxLength={12}
                         required
-                        className="w-full px-4 py-3.5 rounded-2xl bg-slate-950/70 border border-slate-700/80 text-white placeholder-slate-600 text-center text-lg sm:text-xl font-mono font-bold tracking-widest uppercase focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                        className="w-full px-4 py-3.5 rounded-2xl bg-slate-950/70 border border-slate-700/80 text-white placeholder-slate-600 text-center text-lg sm:text-xl font-mono font-bold tracking-widest uppercase focus:outline-none focus:border-[#caa55d] focus:ring-2 focus:ring-[#caa55d]/25 transition-all"
                       />
                     </div>
 
@@ -579,7 +579,7 @@ export default function UjianGatewayClient({
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full mt-2 py-3.5 px-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-2xl shadow-lg shadow-purple-600/30 transition-all transform active:scale-[0.98] disabled:opacity-50 text-sm flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full mt-2 py-3.5 px-4 bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#5aa08c] hover:to-[#dfba6f] text-white font-extrabold rounded-2xl shadow-lg shadow-[#5fa08d]/30 transition-all transform active:scale-[0.98] disabled:opacity-50 text-sm flex items-center justify-center gap-2 cursor-pointer"
                     >
                       {loading ? (
                         <div className="flex items-center gap-2">
@@ -601,8 +601,8 @@ export default function UjianGatewayClient({
             {/* TAB 2: LOGIN LANGSUNG KE PORTAL SISWA (LIHAT JADWAL & MATERI) */}
             {activeTab === 'portal' && !authenticatedStudent && (
               <form onSubmit={handlePortalLoginSubmit} className="space-y-4">
-                <div className="p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/25 text-xs text-indigo-200 leading-relaxed flex items-start gap-2.5">
-                  <GraduationCap size={18} className="text-indigo-400 shrink-0 mt-0.5" />
+                <div className="p-3 rounded-2xl bg-[#5fa08d]/15 border border-[#5fa08d]/30 text-xs text-[#a2c8ba] leading-relaxed flex items-start gap-2.5">
+                  <GraduationCap size={18} className="text-[#caa55d] shrink-0 mt-0.5" />
                   <div>
                     <strong>Portal Siswa CBT:</strong> Masuk untuk melihat seluruh jadwal ujian, pengumuman nilai, dan materi tanpa memasukkan token sekarang.
                   </div>
@@ -625,7 +625,7 @@ export default function UjianGatewayClient({
                     onChange={(e) => setPortalUsername(e.target.value)}
                     placeholder="Masukkan Username atau NISN"
                     required
-                    className="w-full px-4 py-3 rounded-2xl bg-slate-950/70 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-indigo-500 font-mono"
+                    className="w-full px-4 py-3 rounded-2xl bg-slate-950/70 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-[#5fa08d] font-mono"
                   />
                 </div>
 
@@ -640,7 +640,7 @@ export default function UjianGatewayClient({
                       onChange={(e) => setPortalPassword(e.target.value)}
                       placeholder="••••••••"
                       required
-                      className="w-full pl-4 pr-11 py-3 rounded-2xl bg-slate-950/70 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-indigo-500"
+                      className="w-full pl-4 pr-11 py-3 rounded-2xl bg-slate-950/70 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-[#5fa08d]"
                     />
                     <button
                       type="button"
@@ -655,7 +655,7 @@ export default function UjianGatewayClient({
                 <button
                   type="submit"
                   disabled={portalLoading}
-                  className="w-full py-3.5 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-2xl shadow-lg shadow-indigo-600/30 transition-all text-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="w-full py-3.5 px-4 bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#5aa08c] hover:to-[#dfba6f] text-white font-bold rounded-2xl shadow-lg shadow-[#5fa08d]/30 transition-all text-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   {portalLoading ? (
                     <div className="flex items-center gap-2">
@@ -676,7 +676,7 @@ export default function UjianGatewayClient({
             <div className="mt-5 pt-4 border-t border-slate-800 text-center">
               <Link
                 href="/portal/siswa/cbt"
-                className="text-xs text-purple-400 hover:text-purple-300 font-semibold inline-flex items-center gap-1 transition-colors"
+                className="text-xs text-[#8bb79e] hover:text-[#caa55d] font-semibold inline-flex items-center gap-1 transition-colors"
               >
                 <span>Lihat semua jadwal paket ujian di Portal Siswa</span>
                 <ChevronRight size={14} />
@@ -688,14 +688,14 @@ export default function UjianGatewayClient({
         {/* 🌟 MODAL KONFIRMASI IDENTITAS RESMI PESERTA UJIAN */}
         {isConfirmModalOpen && verifiedStudent && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in-50">
-            <div className="bg-slate-900 border border-purple-500/40 rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl shadow-purple-950/80 relative overflow-hidden space-y-5 animate-in zoom-in-95">
-              {/* Top Cyber Accent */}
-              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-400 via-purple-500 to-indigo-500"></div>
+            <div className="bg-slate-900 border border-[#5fa08d]/40 rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl shadow-[#5fa08d]/20 relative overflow-hidden space-y-5 animate-in zoom-in-95">
+              {/* Top Logo Accent */}
+              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#5fa08d] via-[#8bb79e] via-[#f5d076] to-[#caa55d]"></div>
 
               {/* Modal Header */}
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
+                  <div className="w-12 h-12 rounded-2xl bg-[#5fa08d]/15 border border-[#5fa08d]/35 text-[#8bb79e] flex items-center justify-center shrink-0">
                     <ShieldCheck size={26} />
                   </div>
                   <div>
@@ -719,7 +719,7 @@ export default function UjianGatewayClient({
               {/* Student Verified Profile Badge */}
               <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-3.5">
                 <div className="flex items-center gap-3.5 pb-3 border-b border-slate-800/80">
-                  <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white font-black text-lg flex items-center justify-center shadow-md shadow-purple-900/40 shrink-0">
+                  <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-[#4d8675] via-[#5fa08d] to-[#caa55d] text-white font-black text-lg flex items-center justify-center shadow-md shadow-[#5fa08d]/30 shrink-0">
                     {getInitials(verifiedStudent.name)}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -737,14 +737,14 @@ export default function UjianGatewayClient({
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800/80">
                     <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Kelas Resmi</span>
-                    <strong className="text-white text-sm font-extrabold text-purple-300">
+                    <strong className="text-sm font-extrabold text-[#caa55d]">
                       {verifiedStudent.studentClass}
                     </strong>
                   </div>
 
                   <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800/80">
                     <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Program Keahlian</span>
-                    <strong className="text-white text-xs font-bold text-indigo-300 truncate block" title={verifiedStudent.majorName}>
+                    <strong className="text-xs font-bold text-[#8bb79e] truncate block" title={verifiedStudent.majorName}>
                       {verifiedStudent.majorName}
                     </strong>
                   </div>
@@ -753,12 +753,12 @@ export default function UjianGatewayClient({
 
               {/* Target Exam Details (Jika ada Token) */}
               {verifiedExam ? (
-                <div className="p-3.5 rounded-2xl bg-purple-950/30 border border-purple-500/30 space-y-2">
+                <div className="p-3.5 rounded-2xl bg-[#14231e]/50 border border-[#5fa08d]/35 space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
-                      <MonitorPlay size={14} className="text-purple-400" /> Ruang Ujian CBT
+                    <span className="font-bold text-[#8bb79e] uppercase tracking-wider flex items-center gap-1.5">
+                      <MonitorPlay size={14} className="text-[#caa55d]" /> Ruang Ujian CBT
                     </span>
-                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-purple-500/20 text-purple-200 border border-purple-500/30">
+                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-[#caa55d]/20 text-[#f5d076] border border-[#caa55d]/35">
                       Token: {token}
                     </span>
                   </div>
@@ -800,7 +800,7 @@ export default function UjianGatewayClient({
                   type="button"
                   onClick={handleFinalConfirmJoin}
                   disabled={isConfirming}
-                  className="w-full sm:w-2/3 py-3 px-5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs sm:text-sm font-extrabold shadow-lg shadow-emerald-950/50 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="w-full sm:w-2/3 py-3 px-5 rounded-xl bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#5aa08c] hover:to-[#dfba6f] text-white text-xs sm:text-sm font-extrabold shadow-lg shadow-[#5fa08d]/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   {isConfirming ? (
                     <>
@@ -834,7 +834,7 @@ export default function UjianGatewayClient({
           </div>
 
           <div className="flex items-start gap-3 p-4 rounded-2xl bg-slate-900/40 border border-slate-800/60">
-            <div className="p-2 bg-purple-500/10 text-purple-400 rounded-xl shrink-0">
+            <div className="p-2 bg-[#5fa08d]/15 text-[#8bb79e] rounded-xl shrink-0">
               <ShieldCheck size={18} />
             </div>
             <div>

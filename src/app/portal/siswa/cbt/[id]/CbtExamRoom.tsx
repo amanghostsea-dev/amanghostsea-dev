@@ -491,7 +491,7 @@ export default function CbtExamRoom({
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans p-6 md:p-12 flex items-center justify-center">
         <div className="max-w-md w-full bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-xl text-center space-y-6 animate-in fade-in zoom-in-95">
-          <div className="w-20 h-20 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 mx-auto flex items-center justify-center shadow-lg shadow-purple-500/20">
+          <div className="w-20 h-20 rounded-full bg-[#5fa08d]/15 text-[#5fa08d] dark:text-[#8bb79e] mx-auto flex items-center justify-center shadow-lg shadow-[#5fa08d]/20 border border-[#5fa08d]/30">
             <Award size={40} />
           </div>
 
@@ -505,11 +505,11 @@ export default function CbtExamRoom({
             <p className="text-slate-500 text-sm mt-1">{exam.subject}</p>
           </div>
 
-          <div className="p-6 rounded-2xl bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30 border border-purple-200/50 dark:border-purple-800/50">
-            <div className="text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wider">
+          <div className="p-6 rounded-2xl bg-gradient-to-br from-[#5fa08d]/10 via-[#8bb79e]/5 to-[#caa55d]/10 border border-[#5fa08d]/30">
+            <div className="text-xs font-semibold text-[#4d8675] dark:text-[#caa55d] uppercase tracking-wider">
               Skor Perolehan Anda
             </div>
-            <div className="text-5xl font-black text-purple-600 dark:text-purple-400 my-2">
+            <div className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] my-2">
               {finalResult.score}
             </div>
             <div className="text-xs text-slate-600 dark:text-slate-400">
@@ -534,7 +534,7 @@ export default function CbtExamRoom({
 
           <Link
             href="/portal/siswa/cbt"
-            className="w-full block py-3 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold text-sm shadow-md shadow-purple-500/25 transition-all"
+            className="w-full block py-3.5 px-4 bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#5aa08c] hover:to-[#dfba6f] text-white rounded-xl font-bold text-sm shadow-md shadow-[#5fa08d]/25 transition-all text-center"
           >
             Kembali ke Daftar Ujian
           </Link>
@@ -629,10 +629,10 @@ export default function CbtExamRoom({
               <ArrowLeft size={14} /> Kembali
             </Link>
             <div className="flex items-center gap-2 mb-1">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#5fa08d]/15 text-[#4d8675] dark:text-[#8bb79e] border border-[#5fa08d]/30">
                 {exam.subject}
               </span>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#caa55d]/15 text-[#b6a86e] dark:text-[#f5d076] border border-[#caa55d]/30">
                 Target: {formatClassTargetDisplay(exam.classTarget)}
               </span>
             </div>
@@ -659,11 +659,11 @@ export default function CbtExamRoom({
             </div>
             <div>
               <span className="text-slate-500 block">Kelas Terdaftar</span>
-              <strong className="text-purple-600 dark:text-purple-400 text-sm font-bold">{studentClass || 'Siswa'}</strong>
+              <strong className="text-[#caa55d] text-sm font-bold">{studentClass || 'Siswa'}</strong>
             </div>
             <div>
               <span className="text-slate-500 block">Target Paket</span>
-              <strong className="text-blue-600 dark:text-blue-400 text-sm font-bold truncate block" title={exam.classTarget}>
+              <strong className="text-[#4d8675] dark:text-[#8bb79e] text-sm font-bold truncate block" title={exam.classTarget}>
                 {formatClassTargetDisplay(exam.classTarget, true)}
               </strong>
             </div>
@@ -676,17 +676,17 @@ export default function CbtExamRoom({
           </div>
 
           {/* 📅 EXAM SCHEDULE TIMETABLE BANNER */}
-          <div className="p-4 rounded-2xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800/60 space-y-1.5">
+          <div className="p-4 rounded-2xl bg-[#5fa08d]/10 dark:bg-[#5fa08d]/15 border border-[#5fa08d]/30 space-y-1.5">
             <div className="flex items-center justify-between text-xs">
               <span className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
-                <Calendar size={15} className="text-purple-600 dark:text-purple-400" />
+                <Calendar size={15} className="text-[#caa55d]" />
                 <span>Jadwal Ujian: {formatExamScheduleRange(exam.startTime, exam.endTime)}</span>
               </span>
             </div>
             {exam.startTime && (
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-1 border-t border-purple-100 dark:border-purple-900/40">
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-1 border-t border-[#5fa08d]/20">
                 <span>Status Waktu Resmi:</span>
-                <span className="font-semibold text-purple-700 dark:text-purple-300">
+                <span className="font-semibold text-[#4d8675] dark:text-[#caa55d]">
                   {getExamScheduleState(exam.startTime, exam.endTime, sessionStatus).countdown}
                 </span>
               </div>
@@ -787,7 +787,7 @@ export default function CbtExamRoom({
                         placeholder="Contoh: SMK2026"
                         value={tokenInput}
                         onChange={(e) => setTokenInput(e.target.value.toUpperCase())}
-                        className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-base font-bold uppercase tracking-widest text-center focus:ring-2 focus:ring-purple-500 font-mono shadow-inner"
+                        className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-base font-bold uppercase tracking-widest text-center focus:ring-2 focus:ring-[#caa55d] focus:border-[#caa55d] font-mono shadow-inner"
                       />
                     </div>
                   </div>
@@ -796,7 +796,7 @@ export default function CbtExamRoom({
                 <button
                   type="submit"
                   disabled={startLoading}
-                  className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-500/25 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3.5 bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#5aa08c] hover:to-[#dfba6f] text-white rounded-xl font-bold text-sm shadow-lg shadow-[#5fa08d]/25 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {startLoading ? 'Menyiapkan Lembar Ujian...' : 'Mulai Kerjakan Ujian Sekarang →'}
                 </button>
@@ -819,7 +819,7 @@ export default function CbtExamRoom({
       {/* Sticky Header Bar */}
       <header className="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 md:px-8 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-purple-600 text-white font-bold flex items-center justify-center text-sm shadow-md shadow-purple-500/20">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#4d8675] via-[#5fa08d] to-[#caa55d] text-white font-bold flex items-center justify-center text-sm shadow-md shadow-[#5fa08d]/25">
             {currentIndex + 1}
           </div>
           <div>
@@ -837,7 +837,7 @@ export default function CbtExamRoom({
           <div
             className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-mono font-bold text-sm transition-all ${timeLeft < 300
                 ? 'bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400 animate-pulse border border-red-300'
-                : 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                : 'bg-[#5fa08d]/10 dark:bg-[#5fa08d]/20 text-[#4d8675] dark:text-[#8bb79e] border border-[#5fa08d]/30'
               }`}
           >
             <Clock size={16} />
@@ -878,7 +878,7 @@ export default function CbtExamRoom({
           <div>
             {/* Question Header & Points */}
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-6">
-              <span className="text-xs font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 px-3 py-1 rounded-full">
+              <span className="text-xs font-bold text-[#4d8675] dark:text-[#8bb79e] bg-[#5fa08d]/15 dark:bg-[#5fa08d]/25 px-3 py-1 rounded-full border border-[#5fa08d]/30">
                 Bobot Soal: {currentQ?.points} Poin
               </span>
               <button
@@ -917,13 +917,13 @@ export default function CbtExamRoom({
                     type="button"
                     onClick={() => handleSelectOption(idx)}
                     className={`w-full text-left p-4 rounded-2xl border transition-all flex items-start gap-4 ${isSelected
-                        ? 'border-purple-600 bg-purple-50/70 dark:bg-purple-950/30 ring-2 ring-purple-500/20 text-purple-950 dark:text-purple-200 font-semibold'
+                        ? 'border-[#5fa08d] bg-[#5fa08d]/10 dark:bg-[#14231e]/60 ring-2 ring-[#5fa08d]/25 text-[#1b332c] dark:text-[#c4ded4] font-semibold'
                         : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200'
                       }`}
                   >
                     <span
                       className={`w-8 h-8 rounded-xl font-bold text-sm flex items-center justify-center flex-shrink-0 transition-colors ${isSelected
-                          ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30'
+                          ? 'bg-gradient-to-br from-[#4d8675] via-[#5fa08d] to-[#caa55d] text-white shadow-md shadow-[#5fa08d]/30'
                           : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                         }`}
                     >
@@ -933,7 +933,7 @@ export default function CbtExamRoom({
                       <CbtRichText text={opt} />
                     </span>
                     {isSelected && (
-                      <Check className="text-purple-600 flex-shrink-0 mt-1" size={18} />
+                      <Check className="text-[#caa55d] flex-shrink-0 mt-1" size={18} />
                     )}
                   </button>
                 );
@@ -954,7 +954,7 @@ export default function CbtExamRoom({
             {currentIndex < questions.length - 1 ? (
               <button
                 onClick={() => setCurrentIndex((prev) => Math.min(questions.length - 1, prev + 1))}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs shadow-md shadow-purple-500/20 transition-all hover:scale-[1.02]"
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#5aa08c] hover:to-[#dfba6f] text-white font-bold text-xs shadow-md shadow-[#5fa08d]/25 transition-all hover:scale-[1.02]"
               >
                 Soal Berikutnya <ArrowRight size={16} />
               </button>
@@ -998,7 +998,7 @@ export default function CbtExamRoom({
                   <button
                     key={q.id}
                     onClick={() => setCurrentIndex(idx)}
-                    className={`h-10 rounded-xl font-bold text-xs flex items-center justify-center transition-all ${bgClass} ${isCurrent ? 'ring-2 ring-purple-600 ring-offset-2 dark:ring-offset-slate-900 scale-105' : 'hover:opacity-80'
+                    className={`h-10 rounded-xl font-bold text-xs flex items-center justify-center transition-all ${bgClass} ${isCurrent ? 'ring-2 ring-[#5fa08d] ring-offset-2 dark:ring-offset-slate-900 scale-105' : 'hover:opacity-80'
                       }`}
                   >
                     {idx + 1}

@@ -277,13 +277,13 @@ export default function SiswaCbtClient({
             <div className="flex items-center gap-2 text-xs">
               <Link
                 href="/portal/siswa"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-purple-50 dark:hover:bg-purple-950/40 text-slate-700 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-300 font-semibold transition-all group border border-slate-200 dark:border-slate-700 hover:border-purple-300"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-[#5fa08d]/10 text-slate-700 dark:text-slate-300 hover:text-[#4d8675] dark:hover:text-[#8bb79e] font-semibold transition-all group border border-slate-200 dark:border-slate-700 hover:border-[#5fa08d]/40"
               >
-                <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform text-slate-400 group-hover:text-purple-500" />
+                <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform text-slate-400 group-hover:text-[#5fa08d]" />
                 <span>Dashboard Utama Siswa</span>
               </Link>
               <span className="text-slate-300 dark:text-slate-600">/</span>
-              <span className="text-purple-600 dark:text-purple-400 font-bold flex items-center gap-1">
+              <span className="text-[#4d8675] dark:text-[#8bb79e] font-bold flex items-center gap-1">
                 <MonitorPlay size={13} /> Ruang CBT Online
               </span>
             </div>
@@ -292,7 +292,7 @@ export default function SiswaCbtClient({
             <div className="flex items-center gap-2">
               <Link
                 href="/ujian"
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold shadow-md shadow-purple-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#5aa08c] hover:to-[#dfba6f] text-white text-xs font-bold shadow-md shadow-[#5fa08d]/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
                 <Key size={13} />
                 <span>Gerbang Token Ujian</span>
@@ -304,19 +304,19 @@ export default function SiswaCbtClient({
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-1">
               <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
-                <span className="p-2.5 bg-gradient-to-tr from-purple-600 to-indigo-600 text-white rounded-2xl shadow-lg shadow-purple-500/25">
+                <span className="p-2.5 bg-gradient-to-tr from-[#4d8675] via-[#5fa08d] to-[#caa55d] text-white rounded-2xl shadow-lg shadow-[#5fa08d]/25">
                   <MonitorPlay size={24} />
                 </span>
                 Portal CBT & Nilai Evaluasi Siswa
               </h1>
               <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm">
-                Jadwal resmi ujian berbasis komputer & rekapitulasi nilai untuk <strong className="text-purple-600 dark:text-purple-400">{studentName}</strong>.
+                Jadwal resmi ujian berbasis komputer & rekapitulasi nilai untuk <strong className="text-[#4d8675] dark:text-[#caa55d]">{studentName}</strong>.
               </p>
             </div>
 
             {/* Student Verified Identity Card */}
             <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-950/70 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800">
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white font-black flex items-center justify-center text-sm shadow-md shadow-purple-900/30 shrink-0">
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#4d8675] via-[#5fa08d] to-[#caa55d] text-white font-black flex items-center justify-center text-sm shadow-md shadow-[#5fa08d]/30 shrink-0">
                 {initials}
               </div>
               <div className="min-w-0">
@@ -327,7 +327,7 @@ export default function SiswaCbtClient({
                   <span className="text-[10px] font-mono font-semibold text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-800">
                     NISN: {studentNis}
                   </span>
-                  <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-950/50 px-1.5 py-0.5 rounded border border-purple-200 dark:border-purple-800">
+                  <span className="text-[10px] font-bold text-[#b6a86e] dark:text-[#f5d076] bg-[#caa55d]/15 dark:bg-[#caa55d]/20 px-1.5 py-0.5 rounded border border-[#caa55d]/30">
                     {studentClass}
                   </span>
                   <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/50 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
@@ -347,7 +347,7 @@ export default function SiswaCbtClient({
               type="button"
               onClick={() => handleViewSwitch('exams')}
               className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${activeView === 'exams'
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-500/25'
+                  ? 'bg-gradient-to-r from-[#4d8675] to-[#5fa08d] text-white shadow-md shadow-[#5fa08d]/25'
                   : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
                 }`}
             >
@@ -367,7 +367,7 @@ export default function SiswaCbtClient({
           </div>
 
           <div className="text-xs text-slate-500 flex items-center gap-1.5 font-medium">
-            <Clock size={13} className="text-purple-500" />
+            <Clock size={13} className="text-[#caa55d]" />
             <span>Waktu Server: {currentTime.toLocaleTimeString('id-ID', { timeZone: TIMEZONE_IANA_MAP[timezone], hour: '2-digit', minute: '2-digit' })} {timezone}</span>
           </div>
         </div>
@@ -399,16 +399,16 @@ export default function SiswaCbtClient({
               <button
                 onClick={() => setFilterTab('UPCOMING')}
                 className={`p-4 rounded-2xl border text-left transition-all ${filterTab === 'UPCOMING'
-                    ? 'bg-purple-500/10 border-purple-500 ring-2 ring-purple-500/20'
-                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-purple-300'
+                    ? 'bg-[#caa55d]/10 border-[#caa55d] ring-2 ring-[#caa55d]/20'
+                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-[#caa55d]/40'
                   }`}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-purple-700 dark:text-purple-400 flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-[#b6a86e] dark:text-[#f5d076] flex items-center gap-1.5">
                     <Calendar size={14} />
                     Jadwal Ujian Mendatang
                   </span>
-                  <span className="text-xl font-black text-purple-600 dark:text-purple-400">{upcomingCount}</span>
+                  <span className="text-xl font-black text-[#caa55d] dark:text-[#f5d076]">{upcomingCount}</span>
                 </div>
                 <p className="text-[11px] text-slate-500">Siapkan diri Anda sebelum jam mulai tiba</p>
               </button>
@@ -443,7 +443,7 @@ export default function SiswaCbtClient({
                     key={tab.id}
                     onClick={() => setFilterTab(tab.id as any)}
                     className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${filterTab === tab.id
-                        ? 'bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 shadow-sm'
+                        ? 'bg-white dark:bg-slate-800 text-[#4d8675] dark:text-[#8bb79e] shadow-sm'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                       }`}
                   >
@@ -459,7 +459,7 @@ export default function SiswaCbtClient({
                   placeholder="Cari mata pelajaran atau ujian..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-sm"
+                  className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#5fa08d] shadow-sm"
                 />
               </div>
             </div>
@@ -481,7 +481,7 @@ export default function SiswaCbtClient({
                   {filterTab !== 'ALL' && (
                     <button
                       onClick={() => setFilterTab('ALL')}
-                      className="mt-3 text-xs font-bold text-purple-600 dark:text-purple-400 hover:underline"
+                      className="mt-3 text-xs font-bold text-[#4d8675] dark:text-[#8bb79e] hover:underline"
                     >
                       Tampilkan Semua Ujian
                     </button>
@@ -513,7 +513,7 @@ export default function SiswaCbtClient({
                       <div className="p-6">
                         {/* Top Subject & Dynamic Status Pill */}
                         <div className="flex items-start justify-between gap-2 mb-3">
-                          <span className="px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200/50 dark:border-purple-800/50">
+                          <span className="px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider bg-[#5fa08d]/15 text-[#4d8675] dark:text-[#8bb79e] border border-[#5fa08d]/30">
                             {exam.subject}
                           </span>
 
@@ -544,15 +544,15 @@ export default function SiswaCbtClient({
                           )}
                         </div>
 
-                        <h3 className="font-bold text-lg text-slate-900 dark:text-white line-clamp-2 mb-2 group-hover:text-purple-600 transition-colors">
+                        <h3 className="font-bold text-lg text-slate-900 dark:text-white line-clamp-2 mb-2 group-hover:text-[#4d8675] dark:group-hover:text-[#8bb79e] transition-colors">
                           {exam.title}
                         </h3>
 
                         {/* 📅 EXAM TIMETABLE BADGE (JAM MULAI & BERAKHIR EKSPLISIT) */}
-                        <div className="p-3 rounded-2xl bg-gradient-to-br from-purple-50/70 to-indigo-50/40 dark:from-purple-950/30 dark:to-indigo-950/20 border border-purple-200/70 dark:border-purple-800/50 mb-4 space-y-2">
+                        <div className="p-3 rounded-2xl bg-gradient-to-br from-[#5fa08d]/10 to-[#caa55d]/10 dark:from-[#5fa08d]/15 dark:to-[#caa55d]/15 border border-[#5fa08d]/30 mb-4 space-y-2">
                           <div className="flex items-center justify-between text-xs">
                             <span className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200 min-w-0">
-                              <Calendar size={13} className="text-purple-600 dark:text-purple-400 flex-shrink-0" />
+                              <Calendar size={13} className="text-[#caa55d] flex-shrink-0" />
                               <span className="truncate" title={schedDetails.dateText}>{schedDetails.dateText}</span>
                             </span>
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border shrink-0 ${schedState.badgeClass}`}>
@@ -560,12 +560,12 @@ export default function SiswaCbtClient({
                             </span>
                           </div>
 
-                          <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl bg-white/95 dark:bg-slate-900/90 border border-purple-100 dark:border-purple-900/50 shadow-2xs">
+                          <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl bg-white/95 dark:bg-slate-900/90 border border-[#5fa08d]/20 shadow-2xs">
                             <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 text-xs">
-                              <Clock size={12} className="text-purple-500 shrink-0" />
+                              <Clock size={12} className="text-[#caa55d] shrink-0" />
                               <span className="text-[11px] font-semibold">Jam Ujian:</span>
                             </div>
-                            <span className="font-mono font-black text-xs text-purple-700 dark:text-purple-300 tracking-tight">
+                            <span className="font-mono font-black text-xs text-[#b6a86e] dark:text-[#f5d076] tracking-tight">
                               {schedDetails.timeRangeText}
                             </span>
                           </div>
@@ -575,7 +575,7 @@ export default function SiswaCbtClient({
                             <span className={`font-bold ${schedState.state === 'ONGOING'
                                 ? 'text-emerald-600 dark:text-emerald-400'
                                 : schedState.state === 'UPCOMING'
-                                  ? 'text-purple-600 dark:text-purple-400'
+                                  ? 'text-[#4d8675] dark:text-[#8bb79e]'
                                   : 'text-slate-600 dark:text-slate-300'
                               }`}>
                               {schedState.countdown}
@@ -589,7 +589,7 @@ export default function SiswaCbtClient({
 
                         <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/30 p-3 rounded-2xl mb-4 border border-slate-100 dark:border-slate-800">
                           <div className="flex items-center gap-1.5">
-                            <Clock size={14} className="text-purple-500" />
+                            <Clock size={14} className="text-[#caa55d]" />
                             <span>{exam.duration} Menit</span>
                           </div>
                           <div className="flex items-center gap-1.5">
@@ -607,16 +607,16 @@ export default function SiswaCbtClient({
                         </div>
 
                         {isSubmitted && (
-                          <div className="p-3 rounded-2xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800/50 flex items-center justify-between mb-4">
+                          <div className="p-3 rounded-2xl bg-[#5fa08d]/10 dark:bg-[#5fa08d]/20 border border-[#5fa08d]/30 flex items-center justify-between mb-4">
                             <div>
-                              <span className="text-[11px] font-semibold text-purple-900 dark:text-purple-200 block">
+                              <span className="text-[11px] font-semibold text-[#4d8675] dark:text-[#8bb79e] block">
                                 Skor Ujian Anda:
                               </span>
                               <span className={`text-[10px] font-bold ${attempt.score >= 75 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                 {attempt.score >= 75 ? '✓ TUNTAS KKM' : '✕ PERLU REMEDIAL'}
                               </span>
                             </div>
-                            <span className="text-xl font-black text-purple-600 dark:text-purple-400">
+                            <span className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d]">
                               {attempt.score} / 100
                             </span>
                           </div>
@@ -638,7 +638,7 @@ export default function SiswaCbtClient({
                               onClick={() => {
                                 setSelectedExamForModal(exam);
                               }}
-                              className="text-center py-2 px-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold text-xs transition-colors shadow-sm flex items-center justify-center gap-1"
+                              className="text-center py-2 px-3 bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#5aa08c] hover:to-[#dfba6f] text-white rounded-xl font-bold text-xs transition-colors shadow-sm flex items-center justify-center gap-1"
                             >
                               <FileText size={13} /> Kartu Nilai
                             </button>
@@ -664,7 +664,7 @@ export default function SiswaCbtClient({
                             href={`/portal/siswa/cbt/${exam.id}`}
                             className={`w-full block text-center py-2.5 px-4 rounded-xl font-bold text-xs transition-all hover:scale-[1.02] active:scale-[0.98] ${isLiveTeacher || schedState.state === 'ONGOING'
                                 ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md shadow-emerald-500/25'
-                                : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md shadow-purple-500/25'
+                                : 'bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#5aa08c] hover:to-[#dfba6f] text-white shadow-md shadow-[#5fa08d]/25'
                               }`}
                           >
                             {isInProgress
@@ -693,7 +693,7 @@ export default function SiswaCbtClient({
               <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
                 <div className="flex items-center justify-between text-slate-500 text-xs font-semibold mb-2">
                   <span>Total Ujian Diikuti</span>
-                  <Award size={18} className="text-purple-600" />
+                  <Award size={18} className="text-[#5fa08d]" />
                 </div>
                 <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
                   {reportMetrics.total} <span className="text-xs font-medium text-slate-400">Paket</span>
@@ -704,11 +704,11 @@ export default function SiswaCbtClient({
               <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
                 <div className="flex items-center justify-between text-slate-500 text-xs font-semibold mb-2">
                   <span>Rata-rata Nilai CBT</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-700">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#caa55d]/15 text-[#b6a86e] dark:text-[#f5d076] border border-[#caa55d]/30">
                     Grade {reportMetrics.gradeLetter}
                   </span>
                 </div>
-                <div className="text-2xl sm:text-3xl font-black text-purple-600 dark:text-purple-400">
+                <div className="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d]">
                   {reportMetrics.avgScore} <span className="text-xs font-medium text-slate-400">/ 100</span>
                 </div>
                 <p className="text-[11px] text-slate-500 mt-1">Standar KKM Sekolah: 75</p>
@@ -868,7 +868,7 @@ export default function SiswaCbtClient({
                                 {exam.title}
                               </span>
                               <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
-                                <span className="font-semibold text-purple-600 dark:text-purple-400">{exam.subject}</span>
+                                <span className="font-semibold text-[#4d8675] dark:text-[#8bb79e]">{exam.subject}</span>
                                 <span>•</span>
                                 <span>Target: {formatClassTargetDisplay(exam.classTarget)}</span>
                                 <span>•</span>
@@ -935,7 +935,7 @@ export default function SiswaCbtClient({
                                 <button
                                   type="button"
                                   onClick={() => setSelectedExamForModal(exam)}
-                                  className="px-2.5 py-1.5 rounded-lg bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 text-purple-700 dark:text-purple-300 font-bold text-[11px] border border-purple-200 dark:border-purple-800 flex items-center gap-1 transition-colors cursor-pointer"
+                                  className="px-2.5 py-1.5 rounded-lg bg-[#5fa08d]/15 dark:bg-[#5fa08d]/25 hover:bg-[#5fa08d]/25 text-[#4d8675] dark:text-[#8bb79e] font-bold text-[11px] border border-[#5fa08d]/30 flex items-center gap-1 transition-colors cursor-pointer"
                                   title="Cetak Lembar Nilai Ujian Ini"
                                 >
                                   <Printer size={12} /> Cetak
@@ -960,9 +960,9 @@ export default function SiswaCbtClient({
       {selectedExamForModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 flex flex-col max-h-[92vh]">
-            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30">
+            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-[#5fa08d]/15 to-[#caa55d]/15 dark:from-[#5fa08d]/20 dark:to-[#caa55d]/20">
               <div className="flex items-center gap-2">
-                <Award className="text-purple-600" size={20} />
+                <Award className="text-[#caa55d]" size={20} />
                 <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
                   Surat Keterangan Hasil Evaluasi Belajar CBT Siswa
                 </h3>
@@ -1009,8 +1009,8 @@ export default function SiswaCbtClient({
                 </div>
 
                 {/* 📚 RINCIAN PAKET UJIAN */}
-                <div className="p-3 border border-black bg-purple-50/30 print-avoid-break space-y-1">
-                  <div className="text-[10px] font-bold text-purple-900 uppercase tracking-wider">
+                <div className="p-3 border border-black bg-slate-50 print-avoid-break space-y-1">
+                  <div className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
                     Mata Pelajaran: {selectedExamForModal.subject}
                   </div>
                   <div className="text-base font-black text-black">
@@ -1084,7 +1084,7 @@ export default function SiswaCbtClient({
               <button
                 type="button"
                 onClick={handlePrint}
-                className="px-5 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-1.5 shadow-md shadow-purple-500/25"
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#5aa08c] hover:to-[#dfba6f] text-white flex items-center gap-1.5 shadow-md shadow-[#5fa08d]/25"
               >
                 <Printer size={14} /> Cetak Kartu Lembar Nilai (PDF / Print)
               </button>
@@ -1200,7 +1200,7 @@ export default function SiswaCbtClient({
                       <td colSpan={3} className="py-2.5 px-3 text-right border-r border-black">
                         Rata-Rata Nilai CBT:
                       </td>
-                      <td className="py-2.5 px-2 text-center text-sm font-black border-r border-black text-purple-900">
+                      <td className="py-2.5 px-2 text-center text-sm font-black border-r border-black text-black">
                         {reportMetrics.avgScore}
                       </td>
                       <td className="py-2.5 px-2 text-center border-r border-black">
