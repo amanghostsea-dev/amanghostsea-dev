@@ -45,8 +45,67 @@ export default async function PortalSiswa() {
     redirect('/login?redirect=/portal/siswa');
   }
 
-  // Pastikan master mapel dan nilai siswa tersinkronisasi di Postgres
-  await ensureDefaultSubjectsAndGrades(studentName, studentNis);
+  // Ambil kelas aktual siswa (dari cookie / database rapor / riwayat ujian)
+  let studentClass = cookieStore.get('auth_class')?.value?.trim() || '';
+
+  if (!studentClass) {
+    try {
+      const gradeRecord = await prisma.studentGrade.findFirst({
+        where: {
+          OR: [
+            { studentName },
+            ...(studentNis ? [{ studentNis }] : []),
+            ...(authUser ? [{ studentNis: authUser }] : []),
+          ],
+        },
+        select: { studentClass: true },
+      });
+      if (gradeRecord?.studentClass) {
+        studentClass = gradeRecord.studentClass;
+      }
+    } catch (err) {
+      console.error('Error fetching student class from gradeRecord:', err);
+    }
+  }
+
+  if (!studentClass) {
+    try {
+      const attemptRecord = await prisma.examAttempt.findFirst({
+        where: {
+          OR: [
+            { studentName },
+            ...(studentNis ? [{ studentNis }] : []),
+          ],
+          studentClass: { not: null },
+        },
+        select: { studentClass: true },
+        orderBy: { startedAt: 'desc' },
+      });
+      if (attemptRecord?.studentClass) {
+        studentClass = attemptRecord.studentClass;
+      }
+    } catch {}
+  }
+
+  if (!studentClass) {
+    try {
+      const activeJurusans = await prisma.jurusan.findMany({
+        orderBy: { code: 'asc' },
+        select: { code: true, name: true },
+      });
+      const first = activeJurusans[0];
+      studentClass = first ? `Kelas XI - ${first.name} 1 (XI ${first.code} 1)` : 'Kelas XI TJKT 1';
+    } catch {
+      studentClass = 'Kelas XI TJKT 1';
+    }
+  }
+
+  // Pastikan master mapel dan nilai siswa tersinkronisasi di Postgres secara aman
+  try {
+    await ensureDefaultSubjectsAndGrades(studentName, studentNis);
+  } catch (err) {
+    console.error('ensureDefaultSubjectsAndGrades error:', err);
+  }
 
   const initials = studentName
     .split(' ')
@@ -70,32 +129,38 @@ export default async function PortalSiswa() {
     });
   } catch (err) {
     console.error('Error counting pending assignments:', err);
-    pendingAssignmentsCount = 2; // fallback
+    pendingAssignmentsCount = 0;
   }
 
   // Ambil daftar ujian CBT aktif / terjadwal
-  const rawUpcomingExams = await prisma.exam.findMany({
-    where: {
-      status: { in: ['PUBLISHED', 'ACTIVE'] },
-    },
-    include: {
-      _count: {
-        select: {
-          questions: true,
+  let rawUpcomingExams: any[] = [];
+  try {
+    rawUpcomingExams = await prisma.exam.findMany({
+      where: {
+        status: { in: ['PUBLISHED', 'ACTIVE'] },
+      },
+      include: {
+        _count: {
+          select: {
+            questions: true,
+          },
+        },
+        attempts: {
+          where: {
+            studentName,
+          },
         },
       },
-      attempts: {
-        where: {
-          studentName,
-        },
-      },
-    },
-    orderBy: [
-      { startTime: 'asc' },
-      { createdAt: 'desc' },
-    ],
-    take: 12,
-  });
+      orderBy: [
+        { startTime: 'asc' },
+        { createdAt: 'desc' },
+      ],
+      take: 12,
+    });
+  } catch (err) {
+    console.error('Error querying rawUpcomingExams:', err);
+    rawUpcomingExams = [];
+  }
 
   // Filter ujian yang relevan dengan kelas siswa (atau siswa telah memiliki attempt)
   const upcomingExams = rawUpcomingExams
@@ -106,10 +171,16 @@ export default async function PortalSiswa() {
     .slice(0, 6);
 
   // 1. Ambil data Jadwal Pelajaran (Mapel yang aktif & Guru Pengampu)
-  const dbSubjects = await prisma.subject.findMany({
-    where: { status: 'ACTIVE' },
-    orderBy: [{ code: 'asc' }],
-  });
+  let dbSubjects: any[] = [];
+  try {
+    dbSubjects = await prisma.subject.findMany({
+      where: { status: 'ACTIVE' },
+      orderBy: [{ code: 'asc' }],
+    });
+  } catch (err) {
+    console.error('Error querying subjects:', err);
+    dbSubjects = [];
+  }
 
   const schedule = dbSubjects.map((s) => ({
     day: s.day || 'Senin',
@@ -120,57 +191,33 @@ export default async function PortalSiswa() {
   }));
 
   // 2. Ambil data Transkrip Nilai Siswa langsung dari Database
-  const dbGrades = await prisma.studentGrade.findMany({
-    where: {
-      studentName: studentName,
-    },
-    include: {
-      subject: true,
-    },
-    orderBy: {
-      subject: {
-        code: 'asc',
+  let dbGrades: any[] = [];
+  try {
+    dbGrades = await prisma.studentGrade.findMany({
+      where: {
+        studentName: studentName,
       },
-    },
-  });
+      include: {
+        subject: true,
+      },
+      orderBy: {
+        subject: {
+          code: 'asc',
+        },
+      },
+    });
+  } catch (err) {
+    console.error('Error querying student grades:', err);
+    dbGrades = [];
+  }
 
   const grades = dbGrades.map((g) => ({
-    subject: g.subject.name,
+    subject: g.subject?.name || 'Mata Pelajaran',
     assignment: g.assignment,
     midExam: g.midExam,
     finalExam: g.finalExam,
     finalGrade: g.finalGrade,
   }));
-
-  // Ambil kelas aktual siswa dari database
-  let studentClass = '';
-  try {
-    const gradeRecord = await prisma.studentGrade.findFirst({
-      where: {
-        OR: [
-          { studentName },
-          ...(studentNis ? [{ studentNis }] : []),
-        ],
-      },
-      select: { studentClass: true },
-    });
-    if (gradeRecord?.studentClass) {
-      studentClass = gradeRecord.studentClass;
-    }
-  } catch {}
-
-  if (!studentClass) {
-    try {
-      const activeJurusans = await prisma.jurusan.findMany({
-        orderBy: { code: 'asc' },
-        select: { code: true, name: true },
-      });
-      const first = activeJurusans[0];
-      studentClass = first ? `Kelas XI - ${first.name} 1 (XI ${first.code} 1)` : 'Kelas XI TJKT 1';
-    } catch {
-      studentClass = 'Kelas XI TJKT 1';
-    }
-  }
 
   return (
     <SiswaDashboardClient

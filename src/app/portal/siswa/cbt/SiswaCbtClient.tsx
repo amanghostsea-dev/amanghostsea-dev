@@ -3,14 +3,14 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { 
-  ArrowLeft, 
-  MonitorPlay, 
-  Clock, 
-  Users, 
-  Key, 
-  CheckCircle2, 
-  Award, 
+import {
+  ArrowLeft,
+  MonitorPlay,
+  Clock,
+  Users,
+  Key,
+  CheckCircle2,
+  Award,
   FileCheck2,
   Calendar,
   Lock,
@@ -28,22 +28,22 @@ import {
   ChevronRight,
   FileText
 } from 'lucide-react';
-import { 
-  formatExamScheduleRange, 
+import {
+  formatExamScheduleRange,
   getExamScheduleDetails,
-  getExamScheduleState, 
-  ScheduleState, 
-  formatClassTargetDisplay, 
+  getExamScheduleState,
+  ScheduleState,
+  formatClassTargetDisplay,
   isClassTargetMatch,
   CbtTimezone,
   DEFAULT_CBT_TIMEZONE,
   TIMEZONE_IANA_MAP
 } from '@/lib/cbt-schedule';
-import { 
-  CbtOfficialKopSurat, 
-  CbtOfficialSignatures, 
-  CbtSecurityValidationBox, 
-  CbtDigitalStamp 
+import {
+  CbtOfficialKopSurat,
+  CbtOfficialSignatures,
+  CbtSecurityValidationBox,
+  CbtDigitalStamp
 } from '@/components/cbt/CbtOfficialPrintComponents';
 import { KopSuratConfig } from '@/app/admin/settings/types';
 
@@ -221,8 +221,8 @@ export default function SiswaCbtClient({
     });
 
     const avgScore = Math.round((scoreSum / total) * 10) / 10;
-    const accuracyAvg = totalQuestionsSum > 0 
-      ? Math.round((totalCorrectSum / totalQuestionsSum) * 100) 
+    const accuracyAvg = totalQuestionsSum > 0
+      ? Math.round((totalCorrectSum / totalQuestionsSum) * 100)
       : Math.round(avgScore);
 
     let gradeLetter = 'C';
@@ -346,11 +346,10 @@ export default function SiswaCbtClient({
             <button
               type="button"
               onClick={() => handleViewSwitch('exams')}
-              className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
-                activeView === 'exams'
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${activeView === 'exams'
                   ? 'bg-purple-600 text-white shadow-md shadow-purple-500/25'
                   : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
-              }`}
+                }`}
             >
               <MonitorPlay size={16} /> Ruang & Jadwal Ujian ({exams.length})
             </button>
@@ -358,11 +357,10 @@ export default function SiswaCbtClient({
             <button
               type="button"
               onClick={() => handleViewSwitch('reports')}
-              className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
-                activeView === 'reports'
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${activeView === 'reports'
                   ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/25 ring-2 ring-emerald-400/30'
                   : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
-              }`}
+                }`}
             >
               <FileSpreadsheet size={16} /> Transkrip & Laporan Nilai CBT Saya ({completedCount})
             </button>
@@ -383,11 +381,10 @@ export default function SiswaCbtClient({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <button
                 onClick={() => setFilterTab('ONGOING')}
-                className={`p-4 rounded-2xl border text-left transition-all ${
-                  filterTab === 'ONGOING'
+                className={`p-4 rounded-2xl border text-left transition-all ${filterTab === 'ONGOING'
                     ? 'bg-emerald-500/10 border-emerald-500 ring-2 ring-emerald-500/20'
                     : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-emerald-300'
-                }`}
+                  }`}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
@@ -401,11 +398,10 @@ export default function SiswaCbtClient({
 
               <button
                 onClick={() => setFilterTab('UPCOMING')}
-                className={`p-4 rounded-2xl border text-left transition-all ${
-                  filterTab === 'UPCOMING'
+                className={`p-4 rounded-2xl border text-left transition-all ${filterTab === 'UPCOMING'
                     ? 'bg-purple-500/10 border-purple-500 ring-2 ring-purple-500/20'
                     : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-purple-300'
-                }`}
+                  }`}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-bold text-purple-700 dark:text-purple-400 flex items-center gap-1.5">
@@ -446,11 +442,10 @@ export default function SiswaCbtClient({
                   <button
                     key={tab.id}
                     onClick={() => setFilterTab(tab.id as any)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                      filterTab === tab.id
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${filterTab === tab.id
                         ? 'bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 shadow-sm'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                    }`}
+                      }`}
                   >
                     {tab.label}
                   </button>
@@ -478,10 +473,10 @@ export default function SiswaCbtClient({
                     {filterTab === 'ONGOING'
                       ? 'Tidak ada ujian yang sedang berlangsung saat ini.'
                       : filterTab === 'UPCOMING'
-                      ? 'Tidak ada jadwal ujian mendatang untuk kelas Anda.'
-                      : filterTab === 'COMPLETED'
-                      ? 'Anda belum menyelesaikan paket ujian apapun.'
-                      : 'Belum ada paket ujian yang ditemukan.'}
+                        ? 'Tidak ada jadwal ujian mendatang untuk kelas Anda.'
+                        : filterTab === 'COMPLETED'
+                          ? 'Anda belum menyelesaikan paket ujian apapun.'
+                          : 'Belum ada paket ujian yang ditemukan.'}
                   </p>
                   {filterTab !== 'ALL' && (
                     <button
@@ -577,13 +572,12 @@ export default function SiswaCbtClient({
 
                           <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-0.5 px-0.5">
                             <span className="font-medium">Status Waktu:</span>
-                            <span className={`font-bold ${
-                              schedState.state === 'ONGOING' 
-                                ? 'text-emerald-600 dark:text-emerald-400' 
+                            <span className={`font-bold ${schedState.state === 'ONGOING'
+                                ? 'text-emerald-600 dark:text-emerald-400'
                                 : schedState.state === 'UPCOMING'
-                                ? 'text-purple-600 dark:text-purple-400'
-                                : 'text-slate-600 dark:text-slate-300'
-                            }`}>
+                                  ? 'text-purple-600 dark:text-purple-400'
+                                  : 'text-slate-600 dark:text-slate-300'
+                              }`}>
                               {schedState.countdown}
                             </span>
                           </div>
@@ -668,17 +662,16 @@ export default function SiswaCbtClient({
                         ) : (
                           <Link
                             href={`/portal/siswa/cbt/${exam.id}`}
-                            className={`w-full block text-center py-2.5 px-4 rounded-xl font-bold text-xs transition-all hover:scale-[1.02] active:scale-[0.98] ${
-                              isLiveTeacher || schedState.state === 'ONGOING'
+                            className={`w-full block text-center py-2.5 px-4 rounded-xl font-bold text-xs transition-all hover:scale-[1.02] active:scale-[0.98] ${isLiveTeacher || schedState.state === 'ONGOING'
                                 ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md shadow-emerald-500/25'
                                 : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md shadow-purple-500/25'
-                            }`}
+                              }`}
                           >
                             {isInProgress
                               ? 'Lanjutkan Pengerjaan Ujian →'
                               : isLiveTeacher || schedState.state === 'ONGOING'
-                              ? 'Masuk Ujian Sekarang →'
-                              : 'Masuk Ruang Tunggu Standby →'}
+                                ? 'Masuk Ujian Sekarang →'
+                                : 'Masuk Ruang Tunggu Standby →'}
                           </Link>
                         )}
                       </div>
@@ -763,31 +756,28 @@ export default function SiswaCbtClient({
                 <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs">
                   <button
                     onClick={() => setReportStatusFilter('ALL')}
-                    className={`px-3 py-1.5 rounded-lg font-bold transition-colors ${
-                      reportStatusFilter === 'ALL'
+                    className={`px-3 py-1.5 rounded-lg font-bold transition-colors ${reportStatusFilter === 'ALL'
                         ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
                         : 'text-slate-500 hover:text-slate-800'
-                    }`}
+                      }`}
                   >
                     Semua ({completedExamsList.length})
                   </button>
                   <button
                     onClick={() => setReportStatusFilter('PASSED')}
-                    className={`px-3 py-1.5 rounded-lg font-bold transition-colors ${
-                      reportStatusFilter === 'PASSED'
+                    className={`px-3 py-1.5 rounded-lg font-bold transition-colors ${reportStatusFilter === 'PASSED'
                         ? 'bg-white dark:bg-slate-900 text-emerald-600 shadow-xs'
                         : 'text-slate-500 hover:text-slate-800'
-                    }`}
+                      }`}
                   >
                     Tuntas ({reportMetrics.passedCount})
                   </button>
                   <button
                     onClick={() => setReportStatusFilter('REMEDIAL')}
-                    className={`px-3 py-1.5 rounded-lg font-bold transition-colors ${
-                      reportStatusFilter === 'REMEDIAL'
+                    className={`px-3 py-1.5 rounded-lg font-bold transition-colors ${reportStatusFilter === 'REMEDIAL'
                         ? 'bg-white dark:bg-slate-900 text-rose-600 shadow-xs'
                         : 'text-slate-500 hover:text-slate-800'
-                    }`}
+                      }`}
                   >
                     Remedial ({reportMetrics.remedialCount})
                   </button>
@@ -853,15 +843,15 @@ export default function SiswaCbtClient({
                         const score = att?.score || 0;
                         const isPassed = score >= 75;
                         const submittedDate = att?.submittedAt ? new Date(att.submittedAt) : null;
-                        const dateFormatted = submittedDate 
+                        const dateFormatted = submittedDate
                           ? submittedDate.toLocaleDateString('id-ID', {
-                              timeZone: TIMEZONE_IANA_MAP[timezone],
-                              day: 'numeric',
-                              month: 'short',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })
+                            timeZone: TIMEZONE_IANA_MAP[timezone],
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })
                           : '-';
 
                         const totalQ = att?.totalQuestions || exam._count.questions || 0;
@@ -901,11 +891,10 @@ export default function SiswaCbtClient({
                             </td>
 
                             <td className="py-3.5 px-4 text-center">
-                              <span className={`inline-block px-3 py-1 rounded-xl text-base font-black ${
-                                isPassed 
-                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800' 
+                              <span className={`inline-block px-3 py-1 rounded-xl text-base font-black ${isPassed
+                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
                                   : 'bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300 border border-rose-300 dark:border-rose-800'
-                              }`}>
+                                }`}>
                                 {score}
                               </span>
                             </td>
@@ -1013,8 +1002,8 @@ export default function SiswaCbtClient({
                   </div>
                   <div className="flex">
                     <span className="w-32 font-bold text-slate-700">Waktu Evaluasi</span>
-                    <span>: {selectedExamForModal.attempts[0]?.submittedAt 
-                      ? new Date(selectedExamForModal.attempts[0].submittedAt).toLocaleString('id-ID') 
+                    <span>: {selectedExamForModal.attempts[0]?.submittedAt
+                      ? new Date(selectedExamForModal.attempts[0].submittedAt).toLocaleString('id-ID')
                       : '-'}</span>
                   </div>
                 </div>
