@@ -278,6 +278,16 @@ export async function deleteBulkUsers(ids: string[]) {
   }
 }
 
+// Helper: Generator password acak bersih (menghindari karakter ambigu seperti 0, O, 1, l, I)
+function generateCleanRandomPassword(length = 8): string {
+  const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
 export interface BulkStudentItem {
   name: string;
   nisn: string;
@@ -291,6 +301,7 @@ export async function createBulkStudents(
   options?: {
     defaultPassword?: string;
     useNisnAsPassword?: boolean;
+    generateRandomPassword?: boolean;
     useNisnAsUsername?: boolean;
     studentClass?: string;
   }
@@ -303,6 +314,7 @@ export async function createBulkStudents(
 
     const defaultPwd = options?.defaultPassword?.trim() || 'siswa123';
     const useNisnAsPassword = !!options?.useNisnAsPassword;
+    const generateRandomPassword = !!options?.generateRandomPassword;
     const useNisnAsUsername = options?.useNisnAsUsername ?? true;
     const fallbackClass = options?.studentClass?.trim() || 'XI TJKT 1';
 
@@ -356,7 +368,13 @@ export async function createBulkStudents(
 
       let password = s.password?.trim();
       if (!password) {
-        password = useNisnAsPassword ? nisn : defaultPwd;
+        if (generateRandomPassword) {
+          password = generateCleanRandomPassword(8);
+        } else if (useNisnAsPassword) {
+          password = nisn;
+        } else {
+          password = defaultPwd;
+        }
       }
 
       try {

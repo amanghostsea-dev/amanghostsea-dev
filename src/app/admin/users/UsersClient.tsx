@@ -29,10 +29,32 @@ import {
   RotateCcw,
   ShieldCheck,
   ArrowRight,
-  UserCheck
+  UserCheck,
+  Key,
+  RefreshCw,
+  Lock
 } from 'lucide-react';
 import { createUser, updateUser, deleteUser, deleteBulkUsers, createBulkStudents, BulkStudentItem } from './actions';
 import ConfirmModal from '@/components/ConfirmModal';
+
+// Helper: Generator password acak bersih & unik (menghindari karakter ambigu 0, O, 1, l, I)
+function generateCleanRandomPassword(key: string, seed: number = 0): string {
+  const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz';
+  let hash = 5381;
+  const str = `${key}_${seed}_smkweb2026`;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) + str.charCodeAt(i);
+    hash = hash & hash;
+  }
+  hash = Math.abs(hash);
+
+  let result = '';
+  for (let i = 0; i < 8; i++) {
+    hash = (hash * 1664525 + 1013904223) >>> 0;
+    result += chars.charAt(hash % chars.length);
+  }
+  return result;
+}
 
 interface ParsedBulkStudent {
   name: string;
@@ -224,7 +246,10 @@ export default function UsersCRUD({
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [bulkText, setBulkText] = useState('');
   const [bulkDefaultPassword, setBulkDefaultPassword] = useState('siswa123');
-  const [bulkPasswordMode, setBulkPasswordMode] = useState<'default' | 'nisn'>('default');
+  const [bulkPasswordMode, setBulkPasswordMode] = useState<'default' | 'nisn' | 'random'>('default');
+  const [randomSeed, setRandomSeed] = useState(0);
+  const [copiedCredentials, setCopiedCredentials] = useState(false);
+  const [copiedSingleIdx, setCopiedSingleIdx] = useState<number | null>(null);
   const [bulkClass, setBulkClass] = useState(classTargets.find(c => c !== 'Semua Kelas' && !c.includes('Semua Jurusan')) || 'XI TJKT 1');
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkResult, setBulkResult] = useState<{
@@ -233,6 +258,15 @@ export default function UsersCRUD({
     skippedCount: number;
     skipped: { name: string; nisn: string; reason: string }[];
     errors: string[];
+    createdUsers?: Array<{
+      id: string;
+      name: string;
+      nisn?: string | null;
+      username: string;
+      password?: string | null;
+      studentClass?: string | null;
+      role: string;
+    }>;
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [copiedClass, setCopiedClass] = useState<string | null>(null);
@@ -461,7 +495,13 @@ export default function UsersCRUD({
 
       if (!username) username = nisn || name.toLowerCase().replace(/\s+/g, '');
       if (!password) {
-        password = bulkPasswordMode === 'nisn' ? (nisn || 'siswa123') : bulkDefaultPassword;
+        if (bulkPasswordMode === 'random') {
+          password = generateCleanRandomPassword(nisn || name || `row_${index}`, randomSeed);
+        } else if (bulkPasswordMode === 'nisn') {
+          password = nisn || 'siswa123';
+        } else {
+          password = bulkDefaultPassword;
+        }
       }
 
       let isValid = true;
@@ -500,7 +540,7 @@ export default function UsersCRUD({
     }
 
     return results;
-  }, [bulkText, bulkClass, bulkPasswordMode, bulkDefaultPassword, classTargets, jurusans]);
+  }, [bulkText, bulkClass, bulkPasswordMode, bulkDefaultPassword, randomSeed, classTargets, jurusans]);
 
   const validStudentsCount = parsedBulkStudents.filter(s => s.isValid).length;
   const invalidStudentsCount = parsedBulkStudents.length - validStudentsCount;
@@ -657,6 +697,67 @@ export default function UsersCRUD({
     }
   };
 
+  // Helper: Salin semua kredensial akun yang baru dibuat ke clipboard
+  const handleCopyCredentials = () => {
+    if (!bulkResult?.createdUsers || bulkResult.createdUsers.length === 0) return;
+    
+    const lines = [
+      'DAFTAR KREDENSIAL LOGIN AKUN SISWA - SMK NEGERI 1',
+      `Tanggal Dibuat: ${new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}`,
+      '---------------------------------------------------------------------------------',
+      'No | Nama Lengkap | Kelas | NISN / Username | Password',
+      '---------------------------------------------------------------------------------',
+    ];
+
+    bulkResult.createdUsers.forEach((u, i) => {
+      lines.push(`${i + 1}. ${u.name} | ${u.studentClass || '-'} | ${u.nisn || u.username} | ${u.password || '-'}`);
+    });
+
+    lines.push('---------------------------------------------------------------------------------');
+    lines.push('Catatan: Siswa dapat login di portal /ujian menggunakan NISN/Username dan Password di atas.');
+
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(lines.join('\n'));
+      setCopiedCredentials(true);
+      setTimeout(() => setCopiedCredentials(false), 3000);
+    }
+  };
+
+  // Helper: Unduh kredensial dalam bentuk CSV
+  const handleDownloadCredentialsCsv = () => {
+    if (!bulkResult?.createdUsers || bulkResult.createdUsers.length === 0) return;
+
+    const headers = ['No', 'NISN', 'Nama Lengkap', 'Kelas', 'Username', 'Password', 'Peran', 'Status'];
+    const rows = bulkResult.createdUsers.map((u, i) => [
+      String(i + 1),
+      `"${u.nisn || ''}"`,
+      `"${u.name.replace(/"/g, '""')}"`,
+      `"${(u.studentClass || '').replace(/"/g, '""')}"`,
+      `"${(u.username || '').replace(/"/g, '""')}"`,
+      `"${(u.password || '').replace(/"/g, '""')}"`,
+      `"${u.role}"`,
+      '"Aktif"'
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `kredensial_akun_siswa_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleCopySingleCredential = (u: any, idx: number) => {
+    const text = `Akun Siswa: ${u.name} | NISN: ${u.nisn || u.username} | Password: ${u.password || '-'}`;
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedSingleIdx(idx);
+      setTimeout(() => setCopiedSingleIdx(null), 2000);
+    }
+  };
+
   // Process Bulk Submit
   const handleBulkSubmit = async () => {
     const validStudents = parsedBulkStudents.filter(s => s.isValid);
@@ -669,17 +770,24 @@ export default function UsersCRUD({
     setBulkResult(null);
 
     try {
-      const payload: BulkStudentItem[] = validStudents.map(s => ({
+      const payload: BulkStudentItem[] = validStudents.map((s, idx) => ({
         name: s.name,
         nisn: s.nisn,
         username: s.username,
-        password: s.password || (bulkPasswordMode === 'nisn' ? s.nisn : bulkDefaultPassword),
+        password: s.password || (
+          bulkPasswordMode === 'random'
+            ? generateCleanRandomPassword(s.nisn || s.name || `row_${idx}`, randomSeed)
+            : bulkPasswordMode === 'nisn'
+              ? s.nisn
+              : bulkDefaultPassword
+        ),
         studentClass: s.studentClass || bulkClass,
       }));
 
       const res = await createBulkStudents(payload, {
         defaultPassword: bulkDefaultPassword,
         useNisnAsPassword: bulkPasswordMode === 'nisn',
+        generateRandomPassword: bulkPasswordMode === 'random',
         useNisnAsUsername: false,
         studentClass: bulkClass,
       });
@@ -691,6 +799,7 @@ export default function UsersCRUD({
           skippedCount: res.skippedCount || 0,
           skipped: res.skipped || [],
           errors: res.errors || [],
+          createdUsers: res.createdUsers || [],
         });
         if (res.createdUsers && res.createdUsers.length > 0) {
           setUsers(prev => [...(res.createdUsers as unknown as User[]), ...prev]);
@@ -1765,6 +1874,97 @@ export default function UsersCRUD({
                       </div>
                     )}
 
+                    {/* Daftar Kredensial Akun yang Baru Dibuat */}
+                    {bulkResult.createdUsers && bulkResult.createdUsers.length > 0 && (
+                      <div className="p-4 rounded-2xl bg-white dark:bg-gray-900 border border-indigo-200/80 dark:border-indigo-900/60 shadow-sm space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2 border-b border-gray-100 dark:border-gray-800">
+                          <div>
+                            <div className="text-xs font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
+                              <Key size={15} className="text-indigo-600" />
+                              <span>Kredensial Akun Siswa Baru ({bulkResult.createdUsers.length} Siswa):</span>
+                            </div>
+                            <p className="text-[11px] text-gray-500">
+                              Simpan atau bagikan kredensial login (NISN & Password) ini kepada siswa untuk keperluan ujian dan rapor.
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={handleCopyCredentials}
+                              className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 ${
+                                copiedCredentials
+                                  ? 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-200 border-emerald-300'
+                                  : 'bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800'
+                              }`}
+                            >
+                              {copiedCredentials ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
+                              <span>{copiedCredentials ? 'Kredensial Disalin!' : 'Salin Semua Kredensial'}</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={handleDownloadCredentialsCsv}
+                              className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm shadow-purple-600/25 active:scale-95 cursor-pointer"
+                            >
+                              <Download size={13} />
+                              <span>Unduh CSV Kredensial</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Tabel Kredensial */}
+                        <div className="border border-gray-100 dark:border-gray-800 rounded-xl overflow-hidden max-h-56 overflow-y-auto">
+                          <table className="w-full text-left text-xs border-collapse">
+                            <thead className="bg-gray-50 dark:bg-gray-800/80 sticky top-0 text-gray-500 font-semibold border-b border-gray-100 dark:border-gray-800">
+                              <tr>
+                                <th className="p-2 pl-3 w-10 text-center">No</th>
+                                <th className="p-2">Nama Siswa</th>
+                                <th className="p-2 font-mono">NISN / Username</th>
+                                <th className="p-2">Kelas</th>
+                                <th className="p-2 font-mono">Password</th>
+                                <th className="p-2 pr-3 text-right">Aksi</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60">
+                              {bulkResult.createdUsers.map((u, idx) => (
+                                <tr key={u.id || idx} className="hover:bg-indigo-50/30 dark:hover:bg-indigo-950/20">
+                                  <td className="p-2 pl-3 text-center text-gray-400 font-mono text-[11px]">{idx + 1}</td>
+                                  <td className="p-2 font-bold text-gray-900 dark:text-white">{u.name}</td>
+                                  <td className="p-2 font-mono text-gray-700 dark:text-gray-300">{u.nisn || u.username}</td>
+                                  <td className="p-2">
+                                    <span className="px-1.5 py-0.5 rounded font-mono font-bold text-[10.5px] bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                                      {u.studentClass || '-'}
+                                    </span>
+                                  </td>
+                                  <td className="p-2 font-mono">
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
+                                      <Key size={11} className="text-indigo-500" />
+                                      {u.password || '-'}
+                                    </span>
+                                  </td>
+                                  <td className="p-2 pr-3 text-right">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCopySingleCredential(u, idx)}
+                                      className="text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors p-1"
+                                      title="Salin kredensial baris ini"
+                                    >
+                                      {copiedSingleIdx === idx ? (
+                                        <Check size={13} className="text-emerald-600" />
+                                      ) : (
+                                        <Copy size={13} />
+                                      )}
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Petunjuk Langkah Selanjutnya */}
                     <div className="p-4 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-900/50 text-xs space-y-2">
                       <div className="font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
@@ -1989,9 +2189,9 @@ export default function UsersCRUD({
                 </div>
 
                 {/* Password Setting Options */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40">
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2.5">
                       Pengaturan Password Akun (Jika Kolom Password Kosong):
                     </label>
                     <div className="space-y-2">
@@ -2015,11 +2215,26 @@ export default function UsersCRUD({
                         />
                         <span>Gunakan masing-masing NISN sebagai password</span>
                       </label>
+                      <label className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300 cursor-pointer font-medium">
+                        <input
+                          type="radio"
+                          name="pwdMode"
+                          checked={bulkPasswordMode === 'random'}
+                          onChange={() => setBulkPasswordMode('random')}
+                          className="text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="flex items-center gap-1.5 flex-wrap">
+                          <span>Generate password acak unik untuk setiap siswa</span>
+                          <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-300 dark:border-emerald-800">
+                            Lebih Aman
+                          </span>
+                        </span>
+                      </label>
                     </div>
                   </div>
 
                   {bulkPasswordMode === 'default' && (
-                    <div>
+                    <div className="flex flex-col justify-center bg-white dark:bg-gray-900/80 p-3.5 rounded-xl border border-indigo-100 dark:border-indigo-900/40">
                       <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
                         Password Default:
                       </label>
@@ -2027,9 +2242,50 @@ export default function UsersCRUD({
                         type="text"
                         value={bulkDefaultPassword}
                         onChange={e => setBulkDefaultPassword(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white font-mono text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white font-mono text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
                         placeholder="siswa123"
                       />
+                      <p className="text-[11px] text-gray-500 mt-1.5">Semua siswa dengan kolom password kosong akan memiliki password ini.</p>
+                    </div>
+                  )}
+
+                  {bulkPasswordMode === 'nisn' && (
+                    <div className="flex flex-col justify-center text-xs text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-900/80 p-3.5 rounded-xl border border-indigo-100 dark:border-indigo-900/40 space-y-1">
+                      <p className="font-bold text-indigo-950 dark:text-indigo-200">Mode NISN sebagai Password:</p>
+                      <p className="text-[11px] leading-relaxed">
+                        Setiap akun siswa otomatis memiliki password yang persis sama dengan nomor NISN masing-masing (misal NISN: <code className="font-mono font-bold text-indigo-600 dark:text-indigo-400">0081234501</code> → Password: <code className="font-mono font-bold text-indigo-600 dark:text-indigo-400">0081234501</code>).
+                      </p>
+                    </div>
+                  )}
+
+                  {bulkPasswordMode === 'random' && (
+                    <div className="flex flex-col justify-between text-xs bg-white dark:bg-gray-900/80 p-3.5 rounded-xl border border-indigo-200 dark:border-indigo-800/60 space-y-2">
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                            <Key size={14} className="text-indigo-600" />
+                            Password Acak Unik (8 Karakter):
+                          </span>
+                          <span className="text-[10px] font-mono bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded font-bold">
+                            Alfanumerik Bersih
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-1 leading-relaxed">
+                          Sistem meng-generate password acak 8 karakter unik untuk setiap siswa tanpa karakter ambigu (bebas huruf 0, O, I, 1, l) agar mudah dibaca pada kartu ujian.
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-gray-800">
+                        <span className="text-[10.5px] text-gray-500">Ingin kombinasi lain?</span>
+                        <button
+                          type="button"
+                          onClick={() => setRandomSeed(prev => prev + 1)}
+                          className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-lg font-bold text-[11px] flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                          title="Generate ulang kombinasi password acak untuk semua baris"
+                        >
+                          <RefreshCw size={12} />
+                          <span>Acak Ulang Password</span>
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -2090,7 +2346,16 @@ export default function UsersCRUD({
                                 </div>
                               </td>
                               <td className="p-2.5 font-mono text-gray-700 dark:text-gray-300">{s.username || '-'}</td>
-                              <td className="p-2.5 font-mono text-gray-500 dark:text-gray-400">{s.password || '-'}</td>
+                              <td className="p-2.5 font-mono">
+                                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-bold border ${
+                                  bulkPasswordMode === 'random'
+                                    ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+                                }`}>
+                                  {bulkPasswordMode === 'random' && <Key size={11} className="text-indigo-500" />}
+                                  {s.password || '-'}
+                                </span>
+                              </td>
                               <td className="p-2.5 pr-4 text-right">
                                 {s.isValid ? (
                                   <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center justify-end gap-1">
