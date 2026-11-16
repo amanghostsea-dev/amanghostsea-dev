@@ -14,6 +14,7 @@ import {
   AlertCircle,
   Clock, 
   Key, 
+  Lock,
   HelpCircle,
   ExternalLink,
   Copy,
@@ -2009,20 +2010,28 @@ Poin: 10
                           {att.totalCorrect} dari {att.totalQuestions} soal
                         </td>
                         <td className="py-4 px-6">
-                          {att.tabSwitchCount > 0 ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300">
-                              <AlertTriangle size={12} /> {att.tabSwitchCount}x Pindah Tab
-                            </span>
-                          ) : (
+                          {att.tabSwitchCount === 0 ? (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
                               <CheckCircle size={12} /> Bersih (0x)
+                            </span>
+                          ) : att.tabSwitchCount === 1 ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-300">
+                              <AlertTriangle size={12} /> 1x (Peringatan Layar)
+                            </span>
+                          ) : att.tabSwitchCount === 2 ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40">
+                              <Lock size={12} /> 2x (Terkunci Pengawas)
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-500/40 animate-pulse">
+                              <AlertTriangle size={12} /> {att.tabSwitchCount}x (SUSPEND TOTAL)
                             </span>
                           )}
                         </td>
                         <td className="py-4 px-6">
                           {att.isBlocked ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-500/40">
-                              DIBLOKIR SISTEM
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-rose-600 text-white shadow-sm animate-pulse">
+                              SUSPEND (STRIKE 3)
                             </span>
                           ) : (
                             <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
@@ -2039,20 +2048,20 @@ Poin: 10
                             {isSuperAdmin && att.isBlocked && (
                               <button
                                 onClick={async () => {
-                                  if (confirm(`Buka blokir akun CBT untuk siswa "${att.studentName}"? Siswa akan dapat melanjutkan ujian kembali.`)) {
+                                  if (confirm(`Buka suspend akun CBT untuk siswa "${att.studentName}"? Siswa akan dapat melanjutkan ujian kembali.`)) {
                                     const res = await adminUnblockStrike3Action(att.id, currentUser?.name);
                                     if (res.success) {
                                       alert(res.message);
                                       window.location.reload();
                                     } else {
-                                      alert(res.error || 'Gagal membuka blokir');
+                                      alert(res.error || 'Gagal membuka suspend');
                                     }
                                   }
                                 }}
                                 className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition inline-flex items-center gap-1 cursor-pointer"
-                                title="Buka Blokir Siswa (Wewenang Admin Utama)"
+                                title="Buka Suspend Siswa (Wewenang Khusus Admin Utama)"
                               >
-                                <ShieldCheck size={13} /> Buka Blokir
+                                <ShieldCheck size={13} /> Buka Suspend
                               </button>
                             )}
 

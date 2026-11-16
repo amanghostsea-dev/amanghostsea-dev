@@ -189,19 +189,30 @@ export default function CbtExamRoom({
     if (attempt && attempt.status === 'IN_PROGRESS') {
       try {
         const saved = localStorage.getItem(storageKey);
+        const dbCount = attempt.tabSwitchCount || 0;
         if (saved) {
           const parsed = JSON.parse(saved);
           if (parsed.answers) setAnswers(parsed.answers);
           if (parsed.doubtful) setDoubtful(parsed.doubtful);
-          if (parsed.tabSwitchCount) {
-            setTabSwitchCount(parsed.tabSwitchCount);
-            if (parsed.tabSwitchCount === 2 && !(attempt as any).proctorNotes?.includes('[IZIN_LANJUT_P2]')) {
+
+          // Jika di database attempt masih 0 (baru/direset), sinkronkan reset ke localStorage
+          if (dbCount === 0) {
+            setTabSwitchCount(0);
+            setIsStrike2Locked(false);
+            try {
+              localStorage.setItem(storageKey, JSON.stringify({ ...parsed, tabSwitchCount: 0 }));
+            } catch {}
+          } else {
+            const count = Math.max(dbCount, parsed.tabSwitchCount || 0);
+            setTabSwitchCount(count);
+            if (count === 2 && !(attempt as any).proctorNotes?.includes('[IZIN_LANJUT_P2]')) {
               setIsStrike2Locked(true);
             }
           }
         } else if (attempt.answers) {
           const dbAnswers = JSON.parse(attempt.answers);
           setAnswers(dbAnswers);
+          setTabSwitchCount(dbCount);
         }
       } catch (err) {
         console.error('Failed to parse saved answers', err);
@@ -210,19 +221,35 @@ export default function CbtExamRoom({
   }, [attempt, storageKey]);
 
   // Anti-Cheat: Progressive 3-Strike Visibility and Window Blur Detection
+  const lastViolationTimeRef = useRef<number>(0);
+  const answersRef = useRef(answers);
+  answersRef.current = answers;
+
   useEffect(() => {
     if (!attempt || attempt.status !== 'IN_PROGRESS' || finalResult) return;
 
     const handleViolation = () => {
+      const now = Date.now();
+      // 🛡️ Cooldown 3000ms: Menghindari double-increment akibat browser menembakkan
+      // window.blur dan document.visibilitychange secara bersamaan saat user alt-tab / pindah tab
+      if (now - lastViolationTimeRef.current < 3000) {
+        return;
+      }
+      lastViolationTimeRef.current = now;
+
       setTabSwitchCount((prev) => {
         const next = prev + 1;
 
         if (next === 1) {
+          // ⚠️ PELANGGARAN KE-1: Tampilkan notifikasi peringatan tegas di layar, ujian masih berlanjut
           setShowCheatWarning(true);
+          setIsStrike2Locked(false);
         } else if (next === 2) {
+          // 🚫 PELANGGARAN KE-2: Layar ujian DIBLOKIR / DIKUNCI, wajib lapor ke Pengawas Ruangan
           setIsStrike2Locked(true);
           setShowCheatWarning(false);
         } else if (next >= 3) {
+          // ⛔ PELANGGARAN KE-3: Akun ujian DI-SUSPEND PERMANEN, wajib lapor ke Admin Utama
           setAttempt((prevAtt) => prevAtt ? { ...prevAtt, isBlocked: true } : prevAtt);
           setIsStrike2Locked(false);
           setShowCheatWarning(false);
@@ -237,8 +264,8 @@ export default function CbtExamRoom({
           );
         } catch { }
 
-        // Background sync to server with 3-strike handling
-        saveProgress(attempt.id, answers, next).then((res) => {
+        // Background sync to server with progressive 3-strike handling
+        saveProgress(attempt.id, answersRef.current, next).then((res) => {
           if (res && res.success) {
             if (res.isBlocked) {
               setAttempt((prevAtt) => prevAtt ? { ...prevAtt, isBlocked: true, proctorNotes: res.proctorNotes } : prevAtt);
@@ -270,7 +297,7 @@ export default function CbtExamRoom({
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleBlur);
     };
-  }, [attempt, finalResult, answers, storageKey]);
+  }, [attempt, finalResult, storageKey]);
 
   // Handle final submit function (defined before timer effect to satisfy dependency rules)
   const handleFinalSubmit = useCallback(async () => {
@@ -558,10 +585,10 @@ export default function CbtExamRoom({
 
           <div>
             <span className="px-3 py-1 rounded-full text-xs font-black bg-rose-500/30 text-rose-300 border border-rose-500/50 uppercase tracking-wider">
-              {isStrike3 ? 'Pelanggaran ke-3 (Blokir Total CBT)' : 'Sesi Ujian Ditangguhkan'}
+              {isStrike3 ? 'Pelanggaran ke-3 • Akun di-Suspend Sistem' : 'Sesi Ujian Ditangguhkan'}
             </span>
             <h2 className="text-2xl font-black text-rose-300 mt-3">
-              {isStrike3 ? 'Akun CBT Anda Diblokir Sistem' : 'Ujian Ditangguhkan Pengawas'}
+              {isStrike3 ? 'Akun CBT Anda Di-Suspend Total' : 'Ujian Ditangguhkan Pengawas'}
             </h2>
           </div>
 
@@ -569,14 +596,17 @@ export default function CbtExamRoom({
             {isStrike3 ? (
               <>
                 <p>
-                  Pengerjaan ujian Anda telah <strong>dihentikan secara permanen oleh sistem</strong> karena Anda terdeteksi melakukan <strong>pelanggaran tata tertib sebanyak 3 kali berturut-turut</strong> (berpindah tab / jendela layar / aplikasi).
+                  Pengerjaan ujian Anda telah <strong>dihentikan secara permanen dan akun Anda di-suspend oleh sistem</strong> karena telah melakukan <strong>pelanggaran tata tertib sebanyak 3 kali berturut-turut</strong> (berpindah tab / jendela layar / aplikasi).
                 </p>
-                <div className="p-3.5 rounded-xl bg-rose-950/70 border border-rose-600/60 text-rose-200 text-xs space-y-1">
+                <div className="p-3.5 rounded-xl bg-rose-950/70 border border-rose-600/60 text-rose-200 text-xs space-y-2">
                   <div className="font-bold text-rose-300 flex items-center gap-1.5">
-                    <ShieldAlert size={16} /> PERHATIAN PENTING:
+                    <ShieldAlert size={16} /> PERHATIAN KHUSUS (KEWENANGAN PENGAWAS DITUTUP):
                   </div>
                   <p>
-                    Sesuai tata tertib ujian, <strong>Pengawas Ruangan TIDAK DAPAT membuka blokir ini</strong>. Anda diwajibkan segera melapor langsung ke <strong>ADMIN UTAMA SEKOLAH</strong> untuk proses tindak lanjut dan pengaktifan akun.
+                    Sesuai SOP Ujian Terpusat, <strong>Pengawas Ruangan di kelas TIDAK DAPAT membuka suspend ini</strong>.
+                  </p>
+                  <p className="font-bold text-white">
+                    🏛️ Anda diwajibkan segera melapor langsung ke ADMIN UTAMA SEKOLAH (SUPER ADMIN) di ruang panitia ujian / server CBT untuk verifikasi kejadian dan pertimbangan pembukaan suspend.
                   </p>
                 </div>
               </>
@@ -1039,22 +1069,46 @@ export default function CbtExamRoom({
         </div>
       </div>
 
-      {/* ⚠️ STRIKE 1: TOAST PERINGATAN AWAL ANTI-CURANG */}
-      {showCheatWarning && tabSwitchCount === 1 && !isStrike2Locked && (
-        <div className="fixed bottom-6 right-6 z-50 max-w-sm bg-amber-600 text-white p-4 rounded-2xl shadow-2xl border border-amber-500 animate-in slide-in-from-bottom flex items-start gap-3">
-          <AlertTriangle size={24} className="flex-shrink-0 mt-0.5 text-amber-200" />
-          <div className="flex-1 text-xs">
-            <h4 className="font-bold text-sm mb-0.5 text-amber-100">⚠️ Peringatan Anti-Curang (Ke-1)</h4>
-            <p className="text-amber-50 leading-snug">
-              Anda terdeteksi membuka tab atau aplikasi lain. Pelanggaran ke-1 ini telah dicatat ke sistem Pengawas Ruangan. Harap tetap berada di lembar soal!
-            </p>
+      {/* ⚠️ STRIKE 1: MODAL PERINGATAN PELANGGARAN PERTAMA (TATA TERTIB CBT) */}
+      {showCheatWarning && tabSwitchCount === 1 && !isStrike2Locked && !(attempt as any)?.isBlocked && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className="max-w-md w-full bg-slate-900 border-2 border-amber-500 rounded-3xl p-6 sm:p-7 text-center space-y-4 shadow-2xl animate-in zoom-in-95">
+            <div className="w-16 h-16 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto text-3xl shadow-lg shadow-amber-500/20">
+              <AlertTriangle size={34} className="text-amber-400 animate-bounce" />
+            </div>
+
+            <div>
+              <span className="px-3 py-1 rounded-full text-[11px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase tracking-wider">
+                Pelanggaran Ke-1 • Peringatan Teguran Sistem
+              </span>
+              <h3 className="text-xl font-black text-white mt-2.5">
+                Terdeteksi Berpindah Tab / Layar!
+              </h3>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-amber-950/40 border border-amber-500/30 text-left text-xs text-amber-200/90 space-y-2 leading-relaxed">
+              <p>
+                Sistem mendeteksi bahwa Anda telah berpindah tab, meminimalkan jendela ujian, atau membuka aplikasi lain di luar lembar ujian.
+              </p>
+              <div className="p-3 rounded-xl bg-amber-900/40 border border-amber-500/40 text-amber-100 text-[11px] space-y-1">
+                <strong className="text-amber-300 font-bold block">⚠️ KETENTUAN TATA TERTIB CBT:</strong>
+                <p>
+                  Ini adalah <strong>Peringatan Pertama</strong>. Anda <strong>masih diizinkan melanjutkan pengerjaan soal</strong>.
+                </p>
+                <p className="text-rose-300 font-semibold">
+                  Jika Anda terdeteksi keluar layar 1 kali lagi (Pelanggaran ke-2), lembar ujian Anda akan LANGSUNG DIBLOKIR/DIKUNCI dan Anda wajib melapor ke Pengawas Ruangan!
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowCheatWarning(false)}
+              className="w-full py-3 px-5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:scale-95 text-slate-950 font-black text-xs transition-all shadow-lg shadow-amber-500/25 cursor-pointer"
+            >
+              Saya Mengerti &amp; Lanjutkan Ujian
+            </button>
           </div>
-          <button
-            onClick={() => setShowCheatWarning(false)}
-            className="text-amber-200 hover:text-white text-xs font-bold p-1 cursor-pointer"
-          >
-            ✕
-          </button>
         </div>
       )}
 
@@ -1068,29 +1122,32 @@ export default function CbtExamRoom({
 
             <div>
               <span className="px-3 py-1 rounded-full text-xs font-black bg-amber-500/30 text-amber-300 border border-amber-500/50 uppercase tracking-wider">
-                Peringatan Kedua (Terkunci)
+                Pelanggaran Ke-2 • Ujian Diblokir Sementara
               </span>
               <h2 className="text-2xl font-black text-white mt-3">
-                Pengerjaan Soal Terkunci Sementara
+                Layar Ujian Terkunci Sementara
               </h2>
             </div>
 
             <div className="p-4 rounded-2xl bg-amber-950/40 border border-amber-500/40 text-left text-xs text-amber-200/90 space-y-2 leading-relaxed">
               <p className="font-semibold text-amber-300">
-                ⚠️ Anda terdeteksi keluar dari layar ujian sebanyak 2 kali (berpindah tab / aplikasi / minimize).
+                ⚠️ Anda terdeteksi melakukan pelanggaran tata tertib sebanyak 2 kali (berpindah tab / aplikasi / minimize layar).
               </p>
               <p>
-                Sistem telah <strong>menonaktifkan dan mengunci seluruh lembar pengerjaan soal</strong>.
+                Sesuai tata tertib ujian, <strong>seluruh lembar pengerjaan soal telah dikunci dan diblokir sementara</strong>.
               </p>
-              <div className="pt-2 border-t border-amber-500/30 space-y-1">
+              <div className="pt-2 border-t border-amber-500/30 space-y-1.5">
                 <div className="font-bold text-white uppercase text-[11px] tracking-wide">
-                  👉 Langkah Penyelesaian:
+                  👉 Langkah Wajib Peserta:
                 </div>
                 <ol className="list-decimal list-inside space-y-1 text-slate-300">
-                  <li>Segera temui <strong>Pengawas Ruangan</strong> di depan kelas sekarang.</li>
-                  <li>Pengawas akan memverifikasi dan mengaktifkan <strong>tombol izin melanjutkan ujian</strong> di meja pengawas.</li>
-                  <li>Tindakan ini akan <strong>tercatat secara resmi di Berita Acara Ujian (BAP)</strong>.</li>
+                  <li>Segera temui <strong>Pengawas Ruangan</strong> di meja depan kelas sekarang.</li>
+                  <li>Pengawas akan memverifikasi pelanggaran dan menekan tombol <strong>&quot;Buka Kunci Pelanggaran ke-2&quot;</strong> di Konsol Pengawas.</li>
+                  <li>Setelah Pengawas mengizinkan, klik tombol <strong>Periksa Izin Pengawas</strong> di bawah.</li>
                 </ol>
+                <div className="p-2.5 rounded-lg bg-rose-950/50 border border-rose-500/40 text-rose-200 text-[11px]">
+                  <strong>⚠️ PERINGATAN TERAKHIR:</strong> Jika Anda melanggar 1 kali lagi (Pelanggaran ke-3), akun CBT Anda akan <strong>DI-SUSPEND TOTAL</strong> dan hanya bisa dibuka oleh <strong>Admin Utama Sekolah</strong>!
+                </div>
               </div>
             </div>
 

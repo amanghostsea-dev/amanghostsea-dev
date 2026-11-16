@@ -771,9 +771,9 @@ export default function ProctorLiveConsole({
                             <span>{att?.proctorNotes?.includes('[IZIN_LANJUT_P2]') ? '2x Tab (Izin Diberikan)' : '2x Tab (TERKUNCI)'}</span>
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-black bg-rose-950 text-rose-300 border border-rose-800 animate-pulse flex items-center justify-center gap-1 mx-auto w-fit" title="Pelanggaran ke-3: Akun diblokir otomatis oleh sistem">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-black bg-rose-950 text-rose-300 border border-rose-800 animate-pulse flex items-center justify-center gap-1 mx-auto w-fit" title="Pelanggaran ke-3: Akun di-suspend permanen. Wajib melapor ke Admin Utama">
                             <AlertTriangle size={11} />
-                            <span>{item.tabSwitchCount}x (BLOKIR SISTEM)</span>
+                            <span>{item.tabSwitchCount}x (SUSPEND TOTAL - LAPOR ADMIN)</span>
                           </span>
                         )}
                       </td>
@@ -1191,24 +1191,77 @@ export default function ProctorLiveConsole({
                 </div>
               </div>
 
-              {/* Catatan Integritas Ruangan */}
-              <div className="border border-black p-3 text-xs space-y-1 font-sans">
-                <div className="font-bold mb-1 border-b border-black pb-1">Catatan Kejadian Khusus / Integritas Pengawasan:</div>
-                <p className="text-slate-800 italic">{bapNotes}</p>
-                {violationCount > 0 && (
-                  <div className="space-y-1 pt-1 text-[11px]">
-                    <p className="text-rose-800 font-bold">
-                      ⚠️ Terdeteksi {violationCount} siswa yang melakukan perpindahan tab / jendela layar selama ujian:
+              {/* Catatan Kejadian Khusus & Rekapitulasi Pelanggaran Siswa (BAP Resmi) */}
+              <div className="border border-black p-3 text-xs space-y-2 font-sans">
+                <div className="font-bold border-b border-black pb-1 flex items-center justify-between">
+                  <span>Catatan Kejadian Khusus &amp; Rekapitulasi Pelanggaran Siswa (BAP):</span>
+                  <span className="text-[11px] font-normal">
+                    Total: <strong>{violationCount} Siswa Terindikasi</strong>
+                  </span>
+                </div>
+                {bapNotes && (
+                  <div className="p-2 bg-slate-50 border border-slate-300 rounded text-[11px] italic text-slate-800">
+                    Catatan Khusus Pengawas: &quot;{bapNotes}&quot;
+                  </div>
+                )}
+
+                {violationCount > 0 ? (
+                  <div className="overflow-x-auto pt-1">
+                    <p className="text-rose-800 font-bold text-[11px] mb-1.5">
+                      ⚠️ Rekapitulasi Pelanggaran Tata Tertib Berdasarkan Tingkat Tertinggi:
                     </p>
-                    <div className="text-slate-800 font-mono text-[10px] pl-2 border-l-2 border-slate-400 space-y-0.5">
-                      {combinedRoster
-                        .filter((r) => r.tabSwitchCount > 0 || r.isBlocked)
-                        .map((r) => (
-                          <div key={r.studentNis + r.studentName}>
-                            • <strong>{r.studentName}</strong> ({r.studentNis}): {r.tabSwitchCount}x Pindah Tab {r.attempt?.proctorNotes ? `— ${r.attempt.proctorNotes}` : ''}
-                          </div>
-                        ))}
-                    </div>
+                    <table className="w-full border-collapse border border-black text-[10.5px]">
+                      <thead>
+                        <tr className="bg-slate-100 font-bold text-center">
+                          <th className="border border-black px-1.5 py-1 w-8">No</th>
+                          <th className="border border-black px-2 py-1 text-left">Nama Peserta</th>
+                          <th className="border border-black px-1.5 py-1">NISN / No Induk</th>
+                          <th className="border border-black px-1.5 py-1">Pindah Tab</th>
+                          <th className="border border-black px-2 py-1 text-left">Pelanggaran Tertinggi &amp; Status Tindakan</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {combinedRoster
+                          .filter((r) => r.tabSwitchCount > 0 || r.isBlocked)
+                          .map((r, idx) => {
+                            const isStrike3 = r.tabSwitchCount >= 3 || r.isBlocked || r.attempt?.proctorNotes?.includes('[STRIKE_3_BLOKIR]');
+                            const isStrike2 = !isStrike3 && r.tabSwitchCount === 2;
+
+                            return (
+                              <tr key={r.studentNis + r.studentName} className={isStrike3 ? 'bg-rose-50/70 font-semibold' : ''}>
+                                <td className="border border-black px-1.5 py-1 text-center font-mono">{idx + 1}</td>
+                                <td className="border border-black px-2 py-1 font-bold">{r.studentName}</td>
+                                <td className="border border-black px-1.5 py-1 text-center font-mono">{r.studentNis || '-'}</td>
+                                <td className="border border-black px-1.5 py-1 text-center font-bold font-mono">{r.tabSwitchCount}x</td>
+                                <td className="border border-black px-2 py-1">
+                                  {isStrike3 ? (
+                                    <div className="text-rose-900 leading-snug">
+                                      <strong className="text-rose-700">⛔ TINGKAT 3 (BERAT):</strong> Akun di-Suspend Sistem • Wajib Melapor ke Admin Utama
+                                    </div>
+                                  ) : isStrike2 ? (
+                                    <div className="text-amber-900 leading-snug">
+                                      <strong className="text-amber-800">🚫 TINGKAT 2 (SEDANG):</strong> Layar Terkunci • {r.attempt?.proctorNotes?.includes('[IZIN_LANJUT_P2]') ? 'Izin Lanjut Ujian Diberikan oleh Pengawas' : 'Menunggu Konfirmasi Pengawas Ruang'}
+                                    </div>
+                                  ) : (
+                                    <div className="text-slate-800 leading-snug">
+                                      <strong>⚠️ TINGKAT 1 (RINGAN):</strong> Diberi Notifikasi Teguran di Layar Siswa (Ujian Tetap Berjalan)
+                                    </div>
+                                  )}
+                                  {r.attempt?.proctorNotes && (
+                                    <div className="text-[9.5px] text-slate-600 font-mono italic mt-0.5">
+                                      Log Sistem: {r.attempt.proctorNotes}
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="p-2 rounded bg-emerald-50/60 border border-emerald-300 text-emerald-900 text-[11px] italic">
+                    ✓ Seluruh peserta mematuhi tata tertib pelaksanaan ujian dengan tertib. Tidak terdeteksi pelanggaran perpindahan tab atau jendela layar.
                   </div>
                 )}
               </div>
