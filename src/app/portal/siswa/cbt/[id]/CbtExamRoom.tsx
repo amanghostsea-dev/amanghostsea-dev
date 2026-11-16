@@ -829,7 +829,7 @@ export default function CbtExamRoom({
   // ----------------------------------------------------
   if (!attempt || attempt.status !== 'IN_PROGRESS') {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans p-3 sm:p-6 md:p-12 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans p-3 sm:p-6 md:p-12 flex flex-col items-center justify-center">
         <div className="max-w-xl w-full bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl p-4 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl space-y-4 sm:space-y-6 animate-in fade-in">
           <div>
             <Link
@@ -1013,9 +1013,11 @@ export default function CbtExamRoom({
               </form>
             </div>
           )}
-        </div>
-        <div className="text-center text-[10.5px] text-slate-400 dark:text-slate-500 font-medium">
-          Smart CBT Engine • Created By Abdul Rahman
+
+          {/* Engine Branding Footer inside card */}
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 text-center text-[10.5px] text-slate-400 dark:text-slate-500 font-medium">
+            Smart CBT Engine &bull; Created By <span className="font-semibold text-slate-600 dark:text-slate-300">Abdul Rahman</span>
+          </div>
         </div>
       </div>
     );
