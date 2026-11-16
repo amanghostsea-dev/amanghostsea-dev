@@ -1162,24 +1162,25 @@ function SingleParticipantCard({
 
         {/* Right Column: Credentials Box & QR */}
         <div className="col-span-5 flex flex-col justify-between items-center text-center space-y-1">
-          {/* Highlighted Login Credential Box */}
-          <div className="w-full bg-slate-900 text-white rounded-md p-1.5 shadow-xs border border-slate-950 flex flex-col justify-center">
-            <div className="text-[6.5px] font-bold text-amber-300 uppercase tracking-wider mb-0.5 flex items-center justify-center gap-0.5">
-              <KeyRound size={8} /> Kredensial Login CBT
+          {/* Highlighted Login Credential Box (Simple & Elegant White Style with Crisp Border & Bold Black Text) */}
+          <div className="w-full bg-white text-slate-900 rounded-md p-1.5 shadow-xs border-2 border-slate-900 flex flex-col justify-center">
+            <div className="text-[6.5px] font-black text-slate-900 uppercase tracking-wider mb-0.5 flex items-center justify-center gap-0.5 border-b border-slate-200 pb-0.5">
+              <KeyRound size={8} className="text-slate-900 shrink-0" />
+              <span>Kredensial Login CBT</span>
             </div>
 
             {/* Username */}
-            <div className="text-left bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 mb-0.5">
-              <div className="text-[5.5px] text-slate-400 uppercase font-semibold leading-none">Username:</div>
-              <div className="font-mono font-black text-[10px] text-emerald-400 tracking-wide truncate leading-tight">
+            <div className="text-left bg-white px-1.5 py-0.5 rounded border-2 border-slate-900 mb-0.5">
+              <div className="text-[5.5px] text-slate-700 uppercase font-black leading-none">Username:</div>
+              <div className="font-mono font-black text-[10px] text-black tracking-wide truncate leading-tight">
                 {student.username}
               </div>
             </div>
 
             {/* Password */}
-            <div className="text-left bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
-              <div className="text-[5.5px] text-slate-400 uppercase font-semibold leading-none">Password:</div>
-              <div className="font-mono font-black text-[10px] text-amber-300 tracking-wide leading-tight">
+            <div className="text-left bg-white px-1.5 py-0.5 rounded border-2 border-slate-900">
+              <div className="text-[5.5px] text-slate-700 uppercase font-black leading-none">Password:</div>
+              <div className="font-mono font-black text-[10px] text-black tracking-wide leading-tight">
                 {showPassword ? student.password : '••••••••'}
               </div>
             </div>
