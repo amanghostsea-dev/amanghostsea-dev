@@ -963,6 +963,13 @@ export async function proctorResetStudentLoginAction(attemptId: string) {
       return { error: 'Data pengerjaan siswa tidak ditemukan.' };
     }
 
+    // ⛔ JIKA STRIKE 3: Pengawas TIDAK BISA reset/buka blokir, hanya Admin Utama yang berwenang!
+    if (attempt.tabSwitchCount >= 3 || attempt.proctorNotes?.includes('[STRIKE_3_BLOKIR]')) {
+      return { 
+        error: 'Siswa telah melanggar tata tertib sebanyak 3 kali (Strike 3) dan di-suspend total oleh sistem. Pengawas Ruangan tidak berwenang membuka blokir ini, siswa wajib melapor ke Admin Utama!' 
+      };
+    }
+
     const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     let updatedNotes = attempt.proctorNotes || '';
 

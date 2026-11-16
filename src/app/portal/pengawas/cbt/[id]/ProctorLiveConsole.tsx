@@ -859,7 +859,7 @@ export default function ProctorLiveConsole({
                         {att ? (
                           <div className="flex items-center justify-center gap-1.5 flex-wrap">
                             {/* 🔓 Tombol Khusus Strike 2: Buka Kunci Pengerjaan Ujian */}
-                            {item.tabSwitchCount === 2 && !att?.proctorNotes?.includes('[IZIN_LANJUT_P2]') && (
+                            {item.tabSwitchCount === 2 && !att?.proctorNotes?.includes('[IZIN_LANJUT_P2]') && !isBlocked && (
                               <button
                                 onClick={() => setActionTargetAttempt({
                                   attemptId: att.id,
@@ -873,22 +873,31 @@ export default function ProctorLiveConsole({
                               </button>
                             )}
 
-                            {/* Reset Login Siswa */}
-                            <button
-                              onClick={() => setActionTargetAttempt({
-                                attemptId: att.id,
-                                studentName: item.studentName,
-                                type: 'RESET',
-                              })}
-                              className={`px-2 py-1 rounded-lg font-bold text-[11px] border transition flex items-center gap-1 cursor-pointer ${
-                                item.tabSwitchCount === 2 && !att?.proctorNotes?.includes('[IZIN_LANJUT_P2]')
-                                  ? 'bg-amber-600/30 hover:bg-amber-600/50 text-amber-200 border-amber-500/40'
-                                  : 'bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border-blue-500/30'
-                              }`}
-                              title="Buka Kunci / Reset Siswa agar dapat langsung melanjutkan ujian"
-                            >
-                              <Unlock size={11} /> Reset
-                            </button>
+                            {/* Reset Login Siswa (Hanya jika BUKAN Strike 3) */}
+                            {item.tabSwitchCount >= 3 || att?.proctorNotes?.includes('[STRIKE_3_BLOKIR]') ? (
+                              <span 
+                                className="px-2 py-1 rounded-lg bg-rose-950 text-rose-300 font-bold text-[10px] border border-rose-800"
+                                title="Siswa telah 3x melanggar tata tertib dan di-suspend total oleh sistem. Hanya Admin Utama yang berwenang membuka akun ini."
+                              >
+                                Wajib Admin Utama
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => setActionTargetAttempt({
+                                  attemptId: att.id,
+                                  studentName: item.studentName,
+                                  type: 'RESET',
+                                })}
+                                className={`px-2 py-1 rounded-lg font-bold text-[11px] border transition flex items-center gap-1 cursor-pointer ${
+                                  item.tabSwitchCount === 2 && !att?.proctorNotes?.includes('[IZIN_LANJUT_P2]')
+                                    ? 'bg-amber-600/30 hover:bg-amber-600/50 text-amber-200 border-amber-500/40'
+                                    : 'bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border-blue-500/30'
+                                }`}
+                                title="Buka Kunci / Reset Siswa agar dapat langsung melanjutkan ujian"
+                              >
+                                <Unlock size={11} /> Reset
+                              </button>
+                            )}
 
                             {/* Extra Time (+5m / +10m) */}
                             <button

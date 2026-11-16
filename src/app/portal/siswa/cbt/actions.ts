@@ -142,11 +142,17 @@ export async function startOrResumeAttempt(data: {
       }
     }
 
-    // Check if an existing attempt exists for this student
+    const cleanName = data.studentName.trim();
+    const cleanNis = data.studentNis?.trim();
+
+    // Check if an existing attempt exists for this student (case-insensitive & NIS fallback)
     const existing = await prisma.examAttempt.findFirst({
       where: {
         examId: data.examId,
-        studentName: data.studentName,
+        OR: [
+          { studentName: { equals: cleanName, mode: 'insensitive' } },
+          ...(cleanNis ? [{ studentNis: cleanNis }] : []),
+        ],
       },
       orderBy: { startedAt: 'desc' },
     });
@@ -159,8 +165,8 @@ export async function startOrResumeAttempt(data: {
     const newAttempt = await prisma.examAttempt.create({
       data: {
         examId: data.examId,
-        studentName: data.studentName,
-        studentNis: data.studentNis || null,
+        studentName: cleanName,
+        studentNis: cleanNis || null,
         studentClass: verifiedClass || data.studentClass || null,
         totalQuestions: exam.questions.length,
         answers: '{}',

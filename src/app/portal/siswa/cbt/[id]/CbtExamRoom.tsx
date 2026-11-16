@@ -52,6 +52,9 @@ interface AttemptItem {
   totalCorrect: number;
   status: string;
   tabSwitchCount: number;
+  isBlocked?: boolean;
+  proctorNotes?: string | null;
+  extraTimeMinutes?: number;
   startedAt: Date | string;
   submittedAt: Date | string | null;
 }
@@ -187,48 +190,76 @@ export default function CbtExamRoom({
 
   const storageKey = `cbt_exam_${exam.id}_${studentName}`;
 
-  // Restore local storage progress on mount
+  // Restore local storage progress on mount (only once per attempt initialization)
+  const isRestoredRef = useRef(false);
+
   useEffect(() => {
-    if (attempt && attempt.status === 'IN_PROGRESS') {
-      try {
-        const saved = localStorage.getItem(storageKey);
-        const dbCount = attempt.tabSwitchCount || 0;
-        const hasPermission = 
-          (attempt as any).proctorNotes?.includes('[IZIN_LANJUT_P2]') || 
-          (attempt as any).proctorNotes?.includes('[RESET_PENGAWAS]');
+    if (isRestoredRef.current) return;
+    if (!attempt || attempt.status !== 'IN_PROGRESS') return;
 
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed.answers) setAnswers(parsed.answers);
-          if (parsed.doubtful) setDoubtful(parsed.doubtful);
+    isRestoredRef.current = true;
 
-          // Jika di database attempt masih 0 atau pengawas telah memberikan izin reset/lanjut:
-          if (dbCount === 0 || hasPermission) {
-            setTabSwitchCount(dbCount);
-            setIsStrike2Locked(false);
-            try {
-              localStorage.setItem(storageKey, JSON.stringify({ ...parsed, tabSwitchCount: dbCount }));
-            } catch {}
-          } else {
-            const count = Math.max(dbCount, parsed.tabSwitchCount || 0);
-            setTabSwitchCount(count);
-            if (count === 2 && !hasPermission && !(attempt as any).isBlocked) {
-              setIsStrike2Locked(true);
-            }
-          }
-        } else if (attempt.answers) {
-          const dbAnswers = JSON.parse(attempt.answers);
-          setAnswers(dbAnswers);
-          setTabSwitchCount(dbCount);
-          if (dbCount === 2 && !hasPermission && !(attempt as any).isBlocked) {
-            setIsStrike2Locked(true);
-          }
+    try {
+      const saved = localStorage.getItem(storageKey);
+      const dbCount = attempt.tabSwitchCount || 0;
+      const hasPermission = 
+        (attempt as any).proctorNotes?.includes('[IZIN_LANJUT_P2]') || 
+        (attempt as any).proctorNotes?.includes('[RESET_PENGAWAS]');
+
+      let restoredAnswers: Record<string, string> = {};
+      let restoredDoubtful: Record<string, boolean> = {};
+      let restoredCount = dbCount;
+
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.answers && typeof parsed.answers === 'object') {
+          restoredAnswers = parsed.answers;
         }
-      } catch (err) {
-        console.error('Failed to parse saved answers', err);
+        if (parsed.doubtful && typeof parsed.doubtful === 'object') {
+          restoredDoubtful = parsed.doubtful;
+        }
+        const localCount = typeof parsed.tabSwitchCount === 'number' ? parsed.tabSwitchCount : 0;
+        restoredCount = Math.max(dbCount, localCount);
+      } else if (attempt.answers) {
+        try {
+          restoredAnswers = JSON.parse(attempt.answers);
+        } catch {}
       }
+
+      setAnswers((prev) => Object.keys(prev).length > 0 ? prev : restoredAnswers);
+      setDoubtful((prev) => Object.keys(prev).length > 0 ? prev : restoredDoubtful);
+      setTabSwitchCount((prev) => Math.max(prev, restoredCount));
+
+      // Evaluasi kunci Strike 2 & Strike 3 secara deterministik
+      if (restoredCount >= 3) {
+        setAttempt((prev) => prev ? { ...prev, isBlocked: true, tabSwitchCount: restoredCount } : prev);
+        setIsStrike2Locked(false);
+        setShowCheatWarning(false);
+      } else if (restoredCount === 2) {
+        if (!hasPermission && !(attempt as any).isBlocked) {
+          setIsStrike2Locked(true);
+          setShowCheatWarning(false);
+        } else {
+          setIsStrike2Locked(false);
+        }
+      } else {
+        setIsStrike2Locked(false);
+      }
+
+      // Simpan kembali status yang sudah dinormalisasi ke localStorage
+      try {
+        const currentSaved = JSON.parse(localStorage.getItem(storageKey) || '{}');
+        localStorage.setItem(storageKey, JSON.stringify({
+          ...currentSaved,
+          answers: Object.keys(restoredAnswers).length > 0 ? restoredAnswers : currentSaved.answers || {},
+          doubtful: restoredDoubtful,
+          tabSwitchCount: restoredCount,
+        }));
+      } catch {}
+    } catch (err) {
+      console.error('Failed to restore CBT progress', err);
     }
-  }, [attempt, storageKey]);
+  }, [attempt?.id, storageKey]);
 
   // Anti-Cheat: Progressive 3-Strike Visibility and Window Blur Detection
   const lastViolationTimeRef = useRef<number>(0);
@@ -260,10 +291,17 @@ export default function CbtExamRoom({
           setShowCheatWarning(false);
         } else if (next >= 3) {
           // ⛔ PELANGGARAN KE-3: Akun ujian DI-SUSPEND PERMANEN, wajib lapor ke Admin Utama
-          setAttempt((prevAtt) => prevAtt ? { ...prevAtt, isBlocked: true } : prevAtt);
+          setAttempt((prevAtt) => prevAtt ? { ...prevAtt, isBlocked: true, tabSwitchCount: next } : prevAtt);
           setIsStrike2Locked(false);
           setShowCheatWarning(false);
         }
+
+        // Sinkronkan state attempt di memori agar tabSwitchCount konsisten
+        setAttempt((prevAtt) => prevAtt ? {
+          ...prevAtt,
+          tabSwitchCount: next,
+          isBlocked: next >= 3 ? true : prevAtt.isBlocked,
+        } : prevAtt);
 
         // Update local storage
         try {
@@ -277,11 +315,17 @@ export default function CbtExamRoom({
         // Background sync to server with progressive 3-strike handling
         saveProgress(attempt.id, answersRef.current, next).then((res) => {
           if (res && res.success) {
-            if (res.isBlocked) {
-              setAttempt((prevAtt) => prevAtt ? { ...prevAtt, isBlocked: true, proctorNotes: res.proctorNotes } : prevAtt);
-            }
+            setAttempt((prevAtt) => prevAtt ? {
+              ...prevAtt,
+              isBlocked: res.isBlocked ?? (next >= 3 ? true : prevAtt.isBlocked),
+              proctorNotes: res.proctorNotes ?? prevAtt.proctorNotes,
+              tabSwitchCount: res.tabSwitchCount ?? next,
+            } : prevAtt);
+
             if (res.isStrike2Locked !== undefined) {
-              setIsStrike2Locked(res.isStrike2Locked);
+              if (next < 3) {
+                setIsStrike2Locked(res.isStrike2Locked);
+              }
             }
           }
         }).catch(console.error);
@@ -307,7 +351,7 @@ export default function CbtExamRoom({
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleBlur);
     };
-  }, [attempt, finalResult, storageKey]);
+  }, [attempt?.id, finalResult, storageKey]);
 
   // Handle final submit function (defined before timer effect to satisfy dependency rules)
   const handleFinalSubmit = useCallback(async () => {
@@ -365,24 +409,30 @@ export default function CbtExamRoom({
       try {
         const res = await saveProgress(attempt.id, answers, tabSwitchCount);
         if (res && res.success) {
-          if (res.isBlocked !== undefined) {
-            setAttempt((prev) => prev ? { ...prev, isBlocked: res.isBlocked, proctorNotes: res.proctorNotes } : prev);
-          }
+          setAttempt((prev) => prev ? {
+            ...prev,
+            isBlocked: res.isBlocked !== undefined ? res.isBlocked : prev.isBlocked,
+            proctorNotes: res.proctorNotes !== undefined ? res.proctorNotes : prev.proctorNotes,
+            tabSwitchCount: res.tabSwitchCount !== undefined ? res.tabSwitchCount : prev.tabSwitchCount,
+            extraTimeMinutes: typeof res.extraTimeMinutes === 'number' ? res.extraTimeMinutes : prev.extraTimeMinutes,
+          } : prev);
+
           if (res.isStrike2Locked !== undefined) {
             if (isStrike2Locked && !res.isStrike2Locked) {
-              // 🔓 PENGWAS TELAH MERESET / MEMBUKA KUNCI STRIKE 2!
+              // 🔓 PENGAWAS TELAH MERESET / MEMBUKA KUNCI STRIKE 2!
               setIsStrike2Locked(false);
               setShowCheatWarning(false);
-              setTabSwitchCount(res.tabSwitchCount || 2);
+              const serverCount = res.tabSwitchCount || 2;
+              setTabSwitchCount((prev) => Math.max(prev, serverCount));
               try {
                 const saved = localStorage.getItem(storageKey);
                 if (saved) {
                   const parsed = JSON.parse(saved);
-                  localStorage.setItem(storageKey, JSON.stringify({ ...parsed, tabSwitchCount: res.tabSwitchCount || 2 }));
+                  localStorage.setItem(storageKey, JSON.stringify({ ...parsed, tabSwitchCount: serverCount }));
                 }
               } catch {}
-            } else {
-              setIsStrike2Locked(res.isStrike2Locked);
+            } else if (!isStrike2Locked && res.isStrike2Locked && tabSwitchCount < 3) {
+              setIsStrike2Locked(true);
             }
           }
           if (typeof res.extraTimeMinutes === 'number' && res.extraTimeMinutes !== (attempt as any).extraTimeMinutes) {
@@ -603,8 +653,12 @@ export default function CbtExamRoom({
     );
   }
 
-  if (attempt && (attempt as any).isBlocked) {
-    const isStrike3 = tabSwitchCount >= 3 || (attempt as any).tabSwitchCount >= 3 || (attempt as any).proctorNotes?.includes('[STRIKE_3_BLOKIR]');
+  // ----------------------------------------------------
+  // SCREEN 2: BLOCKED / SUSPEND SCREEN (Strike 3 or admin/proctor manual block)
+  // ----------------------------------------------------
+  const isStrike3 = tabSwitchCount >= 3 || (attempt as any)?.tabSwitchCount >= 3 || (attempt as any)?.proctorNotes?.includes('[STRIKE_3_BLOKIR]');
+
+  if ((attempt && (attempt as any).isBlocked) || isStrike3) {
 
     return (
       <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-6 font-sans">
@@ -875,7 +929,102 @@ export default function CbtExamRoom({
   }
 
   // ----------------------------------------------------
-  // SCREEN 3: LIVE CBT EXAM ROOM
+  // SCREEN 4: STRIKE 2 LOCKED SCREEN (Pelanggaran ke-2)
+  // ----------------------------------------------------
+  if (isStrike2Locked) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-3 sm:p-6 font-sans">
+        <div className="max-w-lg w-full bg-slate-900 border-2 border-amber-500 rounded-2xl sm:rounded-3xl p-5 sm:p-8 text-center space-y-4 sm:space-y-5 shadow-2xl animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto text-4xl shadow-lg shadow-amber-500/20">
+            <Lock size={34} className="text-amber-400 animate-pulse" />
+          </div>
+
+          <div>
+            <span className="px-3 py-1 rounded-full text-[11px] sm:text-xs font-black bg-amber-500/30 text-amber-300 border border-amber-500/50 uppercase tracking-wider">
+              Pelanggaran Ke-2 • Ujian Diblokir Sementara
+            </span>
+            <h2 className="text-xl sm:text-2xl font-black text-white mt-2.5">
+              Layar Ujian Terkunci Sementara
+            </h2>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-amber-950/40 border border-amber-500/40 text-left text-xs text-amber-200/90 space-y-2 leading-relaxed">
+            <p className="font-semibold text-amber-300">
+              ⚠️ Anda terdeteksi melakukan pelanggaran tata tertib sebanyak 2 kali (berpindah tab / aplikasi / minimize layar).
+            </p>
+            <p>
+              Sesuai tata tertib ujian, <strong>seluruh lembar pengerjaan soal telah dikunci dan diblokir sementara</strong>.
+            </p>
+            <div className="pt-2 border-t border-amber-500/30 space-y-1.5">
+              <div className="font-bold text-white uppercase text-[11px] tracking-wide">
+                👉 Langkah Wajib Peserta:
+              </div>
+              <ol className="list-decimal list-inside space-y-1 text-slate-300">
+                <li>Segera temui <strong>Pengawas Ruangan</strong> di meja depan kelas sekarang.</li>
+                <li>Pengawas akan memverifikasi pelanggaran dan menekan tombol <strong>&quot;Buka Kunci P2 / Reset&quot;</strong> di Konsol Pengawas.</li>
+                <li>Setelah Pengawas mengizinkan, layar ujian akan <strong>otomatis terbuka (tiap 3 detik)</strong> atau Anda dapat menekan tombol <strong>Periksa Izin Pengawas</strong> di bawah.</li>
+              </ol>
+              <div className="p-2.5 rounded-lg bg-rose-950/50 border border-rose-500/40 text-rose-200 text-[11px]">
+                <strong>⚠️ PERINGATAN TERAKHIR (STRIKE 3):</strong> Jika Anda melanggar 1 kali lagi (Pelanggaran ke-3), akun CBT Anda akan <strong>DI-SUSPEND TOTAL</strong> dan Pengawas Ruangan <strong>TIDAK BISA</strong> membukanya lagi. Anda wajib melapor ke <strong>Admin Utama Sekolah</strong>!
+              </div>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-slate-300 flex items-center justify-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+            <span>Menunggu konfirmasi reset / buka kunci dari Pengawas... (Otomatis memeriksa tiap 3 detik)</span>
+          </div>
+
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={async () => {
+                if (!attempt) return;
+                setIsCheckingLock(true);
+                try {
+                  const res = await checkStudentExamLockStatus(attempt.id);
+                  if (res && res.success) {
+                    if (res.isStrike2Locked !== undefined) {
+                      setIsStrike2Locked(res.isStrike2Locked);
+                      if (!res.isStrike2Locked) {
+                        setShowCheatWarning(false);
+                        const sCount = res.tabSwitchCount || 2;
+                        setTabSwitchCount((prev) => Math.max(prev, sCount));
+                        try {
+                          const saved = localStorage.getItem(storageKey);
+                          if (saved) {
+                            const parsed = JSON.parse(saved);
+                            localStorage.setItem(storageKey, JSON.stringify({ ...parsed, tabSwitchCount: sCount }));
+                          }
+                        } catch {}
+                      }
+                    }
+                    setAttempt((prev) => prev ? {
+                      ...prev,
+                      isBlocked: res.isBlocked ?? prev.isBlocked,
+                      proctorNotes: res.proctorNotes ?? prev.proctorNotes,
+                      tabSwitchCount: res.tabSwitchCount ?? prev.tabSwitchCount,
+                      extraTimeMinutes: typeof res.extraTimeMinutes === 'number' ? res.extraTimeMinutes : prev.extraTimeMinutes,
+                    } : prev);
+                  }
+                } finally {
+                  setIsCheckingLock(false);
+                }
+              }}
+              disabled={isCheckingLock}
+              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-black text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-amber-500/25"
+            >
+              <RefreshCw size={14} className={isCheckingLock ? 'animate-spin' : ''} />
+              <span>{isCheckingLock ? 'Memeriksa Izin...' : 'Periksa Izin Pengawas Sekarang'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ----------------------------------------------------
+  // SCREEN 5: LIVE CBT EXAM ROOM
   // ----------------------------------------------------
   const selectedOption = answers[currentQ?.id];
   const isCurrentDoubtful = doubtful[currentQ?.id];
@@ -1138,84 +1287,6 @@ export default function CbtExamRoom({
             >
               Saya Mengerti &amp; Lanjutkan Ujian
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* 🔒 STRIKE 2: MODAL BESAR MENUTUPI PENGERJAAN SOAL (KUNCI SEMENTARA) */}
-      {isStrike2Locked && (
-        <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in">
-          <div className="max-w-lg w-full bg-slate-900 border-2 border-amber-500 rounded-2xl sm:rounded-3xl p-4 sm:p-8 text-center space-y-4 sm:space-y-5 shadow-2xl animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto text-4xl shadow-lg shadow-amber-500/20">
-              <Lock size={34} className="text-amber-400 animate-pulse" />
-            </div>
-
-            <div>
-              <span className="px-3 py-1 rounded-full text-[11px] sm:text-xs font-black bg-amber-500/30 text-amber-300 border border-amber-500/50 uppercase tracking-wider">
-                Pelanggaran Ke-2 • Ujian Diblokir Sementara
-              </span>
-              <h2 className="text-xl sm:text-2xl font-black text-white mt-2.5">
-                Layar Ujian Terkunci Sementara
-              </h2>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-amber-950/40 border border-amber-500/40 text-left text-xs text-amber-200/90 space-y-2 leading-relaxed">
-              <p className="font-semibold text-amber-300">
-                ⚠️ Anda terdeteksi melakukan pelanggaran tata tertib sebanyak 2 kali (berpindah tab / aplikasi / minimize layar).
-              </p>
-              <p>
-                Sesuai tata tertib ujian, <strong>seluruh lembar pengerjaan soal telah dikunci dan diblokir sementara</strong>.
-              </p>
-              <div className="pt-2 border-t border-amber-500/30 space-y-1.5">
-                <div className="font-bold text-white uppercase text-[11px] tracking-wide">
-                  👉 Langkah Wajib Peserta:
-                </div>
-                <ol className="list-decimal list-inside space-y-1 text-slate-300">
-                  <li>Segera temui <strong>Pengawas Ruangan</strong> di meja depan kelas sekarang.</li>
-                  <li>Pengawas akan memverifikasi pelanggaran dan menekan tombol <strong>&quot;Buka Kunci Pelanggaran ke-2&quot;</strong> di Konsol Pengawas.</li>
-                  <li>Setelah Pengawas mengizinkan, klik tombol <strong>Periksa Izin Pengawas</strong> di bawah.</li>
-                </ol>
-                <div className="p-2.5 rounded-lg bg-rose-950/50 border border-rose-500/40 text-rose-200 text-[11px]">
-                  <strong>⚠️ PERINGATAN TERAKHIR:</strong> Jika Anda melanggar 1 kali lagi (Pelanggaran ke-3), akun CBT Anda akan <strong>DI-SUSPEND TOTAL</strong> dan hanya bisa dibuka oleh <strong>Admin Utama Sekolah</strong>!
-                </div>
-              </div>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-slate-300 flex items-center justify-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
-              <span>Menunggu konfirmasi reset / buka kunci dari Pengawas... (Otomatis memeriksa tiap 3 detik)</span>
-            </div>
-
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={async () => {
-                  if (!attempt) return;
-                  setIsCheckingLock(true);
-                  try {
-                    const res = await checkStudentExamLockStatus(attempt.id);
-                    if (res && res.success) {
-                      if (res.isStrike2Locked !== undefined) {
-                        setIsStrike2Locked(res.isStrike2Locked);
-                        if (!res.isStrike2Locked) {
-                          setShowCheatWarning(false);
-                        }
-                      }
-                      if (res.isBlocked !== undefined) {
-                        setAttempt((prev) => prev ? { ...prev, isBlocked: res.isBlocked, proctorNotes: res.proctorNotes } : prev);
-                      }
-                    }
-                  } finally {
-                    setIsCheckingLock(false);
-                  }
-                }}
-                disabled={isCheckingLock}
-                className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-black text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-amber-500/25"
-              >
-                <RefreshCw size={14} className={isCheckingLock ? 'animate-spin' : ''} />
-                <span>{isCheckingLock ? 'Memeriksa Izin...' : 'Periksa Izin Pengawas Sekarang'}</span>
-              </button>
-            </div>
           </div>
         </div>
       )}
