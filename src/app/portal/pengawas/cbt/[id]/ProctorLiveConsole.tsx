@@ -29,6 +29,7 @@ import {
   Eye, 
   Sparkles,
   ArrowLeft,
+  ArrowRight,
   Zap
 } from 'lucide-react';
 import { 
@@ -343,6 +344,8 @@ export default function ProctorLiveConsole({
   const submittedCount = combinedRoster.filter(r => r.status === 'SUBMITTED').length;
   const unattendedCount = combinedRoster.filter(r => r.status === 'UNATTENDED').length;
   const violationCount = combinedRoster.filter(r => r.tabSwitchCount > 0 || r.isBlocked).length;
+  const strike2Pending = combinedRoster.filter(r => r.tabSwitchCount === 2 && !r.attempt?.proctorNotes?.includes('[IZIN_LANJUT_P2]') && !r.isBlocked);
+  const strike3Banned = combinedRoster.filter(r => r.tabSwitchCount >= 3 || r.attempt?.proctorNotes?.includes('[STRIKE_3_BLOKIR]'));
 
   // Filtered rows for proctor table
   const filteredRoster = useMemo(() => {
@@ -442,12 +445,85 @@ export default function ProctorLiveConsole({
         </div>
       </div>
 
-      {/* 🔔 TOAST NOTIFICATION */}
+      {/* 🔔 TOAST NOTIFICATION (FUTURISTIC FLOATING CYBER PILL) */}
       {toastMessage && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-4 duration-300 max-w-lg w-full px-4 pointer-events-none">
+          <div className="p-4 rounded-2xl bg-slate-950/95 border border-emerald-500/60 text-white text-xs font-bold flex items-center gap-3 shadow-[0_0_40px_rgba(16,185,129,0.35)] backdrop-blur-xl pointer-events-auto">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-400/40 flex items-center justify-center shrink-0">
+              <CheckCircle2 size={20} className="animate-pulse" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] uppercase tracking-wider text-emerald-400 font-mono font-bold">KONSOL PENGAWAS RESMI</div>
+              <p className="text-xs text-slate-100 font-semibold">{toastMessage}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ⚠️ CYBER ALERT: SISWA TERKUNCI STRIKE 2 BUTUH TINDAKAN PENGAWAS */}
+      {strike2Pending.length > 0 && (
         <div className="max-w-7xl mx-auto">
-          <div className="p-4 rounded-2xl bg-emerald-950 border border-emerald-500 text-emerald-200 text-xs font-bold flex items-center gap-2.5 shadow-xl animate-in fade-in slide-in-from-top-2">
-            <CheckCircle2 size={18} className="text-emerald-400 flex-shrink-0" />
-            <span>{toastMessage}</span>
+          <div className="p-4 rounded-3xl bg-amber-950/70 border-2 border-amber-500/70 text-white flex flex-col sm:flex-row items-center justify-between gap-4 shadow-[0_0_50px_rgba(245,158,11,0.25)] backdrop-blur-xl animate-pulse">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-amber-500/20 text-amber-300 border border-amber-400/40 flex items-center justify-center shrink-0">
+                <Lock size={22} className="animate-pulse" />
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500/30 text-amber-200 border border-amber-400/50 text-[10px] font-mono font-bold uppercase">
+                    PERHATIAN PENGAWAS
+                  </span>
+                  <span className="text-[11px] font-mono text-amber-400 font-bold">
+                    {strike2Pending.length} SISWA TERKUNCI (PELANGGARAN KE-2)
+                  </span>
+                </div>
+                <p className="text-xs text-slate-200">
+                  {strike2Pending.map(s => s.studentName).join(', ')} sedang menunggu verifikasi Pengawas untuk membuka kunci ujian.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setStatusFilter('VIOLATION')}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs transition shadow-lg shadow-amber-500/25 shrink-0 flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>Lihat Siswa Terkunci</span>
+              <ArrowRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ⛔ CYBER ALERT: SISWA DI-SUSPEND TOTAL (STRIKE 3) */}
+      {strike3Banned.length > 0 && (
+        <div className="max-w-7xl mx-auto">
+          <div className="p-4 rounded-3xl bg-rose-950/70 border border-rose-600/70 text-white flex flex-col sm:flex-row items-center justify-between gap-4 shadow-[0_0_50px_rgba(244,63,94,0.25)] backdrop-blur-xl">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center justify-center shrink-0">
+                <AlertTriangle size={22} className="animate-pulse" />
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-full bg-rose-500/30 text-rose-200 border border-rose-500/50 text-[10px] font-mono font-bold uppercase">
+                    SUSPEND TOTAL SISTEM
+                  </span>
+                  <span className="text-[11px] font-mono text-rose-400 font-bold">
+                    {strike3Banned.length} SISWA MENCAPAI 3X PELANGGARAN
+                  </span>
+                </div>
+                <p className="text-xs text-slate-200">
+                  {strike3Banned.map(s => s.studentName).join(', ')} otomatis di-suspend permanen dan tercatat di BAP. Wewenang buka blokir dipegang oleh Admin Utama.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setStatusFilter('VIOLATION')}
+              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition shadow-lg shadow-rose-600/25 shrink-0 flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>Lihat di Rekap</span>
+              <ArrowRight size={14} />
+            </button>
           </div>
         </div>
       )}

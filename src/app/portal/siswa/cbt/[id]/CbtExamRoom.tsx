@@ -13,6 +13,8 @@ import {
   Send,
   HelpCircle,
   ShieldAlert,
+  ShieldCheck,
+  ShieldX,
   Award,
   BookOpen,
   Key,
@@ -21,7 +23,10 @@ import {
   Lock,
   Unlock,
   Wifi,
-  Calendar
+  Calendar,
+  Radio,
+  Activity,
+  AlertCircle
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import { startOrResumeAttempt, saveProgress, submitExam, getExamSessionStatus, checkStudentExamLockStatus } from '../actions';
@@ -57,6 +62,44 @@ interface AttemptItem {
   extraTimeMinutes?: number;
   startedAt: Date | string;
   submittedAt: Date | string | null;
+}
+
+// 🔊 Audio Synth Feedback untuk Notifikasi Cyber Anti-Curang (Pure Web Audio API, Zero Asset)
+function playCyberAlertSound(type: 'warning' | 'lock' | 'suspend') {
+  try {
+    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const now = ctx.currentTime;
+
+    if (type === 'warning') {
+      // High-tech Dual Tone Warning Pulse (587Hz -> 880Hz)
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, now);
+      osc.frequency.setValueAtTime(880, now + 0.12);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.35);
+    } else if (type === 'lock' || type === 'suspend') {
+      // Security Lockdown Alarm Synth (Sawtooth Drop 440Hz -> 293Hz)
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(440, now);
+      osc.frequency.exponentialRampToValueAtTime(293.66, now + 0.25);
+      gain.gain.setValueAtTime(0.1, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.45);
+    }
+  } catch {}
 }
 
 interface CbtExamRoomProps {
@@ -155,6 +198,7 @@ export default function CbtExamRoom({
   const [doubtful, setDoubtful] = useState<Record<string, boolean>>({});
   const [tabSwitchCount, setTabSwitchCount] = useState<number>(existingAttempt?.tabSwitchCount || 0);
   const [showCheatWarning, setShowCheatWarning] = useState(false);
+  const [lastViolationTimeStr, setLastViolationTimeStr] = useState<string>('');
   const [isStrike2Locked, setIsStrike2Locked] = useState<boolean>(() => {
     const att = existingAttempt;
     if (!att) return false;
@@ -278,6 +322,9 @@ export default function CbtExamRoom({
       }
       lastViolationTimeRef.current = now;
 
+      const incidentTime = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' WIB';
+      setLastViolationTimeStr(incidentTime);
+
       setTabSwitchCount((prev) => {
         const next = prev + 1;
 
@@ -285,15 +332,18 @@ export default function CbtExamRoom({
           // ⚠️ PELANGGARAN KE-1: Tampilkan notifikasi peringatan tegas di layar, ujian masih berlanjut
           setShowCheatWarning(true);
           setIsStrike2Locked(false);
+          playCyberAlertSound('warning');
         } else if (next === 2) {
           // 🚫 PELANGGARAN KE-2: Layar ujian DIBLOKIR / DIKUNCI, wajib lapor ke Pengawas Ruangan
           setIsStrike2Locked(true);
           setShowCheatWarning(false);
+          playCyberAlertSound('lock');
         } else if (next >= 3) {
           // ⛔ PELANGGARAN KE-3: Akun ujian DI-SUSPEND PERMANEN, wajib lapor ke Admin Utama
           setAttempt((prevAtt) => prevAtt ? { ...prevAtt, isBlocked: true, tabSwitchCount: next } : prevAtt);
           setIsStrike2Locked(false);
           setShowCheatWarning(false);
+          playCyberAlertSound('suspend');
         }
 
         // Sinkronkan state attempt di memori agar tabSwitchCount konsisten
@@ -659,38 +709,81 @@ export default function CbtExamRoom({
   const isStrike3 = tabSwitchCount >= 3 || (attempt as any)?.tabSwitchCount >= 3 || (attempt as any)?.proctorNotes?.includes('[STRIKE_3_BLOKIR]');
 
   if ((attempt && (attempt as any).isBlocked) || isStrike3) {
-
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-6 font-sans">
-        <div className="max-w-lg w-full bg-slate-900 border-2 border-rose-500/60 rounded-3xl p-8 text-center space-y-5 shadow-2xl animate-in zoom-in-95">
-          <div className="w-20 h-20 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto text-4xl font-black shadow-lg shadow-rose-500/30">
-            🚫
+      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-3 sm:p-6 font-sans relative overflow-hidden">
+        {/* Hologram Red Halo */}
+        <div className="absolute w-[600px] h-[600px] rounded-full bg-rose-600/15 blur-[140px] pointer-events-none" />
+
+        <div className="relative max-w-lg w-full bg-slate-950/95 border-2 border-rose-500/60 rounded-3xl p-5 sm:p-8 text-center space-y-4 sm:space-y-5 shadow-[0_0_80px_-10px_rgba(244,63,94,0.4)] backdrop-blur-2xl animate-in zoom-in-95 duration-200">
+          {/* Top Glowing Laser Accent */}
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-transparent via-rose-500 to-transparent" />
+
+          {/* Futuristic Quarantine Beacon */}
+          <div className="relative mx-auto w-24 h-24 flex items-center justify-center">
+            <div className="absolute inset-0 rounded-full border-2 border-rose-500/50 animate-ping opacity-30" />
+            <div className="absolute inset-1 rounded-full border border-rose-500/40 bg-rose-500/15 shadow-[0_0_30px_rgba(244,63,94,0.35)]" />
+            <div className="relative z-10 w-16 h-16 rounded-2xl bg-gradient-to-br from-rose-500/40 via-rose-600/20 to-transparent border border-rose-400/60 flex items-center justify-center text-rose-300 shadow-inner">
+              <ShieldX size={38} className="text-rose-400 animate-pulse drop-shadow-[0_0_12px_rgba(244,63,94,0.8)]" />
+            </div>
           </div>
 
           <div>
-            <span className="px-3 py-1 rounded-full text-xs font-black bg-rose-500/30 text-rose-300 border border-rose-500/50 uppercase tracking-wider">
-              {isStrike3 ? 'Pelanggaran ke-3 • Akun di-Suspend Sistem' : 'Sesi Ujian Ditangguhkan'}
-            </span>
-            <h2 className="text-2xl font-black text-rose-300 mt-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/50 text-[11px] sm:text-xs font-mono font-black uppercase tracking-wider mb-2 shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping" />
+              <span>{isStrike3 ? 'SYSTEM QUARANTINE • PELANGGARAN KE-3' : 'SESI UJIAN DITANGGUHKAN'}</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-black text-rose-200 tracking-tight">
               {isStrike3 ? 'Akun CBT Anda Di-Suspend Total' : 'Ujian Ditangguhkan Pengawas'}
             </h2>
           </div>
 
-          <div className="text-xs sm:text-sm text-slate-300 leading-relaxed text-left space-y-2">
+          {/* 3-Strike Stepper with Stage 3 Terminated */}
+          {isStrike3 && (
+            <div className="p-3.5 rounded-2xl bg-rose-950/30 border border-rose-500/30 space-y-2 text-left font-mono">
+              <div className="flex items-center justify-between text-[10.5px] font-bold text-slate-300">
+                <span className="flex items-center gap-1.5">
+                  <Activity size={13} className="text-rose-400" /> STATUS ESKALASI PELANGGARAN:
+                </span>
+                <span className="text-rose-400 font-black">3 / 3 (SUSPEND TOTAL)</span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-1.5 text-center text-[10px] pt-1">
+                <div className="p-2 rounded-xl bg-slate-900/80 border border-slate-700 text-slate-400">
+                  <div className="font-bold text-slate-400">TAHAP 1</div>
+                  <div className="text-[9.5px] text-slate-500">Teguran (Lewat)</div>
+                </div>
+
+                <div className="p-2 rounded-xl bg-slate-900/80 border border-slate-700 text-slate-400">
+                  <div className="font-bold text-slate-400">TAHAP 2</div>
+                  <div className="text-[9.5px] text-slate-500">Kunci (Lewat)</div>
+                </div>
+
+                <div className="p-2 rounded-xl bg-rose-500/25 border-2 border-rose-500 text-rose-100 shadow-[0_0_15px_rgba(244,63,94,0.3)] space-y-0.5">
+                  <div className="font-black text-rose-300 flex items-center justify-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping" />
+                    <span>TAHAP 3</span>
+                  </div>
+                  <div className="text-[9.5px] font-bold text-white">SUSPEND TOTAL</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="text-xs sm:text-sm text-slate-300 leading-relaxed text-left space-y-2.5">
             {isStrike3 ? (
               <>
                 <p>
-                  Pengerjaan ujian Anda telah <strong>dihentikan secara permanen dan akun Anda di-suspend oleh sistem</strong> karena telah melakukan <strong>pelanggaran tata tertib sebanyak 3 kali berturut-turut</strong> (berpindah tab / jendela layar / aplikasi).
+                  Pengerjaan ujian Anda telah <strong>dihentikan permanen dan akun Anda di-suspend oleh sistem</strong> karena telah melakukan <strong>pelanggaran tata tertib sebanyak 3 kali berturut-turut</strong> (berpindah tab / jendela layar / aplikasi).
                 </p>
-                <div className="p-3.5 rounded-xl bg-rose-950/70 border border-rose-600/60 text-rose-200 text-xs space-y-2">
+                <div className="p-4 rounded-2xl bg-rose-950/70 border border-rose-600/60 text-rose-200 text-xs space-y-2 shadow-inner">
                   <div className="font-bold text-rose-300 flex items-center gap-1.5">
-                    <ShieldAlert size={16} /> PERHATIAN KHUSUS (KEWENANGAN PENGAWAS DITUTUP):
+                    <ShieldAlert size={16} /> PERHATIAN KHUSUS (KEWENANGAN PENGAWAS DIKUNCI):
                   </div>
                   <p>
                     Sesuai SOP Ujian Terpusat, <strong>Pengawas Ruangan di kelas TIDAK DAPAT membuka suspend ini</strong>.
                   </p>
                   <p className="font-bold text-white">
-                    🏛️ Anda diwajibkan segera melapor langsung ke ADMIN UTAMA SEKOLAH (SUPER ADMIN) di ruang panitia ujian / server CBT untuk verifikasi kejadian dan pertimbangan pembukaan suspend.
+                    🏛️ Anda diwajibkan segera melapor langsung ke ADMIN UTAMA SEKOLAH (SUPER ADMIN) di ruang server CBT / sekretariat ujian untuk verifikasi berita acara (BAP).
                   </p>
                 </div>
               </>
@@ -702,10 +795,10 @@ export default function CbtExamRoom({
           </div>
 
           {/* Rincian Identitas Pelanggaran */}
-          <div className="p-4 rounded-2xl bg-slate-950/80 border border-rose-900/60 text-left text-xs space-y-1.5 font-mono">
+          <div className="p-4 rounded-2xl bg-slate-900/90 border border-rose-900/60 text-left text-xs space-y-1.5 font-mono">
             <div className="text-rose-400 font-bold flex items-center justify-between">
               <span>Status Pelanggaran:</span>
-              <span className="text-rose-300 font-black">{Math.max(tabSwitchCount, (attempt as any).tabSwitchCount || 0)}x Pindah Tab</span>
+              <span className="text-rose-300 font-black">{Math.max(tabSwitchCount, (attempt as any).tabSwitchCount || 0)}x Pindah Tab (Tingkat Maksimal)</span>
             </div>
             <div className="text-slate-300">Nama Peserta: <strong className="text-white">{studentName}</strong></div>
             <div className="text-slate-300">NISN / No Induk: <strong className="text-white">{studentNis || '-'}</strong></div>
@@ -721,7 +814,7 @@ export default function CbtExamRoom({
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
               href="/portal/siswa/cbt"
-              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition flex items-center justify-center gap-1.5"
+              className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-white/10 text-white font-bold text-xs transition flex items-center justify-center gap-1.5"
             >
               <ArrowLeft size={14} /> Kembali ke Beranda Ujian
             </Link>
@@ -929,53 +1022,94 @@ export default function CbtExamRoom({
   }
 
   // ----------------------------------------------------
-  // SCREEN 4: STRIKE 2 LOCKED SCREEN (Pelanggaran ke-2)
+  // SCREEN 4: STRIKE 2 LOCKED SCREEN (CYBER PROCTORING LOCKDOWN)
   // ----------------------------------------------------
   if (isStrike2Locked) {
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-3 sm:p-6 font-sans">
-        <div className="max-w-lg w-full bg-slate-900 border-2 border-amber-500 rounded-2xl sm:rounded-3xl p-5 sm:p-8 text-center space-y-4 sm:space-y-5 shadow-2xl animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto text-4xl shadow-lg shadow-amber-500/20">
-            <Lock size={34} className="text-amber-400 animate-pulse" />
+      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-3 sm:p-6 font-sans relative overflow-hidden">
+        {/* Hologram Orange Halo */}
+        <div className="absolute w-[600px] h-[600px] rounded-full bg-amber-600/15 blur-[140px] pointer-events-none" />
+
+        <div className="relative max-w-lg w-full bg-slate-950/95 border-2 border-amber-500/60 rounded-3xl p-5 sm:p-8 text-center space-y-4 sm:space-y-5 shadow-[0_0_80px_-10px_rgba(245,158,11,0.4)] backdrop-blur-2xl max-h-[94vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+          {/* Top Glowing Laser Accent */}
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-transparent via-amber-400 to-transparent" />
+
+          {/* Futuristic Padlock Radar */}
+          <div className="relative mx-auto w-24 h-24 flex items-center justify-center">
+            <div className="absolute inset-0 rounded-full border-2 border-amber-400/50 animate-ping opacity-30" />
+            <div className="absolute inset-1 rounded-full border border-amber-500/40 bg-amber-500/15 shadow-[0_0_30px_rgba(245,158,11,0.35)]" />
+            <div className="relative z-10 w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500/40 via-amber-600/20 to-transparent border border-amber-400/60 flex items-center justify-center text-amber-300 shadow-inner">
+              <Lock size={36} className="text-amber-300 animate-pulse drop-shadow-[0_0_12px_rgba(245,158,11,0.8)]" />
+            </div>
           </div>
 
           <div>
-            <span className="px-3 py-1 rounded-full text-[11px] sm:text-xs font-black bg-amber-500/30 text-amber-300 border border-amber-500/50 uppercase tracking-wider">
-              Pelanggaran Ke-2 • Ujian Diblokir Sementara
-            </span>
-            <h2 className="text-xl sm:text-2xl font-black text-white mt-2.5">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/50 text-[11px] sm:text-xs font-mono font-black uppercase tracking-wider mb-2 shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+              <span>SECURITY LOCKDOWN &bull; PELANGGARAN KE-2</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
               Layar Ujian Terkunci Sementara
             </h2>
+            <p className="text-xs text-amber-200/90 mt-1 max-w-sm mx-auto leading-relaxed">
+              Anda terdeteksi melakukan pelanggaran tata tertib sebanyak <strong>2 kali</strong>. Seluruh akses lembar soal dinonaktifkan sementara.
+            </p>
           </div>
 
-          <div className="p-4 rounded-2xl bg-amber-950/40 border border-amber-500/40 text-left text-xs text-amber-200/90 space-y-2 leading-relaxed">
-            <p className="font-semibold text-amber-300">
-              ⚠️ Anda terdeteksi melakukan pelanggaran tata tertib sebanyak 2 kali (berpindah tab / aplikasi / minimize layar).
-            </p>
-            <p>
-              Sesuai tata tertib ujian, <strong>seluruh lembar pengerjaan soal telah dikunci dan diblokir sementara</strong>.
-            </p>
-            <div className="pt-2 border-t border-amber-500/30 space-y-1.5">
-              <div className="font-bold text-white uppercase text-[11px] tracking-wide">
-                👉 Langkah Wajib Peserta:
+          {/* 3-Strike Stepper with Stage 2 Highlighted */}
+          <div className="p-3.5 rounded-2xl bg-amber-950/30 border border-amber-500/30 space-y-2 text-left font-mono">
+            <div className="flex items-center justify-between text-[10.5px] font-bold text-slate-300">
+              <span className="flex items-center gap-1.5">
+                <Activity size={13} className="text-amber-400" /> STATUS ESKALASI:
+              </span>
+              <span className="text-amber-400 font-black">2 / 3 MAKSIMAL (TERKUNCI)</span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-1.5 text-center text-[10px] pt-1">
+              <div className="p-2 rounded-xl bg-slate-900/80 border border-slate-700 text-slate-400">
+                <div className="font-bold text-slate-400">TAHAP 1</div>
+                <div className="text-[9.5px] text-slate-500">Teguran (Selesai)</div>
               </div>
-              <ol className="list-decimal list-inside space-y-1 text-slate-300">
-                <li>Segera temui <strong>Pengawas Ruangan</strong> di meja depan kelas sekarang.</li>
-                <li>Pengawas akan memverifikasi pelanggaran dan menekan tombol <strong>&quot;Buka Kunci P2 / Reset&quot;</strong> di Konsol Pengawas.</li>
-                <li>Setelah Pengawas mengizinkan, layar ujian akan <strong>otomatis terbuka (tiap 3 detik)</strong> atau Anda dapat menekan tombol <strong>Periksa Izin Pengawas</strong> di bawah.</li>
-              </ol>
-              <div className="p-2.5 rounded-lg bg-rose-950/50 border border-rose-500/40 text-rose-200 text-[11px]">
-                <strong>⚠️ PERINGATAN TERAKHIR (STRIKE 3):</strong> Jika Anda melanggar 1 kali lagi (Pelanggaran ke-3), akun CBT Anda akan <strong>DI-SUSPEND TOTAL</strong> dan Pengawas Ruangan <strong>TIDAK BISA</strong> membukanya lagi. Anda wajib melapor ke <strong>Admin Utama Sekolah</strong>!
+
+              <div className="p-2 rounded-xl bg-amber-500/25 border-2 border-amber-400 text-amber-100 shadow-[0_0_15px_rgba(245,158,11,0.3)] space-y-0.5">
+                <div className="font-black text-amber-300 flex items-center justify-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-300 animate-ping" />
+                  <span>TAHAP 2</span>
+                </div>
+                <div className="text-[9.5px] font-bold text-white">TERKUNCI (SEKARANG)</div>
+              </div>
+
+              <div className="p-2 rounded-xl bg-rose-950/30 border border-rose-900/50 text-rose-400/80">
+                <div className="font-bold text-rose-400">TAHAP 3</div>
+                <div className="text-[9.5px] text-rose-500">Suspend Admin</div>
               </div>
             </div>
           </div>
 
-          <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-slate-300 flex items-center justify-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
-            <span>Menunggu konfirmasi reset / buka kunci dari Pengawas... (Otomatis memeriksa tiap 3 detik)</span>
+          {/* Steps & SOP Box */}
+          <div className="p-4 rounded-2xl bg-slate-900/90 border border-white/10 text-left text-xs space-y-2.5">
+            <div className="font-bold text-white uppercase text-[11px] tracking-wide flex items-center gap-1.5 text-amber-300">
+              <Radio size={14} className="animate-pulse" /> SOP Wajib Peserta Ujian:
+            </div>
+            <ol className="list-decimal list-inside space-y-1.5 text-slate-300 text-xs">
+              <li>Segera temui <strong>Pengawas Ruangan</strong> di meja depan kelas sekarang.</li>
+              <li>Pengawas akan memverifikasi kejadian dan menekan tombol <strong>&quot;Buka Kunci P2 / Reset&quot;</strong> di Konsol Pengawas.</li>
+              <li>Setelah Pengawas menyetujui, layar ini akan <strong>otomatis melanjutkan ujian</strong> (diperiksa tiap 3 detik).</li>
+            </ol>
+            <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-500/50 text-rose-200 text-[11px] leading-relaxed">
+              <strong className="text-rose-300 block mb-0.5">⚠️ PERINGATAN TERAKHIR (STRIKE 3):</strong>
+              Jika Anda melanggar 1 kali lagi (Pelanggaran ke-3), akun CBT Anda akan <strong>DI-SUSPEND TOTAL</strong> secara permanen. Pengawas Ruangan <strong>TIDAK BISA</strong> membukanya, Anda wajib melapor ke <strong>Admin Utama Sekolah</strong>!
+            </div>
           </div>
 
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+          {/* Realtime Telemetry Heartbeat Indicator */}
+          <div className="p-3 rounded-xl bg-slate-900/80 border border-amber-500/20 text-xs text-slate-300 flex items-center justify-center gap-2 font-mono">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
+            <span className="text-[11px]">SINKRONISASI PENGAWAS AKTIF &bull; MEMERIKSA TIAP 3 DETIK...</span>
+          </div>
+
+          {/* Action Button */}
+          <div className="pt-1">
             <button
               type="button"
               onClick={async () => {
@@ -1012,10 +1146,10 @@ export default function CbtExamRoom({
                 }
               }}
               disabled={isCheckingLock}
-              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-black text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-amber-500/25"
+              className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 text-slate-950 font-black text-xs sm:text-sm tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_30px_rgba(245,158,11,0.35)] border border-amber-300/40"
             >
-              <RefreshCw size={14} className={isCheckingLock ? 'animate-spin' : ''} />
-              <span>{isCheckingLock ? 'Memeriksa Izin...' : 'Periksa Izin Pengawas Sekarang'}</span>
+              <RefreshCw size={16} className={isCheckingLock ? 'animate-spin' : ''} />
+              <span>{isCheckingLock ? 'MEMERIKSA SINYAL PENGAWAS...' : 'PERIKSA IZIN PENGAWAS SEKARANG'}</span>
             </button>
           </div>
         </div>
@@ -1248,45 +1382,121 @@ export default function CbtExamRoom({
         </div>
       </div>
 
-      {/* ⚠️ STRIKE 1: MODAL PERINGATAN PELANGGARAN PERTAMA (TATA TERTIB CBT) */}
+      {/* ⚠️ STRIKE 1: MODAL PERINGATAN PELANGGARAN PERTAMA (CYBER PROCTORING HUD) */}
       {showCheatWarning && tabSwitchCount === 1 && !isStrike2Locked && !(attempt as any)?.isBlocked && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in">
-          <div className="max-w-md w-full bg-slate-900 border-2 border-amber-500 rounded-2xl sm:rounded-3xl p-4 sm:p-7 text-center space-y-3.5 sm:space-y-4 shadow-2xl animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto text-3xl shadow-lg shadow-amber-500/20">
-              <AlertTriangle size={30} className="text-amber-400 animate-bounce" />
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xl flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-300">
+          {/* Hologram Radial Glow */}
+          <div className="absolute w-[500px] h-[500px] rounded-full bg-amber-500/15 blur-[120px] pointer-events-none" />
+
+          <div className="relative max-w-lg w-full bg-slate-950/95 border border-amber-500/40 rounded-3xl p-5 sm:p-7 text-center shadow-[0_0_60px_-10px_rgba(245,158,11,0.35)] backdrop-blur-2xl space-y-4 max-h-[94vh] overflow-y-auto text-slate-100 animate-in zoom-in-95 duration-200">
+            {/* Top Glowing Laser Accent */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-400 to-transparent" />
+
+            {/* Futuristic Radar Scanner Badge */}
+            <div className="relative mx-auto w-20 h-20 flex items-center justify-center">
+              {/* Concentric Pulse Rings */}
+              <div className="absolute inset-0 rounded-full border-2 border-amber-400/40 animate-ping opacity-40" />
+              <div className="absolute inset-1 rounded-full border border-amber-500/30 bg-amber-500/10 shadow-[0_0_25px_rgba(245,158,11,0.25)]" />
+              <div className="relative z-10 w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/30 to-amber-600/10 border border-amber-400/50 flex items-center justify-center text-amber-300 shadow-inner">
+                <ShieldAlert size={32} className="animate-pulse drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]" />
+              </div>
             </div>
 
-            <div>
-              <span className="px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase tracking-wider">
-                Pelanggaran Ke-1 • Peringatan Teguran Sistem
-              </span>
-              <h3 className="text-lg sm:text-xl font-black text-white mt-2">
-                Terdeteksi Berpindah Tab / Layar!
+            {/* Header Telemetry Pill */}
+            <div className="space-y-1.5">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-widest shadow-sm">
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                <span>AI PROCTOR SENSOR • PELANGGARAN KE-1</span>
+              </div>
+              <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                Terdeteksi Keluar Layar Ujian!
               </h3>
+              <p className="text-xs text-slate-300 max-w-sm mx-auto leading-relaxed">
+                Sistem keamanan mendeteksi bahwa fokus jendela ujian terputus (berpindah tab, meminimalkan browser, atau membuka aplikasi lain).
+              </p>
             </div>
 
-            <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-950/40 border border-amber-500/30 text-left text-xs text-amber-200/90 space-y-2 leading-relaxed">
-              <p>
-                Sistem mendeteksi bahwa Anda telah berpindah tab, meminimalkan jendela ujian, atau membuka aplikasi lain di luar lembar ujian.
-              </p>
-              <div className="p-3 rounded-xl bg-amber-900/40 border border-amber-500/40 text-amber-100 text-[11px] space-y-1">
-                <strong className="text-amber-300 font-bold block">⚠️ KETENTUAN TATA TERTIB CBT:</strong>
-                <p>
-                  Ini adalah <strong>Peringatan Pertama</strong>. Anda <strong>masih diizinkan melanjutkan pengerjaan soal</strong>.
+            {/* Incident Telemetry HUD */}
+            <div className="grid grid-cols-2 gap-2 text-left text-xs bg-slate-900/90 p-3 sm:p-3.5 rounded-2xl border border-white/10 font-mono">
+              <div className="p-2 rounded-xl bg-slate-950/70 border border-white/5 space-y-0.5">
+                <span className="text-[10px] text-slate-400 block uppercase">Waktu Kejadian:</span>
+                <span className="text-amber-300 font-bold text-xs">{lastViolationTimeStr || 'Baru Saja'}</span>
+              </div>
+              <div className="p-2 rounded-xl bg-slate-950/70 border border-white/5 space-y-0.5">
+                <span className="text-[10px] text-slate-400 block uppercase">Sensor Deteksi:</span>
+                <span className="text-slate-200 font-bold text-xs truncate block" title="WINDOW_BLUR_EVENT">WINDOW_BLUR</span>
+              </div>
+              <div className="p-2 rounded-xl bg-slate-950/70 border border-white/5 space-y-0.5">
+                <span className="text-[10px] text-slate-400 block uppercase">Node Peserta:</span>
+                <span className="text-white font-bold text-xs truncate block" title={studentName}>{studentName}</span>
+              </div>
+              <div className="p-2 rounded-xl bg-slate-950/70 border border-white/5 space-y-0.5">
+                <span className="text-[10px] text-slate-400 block uppercase">Tingkat Resiko:</span>
+                <span className="text-amber-400 font-bold text-xs">TAHAP 1 (TEGURAN)</span>
+              </div>
+            </div>
+
+            {/* 3-Strike Visual Pipeline Stepper */}
+            <div className="p-3.5 rounded-2xl bg-amber-950/30 border border-amber-500/25 space-y-2 text-left">
+              <div className="flex items-center justify-between text-[10.5px] font-mono font-bold text-slate-300">
+                <span className="flex items-center gap-1.5">
+                  <Activity size={13} className="text-amber-400" /> STATUS ESKALASI PELANGGARAN:
+                </span>
+                <span className="text-amber-400">1 / 3 MAKSIMAL</span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-1.5 text-center text-[10px] pt-1">
+                {/* Step 1 */}
+                <div className="p-2 rounded-xl bg-amber-500/20 border border-amber-400/50 text-amber-200 space-y-1 ring-1 ring-amber-400/30">
+                  <div className="font-black text-amber-300 flex items-center justify-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                    <span>TAHAP 1</span>
+                  </div>
+                  <div className="text-[9.5px] font-semibold text-slate-200">Teguran Layar (Aktif)</div>
+                </div>
+
+                {/* Step 2 */}
+                <div className="p-2 rounded-xl bg-slate-900/80 border border-slate-700/60 text-slate-400 space-y-1">
+                  <div className="font-bold text-slate-300 flex items-center justify-center gap-1">
+                    <Lock size={10} />
+                    <span>TAHAP 2</span>
+                  </div>
+                  <div className="text-[9.5px] text-slate-400">Kunci Pengawas</div>
+                </div>
+
+                {/* Step 3 */}
+                <div className="p-2 rounded-xl bg-slate-900/80 border border-slate-700/60 text-slate-400 space-y-1">
+                  <div className="font-bold text-slate-400 flex items-center justify-center gap-1">
+                    <ShieldX size={10} />
+                    <span>TAHAP 3</span>
+                  </div>
+                  <div className="text-[9.5px] text-slate-500">Suspend Admin</div>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-amber-500/20 text-xs text-amber-200/90 leading-relaxed space-y-1">
+                <p className="font-medium">
+                  Ini adalah <strong className="text-amber-300">Peringatan Pertama</strong>. Anda masih diizinkan melanjutkan pengerjaan soal.
                 </p>
-                <p className="text-rose-300 font-semibold">
-                  Jika Anda terdeteksi keluar layar 1 kali lagi (Pelanggaran ke-2), lembar ujian Anda akan LANGSUNG DIBLOKIR/DIKUNCI dan Anda wajib melapor ke Pengawas Ruangan!
+                <p className="text-[11px] text-rose-300 font-bold flex items-center gap-1 pt-0.5">
+                  <AlertCircle size={13} className="shrink-0" />
+                  <span>PERINGATAN: Keluar layar 1x lagi akan LANGSUNG MENGUNCI lembar ujian Anda!</span>
                 </p>
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShowCheatWarning(false)}
-              className="w-full py-3 px-5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:scale-95 text-slate-950 font-black text-xs transition-all shadow-lg shadow-amber-500/25 cursor-pointer"
-            >
-              Saya Mengerti &amp; Lanjutkan Ujian
-            </button>
+            {/* High-tech Action Button */}
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => setShowCheatWarning(false)}
+                className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 hover:from-amber-400 hover:to-amber-500 active:scale-[0.98] text-slate-950 font-black text-xs sm:text-sm tracking-wide transition-all shadow-[0_0_30px_rgba(245,158,11,0.35)] flex items-center justify-center gap-2 cursor-pointer border border-amber-300/40"
+              >
+                <ShieldCheck size={18} />
+                <span>SAYA MENGERTI &bull; LANJUTKAN UJIAN</span>
+                <ArrowRight size={16} />
+              </button>
+            </div>
           </div>
         </div>
       )}
