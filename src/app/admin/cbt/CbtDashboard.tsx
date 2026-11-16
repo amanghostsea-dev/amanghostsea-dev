@@ -1860,11 +1860,11 @@ export default function CbtDashboard({
                 key={exam.id}
                 className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all flex flex-col justify-between overflow-hidden group"
               >
-                <div className="p-6">
+                <div className="p-4 sm:p-6">
                   {/* Top Status & Subject Bar */}
                   <div className="flex items-start justify-between gap-2 mb-3">
                     <span 
-                      className="px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200/50 dark:border-purple-800/50 truncate max-w-[200px]"
+                      className="px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200/50 dark:border-purple-800/50 truncate max-w-[180px] sm:max-w-[200px]"
                       title={exam.subject}
                     >
                       {exam.subject}
@@ -1891,7 +1891,7 @@ export default function CbtDashboard({
                   </div>
 
                   <h3 
-                    className="font-bold text-lg text-slate-900 dark:text-white line-clamp-2 mb-1.5 group-hover:text-purple-600 transition-colors"
+                    className="font-bold text-base sm:text-lg text-slate-900 dark:text-white line-clamp-2 mb-1.5 group-hover:text-purple-600 transition-colors"
                     title={exam.title}
                   >
                     {exam.title}
@@ -1913,11 +1913,11 @@ export default function CbtDashboard({
 
                   {/* 📅 EXAM SCHEDULE & TIME BOX (JAM MULAI & BERAKHIR EKSPLISIT) */}
                   <div className="p-3 rounded-2xl bg-gradient-to-br from-purple-50/70 to-indigo-50/40 dark:from-purple-950/30 dark:to-indigo-950/20 border border-purple-200/70 dark:border-purple-800/50 mb-3 space-y-2">
-                    {/* Row 1: Tanggal Pelaksanaan & Status Sesi */}
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 font-bold text-xs text-slate-800 dark:text-slate-100 min-w-0">
+                    {/* Row 1: Tanggal Pelaksanaan & Status Sesi - Responsif Fleksibel Tanpa Terpotong */}
+                    <div className="flex flex-wrap items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-1.5 font-bold text-xs text-slate-800 dark:text-slate-100">
                         <Calendar size={13} className="text-purple-600 dark:text-purple-400 shrink-0" />
-                        <span className="truncate" title={schedDetails.dateText}>{schedDetails.dateText}</span>
+                        <span title={schedDetails.dateText}>{schedDetails.dateText}</span>
                       </div>
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border shrink-0 ${schedState.badgeClass}`}>
                         {schedState.label}
@@ -1960,38 +1960,38 @@ export default function CbtDashboard({
                     {exam.description || 'Tidak ada deskripsi tambahan.'}
                   </p>
 
-                  <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/40 p-3 rounded-2xl mb-4 border border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-1.5">
-                      <Clock size={14} className="text-purple-500" />
-                      <span>{exam.duration} Menit</span>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/40 p-2.5 sm:p-3 rounded-2xl mb-4 border border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Clock size={14} className="text-purple-500 shrink-0" />
+                      <span className="truncate">{exam.duration} Menit</span>
                     </div>
                     <div className="flex items-center gap-1.5 min-w-0" title={exam.classTarget || 'Semua Kelas'}>
                       <Users size={14} className="text-blue-500 shrink-0" />
                       <span className="truncate font-medium">{formatClassTargetDisplay(exam.classTarget, true)}</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <FileCheck2 size={14} className="text-emerald-500" />
-                      <span>{exam._count.questions} Butir Soal</span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <FileCheck2 size={14} className="text-emerald-500 shrink-0" />
+                      <span className="truncate">{exam._count.questions} Butir Soal</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <Key size={14} className="text-amber-500" />
-                      <span className="font-mono font-bold">{(exam.token || '').split('|')[0] || 'Tanpa Token'}</span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Key size={14} className="text-amber-500 shrink-0" />
+                      <span className="font-mono font-bold truncate">{(exam.token || '').split('|')[0] || 'Tanpa Token'}</span>
                     </div>
                   </div>
 
                   {/* 🚀 QUICK TOKEN CONTROL BANNER */}
-                  <div className={`p-3 rounded-2xl border flex items-center justify-between gap-3 text-xs ${
+                  <div className={`p-2.5 sm:p-3 rounded-2xl border flex items-center justify-between gap-2 sm:gap-3 text-xs ${
                     isLive 
                       ? schedState.isOutsideSchedule
                         ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/50 text-amber-900 dark:text-amber-200'
                         : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/50 text-emerald-900 dark:text-emerald-200' 
                       : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-slate-300'
                   }`}>
-                    <div>
-                      <div className="font-extrabold uppercase text-[10px] tracking-wider text-slate-400">
-                        {isLive ? (schedState.isOutsideSchedule ? 'Token Live (Susulan):' : 'Token Live Kelas:') : 'Status Token:'}
+                    <div className="min-w-0">
+                      <div className="font-extrabold uppercase text-[9px] sm:text-[10px] tracking-wider text-slate-400 truncate">
+                        {isLive ? (schedState.isOutsideSchedule ? 'Token (Susulan):' : 'Token Live:') : 'Status Token:'}
                       </div>
-                      <div className="font-mono font-black text-sm text-slate-900 dark:text-white mt-0.5">
+                      <div className="font-mono font-black text-xs sm:text-sm text-slate-900 dark:text-white mt-0.5 truncate">
                         {(exam.token || '').split('|')[0] || 'BELUM AKTIF'}
                       </div>
                     </div>
@@ -2000,7 +2000,7 @@ export default function CbtDashboard({
                       type="button"
                       onClick={() => handleQuickToggleSession(exam)}
                       disabled={isSessionLoading}
-                      className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm ${
+                      className={`px-2.5 sm:px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm shrink-0 ${
                         isLive
                           ? 'bg-rose-600 hover:bg-rose-700 text-white'
                           : 'bg-emerald-600 hover:bg-emerald-700 text-white'
@@ -2010,11 +2010,11 @@ export default function CbtDashboard({
                         <RefreshCw size={12} className="animate-spin" />
                       ) : isLive ? (
                         <>
-                          <Square size={12} className="fill-white" /> Tutup Sesi
+                          <Square size={12} className="fill-white" /> <span className="hidden xs:inline">Tutup Sesi</span><span className="xs:hidden">Tutup</span>
                         </>
                       ) : (
                         <>
-                          <Play size={12} className="fill-white" /> Rilis Token
+                          <Play size={12} className="fill-white" /> <span className="hidden xs:inline">Rilis Token</span><span className="xs:hidden">Rilis</span>
                         </>
                       )}
                     </button>
@@ -2022,7 +2022,7 @@ export default function CbtDashboard({
                 </div>
 
                 {/* Bottom Action Buttons */}
-                <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/20 flex items-center justify-between gap-2">
+                <div className="p-3 sm:p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/20 flex items-center justify-between gap-2">
                   {isExamProctor(exam) ? (
                     <Link
                       href={`/admin/cbt/${exam.id}`}

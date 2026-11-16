@@ -833,15 +833,15 @@ export function formatClassTargetDisplay(target?: string | null, isCompact: bool
 
   const clean = target.trim();
   const lvl = isAllLevelTarget(clean);
-  if (lvl === 'X') return isCompact ? '🎯 Semua Kelas X' : '🎯 Semua Kelas X (Semua Jurusan)';
-  if (lvl === 'XI') return isCompact ? '🎯 Semua Kelas XI' : '🎯 Semua Kelas XI (Semua Jurusan)';
-  if (lvl === 'XII') return isCompact ? '🎯 Semua Kelas XII' : '🎯 Semua Kelas XII (Semua Jurusan)';
+  if (lvl === 'X') return isCompact ? 'Kelas X' : '🎯 Semua Kelas X (Semua Jurusan)';
+  if (lvl === 'XI') return isCompact ? 'Kelas XI' : '🎯 Semua Kelas XI (Semua Jurusan)';
+  if (lvl === 'XII') return isCompact ? 'Kelas XII' : '🎯 Semua Kelas XII (Semua Jurusan)';
   if (lvl === 'ALL') return isCompact ? 'Semua Kelas' : '🌐 Semua Kelas (Semua Siswa)';
 
   const parsed = parseClassTargets(clean);
   if (parsed.length > 1) {
     return isCompact
-      ? `👥 ${parsed.length} Rombel`
+      ? `${parsed.length} Rombel`
       : `👥 ${parsed.length} Kelas: ${parsed.slice(0, 2).join(', ')}${parsed.length > 2 ? '...' : ''}`;
   }
 

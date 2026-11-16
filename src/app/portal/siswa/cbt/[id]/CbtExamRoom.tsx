@@ -652,8 +652,8 @@ export default function CbtExamRoom({
   // ----------------------------------------------------
   if (!attempt || attempt.status !== 'IN_PROGRESS') {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans p-6 md:p-12 flex items-center justify-center">
-        <div className="max-w-xl w-full bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-xl space-y-6 animate-in fade-in">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans p-3 sm:p-6 md:p-12 flex items-center justify-center">
+        <div className="max-w-xl w-full bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl p-4 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl space-y-4 sm:space-y-6 animate-in fade-in">
           <div>
             <Link
               href="/portal/siswa/cbt"
@@ -661,7 +661,7 @@ export default function CbtExamRoom({
             >
               <ArrowLeft size={14} /> Kembali
             </Link>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#5fa08d]/15 text-[#4d8675] dark:text-[#8bb79e] border border-[#5fa08d]/30">
                 {exam.subject}
               </span>
@@ -669,14 +669,14 @@ export default function CbtExamRoom({
                 Target: {formatClassTargetDisplay(exam.classTarget)}
               </span>
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{exam.title}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">{exam.title}</h1>
             <p className="text-slate-500 text-xs mt-1">{exam.description || 'Petunjuk ujian standar SMK.'}</p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3 text-xs bg-slate-50 dark:bg-slate-800/40 p-3 sm:p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
             <div>
-              <span className="text-slate-500 block">Durasi Pengerjaan</span>
-              <strong className="text-slate-800 dark:text-slate-200 text-sm font-bold">
+              <span className="text-slate-500 block text-[11px]">Durasi Pengerjaan</span>
+              <strong className="text-slate-800 dark:text-slate-200 text-xs sm:text-sm font-bold">
                 {exam.duration} Menit
               </strong>
             </div>
@@ -853,36 +853,36 @@ export default function CbtExamRoom({
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 font-sans flex flex-col select-none">
       {/* Sticky Header Bar */}
-      <header className="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 md:px-8 py-3 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#4d8675] via-[#5fa08d] to-[#caa55d] text-white font-bold flex items-center justify-center text-sm shadow-md shadow-[#5fa08d]/25">
+      <header className="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-2.5 sm:px-6 md:px-8 py-2 sm:py-3 flex items-center justify-between shadow-sm gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-gradient-to-br from-[#4d8675] via-[#5fa08d] to-[#caa55d] text-white font-bold flex items-center justify-center text-xs sm:text-sm shadow-md shadow-[#5fa08d]/25 shrink-0">
             {currentIndex + 1}
           </div>
-          <div>
-            <h2 className="font-bold text-sm text-slate-900 dark:text-white line-clamp-1">
+          <div className="min-w-0">
+            <h2 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate max-w-[90px] xs:max-w-[140px] sm:max-w-xs" title={exam.title}>
               {exam.title}
             </h2>
-            <div className="text-[11px] text-slate-500">
-              Soal No. {currentIndex + 1} dari {questions.length} • {studentName}
+            <div className="text-[10px] sm:text-[11px] text-slate-500 truncate max-w-[100px] xs:max-w-[160px] sm:max-w-xs">
+              No. {currentIndex + 1}/{questions.length} • {studentName}
             </div>
           </div>
         </div>
 
         {/* Center: Countdown Timer */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <div
-            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-mono font-bold text-sm transition-all ${timeLeft < 300
+            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full font-mono font-bold text-xs sm:text-sm transition-all ${timeLeft < 300
                 ? 'bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400 animate-pulse border border-red-300'
                 : 'bg-[#5fa08d]/10 dark:bg-[#5fa08d]/20 text-[#4d8675] dark:text-[#8bb79e] border border-[#5fa08d]/30'
               }`}
           >
-            <Clock size={16} />
+            <Clock size={14} className="sm:w-4 sm:h-4 shrink-0" />
             <span>{formatTime(timeLeft)}</span>
           </div>
         </div>
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {tabSwitchCount > 0 && (
             <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300">
               <ShieldAlert size={12} /> {tabSwitchCount}x Pindah
@@ -891,26 +891,26 @@ export default function CbtExamRoom({
 
           <button
             onClick={toggleFullscreen}
-            className="p-2 text-slate-500 hover:text-slate-800 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="p-1.5 sm:p-2 text-slate-500 hover:text-slate-800 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             title="Layar Penuh"
           >
-            {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+            {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={18} />}
           </button>
 
           <button
             onClick={() => setIsSubmitModalOpen(true)}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-500/20 flex items-center gap-1.5 transition-all"
+            className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-500/20 flex items-center gap-1 sm:gap-1.5 transition-all shrink-0"
           >
-            <Send size={14} /> Selesai Ujian
+            <Send size={13} className="shrink-0" /> <span className="hidden xs:inline">Selesai Ujian</span><span className="xs:hidden">Selesai</span>
           </button>
         </div>
       </header>
 
       {/* Main Examination Layout */}
-      <div className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 md:p-6 grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
 
         {/* Left Column: Current Question & Options */}
-        <div className="lg:col-span-3 flex flex-col justify-between bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 md:p-8">
+        <div className="lg:col-span-3 flex flex-col justify-between bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 sm:p-6 md:p-8">
           <div>
             {/* Question Header & Points */}
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-6">
@@ -1071,22 +1071,22 @@ export default function CbtExamRoom({
 
       {/* ⚠️ STRIKE 1: MODAL PERINGATAN PELANGGARAN PERTAMA (TATA TERTIB CBT) */}
       {showCheatWarning && tabSwitchCount === 1 && !isStrike2Locked && !(attempt as any)?.isBlocked && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-          <div className="max-w-md w-full bg-slate-900 border-2 border-amber-500 rounded-3xl p-6 sm:p-7 text-center space-y-4 shadow-2xl animate-in zoom-in-95">
-            <div className="w-16 h-16 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto text-3xl shadow-lg shadow-amber-500/20">
-              <AlertTriangle size={34} className="text-amber-400 animate-bounce" />
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in">
+          <div className="max-w-md w-full bg-slate-900 border-2 border-amber-500 rounded-2xl sm:rounded-3xl p-4 sm:p-7 text-center space-y-3.5 sm:space-y-4 shadow-2xl animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto text-3xl shadow-lg shadow-amber-500/20">
+              <AlertTriangle size={30} className="text-amber-400 animate-bounce" />
             </div>
 
             <div>
-              <span className="px-3 py-1 rounded-full text-[11px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase tracking-wider">
+              <span className="px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase tracking-wider">
                 Pelanggaran Ke-1 • Peringatan Teguran Sistem
               </span>
-              <h3 className="text-xl font-black text-white mt-2.5">
+              <h3 className="text-lg sm:text-xl font-black text-white mt-2">
                 Terdeteksi Berpindah Tab / Layar!
               </h3>
             </div>
 
-            <div className="p-4 rounded-2xl bg-amber-950/40 border border-amber-500/30 text-left text-xs text-amber-200/90 space-y-2 leading-relaxed">
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-950/40 border border-amber-500/30 text-left text-xs text-amber-200/90 space-y-2 leading-relaxed">
               <p>
                 Sistem mendeteksi bahwa Anda telah berpindah tab, meminimalkan jendela ujian, atau membuka aplikasi lain di luar lembar ujian.
               </p>
@@ -1114,17 +1114,17 @@ export default function CbtExamRoom({
 
       {/* 🔒 STRIKE 2: MODAL BESAR MENUTUPI PENGERJAAN SOAL (KUNCI SEMENTARA) */}
       {isStrike2Locked && (
-        <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
-          <div className="max-w-lg w-full bg-slate-900 border-2 border-amber-500 rounded-3xl p-6 sm:p-8 text-center space-y-5 shadow-2xl animate-in zoom-in-95">
-            <div className="w-20 h-20 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto text-4xl shadow-lg shadow-amber-500/20">
-              <Lock size={40} className="text-amber-400 animate-pulse" />
+        <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in">
+          <div className="max-w-lg w-full bg-slate-900 border-2 border-amber-500 rounded-2xl sm:rounded-3xl p-4 sm:p-8 text-center space-y-4 sm:space-y-5 shadow-2xl animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto text-4xl shadow-lg shadow-amber-500/20">
+              <Lock size={34} className="text-amber-400 animate-pulse" />
             </div>
 
             <div>
-              <span className="px-3 py-1 rounded-full text-xs font-black bg-amber-500/30 text-amber-300 border border-amber-500/50 uppercase tracking-wider">
+              <span className="px-3 py-1 rounded-full text-[11px] sm:text-xs font-black bg-amber-500/30 text-amber-300 border border-amber-500/50 uppercase tracking-wider">
                 Pelanggaran Ke-2 • Ujian Diblokir Sementara
               </span>
-              <h2 className="text-2xl font-black text-white mt-3">
+              <h2 className="text-xl sm:text-2xl font-black text-white mt-2.5">
                 Layar Ujian Terkunci Sementara
               </h2>
             </div>
