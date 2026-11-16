@@ -49,7 +49,8 @@ import {
   Eye,
   EyeOff,
   Zap,
-  X
+  X,
+  Table
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import { 
@@ -83,6 +84,7 @@ import CbtRichText from '@/components/cbt/CbtRichText';
 import CbtQuestionImageViewer from '@/components/cbt/CbtQuestionImageViewer';
 import CbtMathToolbar from '@/components/cbt/CbtMathToolbar';
 import CbtOptionInputItem from '@/components/cbt/CbtOptionInputItem';
+import CbtTableBuilderModal from '@/components/cbt/CbtTableBuilderModal';
 
 interface ParsedQuestion {
   questionText: string;
@@ -1042,7 +1044,21 @@ C. Switch
 D. Router
 E. Modem
 Kunci: D
-Poin: 15`;
+Poin: 15
+
+5. Perhatikan tabel perbandingan jenis memori komputer berikut:
+| No | Jenis Memori | Karakteristik | Sifat Simpan |
+| :---: | :--- | :--- | :---: |
+| 1 | RAM | Kecepatan sangat tinggi | Volatile |
+| 2 | ROM | Menyimpan BIOS / Firmware | Non-Volatile |
+| 3 | Harddisk / SSD | Kapasitas besar untuk file | Non-Volatile |
+Berdasarkan tabel di atas, jenis memori yang datanya hilang saat daya listrik dimatikan (Volatile) adalah...
+A. RAM
+B. ROM
+C. Harddisk
+D. SSD
+Kunci: A
+Poin: 20`;
 
     setBatchRawText(example);
     setBatchError(null);
@@ -1246,6 +1262,20 @@ Poin: 10
   const [editOptions, setEditOptions] = useState(['', '', '', '']);
   const [editCorrectAnswer, setEditCorrectAnswer] = useState('0');
   const [editPoints, setEditPoints] = useState(10);
+
+  // Modal Table Builder for Questions (Fleksibel)
+  const [isTableModalOpen, setIsTableModalOpen] = useState(false);
+  const [tableTarget, setTableTarget] = useState<'create' | 'edit' | 'bulk'>('create');
+
+  const handleInsertTable = (tableMarkdown: string) => {
+    if (tableTarget === 'create') {
+      setQuestionText((prev) => (prev ? `${prev.trim()}\n\n${tableMarkdown.trim()}\n` : `${tableMarkdown.trim()}\n`));
+    } else if (tableTarget === 'edit') {
+      setEditQuestionText((prev) => (prev ? `${prev.trim()}\n\n${tableMarkdown.trim()}\n` : `${tableMarkdown.trim()}\n`));
+    } else if (tableTarget === 'bulk') {
+      setBatchRawText((prev) => (prev ? `${prev.trim()}\n\n${tableMarkdown.trim()}\n` : `${tableMarkdown.trim()}\n`));
+    }
+  };
 
   const handleOpenEditModal = (q: QuestionItem) => {
     setEditingQId(q.id);
@@ -2142,12 +2172,26 @@ Poin: 10
             </div>
 
             <form onSubmit={handleAddQuestion} className="p-6 space-y-4 max-h-[82vh] overflow-y-auto">
-              {/* Toolbar Rumus MTK & KaTeX */}
-              <div>
-                <CbtMathToolbar
-                  onInsert={(snippet) => setQuestionText((prev) => prev ? `${prev} ${snippet}` : snippet)}
-                  targetLabel="soal ujian"
-                />
+              {/* Toolbar Rumus MTK & KaTeX & Pembuat Tabel */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex-1 min-w-[260px]">
+                  <CbtMathToolbar
+                    onInsert={(snippet) => setQuestionText((prev) => prev ? `${prev} ${snippet}` : snippet)}
+                    targetLabel="soal ujian"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTableTarget('create');
+                    setIsTableModalOpen(true);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/40 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs shrink-0"
+                  title="Buka generator pembuat tabel fleksibel untuk soal ujian ini"
+                >
+                  <Table size={14} className="text-purple-600 dark:text-purple-400" />
+                  <span>📊 Buat / Sisipkan Tabel</span>
+                </button>
               </div>
 
               <div>
@@ -2456,6 +2500,18 @@ Poin: 10
                         title="Isi editor dengan contoh format teks soal"
                       >
                         <Sparkles size={14} className="text-purple-600 dark:text-purple-400" /> Contoh Soal
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTableTarget('bulk');
+                          setIsTableModalOpen(true);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 dark:bg-purple-950/40 border border-purple-300 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/40 text-purple-800 dark:text-purple-200 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+                        title="Buka generator pembuat tabel fleksibel untuk disisipkan ke naskah soal kolektif"
+                      >
+                        <Table size={14} className="text-purple-600 dark:text-purple-400" /> Sisipkan Format Tabel
                       </button>
 
                       <button
@@ -2830,12 +2886,26 @@ Poin: 15`}
             </div>
 
             <form onSubmit={handleSaveEditQuestion} className="p-6 space-y-4 max-h-[82vh] overflow-y-auto">
-              {/* Toolbar Rumus MTK & KaTeX */}
-              <div>
-                <CbtMathToolbar
-                  onInsert={(snippet) => setEditQuestionText((prev) => prev ? `${prev} ${snippet}` : snippet)}
-                  targetLabel="soal ujian"
-                />
+              {/* Toolbar Rumus MTK & KaTeX & Pembuat Tabel */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex-1 min-w-[260px]">
+                  <CbtMathToolbar
+                    onInsert={(snippet) => setEditQuestionText((prev) => prev ? `${prev} ${snippet}` : snippet)}
+                    targetLabel="soal ujian"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTableTarget('edit');
+                    setIsTableModalOpen(true);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/40 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs shrink-0"
+                  title="Buka generator pembuat tabel fleksibel untuk mengedit tabel soal ini"
+                >
+                  <Table size={14} className="text-purple-600 dark:text-purple-400" />
+                  <span>📊 Buat / Sisipkan Tabel</span>
+                </button>
               </div>
 
               <div>
@@ -3806,6 +3876,13 @@ Poin: 15`}
           </div>
         </div>
       )}
+
+      {/* 📊 MODAL GENERATOR & PEMBUAT TABEL SOAL FLEKSIBEL */}
+      <CbtTableBuilderModal
+        isOpen={isTableModalOpen}
+        onClose={() => setIsTableModalOpen(false)}
+        onInsertTable={handleInsertTable}
+      />
 
       {/* Global Print Styles for Exam Detail */}
       <style jsx global>{`
