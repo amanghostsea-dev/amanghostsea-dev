@@ -330,10 +330,11 @@ export default function CbtParticipantCardModal({
   // Generate vector QR SVG string once for the portal URL
   const qrSvg = useMemo(() => {
     try {
-      return generateQrSvg(portalUrl || 'https://smk-web.vercel.app/ujian', {
-        size: layoutMode === '6-per-page' ? 56 : 76,
-        padding: 1,
-        darkColor: '#0f172a',
+      return generateQrSvg(portalUrl || 'https://smkgama.sch.id/ujian', {
+        size: layoutMode === '6-per-page' ? 84 : 108,
+        padding: 2,
+        darkColor: '#000000',
+        lightColor: '#ffffff',
       });
     } catch (e) {
       return '';
@@ -1031,9 +1032,10 @@ function SingleParticipantCard({
       const separator = base.includes('?') ? '&' : '?';
       const studentUrl = `${base}${separator}u=${encodeURIComponent(student.username || student.nisn || '')}`;
       return generateQrSvg(studentUrl, {
-        size: layoutMode === '6-per-page' ? 56 : 76,
-        padding: 1,
-        darkColor: '#0f172a',
+        size: layoutMode === '6-per-page' ? 84 : 108,
+        padding: 2,
+        darkColor: '#000000',
+        lightColor: '#ffffff',
       });
     } catch {
       return qrSvg;
@@ -1188,12 +1190,12 @@ function SingleParticipantCard({
 
           {/* Quick QR Code (Personalized Deep-Link to /ujian?u=...) */}
           {showQr && studentQrSvg && (
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center mt-0.5">
               <div
-                className="w-13 h-13 bg-white p-0.5 border border-slate-300 rounded shadow-xs flex items-center justify-center overflow-hidden"
+                className="w-[78px] h-[78px] sm:w-[86px] sm:h-[86px] bg-white p-1 border-2 border-slate-900 rounded-lg shadow-2xs flex items-center justify-center overflow-hidden"
                 dangerouslySetInnerHTML={{ __html: studentQrSvg }}
               />
-              <span className="text-[6px] font-bold text-slate-500 uppercase tracking-tighter leading-none mt-0.5">
+              <span className="text-[6.5px] font-black text-slate-900 uppercase tracking-wider leading-none mt-1">
                 Scan Masuk Ujian
               </span>
             </div>

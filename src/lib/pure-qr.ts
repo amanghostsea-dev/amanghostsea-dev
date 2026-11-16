@@ -310,8 +310,8 @@ export function generateQrMatrix(text: string): boolean[][] {
 export function generateQrSvg(text: string, options?: QrOptions): string {
   const matrix = generateQrMatrix(text);
   const moduleCount = matrix.length;
-  const padding = options?.padding ?? 4;
-  const darkColor = options?.darkColor ?? '#0f172a';
+  const padding = options?.padding ?? 2;
+  const darkColor = options?.darkColor ?? '#000000';
   const lightColor = options?.lightColor ?? '#ffffff';
   const targetSize = options?.size ?? 160;
 
@@ -326,7 +326,7 @@ export function generateQrSvg(text: string, options?: QrOptions): string {
     }
   }
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalGrid} ${totalGrid}" width="${targetSize}" height="${targetSize}" style="background-color: ${lightColor}; border-radius: 8px;">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalGrid} ${totalGrid}" width="${targetSize}" height="${targetSize}" style="display: block; width: 100%; height: 100%; background-color: ${lightColor}; shape-rendering: crispEdges;">
     ${rects.join('')}
   </svg>`;
 }
