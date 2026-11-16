@@ -963,12 +963,26 @@ export async function proctorResetStudentLoginAction(attemptId: string) {
       return { error: 'Data pengerjaan siswa tidak ditemukan.' };
     }
 
+    const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    let updatedNotes = attempt.proctorNotes || '';
+
+    // 🔓 Buka kunci kecurangan tahap ke-2 (Strike 2) & reset login agar siswa langsung dapat melanjutkan ujian
+    const izinP2Tag = `[IZIN_LANJUT_P2] Izin lanjut ujian (Pelanggaran ke-2) & Reset diberikan oleh Pengawas pada ${timeStr} (Tercatat di BAP)`;
+    const resetTag = `[RESET_PENGAWAS] Reset login & buka blokir diberikan oleh Pengawas pada ${timeStr}`;
+
+    if (!updatedNotes.includes('[IZIN_LANJUT_P2]')) {
+      updatedNotes = updatedNotes ? `${updatedNotes} | ${izinP2Tag}` : izinP2Tag;
+    }
+    if (!updatedNotes.includes('[RESET_PENGAWAS]')) {
+      updatedNotes = `${updatedNotes} | ${resetTag}`;
+    }
+
     const updated = await prisma.examAttempt.update({
       where: { id: attemptId },
       data: {
         status: 'IN_PROGRESS',
         isBlocked: false,
-        proctorNotes: `Login dibuka kembali oleh Pengawas Ruang pada ${new Date().toLocaleTimeString('id-ID')}`,
+        proctorNotes: updatedNotes,
       },
     });
 
@@ -980,7 +994,7 @@ export async function proctorResetStudentLoginAction(attemptId: string) {
 
     return {
       success: true,
-      message: `Siswa "${attempt.studentName}" berhasil di-reset login. Siswa dapat memasukkan token kembali dan melanjutkan ujian!`,
+      message: `Siswa "${attempt.studentName}" berhasil di-reset. Kunci pelanggaran dibuka dan siswa dapat langsung melanjutkan ujian!`,
       attempt: updated,
     };
   } catch (error: any) {
@@ -1045,13 +1059,27 @@ export async function proctorToggleBlockAction(attemptId: string, shouldBlock: b
       };
     }
 
+    let updatedNotes = attempt.proctorNotes || '';
+    if (!shouldBlock) {
+      const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      const unblockTag = `[UNBLOCK_PENGAWAS] Blokir dicabut oleh pengawas pada ${timeStr}`;
+      const izinP2Tag = `[IZIN_LANJUT_P2] Izin lanjut ujian diberikan oleh pengawas pada ${timeStr} (Tercatat di BAP)`;
+      if (!updatedNotes.includes('[IZIN_LANJUT_P2]')) {
+        updatedNotes = updatedNotes ? `${updatedNotes} | ${izinP2Tag}` : izinP2Tag;
+      }
+      if (!updatedNotes.includes('[RESET_PENGAWAS]')) {
+        updatedNotes = `${updatedNotes} | ${unblockTag}`;
+      }
+    } else {
+      updatedNotes = `Diblokir pengawas: ${reason || 'Pelanggaran tata tertib'}`;
+    }
+
     const updated = await prisma.examAttempt.update({
       where: { id: attemptId },
       data: {
+        status: shouldBlock ? 'SUSPENDED' : 'IN_PROGRESS',
         isBlocked: shouldBlock,
-        proctorNotes: shouldBlock 
-          ? `Diblokir pengawas: ${reason || 'Pelanggaran tata tertib'}` 
-          : 'Blokir dicabut oleh pengawas',
+        proctorNotes: updatedNotes,
       },
     });
 
@@ -1104,6 +1132,7 @@ export async function proctorUnlockStrike2Action(attemptId: string, proctorName?
     const updated = await prisma.examAttempt.update({
       where: { id: attemptId },
       data: {
+        status: 'IN_PROGRESS',
         isBlocked: false,
         proctorNotes: updatedNotes,
       },

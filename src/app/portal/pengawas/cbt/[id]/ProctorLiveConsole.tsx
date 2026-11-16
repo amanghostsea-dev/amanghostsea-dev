@@ -372,10 +372,10 @@ export default function ProctorLiveConsole({
     if (type === 'RESET') {
       const res = await proctorResetStudentLoginAction(attemptId);
       if (res.success) {
-        showToast(`Login siswa "${studentName}" berhasil di-reset. Siswa dapat login kembali!`);
+        showToast(`Siswa "${studentName}" berhasil di-reset. Blokir pelanggaran dibuka dan layar siswa otomatis melanjutkan ujian!`);
         refreshAttemptsLive();
       } else {
-        alert(res.error || 'Gagal mereset login siswa.');
+        alert(res.error || 'Gagal mereset siswa.');
       }
     } else if (type === 'SUBMIT') {
       const res = await proctorForceSubmitAction(attemptId);
@@ -859,7 +859,7 @@ export default function ProctorLiveConsole({
                         {att ? (
                           <div className="flex items-center justify-center gap-1.5 flex-wrap">
                             {/* 🔓 Tombol Khusus Strike 2: Buka Kunci Pengerjaan Ujian */}
-                            {item.tabSwitchCount === 2 && !att?.proctorNotes?.includes('[IZIN_LANJUT_P2]') && !isBlocked && (
+                            {item.tabSwitchCount === 2 && !att?.proctorNotes?.includes('[IZIN_LANJUT_P2]') && (
                               <button
                                 onClick={() => setActionTargetAttempt({
                                   attemptId: att.id,
@@ -867,7 +867,7 @@ export default function ProctorLiveConsole({
                                   type: 'UNLOCK_STRIKE_2',
                                 })}
                                 className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] shadow-sm animate-pulse transition flex items-center gap-1 cursor-pointer"
-                                title="Buka Kunci Pelanggaran ke-2 agar siswa bisa melanjutkan ujian (Tercatat di BAP)"
+                                title="Buka Kunci Pelanggaran ke-2 agar siswa bisa langsung melanjutkan ujian (Tercatat di BAP)"
                               >
                                 <Unlock size={12} /> Buka Kunci P2
                               </button>
@@ -880,8 +880,12 @@ export default function ProctorLiveConsole({
                                 studentName: item.studentName,
                                 type: 'RESET',
                               })}
-                              className="px-2 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 font-bold text-[11px] border border-blue-500/30 transition flex items-center gap-1 cursor-pointer"
-                              title="Buka Kunci Login (jika siswa restart/ganti HP)"
+                              className={`px-2 py-1 rounded-lg font-bold text-[11px] border transition flex items-center gap-1 cursor-pointer ${
+                                item.tabSwitchCount === 2 && !att?.proctorNotes?.includes('[IZIN_LANJUT_P2]')
+                                  ? 'bg-amber-600/30 hover:bg-amber-600/50 text-amber-200 border-amber-500/40'
+                                  : 'bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border-blue-500/30'
+                              }`}
+                              title="Buka Kunci / Reset Siswa agar dapat langsung melanjutkan ujian"
                             >
                               <Unlock size={11} /> Reset
                             </button>
@@ -1070,7 +1074,7 @@ export default function ProctorLiveConsole({
         }
         message={
           actionTargetAttempt?.type === 'RESET'
-            ? `Apakah Anda yakin ingin membuka kunci login untuk "${actionTargetAttempt?.studentName}"? Siswa dapat login kembali dari perangkat lain tanpa kehilangan jawaban yang sudah tersimpan.`
+            ? `Apakah Anda yakin ingin membuka kunci & me-reset siswa "${actionTargetAttempt?.studentName}"? Akses ujian dan blokir pelanggaran siswa akan dibuka secara otomatis sehingga siswa dapat langsung melanjutkan ujian tanpa kehilangan jawaban.`
             : actionTargetAttempt?.type === 'SUBMIT'
             ? `Apakah Anda yakin ingin memaksa mengumpulkan lembar ujian milik "${actionTargetAttempt?.studentName}"? Skor akan langsung dihitung berdasarkan jawaban yang tersimpan saat ini.`
             : actionTargetAttempt?.type === 'BLOCK'
@@ -1081,7 +1085,7 @@ export default function ProctorLiveConsole({
         }
         confirmText={
           actionTargetAttempt?.type === 'RESET'
-            ? 'Ya, Buka Kunci Siswa'
+            ? 'Ya, Reset & Buka Ujian Siswa'
             : actionTargetAttempt?.type === 'SUBMIT'
             ? 'Ya, Paksa Kumpul'
             : actionTargetAttempt?.type === 'BLOCK'

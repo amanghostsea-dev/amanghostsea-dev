@@ -155,7 +155,10 @@ export default function CbtExamRoom({
   const [isStrike2Locked, setIsStrike2Locked] = useState<boolean>(() => {
     const att = existingAttempt;
     if (!att) return false;
-    return ((att as any).tabSwitchCount === 2) && !((att as any).proctorNotes?.includes('[IZIN_LANJUT_P2]'));
+    const hasPermission = 
+      (att as any).proctorNotes?.includes('[IZIN_LANJUT_P2]') || 
+      (att as any).proctorNotes?.includes('[RESET_PENGAWAS]');
+    return ((att as any).tabSwitchCount === 2) && !hasPermission && !(att as any).isBlocked;
   });
   const [isCheckingLock, setIsCheckingLock] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -190,22 +193,26 @@ export default function CbtExamRoom({
       try {
         const saved = localStorage.getItem(storageKey);
         const dbCount = attempt.tabSwitchCount || 0;
+        const hasPermission = 
+          (attempt as any).proctorNotes?.includes('[IZIN_LANJUT_P2]') || 
+          (attempt as any).proctorNotes?.includes('[RESET_PENGAWAS]');
+
         if (saved) {
           const parsed = JSON.parse(saved);
           if (parsed.answers) setAnswers(parsed.answers);
           if (parsed.doubtful) setDoubtful(parsed.doubtful);
 
-          // Jika di database attempt masih 0 (baru/direset), sinkronkan reset ke localStorage
-          if (dbCount === 0) {
-            setTabSwitchCount(0);
+          // Jika di database attempt masih 0 atau pengawas telah memberikan izin reset/lanjut:
+          if (dbCount === 0 || hasPermission) {
+            setTabSwitchCount(dbCount);
             setIsStrike2Locked(false);
             try {
-              localStorage.setItem(storageKey, JSON.stringify({ ...parsed, tabSwitchCount: 0 }));
+              localStorage.setItem(storageKey, JSON.stringify({ ...parsed, tabSwitchCount: dbCount }));
             } catch {}
           } else {
             const count = Math.max(dbCount, parsed.tabSwitchCount || 0);
             setTabSwitchCount(count);
-            if (count === 2 && !(attempt as any).proctorNotes?.includes('[IZIN_LANJUT_P2]')) {
+            if (count === 2 && !hasPermission && !(attempt as any).isBlocked) {
               setIsStrike2Locked(true);
             }
           }
@@ -213,6 +220,9 @@ export default function CbtExamRoom({
           const dbAnswers = JSON.parse(attempt.answers);
           setAnswers(dbAnswers);
           setTabSwitchCount(dbCount);
+          if (dbCount === 2 && !hasPermission && !(attempt as any).isBlocked) {
+            setIsStrike2Locked(true);
+          }
         }
       } catch (err) {
         console.error('Failed to parse saved answers', err);
@@ -345,18 +355,35 @@ export default function CbtExamRoom({
   useEffect(() => {
     if (!attempt || attempt.status !== 'IN_PROGRESS' || finalResult) return;
 
-    // Polling interval: 4 seconds if Strike 2 locked so student instantly resumes when proctor unlocks, otherwise 15 seconds
-    const intervalMs = isStrike2Locked ? 4000 : 15000;
+    // Polling interval: 3 detik jika sedang terkunci Strike 2 agar siswa langsung melanjutkan saat di-reset pengawas
+    const intervalMs = isStrike2Locked ? 3000 : 15000;
 
     const interval = setInterval(async () => {
+      // Jangan poll jika tab diminimalkan, KECUALI jika sedang menunggu buka kunci Strike 2
+      if (typeof document !== 'undefined' && document.hidden && !isStrike2Locked) return;
+
       try {
         const res = await saveProgress(attempt.id, answers, tabSwitchCount);
         if (res && res.success) {
-          if (res.isBlocked) {
-            setAttempt((prev) => prev ? { ...prev, isBlocked: true, proctorNotes: res.proctorNotes } : prev);
+          if (res.isBlocked !== undefined) {
+            setAttempt((prev) => prev ? { ...prev, isBlocked: res.isBlocked, proctorNotes: res.proctorNotes } : prev);
           }
           if (res.isStrike2Locked !== undefined) {
-            setIsStrike2Locked(res.isStrike2Locked);
+            if (isStrike2Locked && !res.isStrike2Locked) {
+              // 🔓 PENGWAS TELAH MERESET / MEMBUKA KUNCI STRIKE 2!
+              setIsStrike2Locked(false);
+              setShowCheatWarning(false);
+              setTabSwitchCount(res.tabSwitchCount || 2);
+              try {
+                const saved = localStorage.getItem(storageKey);
+                if (saved) {
+                  const parsed = JSON.parse(saved);
+                  localStorage.setItem(storageKey, JSON.stringify({ ...parsed, tabSwitchCount: res.tabSwitchCount || 2 }));
+                }
+              } catch {}
+            } else {
+              setIsStrike2Locked(res.isStrike2Locked);
+            }
           }
           if (typeof res.extraTimeMinutes === 'number' && res.extraTimeMinutes !== (attempt as any).extraTimeMinutes) {
             setAttempt((prev) => prev ? { ...prev, extraTimeMinutes: res.extraTimeMinutes } : prev);
@@ -395,7 +422,10 @@ export default function CbtExamRoom({
 
     if (res.success && res.attempt) {
       setAttempt(res.attempt);
-      const isS2Locked = res.attempt.tabSwitchCount === 2 && !res.attempt.proctorNotes?.includes('[IZIN_LANJUT_P2]');
+      const hasPermission = 
+        res.attempt.proctorNotes?.includes('[IZIN_LANJUT_P2]') || 
+        res.attempt.proctorNotes?.includes('[RESET_PENGAWAS]');
+      const isS2Locked = res.attempt.tabSwitchCount === 2 && !hasPermission && !res.attempt.isBlocked;
       setIsStrike2Locked(isS2Locked);
       setTabSwitchCount(res.attempt.tabSwitchCount || 0);
 
@@ -1153,7 +1183,7 @@ export default function CbtExamRoom({
 
             <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-slate-300 flex items-center justify-center gap-2">
               <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
-              <span>Menunggu konfirmasi buka kunci dari Pengawas Ruangan...</span>
+              <span>Menunggu konfirmasi reset / buka kunci dari Pengawas... (Otomatis memeriksa tiap 3 detik)</span>
             </div>
 
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -1167,9 +1197,12 @@ export default function CbtExamRoom({
                     if (res && res.success) {
                       if (res.isStrike2Locked !== undefined) {
                         setIsStrike2Locked(res.isStrike2Locked);
+                        if (!res.isStrike2Locked) {
+                          setShowCheatWarning(false);
+                        }
                       }
-                      if (res.isBlocked) {
-                        setAttempt((prev) => prev ? { ...prev, isBlocked: true, proctorNotes: res.proctorNotes } : prev);
+                      if (res.isBlocked !== undefined) {
+                        setAttempt((prev) => prev ? { ...prev, isBlocked: res.isBlocked, proctorNotes: res.proctorNotes } : prev);
                       }
                     }
                   } finally {
@@ -1180,7 +1213,7 @@ export default function CbtExamRoom({
                 className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-black text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-amber-500/25"
               >
                 <RefreshCw size={14} className={isCheckingLock ? 'animate-spin' : ''} />
-                <span>{isCheckingLock ? 'Memeriksa...' : 'Periksa Izin Pengawas'}</span>
+                <span>{isCheckingLock ? 'Memeriksa Izin...' : 'Periksa Izin Pengawas Sekarang'}</span>
               </button>
             </div>
           </div>

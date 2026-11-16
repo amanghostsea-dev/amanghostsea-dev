@@ -190,6 +190,10 @@ export async function saveProgress(
       return { error: 'Data pengerjaan tidak ditemukan.' };
     }
 
+    const hasProctorPermission = 
+      current.proctorNotes?.includes('[IZIN_LANJUT_P2]') || 
+      current.proctorNotes?.includes('[RESET_PENGAWAS]');
+
     const effectiveTabCount = Math.max(current.tabSwitchCount || 0, tabSwitchCount);
     let shouldBlock = current.isBlocked;
     let newNotes = current.proctorNotes || '';
@@ -203,7 +207,7 @@ export async function saveProgress(
         const strike3Msg = `[STRIKE_3_BLOKIR] DIBLOKIR OTOMATIS SISTEM: 3x Pelanggaran Tata Tertib (Pindah Tab/Layar) pada ${timeStr}. Pengerjaan dihentikan permanen. Wajib Lapor ke Admin Utama!`;
         newNotes = newNotes ? `${newNotes} | ${strike3Msg}` : strike3Msg;
       }
-    } else if (effectiveTabCount === 2 && !newNotes.includes('[STRIKE_2_TERKUNCI]') && !newNotes.includes('[IZIN_LANJUT_P2]')) {
+    } else if (effectiveTabCount === 2 && !hasProctorPermission && !newNotes.includes('[STRIKE_2_TERKUNCI]')) {
       const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
       const strike2Msg = `[STRIKE_2_TERKUNCI] Pelanggaran ke-2 pada ${timeStr} (Pengerjaan Soal Terkunci Sementara Menunggu Pengawas)`;
       newNotes = newNotes ? `${newNotes} | ${strike2Msg}` : strike2Msg;
@@ -230,13 +234,14 @@ export async function saveProgress(
       },
     });
 
-    const isStrike2Locked = updated.tabSwitchCount === 2 && !updated.proctorNotes?.includes('[IZIN_LANJUT_P2]');
+    const isStrike2Locked = updated.tabSwitchCount === 2 && !hasProctorPermission && !updated.isBlocked;
 
     return {
       success: true,
       status: updated.status,
       isBlocked: updated.isBlocked,
       isStrike2Locked,
+      hasProctorPermission,
       tabSwitchCount: updated.tabSwitchCount,
       proctorNotes: updated.proctorNotes,
       extraTimeMinutes: updated.extraTimeMinutes,
@@ -265,12 +270,17 @@ export async function checkStudentExamLockStatus(attemptId: string) {
 
     if (!attempt) return { error: 'Attempt tidak ditemukan' };
 
-    const isStrike2Locked = attempt.tabSwitchCount === 2 && !attempt.proctorNotes?.includes('[IZIN_LANJUT_P2]');
+    const hasProctorPermission = 
+      attempt.proctorNotes?.includes('[IZIN_LANJUT_P2]') || 
+      attempt.proctorNotes?.includes('[RESET_PENGAWAS]');
+
+    const isStrike2Locked = attempt.tabSwitchCount === 2 && !hasProctorPermission && !attempt.isBlocked;
 
     return {
       success: true,
       isBlocked: attempt.isBlocked,
       isStrike2Locked,
+      hasProctorPermission,
       tabSwitchCount: attempt.tabSwitchCount,
       proctorNotes: attempt.proctorNotes,
       extraTimeMinutes: attempt.extraTimeMinutes,
