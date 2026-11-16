@@ -526,6 +526,9 @@ export default function ExamDetailClient({
     if (examStatus !== 'ACTIVE') return;
 
     const syncWithProctor = async () => {
+      // Hemat koneksi DB: Jangan request jika tab sedang di latar belakang (hidden)
+      if (typeof document !== 'undefined' && document.hidden) return;
+
       try {
         const res = await fetch(`/api/cbt/attempts?examId=${exam.id}`, { cache: 'no-store' });
         if (res.ok) {
@@ -545,7 +548,7 @@ export default function ExamDetailClient({
       } catch {}
     };
 
-    const pollInterval = setInterval(syncWithProctor, 5000);
+    const pollInterval = setInterval(syncWithProctor, 15000);
     return () => clearInterval(pollInterval);
   }, [exam.id, examStatus, examToken]);
 

@@ -219,8 +219,11 @@ export default function ProctorLiveConsole({
     }
   };
 
-  // Refresh attempts & sync token live with teacher and server (every 5 seconds)
+  // Refresh attempts & sync token live with teacher and server (every 10 seconds while active)
   const refreshAttemptsLive = useCallback(async () => {
+    // Hemat koneksi DB: Jangan request jika tab pengawas sedang tidak aktif/tersembunyi
+    if (typeof document !== 'undefined' && document.hidden) return;
+
     try {
       const res = await fetch(`/api/cbt/attempts?examId=${exam.id}`, { cache: 'no-store' });
       if (res.ok) {
@@ -244,11 +247,13 @@ export default function ProctorLiveConsole({
   }, [exam.id, examToken, examStatus]);
 
   useEffect(() => {
+    if (examStatus !== 'ACTIVE') return;
+
     const timer = setInterval(() => {
       refreshAttemptsLive();
-    }, 5000);
+    }, 10000);
     return () => clearInterval(timer);
-  }, [refreshAttemptsLive]);
+  }, [examStatus, refreshAttemptsLive]);
 
   // ⏱️ Auto-countdown & auto-rotation effect for 10-minute rolling token cycle
   useEffect(() => {

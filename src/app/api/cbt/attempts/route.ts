@@ -30,24 +30,13 @@ export async function GET(req: Request) {
 
     // 2. 🔄 Dynamic 10-Minute Rolling Token Auto-Reset (600 detik)
     // Jika sesi AKTIF dan sudah >= 10 menit (600 detik) sejak rotasi terakhir:
-    // Lakukan rotasi otomatis di backend agar token Pengawas, Guru, dan Siswa selalu 100% singkron!
     let elapsedSeconds = Math.floor((Date.now() - new Date(exam.updatedAt).getTime()) / 1000);
     if (exam.status === 'ACTIVE' && elapsedSeconds >= 600) {
       const rotateRes = await rotateExamToken(exam.id);
-      if (rotateRes.success) {
-        const refreshedExam = await prisma.exam.findUnique({
-          where: { id: examId },
-          select: {
-            id: true,
-            status: true,
-            token: true,
-            updatedAt: true,
-          },
-        });
-        if (refreshedExam) {
-          exam = refreshedExam;
-          elapsedSeconds = 0;
-        }
+      if (rotateRes.success && rotateRes.displayToken) {
+        exam.token = rotateRes.token || rotateRes.displayToken;
+        exam.updatedAt = new Date();
+        elapsedSeconds = 0;
       }
     }
 
