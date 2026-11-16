@@ -6,19 +6,9 @@ import {
   Search, 
   GraduationCap, 
   ShieldCheck, 
-  Plus, 
-  X, 
-  CheckCircle2, 
-  AlertCircle, 
-  Upload, 
-  FileSpreadsheet,
-  UserPlus,
-  Sparkles,
-  Edit3,
   Filter
 } from 'lucide-react';
 import Link from 'next/link';
-import { createStudentByGuru, importStudentsByGuru, updateStudentByGuru } from './actions';
 
 export interface StudentItem {
   id: string;
@@ -32,11 +22,10 @@ export interface StudentItem {
 }
 
 export default function KelasClient({
-  students: initialStudents,
+  students,
   teacherName,
   teacherWaliClass = 'XI TJKT 1',
   classTargets = ['Semua Kelas', 'X TJKT 1', 'XI TJKT 1', 'XII TJKT 1', 'X DKV 1', 'XI DKV 1', 'XII DKV 1', 'X MPLB 1', 'XI MPLB 1', 'XII MPLB 1'],
-  jurusans = [],
 }: {
   students: StudentItem[];
   teacherName: string;
@@ -44,38 +33,8 @@ export default function KelasClient({
   classTargets?: string[];
   jurusans?: Array<{ id: string; name: string; code: string }>;
 }) {
-  const [students, setStudents] = useState<StudentItem[]>(initialStudents);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState('ALL');
-
-  // Modals
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingStudent, setEditingStudent] = useState<StudentItem | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-
-  // Form Fields - Tambah
-  const [formName, setFormName] = useState('');
-  const [formNisn, setFormNisn] = useState('');
-  const [formUsername, setFormUsername] = useState('');
-  const [formPassword, setFormPassword] = useState('');
-  const [formClass, setFormClass] = useState(teacherWaliClass);
-
-  // Form Fields - Edit
-  const [editName, setEditName] = useState('');
-  const [editNisn, setEditNisn] = useState('');
-  const [editClass, setEditClass] = useState('');
-
-  // Import Fields
-  const [importText, setImportText] = useState('');
-  const [importClass, setImportClass] = useState(teacherWaliClass);
-
-  const showNotify = (type: 'success' | 'error', message: string) => {
-    setNotification({ type, message });
-    setTimeout(() => setNotification(null), 4500);
-  };
 
   // Kumpulan opsi kelas yang disinkronkan dengan Master Data Admin Utama
   const classOptions = useMemo(() => {
@@ -111,12 +70,7 @@ export default function KelasClient({
     return list;
   }, [classTargets, teacherWaliClass]);
 
-  // Daftar kelas murni untuk dropdown form (tanpa opsi "Semua ...")
-  const assignableClasses = useMemo(() => {
-    return (classTargets || []).filter((c) => c && !c.toLowerCase().startsWith('semua'));
-  }, [classTargets]);
-
-  // Filter Siswa Akurat
+  // Filter Siswa Akurat Sesuai Data Sinkron Admin Utama
   const filteredStudents = useMemo(() => {
     return students.filter((s) => {
       const userClass = (s.studentClass || '').trim();
@@ -159,176 +113,8 @@ export default function KelasClient({
     });
   }, [students, selectedClass, searchTerm]);
 
-  // Buka Modal Tambah
-  const handleOpenAddModal = () => {
-    setFormName('');
-    setFormNisn('');
-    setFormUsername('');
-    setFormPassword('');
-    const defaultCls = selectedClass !== 'ALL' && !selectedClass.startsWith('Semua') 
-      ? selectedClass 
-      : teacherWaliClass;
-    setFormClass(defaultCls);
-    setIsAddModalOpen(true);
-  };
-
-  // Buka Modal Edit Siswa
-  const handleOpenEditModal = (s: StudentItem) => {
-    setEditingStudent(s);
-    setEditName(s.name);
-    setEditNisn(s.nisn || '');
-    setEditClass(s.studentClass || teacherWaliClass);
-    setIsEditModalOpen(true);
-  };
-
-  // Simpan Tambah Siswa Baru
-  const handleSaveStudent = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formName.trim()) {
-      showNotify('error', 'Nama lengkap siswa wajib diisi.');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await createStudentByGuru({
-        name: formName,
-        nisn: formNisn,
-        username: formUsername,
-        password: formPassword,
-        studentClass: formClass,
-      });
-
-      if (res?.error) {
-        showNotify('error', res.error);
-      } else {
-        const studentCreated = res?.data;
-        showNotify('success', `Siswa ${studentCreated?.name || formName} berhasil ditambahkan ke kelas ${formClass}!`);
-        if (studentCreated) {
-          setStudents((prev) => [studentCreated as StudentItem, ...prev]);
-        }
-        setIsAddModalOpen(false);
-        setFormName('');
-        setFormNisn('');
-        setFormUsername('');
-        setFormPassword('');
-      }
-    } catch {
-      showNotify('error', 'Terjadi kesalahan sistem saat menyimpan siswa.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Simpan Edit / Pembaruan Kelas Siswa
-  const handleSaveEditStudent = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingStudent) return;
-    if (!editName.trim()) {
-      showNotify('error', 'Nama siswa tidak boleh kosong.');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await updateStudentByGuru({
-        id: editingStudent.id,
-        name: editName,
-        nisn: editNisn,
-        studentClass: editClass,
-      });
-
-      if (res?.error) {
-        showNotify('error', res.error);
-      } else {
-        showNotify('success', `Data & kelas siswa ${editName} berhasil diperbarui ke ${editClass}!`);
-        // Update state lokal
-        setStudents((prev) =>
-          prev.map((item) =>
-            item.id === editingStudent.id
-              ? {
-                  ...item,
-                  name: editName.trim(),
-                  nisn: editNisn.trim() || null,
-                  studentClass: editClass.trim() || null,
-                }
-              : item
-          )
-        );
-        setIsEditModalOpen(false);
-        setEditingStudent(null);
-      }
-    } catch {
-      showNotify('error', 'Terjadi kesalahan sistem saat memperbarui siswa.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Proses Impor Siswa Massal
-  const handleProcessImport = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!importText.trim()) {
-      showNotify('error', 'Data impor tidak boleh kosong.');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Format: Nama Siswa, NISN [, Kelas]
-      const lines = importText.split('\n').filter((l) => l.trim() !== '');
-      const parsedRows = lines.map((line) => {
-        const parts = line.split(/[,;\t]/).map((p) => p.trim());
-        const name = parts[0] || '';
-        const nisn = parts[1] || '';
-        const studentClass = parts[2] || importClass;
-        return { name, nisn, studentClass };
-      }).filter((r) => r.name !== '');
-
-      if (parsedRows.length === 0) {
-        showNotify('error', 'Tidak ada data valid yang dapat diproses.');
-        setLoading(false);
-        return;
-      }
-
-      const res = await importStudentsByGuru(parsedRows, importClass);
-      if (res.error) {
-        showNotify('error', res.error);
-      } else {
-        showNotify('success', `Berhasil mengimpor ${res.count} siswa ke kelas ${importClass}!`);
-        setIsImportModalOpen(false);
-        setImportText('');
-        window.location.reload();
-      }
-    } catch {
-      showNotify('error', 'Gagal memproses impor data.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="space-y-8 font-sans">
-      {/* Top Banner Alert / Notification */}
-      {notification && (
-        <div
-          className={`p-4 rounded-2xl flex items-center gap-3 text-sm font-semibold shadow-lg transition-all animate-in fade-in slide-in-from-top-4 ${
-            notification.type === 'success'
-              ? 'bg-emerald-500 text-white shadow-emerald-500/20'
-              : 'bg-rose-500 text-white shadow-rose-500/20'
-          }`}
-        >
-          {notification.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
-          <span>{notification.message}</span>
-          <button
-            onClick={() => setNotification(null)}
-            className="ml-auto p-1 rounded-lg hover:bg-white/20 transition-colors"
-          >
-            <X size={16} />
-          </button>
-        </div>
-      )}
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -343,29 +129,12 @@ export default function KelasClient({
           </p>
         </div>
 
-        {/* Action Buttons for Guru */}
-        <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => {
-              const defaultCls = selectedClass !== 'ALL' && !selectedClass.startsWith('Semua') 
-                ? selectedClass 
-                : teacherWaliClass;
-              setImportClass(defaultCls);
-              setIsImportModalOpen(true);
-            }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 text-gray-700 dark:text-gray-300 rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer"
-          >
-            <Upload size={16} className="text-amber-600" /> Import CSV/Excel
-          </button>
-
-          <button
-            type="button"
-            onClick={handleOpenAddModal}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-amber-500/25 transition-all cursor-pointer"
-          >
-            <Plus size={16} /> Tambah Siswa Baru
-          </button>
+        {/* Info Sinkronisasi Admin Utama (Pengganti Tombol Tambah/Import) */}
+        <div className="flex items-center gap-2">
+          <div className="px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-xs text-slate-600 dark:text-slate-300 font-medium flex items-center gap-2 shadow-sm">
+            <ShieldCheck size={16} className="text-emerald-500 shrink-0" />
+            <span>Master Data Siswa Terkelola Terpusat oleh Admin Utama</span>
+          </div>
         </div>
       </div>
 
@@ -506,22 +275,12 @@ export default function KelasClient({
                       </span>
                     </td>
                     <td className="py-4 px-6 text-right">
-                      <div className="flex items-center justify-end gap-3">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEditModal(s)}
-                          className="text-slate-500 hover:text-amber-600 dark:text-slate-400 dark:hover:text-amber-400 font-bold text-xs flex items-center gap-1 cursor-pointer transition"
-                          title="Ubah Kelas / Edit Data Siswa"
-                        >
-                          <Edit3 size={13} /> Edit Kelas
-                        </button>
-                        <Link
-                          href={`/portal/guru/presensi?nisn=${s.nisn || s.username}`}
-                          className="text-amber-600 dark:text-amber-400 hover:underline font-bold text-xs"
-                        >
-                          Lihat Absensi
-                        </Link>
-                      </div>
+                      <Link
+                        href={`/portal/guru/presensi?nisn=${s.nisn || s.username}`}
+                        className="text-amber-600 dark:text-amber-400 hover:underline font-bold text-xs"
+                      >
+                        Lihat Absensi
+                      </Link>
                     </td>
                   </tr>
                 ))
@@ -530,324 +289,6 @@ export default function KelasClient({
           </table>
         </div>
       </div>
-
-      {/* MODAL 1: TAMBAH SISWA BARU LANGSUNG OLEH GURU */}
-      {isAddModalOpen && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setIsAddModalOpen(false);
-          }}
-        >
-          <div className="bg-white dark:bg-gray-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-100 dark:border-gray-800 space-y-5">
-            <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800">
-              <div className="flex items-center gap-3">
-                <span className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600">
-                  <UserPlus size={20} />
-                </span>
-                <div>
-                  <h3 className="font-bold text-gray-900 dark:text-white text-base">
-                    Tambah Peserta Didik Baru
-                  </h3>
-                  <p className="text-xs text-gray-500">Daftarkan siswa ke kelas bimbingan</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAddModalOpen(false)}
-                className="p-1 rounded-xl text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveStudent} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                  Nama Lengkap Siswa *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Contoh: Muhammad Rizky Pratama"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs sm:text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    NISN / NIS (10 Digit)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="0012345678"
-                    value={formNisn}
-                    onChange={(e) => {
-                      setFormNisn(e.target.value);
-                      if (!formUsername) setFormUsername(e.target.value);
-                    }}
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-mono text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    Username Login
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Auto jika kosong"
-                    value={formUsername}
-                    onChange={(e) => setFormUsername(e.target.value.toLowerCase().trim())}
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-mono text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    Target Kelas Binaan
-                  </label>
-                  <select
-                    value={formClass}
-                    onChange={(e) => setFormClass(e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-semibold text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500"
-                  >
-                    {assignableClasses.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    Password Awal
-                  </label>
-                  <input
-                    type="password"
-                    placeholder="Default: NISN"
-                    value={formPassword}
-                    onChange={(e) => setFormPassword(e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/40 text-xs text-amber-800 dark:text-amber-300 space-y-1">
-                <div className="font-bold flex items-center gap-1.5">
-                  <Sparkles size={14} /> Otomatisasi Terintegrasi Admin
-                </div>
-                <p className="text-[11px] leading-relaxed">
-                  Akun siswa langsung tersinkronisasi ke database Admin Utama, portal CBT, dan buku nilai mapel secara real-time.
-                </p>
-              </div>
-
-              <div className="flex justify-end gap-2.5 pt-3 border-t border-gray-100 dark:border-gray-800">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-xl text-xs font-semibold hover:bg-gray-50 cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-md shadow-amber-500/20 disabled:opacity-50 cursor-pointer"
-                >
-                  {loading ? 'Menyimpan...' : 'Simpan Siswa'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 2: EDIT / UBAH KELAS SISWA */}
-      {isEditModalOpen && editingStudent && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setIsEditModalOpen(false);
-          }}
-        >
-          <div className="bg-white dark:bg-gray-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-100 dark:border-gray-800 space-y-5">
-            <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800">
-              <div className="flex items-center gap-3">
-                <span className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600">
-                  <Edit3 size={20} />
-                </span>
-                <div>
-                  <h3 className="font-bold text-gray-900 dark:text-white text-base">
-                    Ubah Data & Kelas Siswa
-                  </h3>
-                  <p className="text-xs text-gray-500">Sesuaikan kelas binaan peserta didik</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsEditModalOpen(false)}
-                className="p-1 rounded-xl text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveEditStudent} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                  Nama Lengkap Siswa *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs sm:text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                  NISN / NIS
-                </label>
-                <input
-                  type="text"
-                  placeholder="0012345678"
-                  value={editNisn}
-                  onChange={(e) => setEditNisn(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-mono text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                  Target Kelas Binaan (Resmi Admin)
-                </label>
-                <select
-                  value={editClass}
-                  onChange={(e) => setEditClass(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-semibold text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500"
-                >
-                  <option value="">-- Pilih Kelas --</option>
-                  {assignableClasses.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex justify-end gap-2.5 pt-3 border-t border-gray-100 dark:border-gray-800">
-                <button
-                  type="button"
-                  onClick={() => setIsEditModalOpen(false)}
-                  className="px-4 py-2 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-xl text-xs font-semibold hover:bg-gray-50 cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-md shadow-amber-500/20 disabled:opacity-50 cursor-pointer"
-                >
-                  {loading ? 'Menyimpan...' : 'Simpan Perubahan'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 3: IMPORT MASSAL SISWA */}
-      {isImportModalOpen && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setIsImportModalOpen(false);
-          }}
-        >
-          <div className="bg-white dark:bg-gray-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 dark:border-gray-800 space-y-5">
-            <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800">
-              <div className="flex items-center gap-3">
-                <span className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600">
-                  <FileSpreadsheet size={20} />
-                </span>
-                <div>
-                  <h3 className="font-bold text-gray-900 dark:text-white text-base">
-                    Import Data Siswa Kolektif
-                  </h3>
-                  <p className="text-xs text-gray-500">Salin & tempel daftar siswa dari Excel atau CSV</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsImportModalOpen(false)}
-                className="p-1 rounded-xl text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleProcessImport} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                  Target Kelas Default:
-                </label>
-                <select
-                  value={importClass}
-                  onChange={(e) => setImportClass(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-semibold text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500"
-                >
-                  {assignableClasses.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                  Format: Nama Siswa, NISN [, Kelas] (Satu siswa per baris)
-                </label>
-                <textarea
-                  rows={6}
-                  required
-                  placeholder={`Contoh:\nAhmad Fauzi, 0081234567\nSiti Rahmawati, 0082345678, X DKV 1\nBudi Santoso, 0083456789, XI TJKT 1`}
-                  value={importText}
-                  onChange={(e) => setImportText(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-mono text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-
-              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60 text-xs text-slate-600 dark:text-slate-300 space-y-1">
-                <div className="font-bold text-slate-900 dark:text-white">Petunjuk Cepat:</div>
-                <p className="text-[11px] leading-relaxed">
-                  Jika kolom ke-3 (Kelas) kosong, sistem akan otomatis menetapkan kelas <strong>{importClass}</strong> untuk siswa tersebut. Data langsung sinkron dengan Admin Utama.
-                </p>
-              </div>
-
-              <div className="flex justify-end gap-2.5 pt-3 border-t border-gray-100 dark:border-gray-800">
-                <button
-                  type="button"
-                  onClick={() => setIsImportModalOpen(false)}
-                  className="px-4 py-2 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-xl text-xs font-semibold hover:bg-gray-50 cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-md shadow-amber-500/20 disabled:opacity-50 cursor-pointer"
-                >
-                  {loading ? 'Memproses Impor...' : 'Proses Impor Siswa'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
