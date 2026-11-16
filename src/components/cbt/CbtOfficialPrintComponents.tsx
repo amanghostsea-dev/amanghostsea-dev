@@ -28,15 +28,15 @@ export function CbtOfficialKopSurat({
       {/* Kop Surat Header */}
       <div className="flex items-center justify-between gap-4 pb-3">
         {/* Logo Lambang Sekolah Kiri */}
-        <div className="w-20 h-20 flex-shrink-0 flex items-center justify-center">
+        <div className="w-[88px] h-[88px] flex-shrink-0 flex items-center justify-center">
           {cfg.logoLeftUrl ? (
             <img 
               src={cfg.logoLeftUrl} 
               alt={cfg.schoolName} 
-              className="max-w-[76px] max-h-[76px] object-contain" 
+              className="max-w-[82px] max-h-[82px] object-contain" 
             />
           ) : (
-            <svg viewBox="0 0 100 100" className="w-20 h-20 text-blue-900" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="0 0 100 100" className="w-[84px] h-[84px] text-blue-900" fill="none" xmlns="http://www.w3.org/2000/svg">
               {/* Shield Outer */}
               <path d="M50 5 L88 20 C88 55 50 92 50 95 C50 92 12 55 12 20 Z" fill="#1e3a8a" stroke="#d97706" strokeWidth="3" />
               {/* Shield Inner */}
@@ -84,23 +84,27 @@ export function CbtOfficialKopSurat({
         </div>
 
         {/* Logo Lambang Akreditasi Kanan */}
-        <div className="w-20 h-20 flex-shrink-0 flex flex-col items-center justify-center p-1 border-2 border-slate-400 rounded-xl bg-slate-50 text-center overflow-hidden">
+        <div className="w-[88px] h-[88px] flex-shrink-0 flex flex-col items-center justify-center p-1 border-[1.5px] border-slate-700 rounded-lg bg-slate-50 text-center">
           {cfg.logoRightUrl ? (
             <img 
               src={cfg.logoRightUrl} 
               alt="Akreditasi" 
-              className="max-w-[76px] max-h-[76px] object-contain" 
+              className="max-w-[80px] max-h-[80px] object-contain" 
             />
           ) : (
             <>
-              <div className="text-[8px] font-bold text-slate-600 uppercase tracking-tighter">BAN-S/M</div>
-              <div className="text-xs font-black text-amber-700 leading-none my-0.5">TERAKREDITASI</div>
-              <div className="text-2xl font-black text-blue-900 leading-none">{cfg.akreditasi.charAt(0) || 'A'}</div>
-              <div className="text-[7.5px] font-bold text-slate-600 uppercase leading-none mt-0.5">
+              <div className="text-[7.5px] font-bold text-slate-700 uppercase tracking-wider">BAN-S/M</div>
+              <div className="text-[7.5px] font-black text-amber-800 tracking-tight leading-none my-0.5 whitespace-nowrap">
+                TERAKREDITASI
+              </div>
+              <div className="text-2xl font-black text-blue-900 leading-none my-0.5">{cfg.akreditasi.charAt(0) || 'A'}</div>
+              <div className="text-[7px] font-extrabold text-slate-800 uppercase leading-none">
                 {cfg.akreditasi.includes('UNGGUL') ? 'UNGGUL' : 'RESMI'}
               </div>
-              {cfg.akreditasiSk && (
-                <div className="text-[6.5px] text-slate-500 mt-0.5">{cfg.akreditasiSk}</div>
+              {cfg.akreditasiSk ? (
+                <div className="text-[6px] text-slate-600 mt-0.5 leading-none">{cfg.akreditasiSk}</div>
+              ) : (
+                <div className="text-[6px] text-slate-500 mt-0.5 leading-none">KEMENDIKBUDRISTEK</div>
               )}
             </>
           )}
