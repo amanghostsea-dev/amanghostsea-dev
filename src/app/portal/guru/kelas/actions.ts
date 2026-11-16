@@ -118,6 +118,7 @@ export async function createStudentByGuru(data: {
         nisn: newStudent.nisn,
         role: newStudent.role,
         status: newStudent.status,
+        studentClass: newStudent.studentClass,
         createdAt: newStudent.createdAt.toISOString(),
       },
     };
@@ -128,7 +129,10 @@ export async function createStudentByGuru(data: {
   }
 }
 
-export async function importStudentsByGuru(studentsData: { name: string; nisn?: string; username?: string; password?: string; studentClass?: string }[]) {
+export async function importStudentsByGuru(
+  studentsData: { name: string; nisn?: string; username?: string; password?: string; studentClass?: string }[],
+  defaultClass: string = 'XI TJKT 1'
+) {
   await requireGuruOrAdmin();
 
   try {
@@ -162,6 +166,7 @@ export async function importStudentsByGuru(studentsData: { name: string; nisn?: 
       }
 
       const password = item.password?.trim() || (nisn || '123456');
+      const assignedClass = item.studentClass?.trim() || defaultClass.trim() || 'XI TJKT 1';
 
       await prisma.user.create({
         data: {
@@ -171,14 +176,14 @@ export async function importStudentsByGuru(studentsData: { name: string; nisn?: 
           role: 'Siswa',
           status: 'Aktif',
           password,
-          studentClass: item.studentClass?.trim() || null,
+          studentClass: assignedClass,
         },
       });
 
       createdStudents.push({
         name,
         nisnOrUser: nisn || username,
-        studentClass: item.studentClass || 'XI TJKT 1',
+        studentClass: assignedClass,
       });
       successCount++;
     }
@@ -223,10 +228,100 @@ export async function importStudentsByGuru(studentsData: { name: string; nisn?: 
     revalidatePath('/portal/guru/kelas');
     revalidatePath('/portal/guru/nilai');
     revalidatePath('/admin/users');
+    revalidatePath('/admin/cbt');
 
     return { success: true, count: successCount, errors };
   } catch (error) {
     console.error('Error importing students by guru:', error);
     return { error: 'Gagal memproses impor siswa massal.' };
+  }
+}
+
+export async function updateStudentByGuru(data: {
+  id: string;
+  name: string;
+  nisn?: string | null;
+  studentClass?: string | null;
+}) {
+  await requireGuruOrAdmin();
+
+  try {
+    const name = data.name.trim();
+    if (!name) {
+      return { error: 'Nama siswa tidak boleh kosong.' };
+    }
+
+    const nisn = data.nisn && data.nisn.trim() !== '' ? data.nisn.trim() : null;
+    const studentClass = data.studentClass?.trim() || null;
+
+    // Periksa keunikan NISN jika diisi
+    if (nisn) {
+      const existing = await prisma.user.findFirst({
+        where: {
+          nisn,
+          NOT: { id: data.id },
+        },
+      });
+      if (existing) {
+        return { error: `NISN "${nisn}" sudah digunakan oleh siswa ${existing.name}.` };
+      }
+    }
+
+    const prevUser = await prisma.user.findUnique({
+      where: { id: data.id },
+      select: { name: true, nisn: true },
+    });
+
+    const updated = await prisma.user.update({
+      where: { id: data.id },
+      data: {
+        name,
+        nisn,
+        studentClass,
+      },
+    });
+
+    // Sinkronkan ke studentGrade
+    if (studentClass && prevUser) {
+      try {
+        await prisma.studentGrade.updateMany({
+          where: {
+            OR: [
+              { studentName: prevUser.name },
+              ...(prevUser.nisn ? [{ studentNis: prevUser.nisn }] : []),
+            ],
+          },
+          data: {
+            studentName: name,
+            studentNis: nisn || undefined,
+            studentClass: studentClass,
+          },
+        });
+      } catch (e) {
+        console.warn('Non-fatal grade sync error:', e);
+      }
+    }
+
+    revalidatePath('/portal/guru/kelas');
+    revalidatePath('/portal/guru/nilai');
+    revalidatePath('/admin/users');
+    revalidatePath('/admin/cbt');
+
+    return {
+      success: true,
+      data: {
+        id: updated.id,
+        name: updated.name,
+        username: updated.username,
+        nisn: updated.nisn,
+        role: updated.role,
+        status: updated.status,
+        studentClass: updated.studentClass,
+        createdAt: updated.createdAt.toISOString(),
+      },
+    };
+  } catch (error) {
+    console.error('Error updating student by guru:', error);
+    return { error: 'Gagal memperbarui data siswa.' };
   }
 }
