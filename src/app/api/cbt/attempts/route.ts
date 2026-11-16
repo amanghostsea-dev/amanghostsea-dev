@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { rotateExamToken } from '@/app/admin/cbt/actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +13,47 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Missing examId' }, { status: 400 });
     }
 
+    // 1. Ambil data paket ujian terkini untuk sinkronisasi token Guru & Pengawas
+    let exam = await prisma.exam.findUnique({
+      where: { id: examId },
+      select: {
+        id: true,
+        status: true,
+        token: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!exam) {
+      return NextResponse.json({ error: 'Exam not found' }, { status: 404 });
+    }
+
+    // 2. 🔄 Dynamic 10-Minute Rolling Token Auto-Reset (600 detik)
+    // Jika sesi AKTIF dan sudah >= 10 menit (600 detik) sejak rotasi terakhir:
+    // Lakukan rotasi otomatis di backend agar token Pengawas, Guru, dan Siswa selalu 100% singkron!
+    let elapsedSeconds = Math.floor((Date.now() - new Date(exam.updatedAt).getTime()) / 1000);
+    if (exam.status === 'ACTIVE' && elapsedSeconds >= 600) {
+      const rotateRes = await rotateExamToken(exam.id);
+      if (rotateRes.success) {
+        const refreshedExam = await prisma.exam.findUnique({
+          where: { id: examId },
+          select: {
+            id: true,
+            status: true,
+            token: true,
+            updatedAt: true,
+          },
+        });
+        if (refreshedExam) {
+          exam = refreshedExam;
+          elapsedSeconds = 0;
+        }
+      }
+    }
+
+    const remainingSeconds = Math.max(0, 600 - (elapsedSeconds % 600));
+
+    // 3. Ambil data attempts siswa di ruangan
     const attempts = await prisma.examAttempt.findMany({
       where: { examId },
       select: {
@@ -34,7 +76,17 @@ export async function GET(req: Request) {
       orderBy: { startedAt: 'desc' },
     });
 
-    return NextResponse.json({ attempts });
+    return NextResponse.json({
+      attempts,
+      exam: {
+        id: exam.id,
+        status: exam.status,
+        token: exam.token,
+        displayToken: exam.token ? exam.token.split('|')[0].trim() : '',
+        updatedAt: exam.updatedAt,
+        remainingSeconds,
+      },
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

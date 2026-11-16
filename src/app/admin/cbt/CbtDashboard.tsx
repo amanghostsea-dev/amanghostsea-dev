@@ -1988,11 +1988,17 @@ export default function CbtDashboard({
                       : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-slate-300'
                   }`}>
                     <div className="min-w-0">
-                      <div className="font-extrabold uppercase text-[9px] sm:text-[10px] tracking-wider text-slate-400 truncate">
-                        {isLive ? (schedState.isOutsideSchedule ? 'Token (Susulan):' : 'Token Live:') : 'Status Token:'}
+                      <div className="flex items-center gap-1.5 font-extrabold uppercase text-[9px] sm:text-[10px] tracking-wider text-slate-400 truncate">
+                        <span>{isLive ? (schedState.isOutsideSchedule ? 'Token (Susulan):' : 'Token Live:') : 'Status Token:'}</span>
+                        {isLive && (
+                          <span className="font-mono text-[8.5px] px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-500/30">
+                            10 MNT
+                          </span>
+                        )}
                       </div>
-                      <div className="font-mono font-black text-xs sm:text-sm text-slate-900 dark:text-white mt-0.5 truncate">
-                        {(exam.token || '').split('|')[0] || 'BELUM AKTIF'}
+                      <div className="font-mono font-black text-xs sm:text-sm text-slate-900 dark:text-white mt-0.5 truncate flex items-center gap-1.5">
+                        <span>{(exam.token || '').split('|')[0] || 'BELUM AKTIF'}</span>
+                        {isLive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block"></span>}
                       </div>
                     </div>
 

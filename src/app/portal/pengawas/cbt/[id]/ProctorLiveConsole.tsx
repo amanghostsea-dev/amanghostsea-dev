@@ -123,6 +123,16 @@ export default function ProctorLiveConsole({
   const [isRotatingToken, setIsRotatingToken] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
 
+  // 🔄 Dynamic 10-Minute Rolling Token System (600 seconds)
+  const calculateRemainingTokenTime = useCallback(() => {
+    if (!exam.updatedAt) return 600;
+    const elapsed = Math.floor((Date.now() - new Date(exam.updatedAt).getTime()) / 1000);
+    const remaining = 600 - (elapsed % 600);
+    return remaining > 0 ? remaining : 600;
+  }, [exam.updatedAt]);
+
+  const [tokenTimer, setTokenTimer] = useState<number>(() => calculateRemainingTokenTime());
+
   // Filter & Search
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'IN_PROGRESS' | 'SUBMITTED' | 'UNATTENDED' | 'VIOLATION'>('ALL');
@@ -177,21 +187,23 @@ export default function ProctorLiveConsole({
       setExamStatus(res.data.status);
       if (res.data.displayToken) {
         setExamToken(res.data.displayToken);
+        setTokenTimer(600);
       }
-      showToast(open ? 'Sesi ujian telah DIBUKA! Token resmi aktif.' : 'Sesi ujian telah DIKUNCI oleh Pengawas.');
+      showToast(open ? 'Sesi ujian telah DIBUKA! Token resmi 10 menit aktif.' : 'Sesi ujian telah DIKUNCI oleh Pengawas.');
     } else {
       alert(res.error || 'Gagal mengubah status sesi ujian.');
     }
     setTogglingSession(false);
   };
 
-  // Rotate Token
+  // Rotate Token (10-minute cycle reset)
   const handleRotateToken = async (manualToken?: string) => {
     setIsRotatingToken(true);
     const res = await rotateExamToken(exam.id, manualToken);
     if (res.success && res.displayToken) {
       setExamToken(res.displayToken);
-      showToast(`Token baru dirilis: ${res.displayToken}`);
+      setTokenTimer(600);
+      showToast(`Token baru dirilis: ${res.displayToken} (Siklus 10 Menit Singkron)`);
     } else {
       alert(res.error || 'Gagal merotasi token.');
     }
@@ -207,7 +219,7 @@ export default function ProctorLiveConsole({
     }
   };
 
-  // Refresh attempts live in background (every 5 seconds)
+  // Refresh attempts & sync token live with teacher and server (every 5 seconds)
   const refreshAttemptsLive = useCallback(async () => {
     try {
       const res = await fetch(`/api/cbt/attempts?examId=${exam.id}`, { cache: 'no-store' });
@@ -216,9 +228,20 @@ export default function ProctorLiveConsole({
         if (data.attempts) {
           setAttempts(data.attempts);
         }
+        if (data.exam) {
+          if (data.exam.displayToken && data.exam.displayToken !== examToken) {
+            setExamToken(data.exam.displayToken);
+          }
+          if (data.exam.status && data.exam.status !== examStatus) {
+            setExamStatus(data.exam.status);
+          }
+          if (typeof data.exam.remainingSeconds === 'number') {
+            setTokenTimer(data.exam.remainingSeconds);
+          }
+        }
       }
     } catch {}
-  }, [exam.id]);
+  }, [exam.id, examToken, examStatus]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -226,6 +249,23 @@ export default function ProctorLiveConsole({
     }, 5000);
     return () => clearInterval(timer);
   }, [refreshAttemptsLive]);
+
+  // ⏱️ Auto-countdown & auto-rotation effect for 10-minute rolling token cycle
+  useEffect(() => {
+    if (examStatus !== 'ACTIVE') return;
+
+    const interval = setInterval(() => {
+      setTokenTimer((prev) => {
+        if (prev <= 1) {
+          handleRotateToken();
+          return 600;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [examStatus, exam.id]);
 
   // Combine roster students with live attempts
   const combinedRoster = useMemo(() => {
@@ -457,23 +497,43 @@ export default function ProctorLiveConsole({
 
           {/* TOKEN & SESSION ACTION BOX */}
           <div className="flex flex-wrap items-center gap-3 bg-slate-950/80 p-4 rounded-2xl border border-slate-800">
-            {/* Giant Token Display */}
+            {/* Giant Token Display & 10-Minute Dynamic Rolling Timer */}
             <div className="text-center px-4 py-1 border-r border-slate-800">
-              <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Token Papan Tulis</div>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-2xl font-black font-mono tracking-widest text-emerald-400">
+              <div className="flex items-center justify-center gap-1.5 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                <span>Token Papan Tulis</span>
+                {examStatus === 'ACTIVE' && (
+                  <span className="flex items-center gap-1 font-mono text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-700/60 text-emerald-300">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>10 MNT</span>
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center justify-center gap-2 mt-0.5">
+                <span className="text-2xl font-black font-mono tracking-widest text-emerald-400 select-all">
                   {examStatus === 'ACTIVE' ? (examToken || 'RPL2026') : 'TERKUNCI'}
                 </span>
                 {examStatus === 'ACTIVE' && (
                   <button
                     onClick={handleCopyToken}
-                    className="p-1 rounded-lg text-slate-400 hover:text-white transition"
+                    className="p-1 rounded-lg text-slate-400 hover:text-white transition cursor-pointer"
                     title="Salin Token"
                   >
                     {copiedToken ? <Check size={14} className="text-emerald-400" /> : <Key size={14} />}
                   </button>
                 )}
               </div>
+              {examStatus === 'ACTIVE' && (
+                <div className="flex items-center justify-center gap-1 text-[10px] font-mono mt-1">
+                  <span className="text-slate-400 text-[9.5px]">Auto-Reset:</span>
+                  <span className={`font-bold px-1.5 py-0.2 rounded ${
+                    tokenTimer <= 60 
+                      ? 'bg-rose-900/80 text-rose-300 animate-pulse' 
+                      : 'bg-slate-900 text-emerald-300'
+                  }`}>
+                    {Math.floor(tokenTimer / 60).toString().padStart(2, '0')}:{(tokenTimer % 60).toString().padStart(2, '0')}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Actions: Start, Rolling, Projector */}
@@ -484,7 +544,7 @@ export default function ProctorLiveConsole({
                     onClick={() => handleRotateToken()}
                     disabled={isRotatingToken}
                     className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-1.5 transition border border-slate-700 cursor-pointer"
-                    title="Ganti Token Baru (Rolling Token)"
+                    title="Reset & Putar Token Baru (Siklus 10 Menit Singkron Guru & Pengawas)"
                   >
                     <RefreshCw size={13} className={isRotatingToken ? 'animate-spin' : ''} />
                     <span>Putar Token</span>
@@ -952,10 +1012,26 @@ export default function ProctorLiveConsole({
                 <span>•</span>
                 <span>Durasi: <strong>{exam.duration} Menit</strong></span>
               </div>
+
+              {/* ⏱️ Dynamic 10-Minute Countdown Display on Whiteboard */}
+              <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-300">
+                <span className="flex items-center gap-1.5 font-medium text-slate-400">
+                  <RefreshCw size={13} className={isRotatingToken ? 'animate-spin text-emerald-400' : 'text-slate-500'} />
+                  <span>Auto-Reset (Siklus 10 Menit):</span>
+                </span>
+                <span className={`font-mono font-black text-sm px-2.5 py-0.5 rounded-lg ${
+                  tokenTimer <= 60 
+                    ? 'bg-rose-900/80 text-rose-300 animate-pulse' 
+                    : 'bg-emerald-950/80 text-emerald-300 border border-emerald-700/60'
+                }`}>
+                  {Math.floor(tokenTimer / 60).toString().padStart(2, '0')}:{(tokenTimer % 60).toString().padStart(2, '0')}
+                </span>
+              </div>
             </div>
 
-            <div className="text-xs text-slate-400 max-w-md">
-              Siswa wajib menjaga ketertiban, tidak berpindah jendela layar atau tab browser selama ujian berlangsung.
+            <div className="text-xs text-slate-400 max-w-md space-y-1">
+              <div>Siswa wajib menjaga ketertiban, tidak berpindah jendela layar atau tab browser selama ujian berlangsung.</div>
+              <div className="text-[11px] text-emerald-400/90 font-mono">Token tersinkronisasi otomatis setiap saat dengan akun Guru &amp; Pengawas.</div>
             </div>
           </div>
 

@@ -477,12 +477,12 @@ export default function ExamDetailClient({
     setDistributeLoading(false);
   };
 
-  // 🔄 Dynamic 5-minute Rolling Token System (300 seconds)
+  // 🔄 Dynamic 10-minute Rolling Token System (600 seconds)
   const calculateRemainingTokenTime = () => {
-    if (!exam.updatedAt) return 300;
+    if (!exam.updatedAt) return 600;
     const elapsed = Math.floor((Date.now() - new Date(exam.updatedAt).getTime()) / 1000);
-    const remaining = 300 - (elapsed % 300);
-    return remaining > 0 ? remaining : 300;
+    const remaining = 600 - (elapsed % 600);
+    return remaining > 0 ? remaining : 600;
   };
 
   const [tokenTimer, setTokenTimer] = useState<number>(() => calculateRemainingTokenTime());
@@ -493,13 +493,14 @@ export default function ExamDetailClient({
     const res = await rotateExamToken(exam.id, manualToken);
     if (res.success && res.displayToken) {
       setExamToken(res.displayToken);
-      setTokenTimer(300);
+      setTokenTimer(600);
     } else if (res.error) {
       console.error('Gagal memperbarui token:', res.error);
     }
     setIsRotatingToken(false);
   };
 
+  // ⏱️ Auto-countdown & rotation effect for 10-minute token cycle
   useEffect(() => {
     if (examStatus !== 'ACTIVE') return;
 
@@ -509,7 +510,7 @@ export default function ExamDetailClient({
       setTokenTimer((prev) => {
         if (prev <= 1) {
           handleRotateToken();
-          return 300;
+          return 600;
         }
         return prev - 1;
       });
@@ -517,6 +518,34 @@ export default function ExamDetailClient({
 
     return () => clearInterval(interval);
   }, [examStatus, exam.id]);
+
+  // 🔄 Sinkronisasi live token & status dengan pengawas ruangan (tiap 5 detik)
+  useEffect(() => {
+    if (examStatus !== 'ACTIVE') return;
+
+    const syncWithProctor = async () => {
+      try {
+        const res = await fetch(`/api/cbt/attempts?examId=${exam.id}`, { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.exam) {
+            if (data.exam.displayToken && data.exam.displayToken !== examToken) {
+              setExamToken(data.exam.displayToken);
+            }
+            if (data.exam.status && data.exam.status !== examStatus) {
+              setExamStatus(data.exam.status);
+            }
+            if (typeof data.exam.remainingSeconds === 'number') {
+              setTokenTimer(data.exam.remainingSeconds);
+            }
+          }
+        }
+      } catch {}
+    };
+
+    const pollInterval = setInterval(syncWithProctor, 5000);
+    return () => clearInterval(pollInterval);
+  }, [exam.id, examStatus, examToken]);
 
   const [scheduleNoticeModal, setScheduleNoticeModal] = useState<ScheduleDiscrepancyResult | null>(null);
   const schedState = getExamScheduleState(exam.startTime, exam.endTime, examStatus);
@@ -539,7 +568,7 @@ export default function ExamDetailClient({
         setExamToken(res.data.token.split('|')[0]);
       }
       if (open) {
-        setTokenTimer(300);
+        setTokenTimer(600);
       }
     } else {
       alert(res.error || 'Gagal mengubah status sesi ujian.');
@@ -1459,15 +1488,15 @@ Poin: 10
                     </button>
                   </div>
 
-                  {/* 🔄 Dynamic Rolling Timer (5 Menit) */}
+                  {/* 🔄 Dynamic Rolling Timer (10 Menit) */}
                   <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1.5 text-left">
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="flex items-center gap-1 font-semibold text-slate-500">
                         <RefreshCw size={11} className={isRotatingToken ? 'animate-spin text-emerald-600' : ''} />
-                        Reset Tiap 5 Menit:
+                        Reset Tiap 10 Menit:
                       </span>
                       <span className={`font-mono font-black px-1.5 py-0.5 rounded text-[11px] ${
-                        tokenTimer <= 30
+                        tokenTimer <= 60
                           ? 'bg-red-500 text-white animate-pulse'
                           : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200'
                       }`}>
@@ -1479,9 +1508,9 @@ Poin: 10
                     <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
                       <div 
                         className={`h-full transition-all duration-1000 rounded-full ${
-                          tokenTimer <= 30 ? 'bg-red-500' : 'bg-gradient-to-r from-emerald-500 to-teal-500'
+                          tokenTimer <= 60 ? 'bg-red-500' : 'bg-gradient-to-r from-emerald-500 to-teal-500'
                         }`}
-                        style={{ width: `${(tokenTimer / 300) * 100}%` }}
+                        style={{ width: `${(tokenTimer / 600) * 100}%` }}
                       />
                     </div>
 
@@ -1490,7 +1519,7 @@ Poin: 10
                       onClick={() => handleRotateToken()}
                       disabled={isRotatingToken}
                       className="w-full mt-1 py-1 px-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-800 text-[10px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer disabled:opacity-50"
-                      title="Generate token acak baru sekarang tanpa menunggu 5 menit"
+                      title="Generate token acak baru sekarang (Siklus 10 menit singkron dengan pengawas)"
                     >
                       <RefreshCw size={10} className={isRotatingToken ? 'animate-spin' : ''} />
                       {isRotatingToken ? 'Memperbarui...' : 'Perbarui Token Sekarang'}
@@ -3276,7 +3305,7 @@ Poin: 15`}
                 {examToken || 'SMK2026'}
               </div>
 
-              {/* 🔄 Dynamic 5-Minute Timer on Projector Screen */}
+              {/* 🔄 Dynamic 10-Minute Timer on Projector Screen */}
               <div className="mt-6 max-w-sm mx-auto space-y-2">
                 <div className="flex items-center justify-between text-xs text-slate-300">
                   <span className="flex items-center gap-1.5 font-medium">
@@ -3284,7 +3313,7 @@ Poin: 15`}
                     Token diperbarui otomatis dalam:
                   </span>
                   <span className={`font-mono font-black text-sm px-2.5 py-0.5 rounded-lg ${
-                    tokenTimer <= 30
+                    tokenTimer <= 60
                       ? 'bg-red-500 text-white animate-pulse'
                       : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                   }`}>
@@ -3295,9 +3324,9 @@ Poin: 15`}
                 <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
                   <div 
                     className={`h-full transition-all duration-1000 rounded-full ${
-                      tokenTimer <= 30 ? 'bg-red-500' : 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                      tokenTimer <= 60 ? 'bg-red-500' : 'bg-gradient-to-r from-emerald-500 to-teal-400'
                     }`}
-                    style={{ width: `${(tokenTimer / 300) * 100}%` }}
+                    style={{ width: `${(tokenTimer / 600) * 100}%` }}
                   />
                 </div>
               </div>
