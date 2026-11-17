@@ -6,6 +6,7 @@ import { cookies } from 'next/headers';
 import { isClassOverlap, CbtTimezone, DEFAULT_CBT_TIMEZONE } from '@/lib/cbt-schedule';
 import { getKopSuratConfig, getWebSettings, getCbtTimezone } from '@/lib/settings';
 import { getDynamicClassTargets, ensureDefaultJurusans } from '@/lib/jurusan-service';
+import { clearDeviceSession } from '@/lib/device-session';
 import type { KopSuratConfig } from '@/app/admin/settings/types';
 
 // Helper: Generate clean 6-character alphanumeric token without confusing symbols (0, O, 1, I)
@@ -732,7 +733,7 @@ export async function resetStudentAttemptAction(attemptId: string) {
   try {
     const attempt = await prisma.examAttempt.findUnique({
       where: { id: attemptId },
-      select: { examId: true, studentName: true },
+      select: { examId: true, studentName: true, studentNis: true },
     });
 
     if (!attempt) {
@@ -740,6 +741,25 @@ export async function resetStudentAttemptAction(attemptId: string) {
     }
 
     await prisma.examAttempt.delete({ where: { id: attemptId } });
+
+    // 🛡️ Lepaskan kunci sesi perangkat agar siswa bisa login di perangkat baru
+    if (attempt.studentNis || attempt.studentName) {
+      try {
+        const studentUser = await prisma.user.findFirst({
+          where: {
+            role: 'Siswa',
+            OR: [
+              ...(attempt.studentNis ? [{ username: attempt.studentNis }, { nisn: attempt.studentNis }] : []),
+              ...(attempt.studentName ? [{ name: attempt.studentName }] : []),
+            ],
+          },
+          select: { id: true },
+        });
+        if (studentUser) {
+          await clearDeviceSession(studentUser.id);
+        }
+      } catch {}
+    }
 
     revalidatePath('/admin/cbt');
     revalidatePath(`/admin/cbt/${attempt.examId}`);
@@ -993,6 +1013,25 @@ export async function proctorResetStudentLoginAction(attemptId: string) {
       },
     });
 
+    // 🛡️ Lepaskan kunci sesi perangkat siswa agar siswa dapat login ulang jika berganti perangkat/browser
+    if (attempt.studentNis || attempt.studentName) {
+      try {
+        const studentUser = await prisma.user.findFirst({
+          where: {
+            role: 'Siswa',
+            OR: [
+              ...(attempt.studentNis ? [{ username: attempt.studentNis }, { nisn: attempt.studentNis }] : []),
+              ...(attempt.studentName ? [{ name: attempt.studentName }] : []),
+            ],
+          },
+          select: { id: true },
+        });
+        if (studentUser) {
+          await clearDeviceSession(studentUser.id);
+        }
+      } catch {}
+    }
+
     revalidatePath('/admin/cbt');
     revalidatePath(`/admin/cbt/${attempt.examId}`);
     revalidatePath('/portal/pengawas/cbt');
@@ -1189,6 +1228,25 @@ export async function adminUnblockStrike3Action(attemptId: string, adminName?: s
         proctorNotes: updatedNotes,
       },
     });
+
+    // 🛡️ Lepaskan kunci sesi perangkat agar siswa bisa login di perangkat baru
+    if (attempt.studentNis || attempt.studentName) {
+      try {
+        const studentUser = await prisma.user.findFirst({
+          where: {
+            role: 'Siswa',
+            OR: [
+              ...(attempt.studentNis ? [{ username: attempt.studentNis }, { nisn: attempt.studentNis }] : []),
+              ...(attempt.studentName ? [{ name: attempt.studentName }] : []),
+            ],
+          },
+          select: { id: true },
+        });
+        if (studentUser) {
+          await clearDeviceSession(studentUser.id);
+        }
+      } catch {}
+    }
 
     revalidatePath('/admin/cbt');
     revalidatePath(`/admin/cbt/${attempt.examId}`);

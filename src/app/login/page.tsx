@@ -2,20 +2,22 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { loginAction } from './actions';
-import { 
-  Lock, 
-  User, 
-  LogIn, 
-  AlertCircle, 
-  Eye, 
-  EyeOff, 
-  ShieldCheck, 
-  Sparkles, 
-  ArrowLeft, 
-  Cpu, 
-  Activity, 
-  Layers, 
+import { loginAction, forceTakeoverLoginAction } from './actions';
+import DeviceConflictModal from '@/components/auth/DeviceConflictModal';
+import { DeviceSessionData } from '@/lib/device-session';
+import {
+  Lock,
+  User,
+  LogIn,
+  AlertCircle,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  Sparkles,
+  ArrowLeft,
+  Cpu,
+  Activity,
+  Layers,
   Globe,
   Radio
 } from 'lucide-react';
@@ -93,6 +95,12 @@ function LoginFormContent() {
   const [loading, setLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState('');
 
+  // 🛡️ State untuk Single-Device Conflict Warning
+  const [conflictData, setConflictData] = useState<DeviceSessionData | null>(null);
+  const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
+  const [canOverride, setCanOverride] = useState(false);
+  const [lastCredentials, setLastCredentials] = useState<{ username: string; password: string } | null>(null);
+
   const current = JURUSAN_DATA[activeJurusan];
 
   useEffect(() => {
@@ -108,20 +116,45 @@ function LoginFormContent() {
   async function handleSubmit(formData: FormData) {
     setLoading(true);
     setError('');
+
+    const u = (formData.get('username') as string) || '';
+    const p = (formData.get('password') as string) || '';
+    setLastCredentials({ username: u, password: p });
+
     const result = await loginAction(formData);
     if (result?.error) {
-      setError(result.error);
+      if ((result as any).isDeviceConflict && (result as any).conflictData) {
+        setConflictData((result as any).conflictData);
+        setCanOverride(!!(result as any).canOverride);
+        setIsConflictModalOpen(true);
+      } else {
+        setError(result.error);
+      }
       setLoading(false);
     }
   }
 
+  const handleForceTakeover = async () => {
+    if (!lastCredentials) return;
+    const fd = new FormData();
+    fd.append('username', lastCredentials.username);
+    fd.append('password', lastCredentials.password);
+    fd.append('redirect', redirectParam);
+
+    const res = await forceTakeoverLoginAction(fd);
+    if (res?.error) {
+      setError(res.error);
+      setIsConflictModalOpen(false);
+    }
+  };
+
   return (
     <div className="relative min-h-screen w-full bg-[#070b14] text-white flex flex-col justify-between overflow-hidden selection:bg-cyan-500/30 selection:text-cyan-200">
-      
+
       {/* =========================================================================
           BACKGROUND LAYER 1: Futuristic Tech Grid & Ambient Aura Orbs
           ========================================================================= */}
-      <div 
+      <div
         className="absolute inset-0 pointer-events-none opacity-20"
         style={{
           backgroundImage: `
@@ -133,17 +166,17 @@ function LoginFormContent() {
       />
 
       {/* Radial Gradient Ambient Glow matching Active Jurusan */}
-      <div 
+      <div
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] sm:w-[900px] sm:h-[900px] rounded-full blur-[140px] pointer-events-none transition-all duration-1000 animate-pulse-glow"
         style={{
           background: `radial-gradient(circle, ${current.glowColor} 0%, rgba(7, 11, 20, 0) 70%)`
         }}
       />
-      <div 
+      <div
         className="absolute -top-32 -left-32 w-96 h-96 rounded-full blur-[120px] pointer-events-none opacity-40 transition-colors duration-1000"
         style={{ background: current.accentColor }}
       />
-      <div 
+      <div
         className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full blur-[120px] pointer-events-none opacity-30 transition-colors duration-1000"
         style={{ background: current.accentColor }}
       />
@@ -154,7 +187,7 @@ function LoginFormContent() {
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
         {/* Futuristic Cyber Rings */}
         <div className="absolute w-[500px] h-[500px] sm:w-[750px] sm:h-[750px] rounded-full border border-white/5 animate-spin-slow" />
-        <div 
+        <div
           className="absolute w-[440px] h-[440px] sm:w-[680px] sm:h-[680px] rounded-full border border-dashed opacity-20 transition-colors duration-1000"
           style={{ borderColor: current.accentColor }}
         />
@@ -177,8 +210,8 @@ function LoginFormContent() {
           TOP HUD BAR: High-Tech Telemetry & Quick Back Link
           ========================================================================= */}
       <header className="relative z-20 w-full px-6 py-5 flex items-center justify-between border-b border-white/5 backdrop-blur-md bg-slate-950/40">
-        <Link 
-          href="/" 
+        <Link
+          href="/"
           className="group inline-flex items-center gap-2.5 text-xs sm:text-sm font-medium text-slate-300 hover:text-white transition-colors py-1.5 px-3 rounded-lg border border-white/5 hover:border-white/20 bg-white/5 hover:bg-white/10"
         >
           <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-1" />
@@ -208,9 +241,9 @@ function LoginFormContent() {
 
           {/* Futuristic Hologram Card Container */}
           <div className="relative rounded-3xl bg-slate-950/80 border border-white/10 backdrop-blur-2xl shadow-[0_0_80px_rgba(0,0,0,0.85)] p-6 sm:p-8 overflow-hidden transition-all duration-500">
-            
+
             {/* Top Glowing Dynamic Light Bar */}
-            <div 
+            <div
               className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${current.buttonGradient} transition-all duration-700`}
             />
 
@@ -219,18 +252,18 @@ function LoginFormContent() {
 
             {/* Emblem & Crest Display Header */}
             <div className="text-center relative mb-6">
-              
+
               {/* Floating Transparent Emblem Badge with Spotlight Pedestal */}
               <div className="relative w-28 h-28 mx-auto mb-3 flex items-center justify-center">
                 {/* Glow ring under emblem */}
-                <div 
+                <div
                   className="absolute inset-0 rounded-full blur-xl opacity-75 transition-all duration-700 animate-pulse-glow"
                   style={{ background: current.accentColor }}
                 />
-                
+
                 {/* Holographic Platform Base */}
                 <div className="absolute -bottom-1 w-20 h-4 bg-white/10 rounded-full blur-sm" />
-                
+
                 {/* The Crisp Transparent Emblem */}
                 <div className="relative w-24 h-24 transform hover:scale-105 transition-transform duration-300 filter drop-shadow-[0_12px_24px_rgba(0,0,0,0.7)] animate-float">
                   <Image
@@ -246,11 +279,11 @@ function LoginFormContent() {
 
               {/* Title & Badge */}
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wider uppercase mb-2 border backdrop-blur-sm transition-all duration-500 shadow-sm"
-                   style={{
-                     backgroundColor: `${current.accentColor}18`,
-                     borderColor: `${current.accentColor}44`,
-                     color: current.accentColor === '#dc2626' ? '#fca5a5' : (current.accentColor === '#0284c7' ? '#7dd3fc' : '#d8b4fe')
-                   }}>
+                style={{
+                  backgroundColor: `${current.accentColor}18`,
+                  borderColor: `${current.accentColor}44`,
+                  color: current.accentColor === '#dc2626' ? '#fca5a5' : (current.accentColor === '#0284c7' ? '#7dd3fc' : '#d8b4fe')
+                }}>
                 <Sparkles size={12} className="animate-spin-slow" />
                 <span>GARUDA MAHADHIKA</span>
               </div>
@@ -282,11 +315,10 @@ function LoginFormContent() {
                       key={key}
                       type="button"
                       onClick={() => setActiveJurusan(key)}
-                      className={`relative py-2 px-3 rounded-xl text-xs font-bold transition-all duration-300 flex items-center justify-center gap-1.5 ${
-                        isActive
+                      className={`relative py-2 px-3 rounded-xl text-xs font-bold transition-all duration-300 flex items-center justify-center gap-1.5 ${isActive
                           ? `bg-gradient-to-r ${j.buttonGradient} text-white shadow-lg shadow-black/40 scale-102`
                           : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-                      }`}
+                        }`}
                     >
                       <span>{j.code}</span>
                     </button>
@@ -316,7 +348,7 @@ function LoginFormContent() {
             {/* Login Form */}
             <form action={handleSubmit} className="space-y-4">
               <input type="hidden" name="redirect" value={redirectParam} />
-              
+
               {/* Username Input Field */}
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1.5 font-mono">
@@ -355,7 +387,7 @@ function LoginFormContent() {
                     className="w-full pl-11 pr-11 py-3 bg-transparent text-white placeholder-slate-500 text-sm focus:outline-none"
                   />
                   <Lock className="absolute left-3.5 top-3.5 text-slate-400" size={18} />
-                  
+
                   {/* Toggle Show/Hide Password */}
                   <button
                     type="button"
@@ -371,16 +403,16 @@ function LoginFormContent() {
               {/* Remember Me & Help Links */}
               <div className="flex items-center justify-between text-xs pt-1">
                 <label className="flex items-center gap-2 cursor-pointer text-slate-400 hover:text-slate-300">
-                  <input 
-                    type="checkbox" 
-                    defaultChecked 
-                    className="w-4 h-4 rounded bg-slate-900 border-white/20 text-cyan-500 focus:ring-0 focus:ring-offset-0" 
+                  <input
+                    type="checkbox"
+                    defaultChecked
+                    className="w-4 h-4 rounded bg-slate-900 border-white/20 text-cyan-500 focus:ring-0 focus:ring-offset-0"
                   />
                   <span>Ingat Sesi Ini</span>
                 </label>
-                <a 
-                  href="https://wa.me/6282246464677?text=Halo%20Admin%20SMK%20Garuda%20Mahadhika,%20saya%20membutuhkan%20bantuan%20login%20portal." 
-                  target="_blank" 
+                <a
+                  href="https://wa.me/6282246464677?text=Halo%20Admin%20SMK%20Garuda%20Mahadhika,%20saya%20membutuhkan%20bantuan%20login%20portal."
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="text-slate-400 hover:text-cyan-400 transition-colors"
                 >
@@ -413,15 +445,15 @@ function LoginFormContent() {
 
             {/* Quick Links Section */}
             <div className="mt-6 pt-5 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
-              <Link 
-                href="/ppdb" 
+              <Link
+                href="/ppdb"
                 className="hover:text-cyan-400 transition-colors flex items-center gap-1.5"
               >
                 <ShieldCheck size={14} className="text-emerald-400" />
                 <span>Pendaftaran Siswa Baru (PPDB)</span>
               </Link>
-              <Link 
-                href="/ppdb/status" 
+              <Link
+                href="/ppdb/status"
                 className="hover:text-cyan-400 transition-colors"
               >
                 Cek Verifikasi &rarr;
@@ -457,6 +489,15 @@ function LoginFormContent() {
           </div>
         </div>
       </footer>
+
+      {/* 🛡️ Animated Cybernetic Single-Device Conflict Modal */}
+      <DeviceConflictModal
+        isOpen={isConflictModalOpen}
+        onClose={() => setIsConflictModalOpen(false)}
+        conflictData={conflictData}
+        onForceTakeover={handleForceTakeover}
+        canOverride={canOverride}
+      />
 
     </div>
   );

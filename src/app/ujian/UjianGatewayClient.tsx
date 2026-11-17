@@ -37,6 +37,8 @@ import {
   VerifiedExamData,
   WrongRoomDetails,
 } from './actions';
+import DeviceConflictModal from '@/components/auth/DeviceConflictModal';
+import { DeviceSessionData } from '@/lib/device-session';
 
 interface ExamItem {
   id: string;
@@ -111,6 +113,10 @@ export default function UjianGatewayClient({
   const [verifiedStudent, setVerifiedStudent] = useState<VerifiedStudentData | null>(null);
   const [verifiedExam, setVerifiedExam] = useState<VerifiedExamData | null>(null);
   const [isConfirming, startConfirming] = useTransition();
+
+  // 🛡️ States untuk Notifikasi Canggih Anti-Dual-Device Conflict
+  const [conflictData, setConflictData] = useState<DeviceSessionData | null>(null);
+  const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
 
   // Click ripple animations for lightweight high-tech tactile feedback
   const [ripples, setRipples] = useState<{ id: number; x: number; y: number }[]>([]);
@@ -223,7 +229,10 @@ export default function UjianGatewayClient({
       });
 
       if (!res.success || !res.student) {
-        if (res.wrongRoomDetails) {
+        if ((res as any).isDeviceConflict && (res as any).conflictData) {
+          setConflictData((res as any).conflictData);
+          setIsConflictModalOpen(true);
+        } else if (res.wrongRoomDetails) {
           setWrongRoomInfo(res.wrongRoomDetails);
         } else {
           setErrorMessage(res.error || 'Data kredensial kartu atau token tidak valid.');
@@ -257,7 +266,12 @@ export default function UjianGatewayClient({
     try {
       const res = await studentDirectLoginAction(formData);
       if (res?.error) {
-        setPortalError(res.error);
+        if ((res as any).isDeviceConflict && (res as any).conflictData) {
+          setConflictData((res as any).conflictData);
+          setIsConflictModalOpen(true);
+        } else {
+          setPortalError(res.error);
+        }
         setPortalLoading(false);
       }
     } catch {
@@ -1051,6 +1065,13 @@ export default function UjianGatewayClient({
             </div>
           </div>
         )}
+
+        {/* 🔒 Futuristic Cyber Security Alert Modal: Single-Device Conflict Warning */}
+        <DeviceConflictModal
+          isOpen={isConflictModalOpen}
+          onClose={() => setIsConflictModalOpen(false)}
+          conflictData={conflictData}
+        />
 
         {/* Security & System Features */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-slate-200/80">

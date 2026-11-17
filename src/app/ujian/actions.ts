@@ -1,9 +1,15 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { isClassTargetMatch, formatClassTargetDisplay } from '@/lib/cbt-schedule';
+import {
+  checkActiveDeviceSession,
+  registerDeviceSession,
+  clearDeviceSession,
+  DeviceSessionData
+} from '@/lib/device-session';
 
 function cleanString(str?: string | null): string {
   return (str || '')
@@ -146,11 +152,13 @@ export async function verifyAndPrepareExamJoinAction(params: {
 }): Promise<{
   success: boolean;
   error?: string;
-  errorType?: 'WRONG_ROOM' | 'NOT_FOUND' | 'MISMATCH' | 'INVALID_TOKEN' | 'INVALID_PASSWORD' | 'GENERAL';
+  errorType?: 'WRONG_ROOM' | 'NOT_FOUND' | 'MISMATCH' | 'INVALID_TOKEN' | 'INVALID_PASSWORD' | 'DEVICE_CONFLICT' | 'GENERAL';
   wrongRoomDetails?: WrongRoomDetails;
   student?: VerifiedStudentData;
   exam?: VerifiedExamData | null;
   token?: string;
+  isDeviceConflict?: boolean;
+  conflictData?: DeviceSessionData;
 }> {
   const inputIdentifier = (params.usernameOrNisn || params.nisn || '').trim();
   const inputPassword = (params.password || '').trim();
@@ -218,6 +226,20 @@ export async function verifyAndPrepareExamJoinAction(params: {
           error: 'Password akun salah! Silakan periksa kembali Password yang tertera pada Kartu Login & Peserta Ujian Anda.',
         };
       }
+
+      // 🛡️ CEK SINGLE-DEVICE LOGIN: Pastikan akun tidak sedang aktif di perangkat lain
+      const cookieStore = await cookies();
+      const currentSessionId = cookieStore.get('auth_session_id')?.value;
+      const sessionCheck = await checkActiveDeviceSession(matchedUser.id, currentSessionId);
+      if (sessionCheck.hasActiveSession && sessionCheck.sessionData) {
+        return {
+          success: false,
+          errorType: 'DEVICE_CONFLICT',
+          isDeviceConflict: true,
+          conflictData: sessionCheck.sessionData,
+          error: `Akun Anda sedang aktif di perangkat lain (${sessionCheck.sessionData.deviceName}). Login bersamaan ditolak.`,
+        };
+      }
     }
 
     // 3. Ambil data kelas resmi siswa: UTAMAKAN DARI User.studentClass (Master Akun di Database)
@@ -266,7 +288,7 @@ export async function verifyAndPrepareExamJoinAction(params: {
         if (cookieClass) {
           studentClass = cookieClass;
         }
-      } catch {}
+      } catch { }
     }
 
     // Fallback jika sama sekali belum memiliki kelas
@@ -294,16 +316,16 @@ export async function verifyAndPrepareExamJoinAction(params: {
     try {
       const cookieStore = await cookies();
       cookieStore.set('auth_class', studentClass, { maxAge: 60 * 60 * 24 });
-    } catch {}
+    } catch { }
 
     // Identifikasi nama jurusan dari kelas
     const classParts = studentClass.split(' ');
     const majorCode = classParts.length >= 2 ? classParts[1] : '';
     const jurusanRecord = majorCode
       ? await prisma.jurusan.findFirst({
-          where: { code: { equals: majorCode, mode: 'insensitive' } },
-          select: { name: true },
-        })
+        where: { code: { equals: majorCode, mode: 'insensitive' } },
+        select: { name: true },
+      })
       : null;
     const majorName = jurusanRecord?.name || (majorCode ? `Jurusan ${majorCode}` : 'Program Keahlian SMK');
 
@@ -449,6 +471,14 @@ export async function confirmAndJoinExamAction(params: {
   cookieStore.set('auth_token', 'Siswa', { maxAge: 60 * 60 * 24 });
   cookieStore.set('auth_class', studentClass, { maxAge: 60 * 60 * 24 });
 
+  // 🛡️ Daftarkan sesi perangkat siswa
+  const headerList = await headers();
+  const userAgent = headerList.get('user-agent') || 'Browser Web';
+  const ip = headerList.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    headerList.get('x-real-ip') ||
+    '127.0.0.1';
+  await registerDeviceSession(user.id, user.name, user.role, userAgent, ip);
+
   // 🔒 Jika examId ditentukan, pastikan siswa memang berhak mengakses paket ujian ini
   if (params.examId && studentClass) {
     const exam = await prisma.exam.findUnique({
@@ -499,6 +529,18 @@ export async function studentDirectLoginAction(formData: FormData) {
     return { error: 'Username atau password salah! Periksa kembali kartu login Anda.' };
   }
 
+  // 🛡️ CEK SINGLE-DEVICE LOGIN: Pastikan akun tidak sedang aktif di perangkat lain
+  const cookieStore = await cookies();
+  const currentSessionId = cookieStore.get('auth_session_id')?.value;
+  const sessionCheck = await checkActiveDeviceSession(user.id, currentSessionId);
+  if (sessionCheck.hasActiveSession && sessionCheck.sessionData) {
+    return {
+      error: `Akun Anda sedang aktif di perangkat lain (${sessionCheck.sessionData.deviceName}). Login bersamaan ditolak.`,
+      isDeviceConflict: true,
+      conflictData: sessionCheck.sessionData,
+    };
+  }
+
   let studentClass = user.studentClass || '';
 
   if (!studentClass) {
@@ -535,11 +577,18 @@ export async function studentDirectLoginAction(formData: FormData) {
     }
   }
 
-  const cookieStore = await cookies();
   cookieStore.set('auth_token', 'Siswa', { maxAge: 60 * 60 * 24 });
   cookieStore.set('auth_user', user.username, { maxAge: 60 * 60 * 24 });
   cookieStore.set('auth_name', user.name, { maxAge: 60 * 60 * 24 });
   cookieStore.set('auth_class', studentClass, { maxAge: 60 * 60 * 24 });
+
+  // Daftarkan sesi perangkat baru
+  const headerList = await headers();
+  const userAgent = headerList.get('user-agent') || 'Browser Web';
+  const ip = headerList.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    headerList.get('x-real-ip') ||
+    '127.0.0.1';
+  await registerDeviceSession(user.id, user.name, user.role, userAgent, ip);
 
   redirect('/portal/siswa/cbt');
 }
@@ -549,10 +598,29 @@ export async function studentDirectLoginAction(formData: FormData) {
  */
 export async function studentGatewayLogoutAction() {
   const cookieStore = await cookies();
+  const authUser = cookieStore.get('auth_user')?.value;
+  if (authUser) {
+    try {
+      const user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { username: authUser },
+            { nisn: authUser },
+          ],
+        },
+        select: { id: true },
+      });
+      if (user) {
+        await clearDeviceSession(user.id);
+      }
+    } catch { }
+  }
+
   cookieStore.delete('auth_token');
   cookieStore.delete('auth_user');
   cookieStore.delete('auth_name');
   cookieStore.delete('auth_class');
+  cookieStore.delete('auth_session_id');
   redirect('/ujian');
 }
 
