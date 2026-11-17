@@ -109,7 +109,7 @@ export default function AdminSidebar({ logoUrl, userRole = 'Super Admin', userNa
   return (
     <>
       {/* Mobile Top Header */}
-      <div className="md:hidden flex items-center justify-between bg-slate-900 text-white px-4 py-3 sticky top-0 z-40 border-b border-slate-800 shadow-lg">
+      <div className="md:hidden flex items-center justify-between bg-slate-900 text-white px-4 py-3 sticky top-0 z-40 border-b border-slate-800 shadow-lg w-full max-w-full">
         <div className="flex items-center gap-3">
           <SchoolLogo logoUrl={logoUrl} />
           <div>

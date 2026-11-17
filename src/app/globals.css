@@ -244,4 +244,13 @@ button:active:not(:disabled),
   animation-name: shrinkWidth;
 }
 
+/* Hide scrollbar while preserving touch/trackpad scrolling */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 

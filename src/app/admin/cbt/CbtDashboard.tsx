@@ -1067,127 +1067,134 @@ export default function CbtDashboard({
   const unscheduledCount = visibleExams.filter((e) => !e.startTime || !e.endTime).length;
 
   return (
-    <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-8 font-sans">
+    <div className="px-3.5 py-4 sm:p-6 md:p-10 max-w-7xl mx-auto space-y-6 sm:space-y-8 font-sans w-full max-w-full overflow-x-hidden">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-2 mb-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-semibold">
-              <BookOpen size={14} /> Smart CBT Guru • Rilis Token & Kontrol Ruang Ujian
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-[11px] sm:text-xs font-semibold">
+              <BookOpen size={13} /> Smart CBT Guru • Rilis Token & Kontrol Ruang Ujian
             </div>
-            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-slate-700">
+            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-700">
               Created By Abdul Rahman
             </span>
           </div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
             Manajemen Ujian Online (CBT)
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm flex items-center flex-wrap gap-2">
+          <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm flex items-center flex-wrap gap-1.5 sm:gap-2">
             <span>Login sebagai: <strong className="text-purple-600 dark:text-purple-400">{teacherName}</strong></span>
             {isSuperAdmin ? (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-xs font-bold">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-[11px] sm:text-xs font-bold">
                 👑 Admin Utama (Monitoring Seluruh Guru)
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 text-xs font-bold">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 text-[11px] sm:text-xs font-bold">
                 👤 Paket Ujian Mandiri Guru
               </span>
             )}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+
+        {/* Action Buttons: Responsive Grid on Mobile, Flex on Desktop */}
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-stretch sm:items-center gap-2 sm:gap-3 w-full md:w-auto">
           {isSuperAdmin && (
             <button
               onClick={() => setIsParticipantCardModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md shadow-orange-500/25 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+              className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md shadow-orange-500/25 transition-all cursor-pointer text-center"
               title="Cetak Kartu Login & Peserta Ujian CBT Siswa (Khusus Admin Utama)"
             >
-              <CreditCard size={18} /> Cetak Kartu Peserta
+              <CreditCard size={16} className="shrink-0" />
+              <span className="truncate">Cetak Kartu</span>
             </button>
           )}
           <Link
             href="/portal/siswa/cbt"
             target="_blank"
-            className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-medium text-xs sm:text-sm transition-all shadow-sm"
+            className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-medium text-xs sm:text-sm transition-all shadow-sm text-center"
           >
-            <ExternalLink size={16} /> Tampilan Siswa
+            <ExternalLink size={15} className="shrink-0" />
+            <span className="truncate">Tampilan Siswa</span>
           </Link>
           <button
             onClick={handleOpenCreate}
-            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md shadow-purple-500/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            className={`${isSuperAdmin ? 'col-span-2 sm:col-auto' : 'col-span-2 sm:col-auto'} flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md shadow-purple-500/25 transition-all text-center cursor-pointer`}
           >
-            <Plus size={18} /> Buat Paket Ujian Baru
+            <Plus size={17} className="shrink-0" />
+            <span>Buat Paket Ujian Baru</span>
           </button>
         </div>
       </div>
 
       {/* 🌟 VIEW MODE SELECTOR TABS */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => handleTabSwitch('exams')}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
-              activeMainTab === 'exams'
-                ? 'bg-purple-600 text-white shadow-md shadow-purple-500/25'
-                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
-            }`}
-          >
-            <BookOpen size={16} /> Daftar Paket Ujian ({totalExams})
-          </button>
+      <div className="space-y-3 border-b border-slate-200 dark:border-slate-800 pb-3 sm:pb-4 w-full">
+        <div className="w-full overflow-x-auto no-scrollbar -mx-3.5 px-3.5 sm:mx-0 sm:px-0">
+          <div className="inline-flex items-center gap-2 min-w-max pb-1">
+            <button
+              type="button"
+              onClick={() => handleTabSwitch('exams')}
+              className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeMainTab === 'exams'
+                  ? 'bg-purple-600 text-white shadow-md shadow-purple-500/25'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+              }`}
+            >
+              <BookOpen size={16} className="shrink-0" /> Daftar Paket Ujian ({totalExams})
+            </button>
 
-          <button
-            type="button"
-            onClick={() => handleTabSwitch('schedule')}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
-              activeMainTab === 'schedule'
-                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/25 ring-2 ring-indigo-400/30'
-                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
-            }`}
-          >
-            <Calendar size={16} /> Matriks Jadwal Ujian & Anti-Bentrok
-            {systemConflicts.length > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white animate-pulse">
-                {systemConflicts.length} Bentrok!
-              </span>
-            )}
-          </button>
+            <button
+              type="button"
+              onClick={() => handleTabSwitch('schedule')}
+              className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeMainTab === 'schedule'
+                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/25 ring-2 ring-indigo-400/30'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+              }`}
+            >
+              <Calendar size={16} className="shrink-0" /> Matriks Jadwal Ujian & Anti-Bentrok
+              {systemConflicts.length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white animate-pulse">
+                  {systemConflicts.length} Bentrok!
+                </span>
+              )}
+            </button>
 
-          <button
-            type="button"
-            onClick={() => handleTabSwitch('reports')}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
-              activeMainTab === 'reports'
-                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/25 ring-2 ring-emerald-400/30'
-                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
-            }`}
-          >
-            <FileSpreadsheet size={16} /> Laporan Hasil & Rekap Nilai CBT
-          </button>
+            <button
+              type="button"
+              onClick={() => handleTabSwitch('reports')}
+              className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeMainTab === 'reports'
+                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/25 ring-2 ring-emerald-400/30'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+              }`}
+            >
+              <FileSpreadsheet size={16} className="shrink-0" /> Laporan Hasil & Rekap Nilai CBT
+            </button>
 
-          <button
-            type="button"
-            onClick={() => handleTabSwitch('proctors')}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
-              activeMainTab === 'proctors'
-                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 ring-2 ring-blue-400/30'
-                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
-            }`}
-          >
-            <ShieldCheck size={16} /> Plotting Pengawas Ruangan
-            {unassignedProctorsCount > 0 && isSuperAdmin && (
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white animate-pulse">
-                {unassignedProctorsCount} Belum Di-plot
-              </span>
-            )}
-          </button>
+            <button
+              type="button"
+              onClick={() => handleTabSwitch('proctors')}
+              className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeMainTab === 'proctors'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 ring-2 ring-blue-400/30'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+              }`}
+            >
+              <ShieldCheck size={16} className="shrink-0" /> Plotting Pengawas Ruangan
+              {unassignedProctorsCount > 0 && isSuperAdmin && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white animate-pulse">
+                  {unassignedProctorsCount} Belum Di-plot
+                </span>
+              )}
+            </button>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1 w-full">
           {/* 🌐 Quick Timezone Switcher Pill */}
-          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs">
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs">
             <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 pl-1.5 flex items-center gap-1">
-              <Globe size={13} className="text-purple-600" />
+              <Globe size={13} className="text-purple-600 shrink-0" />
               Zona:
             </span>
             {(['WIB', 'WITA', 'WIT'] as const).map((tz) => (
@@ -1195,7 +1202,7 @@ export default function CbtDashboard({
                 key={tz}
                 type="button"
                 onClick={() => handleTimezoneChange(tz)}
-                className={`px-2 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                className={`px-2 py-0.5 sm:px-2.5 sm:py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                   cbtTimezone === tz
                     ? 'bg-purple-600 text-white shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-purple-700 dark:hover:text-purple-300'
@@ -1321,90 +1328,97 @@ export default function CbtDashboard({
           />
 
           {/* Schedule Filter & Target Class Selector */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-              <div className="text-xs font-bold text-slate-500 mr-1 flex items-center gap-1">
-                <Users size={14} /> Filter Kelas:
-              </div>
-              <select
-                value={selectedClassFilter}
-                onChange={(e) => setSelectedClassFilter(e.target.value)}
-                className="px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
-              >
-                <option value="ALL">Semua Kelas ({exams.length} Ujian)</option>
-                <optgroup label="🌟 Lintas Jurusan (Tingkat)">
-                  <option value="Semua Kelas X (Semua Jurusan)">🎯 Semua Kelas X (Semua Jurusan)</option>
-                  <option value="Semua Kelas XI (Semua Jurusan)">🎯 Semua Kelas XI (Semua Jurusan)</option>
-                  <option value="Semua Kelas XII (Semua Jurusan)">🎯 Semua Kelas XII (Semua Jurusan)</option>
-                </optgroup>
-                {groupedClassOptions.xClasses.length > 0 && (
-                  <optgroup label="Tingkat X">
-                    {groupedClassOptions.xClasses.map((c: string) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </optgroup>
-                )}
-                {groupedClassOptions.xiClasses.length > 0 && (
-                  <optgroup label="Tingkat XI">
-                    {groupedClassOptions.xiClasses.map((c: string) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </optgroup>
-                )}
-                {groupedClassOptions.xiiClasses.length > 0 && (
-                  <optgroup label="Tingkat XII">
-                    {groupedClassOptions.xiiClasses.map((c: string) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </optgroup>
-                )}
-                {groupedClassOptions.others.length > 0 && (
-                  <optgroup label="Lainnya">
-                    {groupedClassOptions.others.map((c: string) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
-
-              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-                {[
-                  { id: 'ALL', label: 'Semua Status' },
-                  { id: 'TODAY', label: '📅 Hari Ini' },
-                  { id: 'UPCOMING', label: '⏳ Akan Datang' },
-                  { id: 'ONGOING', label: '🟢 Berlangsung' },
-                  { id: 'ENDED', label: '🏁 Selesai' },
-                ].map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => setScheduleFilter(s.id as any)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                      scheduleFilter === s.id
-                        ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-sm font-bold'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                    }`}
+          <div className="flex flex-col gap-3 w-full">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 w-full">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <div className="text-xs font-bold text-slate-500 shrink-0 flex items-center gap-1">
+                    <Users size={14} /> Filter Kelas:
+                  </div>
+                  <select
+                    value={selectedClassFilter}
+                    onChange={(e) => setSelectedClassFilter(e.target.value)}
+                    className="flex-1 sm:flex-initial px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
                   >
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+                    <option value="ALL">Semua Kelas ({exams.length} Ujian)</option>
+                    <optgroup label="🌟 Lintas Jurusan (Tingkat)">
+                      <option value="Semua Kelas X (Semua Jurusan)">🎯 Semua Kelas X (Semua Jurusan)</option>
+                      <option value="Semua Kelas XI (Semua Jurusan)">🎯 Semua Kelas XI (Semua Jurusan)</option>
+                      <option value="Semua Kelas XII (Semua Jurusan)">🎯 Semua Kelas XII (Semua Jurusan)</option>
+                    </optgroup>
+                    {groupedClassOptions.xClasses.length > 0 && (
+                      <optgroup label="Tingkat X">
+                        {groupedClassOptions.xClasses.map((c: string) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {groupedClassOptions.xiClasses.length > 0 && (
+                      <optgroup label="Tingkat XI">
+                        {groupedClassOptions.xiClasses.map((c: string) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {groupedClassOptions.xiiClasses.length > 0 && (
+                      <optgroup label="Tingkat XII">
+                        {groupedClassOptions.xiiClasses.map((c: string) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {groupedClassOptions.others.length > 0 && (
+                      <optgroup label="Lainnya">
+                        {groupedClassOptions.others.map((c: string) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+                </div>
 
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-              <input
-                type="text"
-                placeholder="Cari jadwal ujian, mapel..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-none shadow-sm"
-              />
+                {/* Status pills scrollable on mobile */}
+                <div className="w-full sm:w-auto overflow-x-auto no-scrollbar -mx-1 px-1 sm:mx-0 sm:px-0">
+                  <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl min-w-max">
+                    {[
+                      { id: 'ALL', label: 'Semua Status' },
+                      { id: 'TODAY', label: '📅 Hari Ini' },
+                      { id: 'UPCOMING', label: '⏳ Akan Datang' },
+                      { id: 'ONGOING', label: '🟢 Berlangsung' },
+                      { id: 'ENDED', label: '🏁 Selesai' },
+                    ].map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => setScheduleFilter(s.id as any)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                          scheduleFilter === s.id
+                            ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-sm font-bold'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <input
+                  type="text"
+                  placeholder="Cari jadwal ujian, mapel..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-none shadow-sm"
+                />
+              </div>
             </div>
           </div>
 
           {/* ⚡ TOOLBAR PENJADWALAN KOLEKTIF & CSV */}
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-50/70 via-indigo-50/50 to-slate-50 dark:from-purple-950/20 dark:via-indigo-950/20 dark:to-slate-900 border border-purple-100 dark:border-purple-900/40 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="p-3 sm:p-4 rounded-2xl bg-gradient-to-r from-purple-50/70 via-indigo-50/50 to-slate-50 dark:from-purple-950/20 dark:via-indigo-950/20 dark:to-slate-900 border border-purple-100 dark:border-purple-900/40 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 w-full">
+            <div className="grid grid-cols-1 sm:flex sm:flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -1413,25 +1427,25 @@ export default function CbtDashboard({
                   }
                   setIsBatchModalOpen(true);
                 }}
-                className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-sm shadow-purple-500/20 flex items-center gap-1.5 transition-all cursor-pointer"
+                className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-sm shadow-purple-500/20 flex items-center justify-center gap-1.5 transition-all cursor-pointer text-center"
               >
-                <Zap size={14} /> Atur Jadwal Kolektif
+                <Zap size={14} className="shrink-0" /> Atur Jadwal Kolektif
               </button>
 
               {isInlineEditMode ? (
-                <div className="flex items-center gap-1.5">
+                <div className="grid grid-cols-2 sm:flex sm:items-center gap-1.5 w-full sm:w-auto">
                   <button
                     type="button"
                     onClick={handleSaveInlineSchedules}
                     disabled={inlineSaving}
-                    className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                    className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-50 text-center"
                   >
-                    <Save size={14} /> {inlineSaving ? 'Menyimpan...' : 'Simpan Semua Perubahan'}
+                    <Save size={14} className="shrink-0" /> {inlineSaving ? 'Menyimpan...' : 'Simpan Semua'}
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsInlineEditMode(false)}
-                    className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+                    className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer text-center justify-center"
                   >
                     Batal
                   </button>
@@ -1440,29 +1454,31 @@ export default function CbtDashboard({
                 <button
                   type="button"
                   onClick={handleToggleInlineEdit}
-                  className="px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                  className="w-full sm:w-auto px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer text-center"
                 >
-                  <Edit3 size={14} className="text-purple-600" /> Mode Edit Cepat di Tabel
+                  <Edit3 size={14} className="text-purple-600 shrink-0" /> Mode Edit Cepat di Tabel
                 </button>
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={handleDownloadScheduleCsv}
-                className="px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                className="flex-1 sm:flex-initial px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer text-center"
                 title="Download template CSV untuk edit jadwal secara massal di Excel"
               >
-                <Download size={14} className="text-blue-600" /> Unduh Format CSV
+                <Download size={14} className="text-blue-600 shrink-0" />
+                <span className="truncate">Unduh CSV</span>
               </button>
               <button
                 type="button"
                 onClick={() => csvFileInputRef.current?.click()}
-                className="px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                className="flex-1 sm:flex-initial px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer text-center"
                 title="Upload file CSV hasil edit jadwal untuk diterapkan sekaligus"
               >
-                <Upload size={14} className="text-emerald-600" /> Import CSV Jadwal
+                <Upload size={14} className="text-emerald-600 shrink-0" />
+                <span className="truncate">Import CSV</span>
               </button>
             </div>
           </div>
@@ -1743,25 +1759,25 @@ export default function CbtDashboard({
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full sm:w-80">
+      <div className="flex flex-col gap-3 w-full">
+        <div className="relative w-full">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input
             type="text"
             placeholder="Cari ujian, mapel, kelas, guru..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-sm"
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center justify-between gap-2.5 w-full">
           {!isSuperAdmin ? (
             <div className="px-3 py-1.5 rounded-xl text-xs font-bold bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
               <UserCheck size={14} className="text-purple-600" /> Paket Ujian Saya ({teacherName})
             </div>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setMineOnlyFilter(!mineOnlyFilter)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
@@ -1790,48 +1806,54 @@ export default function CbtDashboard({
             </div>
           )}
 
-          {/* Schedule Status Filter */}
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-            {[
-              { id: 'ALL', label: 'Semua Jadwal' },
-              { id: 'TODAY', label: '📅 Hari Ini' },
-              { id: 'UPCOMING', label: '⏳ Akan Datang' },
-              { id: 'ONGOING', label: '🟢 Berlangsung' },
-              { id: 'ENDED', label: '🏁 Selesai' },
-            ].map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setScheduleFilter(s.id as any)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
-                  scheduleFilter === s.id
-                    ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-sm font-bold'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
+          {/* Schedule Status Filter: Horizontally scrollable on mobile */}
+          <div className="w-full sm:w-auto overflow-x-auto no-scrollbar -mx-1 px-1 sm:mx-0 sm:px-0">
+            <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl min-w-max">
+              {[
+                { id: 'ALL', label: 'Semua Jadwal' },
+                { id: 'TODAY', label: '📅 Hari Ini' },
+                { id: 'UPCOMING', label: '⏳ Akan Datang' },
+                { id: 'ONGOING', label: '🟢 Berlangsung' },
+                { id: 'ENDED', label: '🏁 Selesai' },
+              ].map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => setScheduleFilter(s.id as any)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                    scheduleFilter === s.id
+                      ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-sm font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {['ALL', 'ACTIVE', 'PUBLISHED', 'DRAFT'].map((st) => (
-            <button
-              key={st}
-              onClick={() => setStatusFilter(st)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
-                statusFilter === st
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
-              }`}
-            >
-              {st === 'ALL'
-                ? 'Semua Ruang'
-                : st === 'ACTIVE'
-                ? '🟢 Sesi Aktif'
-                : st === 'PUBLISHED'
-                ? 'Ruang Tunggu'
-                : 'Draft'}
-            </button>
-          ))}
+          <div className="w-full sm:w-auto overflow-x-auto no-scrollbar -mx-1 px-1 sm:mx-0 sm:px-0">
+            <div className="inline-flex items-center gap-1.5 min-w-max">
+              {['ALL', 'ACTIVE', 'PUBLISHED', 'DRAFT'].map((st) => (
+                <button
+                  key={st}
+                  onClick={() => setStatusFilter(st)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                    statusFilter === st
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+                  }`}
+                >
+                  {st === 'ALL'
+                    ? 'Semua Ruang'
+                    : st === 'ACTIVE'
+                    ? '🟢 Sesi Aktif'
+                    : st === 'PUBLISHED'
+                    ? 'Ruang Tunggu'
+                    : 'Draft'}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
