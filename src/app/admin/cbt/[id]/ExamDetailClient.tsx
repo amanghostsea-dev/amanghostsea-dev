@@ -15,6 +15,7 @@ import {
   Clock, 
   Key, 
   Lock,
+  Unlock,
   HelpCircle,
   ExternalLink,
   Copy,
@@ -62,7 +63,8 @@ import {
   updateQuestion, 
   rotateExamToken,
   autoDistributeExamPointsAction,
-  adminUnblockStrike3Action
+  adminUnblockStrike3Action,
+  proctorUnlockStrike2Action
 } from '../actions';
 import { 
   formatExamScheduleRange, 
@@ -2107,6 +2109,33 @@ Poin: 10
                         </td>
                         <td className="py-4 px-6 text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            {/* Tombol Buka Kunci Layar Ujian untuk Pengawas Ruangan (Pelanggaran ke-2 / Strike 2) */}
+                            {att.tabSwitchCount === 2 && !att.isBlocked && !att.proctorNotes?.includes('[IZIN_LANJUT_P2]') && (
+                              <button
+                                onClick={async () => {
+                                  if (confirm(`Buka kunci layar ujian untuk siswa "${att.studentName}"? Siswa dapat langsung melanjutkan ujian tanpa kehilangan jawaban.`)) {
+                                    const res = await proctorUnlockStrike2Action(att.id, currentUser?.name);
+                                    if (res.success) {
+                                      alert(res.message);
+                                      window.location.reload();
+                                    } else {
+                                      alert(res.error || 'Gagal membuka kunci ujian');
+                                    }
+                                  }
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-sm transition inline-flex items-center gap-1 cursor-pointer animate-pulse"
+                                title="Buka Kunci Layar Ujian (Pelanggaran ke-2) - Siswa Langsung Melanjutkan"
+                              >
+                                <Unlock size={13} /> Buka Kunci P2
+                              </button>
+                            )}
+
+                            {att.tabSwitchCount === 2 && !att.isBlocked && att.proctorNotes?.includes('[IZIN_LANJUT_P2]') && (
+                              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-300">
+                                ✓ Kunci Telah Dibuka
+                              </span>
+                            )}
+
                             {isSuperAdmin && att.isBlocked && (
                               <button
                                 onClick={async () => {
@@ -2134,7 +2163,7 @@ Poin: 10
                                   setIsDeleteAttemptModal(true);
                                 }}
                                 className="p-1.5 text-slate-400 hover:text-red-600 transition-colors rounded-lg cursor-pointer"
-                                title="Reset / Hapus Pengerjaan"
+                                title="⚠️ Hapus Riwayat & Ulang Ujian dari Nol"
                               >
                                 <Trash2 size={16} />
                               </button>
@@ -3330,10 +3359,10 @@ Poin: 15`}
           setDeleteAttemptId(null);
         }}
         onConfirm={confirmDeleteAttempt}
-        title="Reset Pengerjaan Siswa"
-        message="Apakah Anda yakin ingin menghapus riwayat ujian siswa ini? Siswa akan dapat mengerjakan ulang dari awal."
-        confirmText="Ya, Reset Ujian"
-        variant="warning"
+        title="⚠️ Hapus Riwayat & Ulang Ujian dari Awal"
+        message="PERINGATAN: Seluruh jawaban siswa ini akan dihapus permanen dari server dan siswa harus memasukkan token baru dari awal. Catatan: Jika siswa hanya terkunci pelanggaran tata tertib (Strike 2), gunakan tombol 'Buka Kunci P2' agar siswa bisa melanjutkan ujian tanpa kehilangan jawaban."
+        confirmText="Ya, Hapus dan Mulai dari Awal"
+        variant="danger"
         isLoading={loading}
       />
 

@@ -486,11 +486,11 @@ export async function confirmAndJoinExamAction(params: {
     }
   }
 
-  // Simpan session cookies terverifikasi resmi
-  cookieStore.set('auth_name', user.name, { maxAge: 60 * 60 * 24 });
-  cookieStore.set('auth_user', user.username, { maxAge: 60 * 60 * 24 });
-  cookieStore.set('auth_token', 'Siswa', { maxAge: 60 * 60 * 24 });
-  cookieStore.set('auth_class', studentClass, { maxAge: 60 * 60 * 24 });
+  // Simpan session cookies terverifikasi resmi (Path '/' eksplisit agar berlaku di semua halaman)
+  cookieStore.set('auth_name', user.name, { maxAge: 60 * 60 * 24, path: '/' });
+  cookieStore.set('auth_user', user.username, { maxAge: 60 * 60 * 24, path: '/' });
+  cookieStore.set('auth_token', 'Siswa', { maxAge: 60 * 60 * 24, path: '/' });
+  cookieStore.set('auth_class', studentClass, { maxAge: 60 * 60 * 24, path: '/' });
 
   // 🛡️ Daftarkan sesi perangkat siswa
   const headerList = await headers();
@@ -501,18 +501,50 @@ export async function confirmAndJoinExamAction(params: {
   await registerDeviceSession(user.id, user.name, user.role, userAgent, ip);
 
   // 🔒 Jika examId ditentukan, pastikan siswa memang berhak mengakses paket ujian ini
-  if (params.examId && studentClass) {
+  if (params.examId) {
     const exam = await prisma.exam.findUnique({
       where: { id: params.examId },
-      select: { id: true, title: true, subject: true, classTarget: true },
+      include: {
+        questions: { select: { id: true } },
+      },
     });
 
     if (exam) {
-      const isClassAllowed = isClassTargetMatch(exam.classTarget, studentClass);
-      if (!isClassAllowed) {
-        return {
-          error: `Salah Kamar Ujian: Paket ujian ini khusus untuk ${formatClassTargetDisplay(exam.classTarget, true)}. Anda di kelas "${studentClass}".`,
-        };
+      if (studentClass) {
+        const isClassAllowed = isClassTargetMatch(exam.classTarget, studentClass);
+        if (!isClassAllowed) {
+          return {
+            error: `Salah Kamar Ujian: Paket ujian ini khusus untuk ${formatClassTargetDisplay(exam.classTarget, true)}. Anda di kelas "${studentClass}".`,
+          };
+        }
+      }
+
+      // 🚀 AUTO-INIT ATTEMPT: Buat sesi pengerjaan langsung di database jika belum pernah ada
+      // agar siswa yang sudah memasukkan token di Gerbang Ujian TIDAK PERLU memasukkan token ulang!
+      const existingAtt = await prisma.examAttempt.findFirst({
+        where: {
+          examId: params.examId,
+          OR: [
+            { studentName: { equals: user.name, mode: 'insensitive' } },
+            ...(user.nisn ? [{ studentNis: user.nisn }] : []),
+            { studentNis: user.username },
+          ],
+        },
+      });
+
+      if (!existingAtt) {
+        await prisma.examAttempt.create({
+          data: {
+            examId: params.examId,
+            studentName: user.name,
+            studentNis: user.nisn || user.username,
+            studentClass: studentClass || null,
+            totalQuestions: exam.questions.length,
+            answers: '{}',
+            status: 'IN_PROGRESS',
+            tabSwitchCount: 0,
+          },
+        });
       }
     }
   }
@@ -598,10 +630,10 @@ export async function studentDirectLoginAction(formData: FormData) {
     }
   }
 
-  cookieStore.set('auth_token', 'Siswa', { maxAge: 60 * 60 * 24 });
-  cookieStore.set('auth_user', user.username, { maxAge: 60 * 60 * 24 });
-  cookieStore.set('auth_name', user.name, { maxAge: 60 * 60 * 24 });
-  cookieStore.set('auth_class', studentClass, { maxAge: 60 * 60 * 24 });
+  cookieStore.set('auth_token', 'Siswa', { maxAge: 60 * 60 * 24, path: '/' });
+  cookieStore.set('auth_user', user.username, { maxAge: 60 * 60 * 24, path: '/' });
+  cookieStore.set('auth_name', user.name, { maxAge: 60 * 60 * 24, path: '/' });
+  cookieStore.set('auth_class', studentClass, { maxAge: 60 * 60 * 24, path: '/' });
 
   // Daftarkan sesi perangkat baru
   const headerList = await headers();
@@ -637,11 +669,11 @@ export async function studentGatewayLogoutAction() {
     } catch { }
   }
 
-  cookieStore.delete('auth_token');
-  cookieStore.delete('auth_user');
-  cookieStore.delete('auth_name');
-  cookieStore.delete('auth_class');
-  cookieStore.delete('auth_session_id');
+  cookieStore.set('auth_token', '', { maxAge: 0, path: '/' });
+  cookieStore.set('auth_user', '', { maxAge: 0, path: '/' });
+  cookieStore.set('auth_name', '', { maxAge: 0, path: '/' });
+  cookieStore.set('auth_class', '', { maxAge: 0, path: '/' });
+  cookieStore.set('auth_session_id', '', { maxAge: 0, path: '/' });
   redirect('/ujian');
 }
 

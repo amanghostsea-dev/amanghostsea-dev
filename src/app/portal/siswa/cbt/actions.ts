@@ -70,7 +70,27 @@ export async function startOrResumeAttempt(data: {
       return { error: 'Sesi ujian telah resmi ditutup oleh guru pengawas.' };
     }
 
-    // 📅 Verify Schedule Window & Token Activation
+    const cleanName = data.studentName.trim();
+    const cleanNis = data.studentNis?.trim();
+
+    // 🔄 1. AUTO-RESUME: Jika siswa SUDAH memiliki sesi ujian aktif (IN_PROGRESS atau SUBMITTED),
+    // langsung lanjutkan pengerjaan tanpa perlu memasukkan token ulang!
+    const existing = await prisma.examAttempt.findFirst({
+      where: {
+        examId: data.examId,
+        OR: [
+          { studentName: { equals: cleanName, mode: 'insensitive' } },
+          ...(cleanNis ? [{ studentNis: cleanNis }] : []),
+        ],
+      },
+      orderBy: { startedAt: 'desc' },
+    });
+
+    if (existing) {
+      return { success: true, attempt: existing, questions: exam.questions, isResumed: true };
+    }
+
+    // 📅 2. JIKA ATTEMPT BARU: Verify Schedule Window & Token Activation
     const now = new Date();
     const tokenStatus = isExamTokenActive(exam, now);
     const schedule = getExamScheduleState(exam.startTime, exam.endTime, exam.status, now, exam.updatedAt, exam.duration);
@@ -145,25 +165,6 @@ export async function startOrResumeAttempt(data: {
           error: `Salah Kamar Ujian: Paket ujian ini khusus untuk ${formatClassTargetDisplay(exam.classTarget, true)}, sedangkan Anda terdaftar di kelas "${verifiedClass}". Silakan minta token kelas Anda ke pengawas.`
         };
       }
-    }
-
-    const cleanName = data.studentName.trim();
-    const cleanNis = data.studentNis?.trim();
-
-    // Check if an existing attempt exists for this student (case-insensitive & NIS fallback)
-    const existing = await prisma.examAttempt.findFirst({
-      where: {
-        examId: data.examId,
-        OR: [
-          { studentName: { equals: cleanName, mode: 'insensitive' } },
-          ...(cleanNis ? [{ studentNis: cleanNis }] : []),
-        ],
-      },
-      orderBy: { startedAt: 'desc' },
-    });
-
-    if (existing) {
-      return { success: true, attempt: existing, questions: exam.questions };
     }
 
     // Create new attempt with verified student info

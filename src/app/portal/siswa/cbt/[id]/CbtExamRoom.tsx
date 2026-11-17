@@ -189,6 +189,48 @@ export default function CbtExamRoom({
     return () => clearInterval(interval);
   }, [attempt, isSessionOpen, refreshSessionStatus]);
 
+  // 🔄 Auto-Resume Sesi Ujian Aktif (Bebas Token Ulang jika siswa sudah punya attempt di server)
+  useEffect(() => {
+    if (attempt) return;
+    let isMounted = true;
+    startOrResumeAttempt({
+      examId: exam.id,
+      studentName,
+      studentNis: studentNis || undefined,
+      studentClass: studentClass || exam.classTarget || undefined,
+    }).then((res) => {
+      if (isMounted && res && res.success && res.attempt) {
+        setAttempt(res.attempt);
+        const hasPermission =
+          res.attempt.proctorNotes?.includes('[IZIN_LANJUT_P2]') ||
+          res.attempt.proctorNotes?.includes('[RESET_PENGAWAS]');
+        const isS2Locked = res.attempt.tabSwitchCount === 2 && !hasPermission && !res.attempt.isBlocked;
+        setIsStrike2Locked(isS2Locked);
+        setTabSwitchCount(res.attempt.tabSwitchCount || 0);
+
+        if (res.questions) {
+          const processedQ =
+            exam.shuffleQuestions && res.questions.length > 1
+              ? seededShuffle(res.questions, `${studentName}_${studentNis || ''}_${exam.id}`)
+              : res.questions;
+          setQuestions(processedQ);
+        }
+        if (res.attempt.status === 'SUBMITTED') {
+          setFinalResult({
+            score: res.attempt.score,
+            totalCorrect: res.attempt.totalCorrect,
+            totalQuestions: res.attempt.totalQuestions,
+            tabSwitchCount: res.attempt.tabSwitchCount,
+          });
+        }
+      }
+    }).catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [attempt, exam.id, exam.shuffleQuestions, exam.classTarget, studentName, studentNis, studentClass]);
+
   // Exam engine state (Acak urutan butir soal per siswa jika fitur shuffle diaktifkan guru)
   const [questions, setQuestions] = useState<QuestionItem[]>(() => {
     if (exam.shuffleQuestions && exam.questions?.length > 1) {
@@ -308,18 +350,19 @@ export default function CbtExamRoom({
     }
   }, [attempt?.id, storageKey]);
 
-  // Anti-Cheat: Progressive 3-Strike Visibility and Window Blur Detection
+  // Anti-Cheat: Progressive 3-Strike Visibility & Window Blur Detection with 3.5s Smart Grace Period
   const lastViolationTimeRef = useRef<number>(0);
   const answersRef = useRef(answers);
   answersRef.current = answers;
+  const violationTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isWindowBlurredRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (!attempt || attempt.status !== 'IN_PROGRESS' || finalResult) return;
 
-    const handleViolation = () => {
+    const executeViolation = () => {
       const now = Date.now();
-      // 🛡️ Cooldown 3000ms: Menghindari double-increment akibat browser menembakkan
-      // window.blur dan document.visibilitychange secara bersamaan saat user alt-tab / pindah tab
+      // 🛡️ Cooldown 3000ms: Menghindari double-increment akibat browser menembakkan event beruntun
       if (now - lastViolationTimeRef.current < 3000) {
         return;
       }
@@ -387,22 +430,60 @@ export default function CbtExamRoom({
       });
     };
 
+    const handleWindowLeave = () => {
+      // 📱 SMART GRACE PERIOD (3.5 Detik Toleransi Notifikasi HP & Gesture):
+      // Jika siswa di HP tidak sengaja menyentuh notifikasi WA, modal baterai lemah (20%),
+      // atau gesture swipe, sistem TIDAK langsung menghitung pelanggaran!
+      // Hanya jika siswa meninggalkan layar > 3.5 detik (terbukti membuka browser/aplikasi lain),
+      // pelanggaran baru sah dieksekusi.
+      if (violationTimerRef.current) return;
+      isWindowBlurredRef.current = true;
+
+      violationTimerRef.current = setTimeout(() => {
+        violationTimerRef.current = null;
+        if (isWindowBlurredRef.current) {
+          executeViolation();
+        }
+      }, 3500);
+    };
+
+    const handleWindowReturn = () => {
+      // Siswa kembali ke lembar ujian dalam batas waktu toleransi
+      isWindowBlurredRef.current = false;
+      if (violationTimerRef.current) {
+        clearTimeout(violationTimerRef.current);
+        violationTimerRef.current = null;
+      }
+    };
+
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        handleViolation();
+        handleWindowLeave();
+      } else {
+        handleWindowReturn();
       }
     };
 
     const handleBlur = () => {
-      handleViolation();
+      handleWindowLeave();
+    };
+
+    const handleFocus = () => {
+      handleWindowReturn();
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
 
     return () => {
+      if (violationTimerRef.current) {
+        clearTimeout(violationTimerRef.current);
+        violationTimerRef.current = null;
+      }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
     };
   }, [attempt?.id, finalResult, storageKey]);
 
