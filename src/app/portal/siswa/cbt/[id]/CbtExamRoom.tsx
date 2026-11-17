@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import { startOrResumeAttempt, saveProgress, submitExam, getExamSessionStatus, checkStudentExamLockStatus } from '../actions';
-import { formatExamScheduleRange, getExamScheduleState, formatClassTargetDisplay } from '@/lib/cbt-schedule';
+import { formatExamScheduleRange, getExamScheduleState, isExamTokenActive, formatClassTargetDisplay } from '@/lib/cbt-schedule';
 import CbtRichText from '@/components/cbt/CbtRichText';
 import CbtQuestionImageViewer from '@/components/cbt/CbtQuestionImageViewer';
 
@@ -115,6 +115,7 @@ interface CbtExamRoomProps {
     shuffleQuestions: boolean;
     startTime?: Date | string | null;
     endTime?: Date | string | null;
+    updatedAt?: Date | string | null;
     questions: QuestionItem[];
   };
   studentName: string;
@@ -157,11 +158,10 @@ export default function CbtExamRoom({
   const [startError, setStartError] = useState<string | null>(null);
 
   // Dual-Key Session State (Waiting Room vs Active)
-  const initialSchedule = getExamScheduleState(exam.startTime, exam.endTime, exam.status);
+  const initialTokenStatus = isExamTokenActive(exam);
   const [sessionStatus, setSessionStatus] = useState<string>(exam.status || 'PUBLISHED');
-  const [isSessionOpen, setIsSessionOpen] = useState<boolean>(
-    exam.status === 'ACTIVE' || (exam.status === 'PUBLISHED' && initialSchedule.isAccessible)
-  );
+  const [isSessionOpen, setIsSessionOpen] = useState<boolean>(initialTokenStatus.isActive);
+  const [isTokenExpired, setIsTokenExpired] = useState<boolean>(initialTokenStatus.isExpired && !initialTokenStatus.isActive);
   const [checkingStatus, setCheckingStatus] = useState(false);
 
   const refreshSessionStatus = useCallback(async () => {
@@ -172,6 +172,9 @@ export default function CbtExamRoom({
         setSessionStatus(res.status);
         if (typeof res.isSessionOpen === 'boolean') {
           setIsSessionOpen(res.isSessionOpen);
+        }
+        if (res.tokenStatus) {
+          setIsTokenExpired(res.tokenStatus.isExpired && !res.tokenStatus.isActive);
         }
       }
     } catch { }
@@ -921,51 +924,95 @@ export default function CbtExamRoom({
           )}
 
           {/* DUAL-KEY GATEWAY: WAITING ROOM vs ACTIVE WITH TOKEN */}
-          {!isSessionOpen && sessionStatus !== 'ACTIVE' ? (
-            <div className="space-y-4">
-              <div className="p-5 rounded-2xl bg-amber-500/10 border-2 border-dashed border-amber-500/40 text-amber-800 dark:text-amber-200 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2 font-bold text-sm">
-                    <span className="flex h-3 w-3 relative">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+          {!isSessionOpen ? (
+            isTokenExpired ? (
+              <div className="space-y-4">
+                <div className="p-5 rounded-2xl bg-rose-500/10 border-2 border-rose-500/30 text-rose-800 dark:text-rose-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-2 font-bold text-sm">
+                      <AlertCircle size={18} className="text-rose-500 shrink-0" />
+                      Waktu Ujian Telah Berakhir
                     </span>
-                    Ruang Tunggu Ujian (Waiting Room)
-                  </span>
-                  <span className="text-[10px] bg-amber-500/20 text-amber-800 dark:text-amber-200 font-mono px-2 py-0.5 rounded-full font-bold uppercase border border-amber-500/30">
-                    Standby
-                  </span>
+                    <span className="text-[10px] bg-rose-500/20 text-rose-800 dark:text-rose-200 font-mono px-2 py-0.5 rounded-full font-bold uppercase border border-rose-500/30">
+                      Token Nonaktif
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-rose-700 dark:text-rose-300 leading-relaxed">
+                    Waktu pelaksanaan ujian resmi telah selesai dan token ujian telah <strong>otomatis dinonaktifkan</strong> oleh sistem. Jika Anda adalah peserta <strong>Ujian Susulan</strong>, silakan minta guru pengawas di ruangan untuk mengaktifkan sesi susulan.
+                  </p>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-rose-500/20">
+                    <span className="text-[11px] text-slate-500 flex items-center gap-1.5">
+                      <Wifi size={13} className="text-rose-500" />
+                      Menunggu pengawas mengaktifkan sesi susulan...
+                    </span>
+                    <button
+                      type="button"
+                      onClick={refreshSessionStatus}
+                      disabled={checkingStatus}
+                      className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    >
+                      <RefreshCw size={12} className={checkingStatus ? 'animate-spin' : ''} />
+                      <span>{checkingStatus ? 'Memeriksa...' : 'Cek Status Sesi'}</span>
+                    </button>
+                  </div>
                 </div>
 
-                <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
-                  Sesi ujian untuk kelas ini <strong>belum dibuka oleh guru pengawas</strong> atau belum memasuki jam jadwal resmi. Silakan duduk dengan tertib. Layar ini akan <strong>otomatis terbuka</strong> begitu pengawas mengaktifkan sesi atau saat jadwal ujian dimulai.
-                </p>
-
-                <div className="flex items-center justify-between pt-1 border-t border-amber-500/20">
-                  <span className="text-[11px] text-slate-500 flex items-center gap-1.5">
-                    <Wifi size={13} className="text-emerald-500" />
-                    Mengecek sinyal pengawas & jadwal...
-                  </span>
-                  <button
-                    type="button"
-                    onClick={refreshSessionStatus}
-                    disabled={checkingStatus}
-                    className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                  >
-                    <RefreshCw size={12} className={checkingStatus ? 'animate-spin' : ''} />
-                    <span>{checkingStatus ? 'Memeriksa...' : 'Cek Status Sekarang'}</span>
-                  </button>
+                {/* Locked Token Placeholder */}
+                <div className="p-4 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center space-y-1.5 opacity-60">
+                  <Lock className="mx-auto text-slate-400" size={20} />
+                  <div className="text-xs font-semibold text-slate-500">
+                    Token ditutup otomatis karena waktu pengerjaan telah berakhir
+                  </div>
                 </div>
               </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="p-5 rounded-2xl bg-amber-500/10 border-2 border-dashed border-amber-500/40 text-amber-800 dark:text-amber-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-2 font-bold text-sm">
+                      <span className="flex h-3 w-3 relative">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                      </span>
+                      Ruang Tunggu Ujian (Waiting Room)
+                    </span>
+                    <span className="text-[10px] bg-amber-500/20 text-amber-800 dark:text-amber-200 font-mono px-2 py-0.5 rounded-full font-bold uppercase border border-amber-500/30">
+                      Standby
+                    </span>
+                  </div>
 
-              {/* Locked Token Placeholder */}
-              <div className="p-4 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center space-y-1.5 opacity-60">
-                <Lock className="mx-auto text-slate-400" size={20} />
-                <div className="text-xs font-semibold text-slate-500">
-                  Kolom token terkunci hingga pengawas mengaktifkan sesi atau jam jadwal resmi tiba
+                  <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
+                    Sesi ujian untuk kelas ini <strong>belum dibuka oleh guru pengawas</strong> atau belum memasuki jam jadwal resmi. Silakan duduk dengan tertib. Layar ini akan <strong>otomatis terbuka</strong> begitu pengawas mengaktifkan sesi atau saat jadwal ujian dimulai.
+                  </p>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-amber-500/20">
+                    <span className="text-[11px] text-slate-500 flex items-center gap-1.5">
+                      <Wifi size={13} className="text-emerald-500" />
+                      Mengecek sinyal pengawas & jadwal...
+                    </span>
+                    <button
+                      type="button"
+                      onClick={refreshSessionStatus}
+                      disabled={checkingStatus}
+                      className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    >
+                      <RefreshCw size={12} className={checkingStatus ? 'animate-spin' : ''} />
+                      <span>{checkingStatus ? 'Memeriksa...' : 'Cek Status Sekarang'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Locked Token Placeholder */}
+                <div className="p-4 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center space-y-1.5 opacity-60">
+                  <Lock className="mx-auto text-slate-400" size={20} />
+                  <div className="text-xs font-semibold text-slate-500">
+                    Kolom token terkunci hingga pengawas mengaktifkan sesi atau jam jadwal resmi tiba
+                  </div>
                 </div>
               </div>
-            </div>
+            )
           ) : (
             <div className="space-y-4">
               <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-200 space-y-1.5">

@@ -553,7 +553,7 @@ export default function ExamDetailClient({
   }, [exam.id, examStatus, examToken]);
 
   const [scheduleNoticeModal, setScheduleNoticeModal] = useState<ScheduleDiscrepancyResult | null>(null);
-  const schedState = getExamScheduleState(exam.startTime, exam.endTime, examStatus);
+  const schedState = getExamScheduleState(exam.startTime, exam.endTime, examStatus, new Date(), exam.updatedAt, exam.duration);
 
   const handleToggleSession = async (open: boolean, forceAllowOutsideSchedule: boolean = false) => {
     // ⏰ Verifikasi Jadwal Resmi Ujian saat pengawas membuka sesi / merilis token
@@ -1601,7 +1601,7 @@ Poin: 10
                   className="px-5 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs shadow-md shadow-emerald-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   <Play size={14} className="fill-white" />
-                  <span>{togglingSession ? 'Membuka Sesi...' : 'Buka Sesi Ujian & Tampilkan Token'}</span>
+                  <span>{togglingSession ? 'Membuka Sesi...' : schedState.state === 'ENDED' ? 'Buka Sesi Susulan & Rilis Token' : 'Buka Sesi Ujian & Tampilkan Token'}</span>
                 </button>
               </div>
             )}

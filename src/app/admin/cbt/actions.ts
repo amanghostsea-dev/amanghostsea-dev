@@ -76,6 +76,7 @@ export async function toggleExamSession(id: string, openSession: boolean, custom
       where: { id },
       data: {
         status: openSession ? 'ACTIVE' : 'PUBLISHED',
+        updatedAt: new Date(),
         ...(token ? { token } : {}),
       },
     });

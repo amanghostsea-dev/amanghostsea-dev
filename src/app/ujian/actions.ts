@@ -3,7 +3,7 @@
 import prisma from '@/lib/prisma';
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { isClassTargetMatch, formatClassTargetDisplay } from '@/lib/cbt-schedule';
+import { isClassTargetMatch, formatClassTargetDisplay, isExamTokenActive } from '@/lib/cbt-schedule';
 import {
   checkActiveDeviceSession,
   registerDeviceSession,
@@ -344,6 +344,10 @@ export async function verifyAndPrepareExamJoinAction(params: {
           duration: true,
           token: true,
           roomName: true,
+          startTime: true,
+          endTime: true,
+          status: true,
+          updatedAt: true,
         },
       });
 
@@ -359,7 +363,24 @@ export async function verifyAndPrepareExamJoinAction(params: {
       if (!matchedExam) {
         return {
           success: false,
-          error: `Token ujian "${inputToken}" tidak valid atau sesi ujian belum diaktifkan oleh pengawas. Silakan mintakan token aktif ke pengawas ujian Anda.`,
+          error: `Token ujian "${inputToken}" tidak valid atau tidak terdaftar. Silakan periksa kembali token di papan tulis kelas Anda.`,
+        };
+      }
+
+      // ⏰ CEK APAKAH TOKEN AKTIF & BELUM KADALUARSA
+      const tokenCheck = isExamTokenActive(matchedExam);
+      if (!tokenCheck.isActive) {
+        if (tokenCheck.isExpired) {
+          return {
+            success: false,
+            errorType: 'INVALID_TOKEN',
+            error: `Waktu pengerjaan ujian telah berakhir dan token "${inputToken}" telah otomatis dinonaktifkan. Silakan hubungi pengawas ujian jika Anda dijadwalkan mengikuti ujian susulan.`,
+          };
+        }
+        return {
+          success: false,
+          errorType: 'INVALID_TOKEN',
+          error: `Sesi ujian untuk token "${inputToken}" belum diaktifkan oleh pengawas di ruang ujian. Silakan tunggu pengawas merilis token.`,
         };
       }
 

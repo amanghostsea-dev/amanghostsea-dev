@@ -2,7 +2,7 @@
 
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-import { formatScheduleDate, formatScheduleTime, getExamScheduleState, isClassTargetMatch, formatClassTargetDisplay } from '@/lib/cbt-schedule';
+import { formatScheduleDate, formatScheduleTime, getExamScheduleState, isExamTokenActive, isClassTargetMatch, formatClassTargetDisplay } from '@/lib/cbt-schedule';
 import { getCbtTimezone } from '@/lib/settings';
 
 export async function getExamSessionStatus(examId: string) {
@@ -16,24 +16,28 @@ export async function getExamSessionStatus(examId: string) {
         token: true,
         startTime: true,
         endTime: true,
+        duration: true,
+        updatedAt: true,
       },
     });
 
     if (!exam) {
-      return { status: 'NOT_FOUND', isSessionOpen: false, hasToken: false, scheduleState: null };
+      return { status: 'NOT_FOUND', isSessionOpen: false, hasToken: false, scheduleState: null, isTokenActive: false };
     }
 
-    const schedule = getExamScheduleState(exam.startTime, exam.endTime, exam.status);
-    const isSessionOpen = exam.status === 'ACTIVE' || (exam.status === 'PUBLISHED' && schedule.isAccessible);
+    const tokenStatus = isExamTokenActive(exam);
+    const schedule = getExamScheduleState(exam.startTime, exam.endTime, exam.status, new Date(), exam.updatedAt, exam.duration);
 
     return {
       status: exam.status || 'UNKNOWN',
-      isSessionOpen,
+      isSessionOpen: tokenStatus.isActive,
       hasToken: Boolean(exam.token && exam.token.trim()),
       scheduleState: schedule,
+      isTokenActive: tokenStatus.isActive,
+      tokenStatus,
     };
   } catch (error) {
-    return { status: 'ERROR', isSessionOpen: false, hasToken: false, scheduleState: null };
+    return { status: 'ERROR', isSessionOpen: false, hasToken: false, scheduleState: null, isTokenActive: false };
   }
 }
 
@@ -66,27 +70,28 @@ export async function startOrResumeAttempt(data: {
       return { error: 'Sesi ujian telah resmi ditutup oleh guru pengawas.' };
     }
 
-    // 📅 Verify Schedule Window & Auto-Accessibility
+    // 📅 Verify Schedule Window & Token Activation
     const now = new Date();
-    const schedule = getExamScheduleState(exam.startTime, exam.endTime, exam.status, now);
+    const tokenStatus = isExamTokenActive(exam, now);
+    const schedule = getExamScheduleState(exam.startTime, exam.endTime, exam.status, now, exam.updatedAt, exam.duration);
     const cbtTimezone = await getCbtTimezone();
 
-    if (exam.startTime && now < exam.startTime && exam.status !== 'ACTIVE') {
+    if (tokenStatus.isExpired && !tokenStatus.isActive) {
+      const endTimeText = exam.endTime ? `${formatScheduleDate(exam.endTime, cbtTimezone)} pukul ${formatScheduleTime(exam.endTime, cbtTimezone)}` : 'jadwal yang ditentukan';
+      return { 
+        error: `Waktu pengerjaan ujian ini telah berakhir pada ${endTimeText}. Token ujian telah otomatis dinonaktifkan. Silakan hubungi pengawas jika Anda dijadwalkan mengikuti sesi susulan.` 
+      };
+    }
+
+    if (exam.startTime && now < exam.startTime && !tokenStatus.isActive) {
       return { 
         error: `Ujian ini belum dimulai. Sesuai jadwal, ujian baru dapat diakses pada ${formatScheduleDate(exam.startTime, cbtTimezone)} pukul ${formatScheduleTime(exam.startTime, cbtTimezone)}.` 
       };
     }
 
-    if (exam.endTime && now > exam.endTime && exam.status !== 'ACTIVE') {
+    if (!tokenStatus.isActive) {
       return { 
-        error: `Waktu pengerjaan ujian ini telah berakhir pada ${formatScheduleDate(exam.endTime, cbtTimezone)} pukul ${formatScheduleTime(exam.endTime, cbtTimezone)}. Silakan hubungi guru pengampu.` 
-      };
-    }
-
-    const isSessionAllowed = exam.status === 'ACTIVE' || (exam.status === 'PUBLISHED' && schedule.isAccessible);
-    if (!isSessionAllowed) {
-      return { 
-        error: 'Sesi ujian kelas ini belum dibuka oleh pengawas di kelas. Harap tunggu di Ruang Tunggu.' 
+        error: 'Sesi ujian kelas ini belum dibuka oleh pengawas di kelas. Harap tunggu di Ruang Tunggu atau mintakan token aktif ke pengawas.' 
       };
     }
 

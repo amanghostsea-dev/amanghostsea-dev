@@ -32,6 +32,7 @@ import {
   formatExamScheduleRange,
   getExamScheduleDetails,
   getExamScheduleState,
+  isExamTokenActive,
   ScheduleState,
   formatClassTargetDisplay,
   isClassTargetMatch,
@@ -69,6 +70,7 @@ export interface ExamItem {
   status: string;
   startTime?: Date | string | null;
   endTime?: Date | string | null;
+  updatedAt?: Date | string | null;
   _count: {
     questions: number;
   };
@@ -147,7 +149,8 @@ export default function SiswaCbtClient({
       exam.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       exam.subject.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const schedState = getExamScheduleState(exam.startTime, exam.endTime, exam.status, currentTime);
+    const tokenStatus = isExamTokenActive(exam, currentTime);
+    const schedState = getExamScheduleState(exam.startTime, exam.endTime, exam.status, currentTime, exam.updatedAt, exam.duration);
 
     if (!matchesSearch) return false;
 
@@ -155,10 +158,10 @@ export default function SiswaCbtClient({
       return isSubmitted;
     }
     if (filterTab === 'ONGOING') {
-      return !isSubmitted && (schedState.state === 'ONGOING' || exam.status === 'ACTIVE');
+      return !isSubmitted && (schedState.state === 'ONGOING' || tokenStatus.isActive);
     }
     if (filterTab === 'UPCOMING') {
-      return !isSubmitted && schedState.state === 'UPCOMING' && exam.status !== 'ACTIVE';
+      return !isSubmitted && schedState.state === 'UPCOMING' && !tokenStatus.isActive;
     }
 
     return true;
@@ -168,15 +171,17 @@ export default function SiswaCbtClient({
   const ongoingCount = exams.filter((e) => {
     const att = e.attempts[0];
     const isSub = att?.status === 'SUBMITTED';
-    const st = getExamScheduleState(e.startTime, e.endTime, e.status, currentTime);
-    return !isSub && (st.state === 'ONGOING' || e.status === 'ACTIVE');
+    const tok = isExamTokenActive(e, currentTime);
+    const st = getExamScheduleState(e.startTime, e.endTime, e.status, currentTime, e.updatedAt, e.duration);
+    return !isSub && (st.state === 'ONGOING' || tok.isActive);
   }).length;
 
   const upcomingCount = exams.filter((e) => {
     const att = e.attempts[0];
     const isSub = att?.status === 'SUBMITTED';
-    const st = getExamScheduleState(e.startTime, e.endTime, e.status, currentTime);
-    return !isSub && st.state === 'UPCOMING' && e.status !== 'ACTIVE';
+    const tok = isExamTokenActive(e, currentTime);
+    const st = getExamScheduleState(e.startTime, e.endTime, e.status, currentTime, e.updatedAt, e.duration);
+    return !isSub && st.state === 'UPCOMING' && !tok.isActive;
   }).length;
 
   const completedCount = exams.filter((e) => e.attempts[0]?.status === 'SUBMITTED').length;
@@ -495,13 +500,16 @@ export default function SiswaCbtClient({
                   const attempt = exam.attempts[0];
                   const isSubmitted = attempt?.status === 'SUBMITTED';
                   const isInProgress = attempt?.status === 'IN_PROGRESS';
-                  const isLiveTeacher = exam.status === 'ACTIVE';
+                  const tokenStatus = isExamTokenActive(exam, currentTime);
+                  const isLiveTeacher = tokenStatus.isActive;
 
                   const schedState = getExamScheduleState(
                     exam.startTime,
                     exam.endTime,
                     exam.status,
-                    currentTime
+                    currentTime,
+                    exam.updatedAt,
+                    exam.duration
                   );
                   const schedDetails = getExamScheduleDetails(exam.startTime, exam.endTime, timezone);
 

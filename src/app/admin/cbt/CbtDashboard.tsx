@@ -58,6 +58,8 @@ import {
   formatExamScheduleRange, 
   getExamScheduleDetails,
   getExamScheduleState, 
+  isExamTokenActive,
+  ExamTokenStatus,
   checkScheduleDiscrepancy,
   ScheduleDiscrepancyResult,
   toDateTimeLocalInput,
@@ -95,6 +97,7 @@ interface ExamItem {
   startTime?: Date | string | null;
   endTime?: Date | string | null;
   createdAt: Date | string;
+  updatedAt?: Date | string | null;
   _count: {
     questions: number;
     attempts: number;
@@ -858,8 +861,8 @@ export default function CbtDashboard({
   };
 
   const handleQuickToggleSession = async (exam: ExamItem, forceAllowOutsideSchedule: boolean = false) => {
-    const isCurrentlyActive = exam.status === 'ACTIVE';
-    const nextOpen = !isCurrentlyActive;
+    const tokenInfo = isExamTokenActive(exam);
+    const nextOpen = !tokenInfo.isActive;
 
     // ⏰ Schedule Discrepancy Verification on Token Release / Session Open:
     // Sesuai kebutuhan: Paket ujian secara otomatis aktif sesuai jadwal resmi.
@@ -880,7 +883,12 @@ export default function CbtDashboard({
     const res = await toggleExamSession(exam.id, nextOpen, exam.token || undefined);
 
     if (res.success && res.data) {
-      setExams(exams.map((e) => (e.id === exam.id ? { ...e, status: res.data.status, token: res.data.token } : e)));
+      setExams(exams.map((e) => (e.id === exam.id ? { 
+        ...e, 
+        status: res.data.status, 
+        token: res.data.token,
+        updatedAt: res.data.updatedAt || new Date().toISOString(),
+      } : e)));
     } else {
       alert(res.error || 'Gagal mengubah status sesi ujian');
     }
@@ -1872,10 +1880,11 @@ export default function CbtDashboard({
           </div>
         ) : (
           filteredExams.map((exam) => {
-            const isLive = exam.status === 'ACTIVE';
-            const isSessionLoading = sessionLoadingId === exam.id;
-            const schedState = getExamScheduleState(exam.startTime, exam.endTime, exam.status);
+            const tokenStatus = isExamTokenActive(exam);
+            const schedState = getExamScheduleState(exam.startTime, exam.endTime, exam.status, new Date(), exam.updatedAt, exam.duration);
             const schedDetails = getExamScheduleDetails(exam.startTime, exam.endTime, cbtTimezone);
+            const isLive = tokenStatus.isActive;
+            const isSessionLoading = sessionLoadingId === exam.id;
 
             return (
               <div
@@ -1894,18 +1903,22 @@ export default function CbtDashboard({
                     <span
                       className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold shrink-0 ${
                         isLive
-                          ? schedState.isOutsideSchedule
+                          ? tokenStatus.isSusulan
                             ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 animate-pulse'
                             : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 animate-pulse'
+                          : tokenStatus.isExpired
+                          ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800'
                           : exam.status === 'PUBLISHED'
                           ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
                           : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                       }`}
                     >
                       {isLive 
-                        ? schedState.isOutsideSchedule
+                        ? tokenStatus.isSusulan
                           ? '⚠️ Sesi Live (Susulan)'
                           : '🟢 Sesi Live' 
+                        : tokenStatus.isExpired
+                        ? '⌛ Waktu Berakhir'
                         : exam.status === 'PUBLISHED' 
                         ? '⏳ Ruang Tunggu' 
                         : 'Draft'}
@@ -1996,31 +2009,48 @@ export default function CbtDashboard({
                       <span className="truncate">{exam._count.questions} Butir Soal</span>
                     </div>
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <Key size={14} className="text-amber-500 shrink-0" />
-                      <span className="font-mono font-bold truncate">{(exam.token || '').split('|')[0] || 'Tanpa Token'}</span>
+                      <Key size={14} className={tokenStatus.isActive ? "text-amber-500 shrink-0" : "text-slate-400 shrink-0"} />
+                      <span className={`font-mono truncate ${tokenStatus.isActive ? "font-bold text-slate-800 dark:text-slate-100" : "font-semibold text-rose-500 dark:text-rose-400 text-[11px]"}`}>
+                        {tokenStatus.isActive ? tokenStatus.rawToken : tokenStatus.isExpired ? 'Token Nonaktif' : 'Token Belum Rilis'}
+                      </span>
                     </div>
                   </div>
 
                   {/* 🚀 QUICK TOKEN CONTROL BANNER */}
                   <div className={`p-2.5 sm:p-3 rounded-2xl border flex items-center justify-between gap-2 sm:gap-3 text-xs ${
-                    isLive 
-                      ? schedState.isOutsideSchedule
+                    tokenStatus.isActive 
+                      ? tokenStatus.isSusulan
                         ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/50 text-amber-900 dark:text-amber-200'
                         : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/50 text-emerald-900 dark:text-emerald-200' 
-                      : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-slate-300'
+                      : tokenStatus.isExpired
+                        ? 'bg-rose-50/60 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/50 text-rose-900 dark:text-rose-200'
+                        : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-slate-300'
                   }`}>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 font-extrabold uppercase text-[9px] sm:text-[10px] tracking-wider text-slate-400 truncate">
-                        <span>{isLive ? (schedState.isOutsideSchedule ? 'Token (Susulan):' : 'Token Live:') : 'Status Token:'}</span>
-                        {isLive && (
+                      <div className="flex items-center gap-1.5 font-extrabold uppercase text-[9px] sm:text-[10px] tracking-wider text-slate-400 dark:text-slate-400 truncate">
+                        <span>{tokenStatus.statusLabel}</span>
+                        {tokenStatus.isActive && (
                           <span className="font-mono text-[8.5px] px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-500/30">
-                            10 MNT
+                            {tokenStatus.isSusulan ? `${tokenStatus.remainingSusulanMinutes || exam.duration} MNT` : '10 MNT'}
+                          </span>
+                        )}
+                        {!tokenStatus.isActive && tokenStatus.isExpired && (
+                          <span className="text-[8.5px] px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-700 dark:text-rose-300 font-bold border border-rose-500/30">
+                            KADALUARSA
                           </span>
                         )}
                       </div>
-                      <div className="font-mono font-black text-xs sm:text-sm text-slate-900 dark:text-white mt-0.5 truncate flex items-center gap-1.5">
-                        <span>{(exam.token || '').split('|')[0] || 'BELUM AKTIF'}</span>
-                        {isLive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block"></span>}
+                      <div className="font-mono font-black text-xs sm:text-sm mt-0.5 truncate flex items-center gap-1.5">
+                        {tokenStatus.isActive ? (
+                          <>
+                            <span className="text-slate-900 dark:text-white tracking-wide">{tokenStatus.rawToken}</span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block"></span>
+                          </>
+                        ) : (
+                          <span className={tokenStatus.isExpired ? "text-rose-600 dark:text-rose-400 font-bold text-xs" : "text-slate-500 dark:text-slate-400 font-bold text-xs"}>
+                            {tokenStatus.displayToken}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -2028,17 +2058,23 @@ export default function CbtDashboard({
                       type="button"
                       onClick={() => handleQuickToggleSession(exam)}
                       disabled={isSessionLoading}
-                      className={`px-2.5 sm:px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm shrink-0 ${
-                        isLive
+                      className={`px-2.5 sm:px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm shrink-0 cursor-pointer ${
+                        tokenStatus.isActive
                           ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                          : tokenStatus.isExpired
+                          ? 'bg-amber-600 hover:bg-amber-700 text-white'
                           : 'bg-emerald-600 hover:bg-emerald-700 text-white'
                       }`}
                     >
                       {isSessionLoading ? (
                         <RefreshCw size={12} className="animate-spin" />
-                      ) : isLive ? (
+                      ) : tokenStatus.isActive ? (
                         <>
                           <Square size={12} className="fill-white" /> <span className="hidden xs:inline">Tutup Sesi</span><span className="xs:hidden">Tutup</span>
+                        </>
+                      ) : tokenStatus.isExpired ? (
+                        <>
+                          <Play size={12} className="fill-white" /> <span className="hidden xs:inline">Rilis (Susulan)</span><span className="xs:hidden">Susulan</span>
                         </>
                       ) : (
                         <>

@@ -166,7 +166,7 @@ export default function ProctorLiveConsole({
 
   // Schedule information
   const scheduleText = formatExamScheduleRange(exam.startTime, exam.endTime);
-  const scheduleState = getExamScheduleState(exam.startTime, exam.endTime, examStatus);
+  const scheduleState = getExamScheduleState(exam.startTime, exam.endTime, examStatus, new Date(), exam.updatedAt, exam.duration);
 
   // Schedule Discrepancy Notice Modal State (Token Release outside scheduled window)
   const [scheduleNoticeModal, setScheduleNoticeModal] = useState<ScheduleDiscrepancyResult | null>(null);
@@ -655,7 +655,7 @@ export default function ProctorLiveConsole({
                   className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-600/30 transition cursor-pointer animate-pulse"
                 >
                   <Play size={15} />
-                  <span>Mulai & Rilis Sesi Ujian</span>
+                  <span>{scheduleState.state === 'ENDED' ? 'Buka Sesi Susulan & Rilis Token' : 'Mulai & Rilis Sesi Ujian'}</span>
                 </button>
               )}
             </div>

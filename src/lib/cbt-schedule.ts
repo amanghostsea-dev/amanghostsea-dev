@@ -34,8 +34,24 @@ export interface ScheduleState {
   isOngoingToday: boolean;
   isLive?: boolean;
   isOutsideSchedule?: boolean;
+  isTokenActive?: boolean;
+  isSusulan?: boolean;
   scheduleDiscrepancyType?: 'PRE_SCHEDULE' | 'POST_SCHEDULE' | null;
   scheduleDiscrepancyNotice?: string;
+}
+
+export interface ExamTokenStatus {
+  isActive: boolean;
+  isExpired: boolean;
+  isSusulan: boolean;
+  displayToken: string;
+  rawToken: string;
+  statusLabel: string;
+  badgeText: string;
+  badgeClass: string;
+  canReactivate: boolean;
+  reason?: string;
+  remainingSusulanMinutes?: number;
 }
 
 /**
@@ -278,13 +294,166 @@ export function getExamScheduleDetails(
 }
 
 /**
+ * 🔑 Evaluator Status Token CBT Cerdas & Otomatis:
+ * 1. Jika ujian memiliki jadwal endTime dan waktu sekarang > endTime:
+ *    - Token OTOMATIS NONAKTIF (KADALUARSA / WAKTU SELESAI).
+ *    - Kecuali jika pengawas secara eksplisit mengaktifkan sesi Ujian Susulan (re-activated setelah endTime).
+ *    - Sesi susulan aktif selama durasi ujian (+ grace period 15 menit).
+ * 2. Jika pengawas ingin membuka lagi di luar jam, pengawas dapat merilis ulang (Rilis Susulan).
+ * 3. Siswa tidak dapat mengakses/memasukkan token ujian yang sudah kedaluwarsa kecuali susulan aktif.
+ */
+export function isExamTokenActive(
+  exam: {
+    status?: string | null;
+    token?: string | null;
+    startTime?: Date | string | null;
+    endTime?: Date | string | null;
+    updatedAt?: Date | string | null;
+    duration?: number | null;
+  },
+  now: Date = new Date()
+): ExamTokenStatus {
+  const rawToken = exam.token ? exam.token.split('|')[0].trim().toUpperCase() : '';
+  const status = exam.status || 'PUBLISHED';
+  const duration = exam.duration && exam.duration > 0 ? exam.duration : 60;
+
+  // 1. Status Draft, Archived, atau Closed selalu nonaktif
+  if (['DRAFT', 'ARCHIVED', 'CLOSED'].includes(status)) {
+    return {
+      isActive: false,
+      isExpired: false,
+      isSusulan: false,
+      displayToken: 'NONAKTIF',
+      rawToken,
+      statusLabel: 'STATUS TOKEN:',
+      badgeText: status === 'DRAFT' ? 'DRAFT' : 'DITUTUP',
+      badgeClass: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700',
+      canReactivate: false,
+      reason: 'Sesi ujian ini sedang berstatus Draft atau telah resmi ditutup.',
+    };
+  }
+
+  const start = exam.startTime ? (typeof exam.startTime === 'string' ? new Date(exam.startTime) : exam.startTime) : null;
+  const end = exam.endTime ? (typeof exam.endTime === 'string' ? new Date(exam.endTime) : exam.endTime) : null;
+  const updatedAt = exam.updatedAt ? (typeof exam.updatedAt === 'string' ? new Date(exam.updatedAt) : exam.updatedAt) : null;
+  const nowMs = now.getTime();
+
+  // 2. Jika paket ujian memiliki jadwal Selesai (endTime) dan waktu sekarang telah lewat endTime
+  if (end && !isNaN(end.getTime()) && nowMs > end.getTime()) {
+    // Cek apakah pengawas secara eksplisit membuka kembali sesi Susulan setelah endTime
+    const isProctorReactivatedAfterEnd =
+      status === 'ACTIVE' &&
+      updatedAt &&
+      !isNaN(updatedAt.getTime()) &&
+      updatedAt.getTime() >= end.getTime();
+
+    // Sesi susulan aktif selama durasi ujian (+ 15 menit toleransi login)
+    const susulanWindowMs = (duration + 15) * 60 * 1000;
+    const isWithinSusulanWindow =
+      isProctorReactivatedAfterEnd &&
+      nowMs <= updatedAt.getTime() + susulanWindowMs;
+
+    if (isWithinSusulanWindow) {
+      const remainingMs = updatedAt.getTime() + susulanWindowMs - nowMs;
+      const remainingMins = Math.max(1, Math.round(remainingMs / 60000));
+      return {
+        isActive: true,
+        isExpired: false,
+        isSusulan: true,
+        displayToken: rawToken || 'SMK2026',
+        rawToken,
+        statusLabel: 'TOKEN (SUSULAN AKTIF):',
+        badgeText: 'SUSULAN AKTIF',
+        badgeClass: 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800 animate-pulse',
+        canReactivate: true,
+        remainingSusulanMinutes: remainingMins,
+      };
+    }
+
+    // Default: OTOMATIS NONAKTIF saat waktu pengerjaan berakhir
+    return {
+      isActive: false,
+      isExpired: true,
+      isSusulan: false,
+      displayToken: 'NONAKTIF (WAKTU SELESAI)',
+      rawToken,
+      statusLabel: 'STATUS TOKEN:',
+      badgeText: 'KADALUARSA',
+      badgeClass: 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800',
+      canReactivate: true,
+      reason: 'Waktu pelaksanaan ujian sesuai jadwal resmi telah berakhir. Token telah otomatis dinonaktifkan.',
+    };
+  }
+
+  // 3. Sebelum jam mulai resmi (Pra-Jadwal)
+  if (start && !isNaN(start.getTime()) && nowMs < start.getTime()) {
+    if (status === 'ACTIVE') {
+      return {
+        isActive: true,
+        isExpired: false,
+        isSusulan: false,
+        displayToken: rawToken || 'SMK2026',
+        rawToken,
+        statusLabel: 'TOKEN LIVE (PRA-JADWAL):',
+        badgeText: 'DIBUKA AWAL',
+        badgeClass: 'bg-sky-100 text-sky-800 border-sky-300 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800 animate-pulse',
+        canReactivate: false,
+      };
+    }
+
+    return {
+      isActive: false,
+      isExpired: false,
+      isSusulan: false,
+      displayToken: 'BELUM AKTIF',
+      rawToken,
+      statusLabel: 'STATUS TOKEN:',
+      badgeText: 'BELUM DIMULAI',
+      badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800',
+      canReactivate: true,
+      reason: 'Ujian ini belum dimulai sesuai jadwal resmi.',
+    };
+  }
+
+  // 4. Dalam rentang jadwal resmi (Ongoing) ATAU Fleksibel
+  if (status === 'ACTIVE') {
+    return {
+      isActive: true,
+      isExpired: false,
+      isSusulan: false,
+      displayToken: rawToken || 'SMK2026',
+      rawToken,
+      statusLabel: 'TOKEN LIVE:',
+      badgeText: 'AKTIF (LIVE)',
+      badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800 animate-pulse',
+      canReactivate: false,
+    };
+  }
+
+  return {
+    isActive: false,
+    isExpired: false,
+    isSusulan: false,
+    displayToken: 'BELUM AKTIF',
+    rawToken,
+    statusLabel: 'STATUS TOKEN:',
+    badgeText: 'SIAP DIRILIS',
+    badgeClass: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+    canReactivate: true,
+    reason: 'Sesi ujian belum diaktifkan oleh pengawas.',
+  };
+}
+
+/**
  * Calculate dynamic state, countdown, and accessibility of an exam schedule
  */
 export function getExamScheduleState(
   startTime?: Date | string | null,
   endTime?: Date | string | null,
   currentExamStatus?: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  updatedAt?: Date | string | null,
+  durationMinutes: number = 60
 ): ScheduleState {
   // If exam has no scheduled start/end, it's flexible
   if (!startTime && !endTime) {
@@ -298,6 +467,8 @@ export function getExamScheduleState(
       countdown: isLive ? 'Sesi Terbuka' : 'Kapan saja',
       isAccessible: isLive || currentExamStatus === 'PUBLISHED',
       isOngoingToday: false,
+      isLive,
+      isTokenActive: isLive,
     };
   }
 
@@ -336,6 +507,7 @@ export function getExamScheduleState(
         isAccessible: true,
         isOngoingToday: diffDays === 0,
         isLive: true,
+        isTokenActive: true,
         isOutsideSchedule: true,
         scheduleDiscrepancyType: 'PRE_SCHEDULE',
         scheduleDiscrepancyNotice: 'Sesi ujian dibuka manual oleh pengawas sebelum jadwal resmi.',
@@ -350,38 +522,36 @@ export function getExamScheduleState(
       isAccessible: false,
       isOngoingToday: diffDays === 0,
       isLive: false,
+      isTokenActive: false,
       isOutsideSchedule: false,
     };
   }
 
   // Check if ENDED (after end time)
   if (end && !isNaN(end.getTime()) && nowMs > end.getTime()) {
-    if (teacherOpened) {
-      const diffMs = nowMs - end.getTime();
-      const diffSec = Math.floor(diffMs / 1000);
-      const diffMin = Math.floor(diffSec / 60);
-      const diffHour = Math.floor(diffMin / 60);
-      const diffDays = Math.floor(diffHour / 24);
+    const updatedDate = updatedAt ? (typeof updatedAt === 'string' ? new Date(updatedAt) : updatedAt) : null;
+    const susulanWindowMs = (Math.max(15, durationMinutes) + 15) * 60 * 1000;
+    const isSusulanActive =
+      teacherOpened &&
+      updatedDate &&
+      !isNaN(updatedDate.getTime()) &&
+      updatedDate.getTime() >= end.getTime() &&
+      nowMs <= updatedDate.getTime() + susulanWindowMs;
 
-      let passedText = '';
-      if (diffDays > 0) {
-        passedText = `lewat ${diffDays} hari`;
-      } else if (diffHour > 0) {
-        passedText = `lewat ${diffHour} jam ${diffMin % 60} mnt`;
-      } else if (diffMin > 0) {
-        passedText = `lewat ${diffMin} mnt`;
-      } else {
-        passedText = 'baru saja lewat';
-      }
+    if (isSusulanActive) {
+      const remainingSusulanMs = updatedDate.getTime() + susulanWindowMs - nowMs;
+      const remainingSusulanMins = Math.max(1, Math.round(remainingSusulanMs / 60000));
 
       return {
         state: 'ONGOING',
         label: 'Sesi Live (Susulan)',
         badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-800 animate-pulse',
-        countdown: `Sesi Aktif (Susulan • ${passedText})`,
+        countdown: `Sesi Susulan Aktif (${remainingSusulanMins} mnt lagi)`,
         isAccessible: true,
         isOngoingToday: false,
         isLive: true,
+        isTokenActive: true,
+        isSusulan: true,
         isOutsideSchedule: true,
         scheduleDiscrepancyType: 'POST_SCHEDULE',
         scheduleDiscrepancyNotice: 'Sesi dibuka manual oleh pengawas di luar rentang jadwal resmi (Mode Ujian Susulan). Siswa tetap dapat mengerjakan.',
@@ -396,6 +566,7 @@ export function getExamScheduleState(
       isAccessible: false,
       isOngoingToday: false,
       isLive: false,
+      isTokenActive: false,
       isOutsideSchedule: false,
     };
   }
@@ -425,6 +596,7 @@ export function getExamScheduleState(
     isAccessible: true,
     isOngoingToday: true,
     isLive: teacherOpened,
+    isTokenActive: teacherOpened,
     isOutsideSchedule: false,
   };
 }
