@@ -303,7 +303,9 @@ export function CbtOfficialSignatures({
           </div>
           <div className="font-bold underline text-xs">{teacherName}</div>
           <div className="text-[10px] text-slate-600">
-            {subjectName ? `Mapel: ${subjectName}` : `Pendidik ${cfg.schoolName}`}
+            {subjectName && subjectName !== 'Mata Pelajaran'
+              ? (subjectName.startsWith('Mapel:') ? subjectName : `Mapel: ${subjectName}`)
+              : `Pendidik ${cfg.schoolName}`}
           </div>
         </div>
       </div>

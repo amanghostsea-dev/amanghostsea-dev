@@ -215,6 +215,93 @@ export default function CbtReportView({
   const lowestScore = submittedCount > 0 ? Math.min(...submittedRows.map((r) => r.score)) : 0;
   const totalCheatingWarnings = filteredRows.reduce((sum, r) => sum + r.tabSwitchCount, 0);
 
+  // Urutkan data berdasarkan kelas lalu abjad nama siswa untuk kerapian cetak resmi
+  const sortedFilteredRows = useMemo(() => {
+    return [...filteredRows].sort((a, b) => {
+      const classCmp = (a.studentClass || '').localeCompare(b.studentClass || '', 'id', { numeric: true });
+      if (classCmp !== 0) return classCmp;
+      return (a.studentName || '').localeCompare(b.studentName || '', 'id');
+    });
+  }, [filteredRows]);
+
+  // Derivasi cerdas data Mata Pelajaran, Guru Pengampu, dan Kelas untuk Printout Laporan Resmi
+  const printMetadata = useMemo(() => {
+    const selectedExam = examFilter !== 'ALL' ? exams.find((e) => e.id === examFilter) : null;
+    
+    // Kumpulan unik subjek, pembuat, dan kelas dari baris data yang sedang aktif
+    const uniqueSubjects = Array.from(new Set(filteredRows.map((r) => r.subject).filter(Boolean)));
+    const uniqueAuthors = Array.from(new Set(filteredRows.map((r) => r.examAuthor).filter(Boolean)));
+    const uniqueClasses = Array.from(new Set(filteredRows.map((r) => r.studentClass).filter(Boolean)));
+    const uniqueExams = Array.from(new Set(filteredRows.map((r) => r.examTitle).filter(Boolean)));
+
+    // 1. Mata Pelajaran
+    let effectiveSubject = '';
+    if (subjectFilter !== 'ALL') {
+      effectiveSubject = subjectFilter;
+    } else if (selectedExam?.subject) {
+      effectiveSubject = selectedExam.subject;
+    } else if (uniqueSubjects.length === 1) {
+      effectiveSubject = uniqueSubjects[0];
+    } else if (uniqueSubjects.length > 1) {
+      effectiveSubject = 'Seluruh Mata Pelajaran Terpilih';
+    } else {
+      effectiveSubject = exams[0]?.subject || 'Seluruh Mata Pelajaran';
+    }
+
+    // 2. Guru / Pengampu
+    let effectiveTeacher = '';
+    if (isGuru && currentUserName) {
+      effectiveTeacher = currentUserName;
+    } else if (selectedExam?.authorName) {
+      effectiveTeacher = selectedExam.authorName;
+    } else if (subjectFilter !== 'ALL') {
+      const matchExam = exams.find((e) => e.subject === subjectFilter && e.authorName);
+      effectiveTeacher = matchExam?.authorName || (uniqueAuthors.length === 1 ? uniqueAuthors[0] : (currentUser?.name || 'Guru Mata Pelajaran'));
+    } else if (uniqueAuthors.length === 1) {
+      effectiveTeacher = uniqueAuthors[0];
+    } else if (uniqueAuthors.length > 1) {
+      effectiveTeacher = 'Tim Pendidik / Guru Mata Pelajaran';
+    } else {
+      effectiveTeacher = currentUser?.name || 'Tim Kurikulum & CBT';
+    }
+
+    // 3. Tingkat / Target Kelas
+    let effectiveClass = '';
+    if (classFilter !== 'ALL') {
+      effectiveClass = classFilter;
+    } else if (jurusanFilter !== 'ALL') {
+      effectiveClass = `Jurusan ${jurusanFilter} (Semua Rombel)`;
+    } else if (selectedExam?.classTarget) {
+      effectiveClass = selectedExam.classTarget;
+    } else if (uniqueClasses.length === 1) {
+      effectiveClass = uniqueClasses[0];
+    } else {
+      effectiveClass = 'Seluruh Rombel Kelas';
+    }
+
+    // 4. Judul Paket Ujian
+    let effectiveExamTitle = '';
+    if (selectedExam?.title) {
+      effectiveExamTitle = selectedExam.title;
+    } else if (uniqueExams.length === 1) {
+      effectiveExamTitle = uniqueExams[0];
+    } else {
+      effectiveExamTitle = 'Seluruh Paket Ujian Terpilih';
+    }
+
+    const singleSubject = uniqueSubjects.length === 1 
+      ? uniqueSubjects[0] 
+      : (subjectFilter !== 'ALL' ? subjectFilter : (selectedExam?.subject || null));
+
+    return {
+      subject: effectiveSubject,
+      teacher: effectiveTeacher,
+      classTarget: effectiveClass,
+      examTitle: effectiveExamTitle,
+      singleSubject,
+    };
+  }, [examFilter, subjectFilter, classFilter, jurusanFilter, exams, filteredRows, isGuru, currentUserName, currentUser]);
+
   // Group classes for filter dropdown
   const groupedClasses = useMemo(() => {
     const onlyClasses = classPresets.filter((c) => c !== 'Semua Kelas');
@@ -841,15 +928,15 @@ export default function CbtReportView({
                 <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs border border-black p-3 bg-slate-50/50 print-avoid-break">
                   <div className="flex">
                     <span className="w-32 font-bold text-slate-700">Mata Pelajaran</span>
-                    <span>: {subjectFilter !== 'ALL' ? subjectFilter : (exams.find(e => e.id === examFilter)?.subject || 'Seluruh Mata Pelajaran Terpilih')}</span>
+                    <span>: <strong>{printMetadata.subject}</strong></span>
                   </div>
                   <div className="flex">
                     <span className="w-32 font-bold text-slate-700">Tingkat / Target Kelas</span>
-                    <span>: {classFilter !== 'ALL' ? classFilter : 'Seluruh Rombel Kelas'}</span>
+                    <span>: <strong>{printMetadata.classTarget}</strong></span>
                   </div>
                   <div className="flex">
                     <span className="w-32 font-bold text-slate-700">Paket Ujian CBT</span>
-                    <span>: {exams.find(e => e.id === examFilter)?.title || 'Seluruh Paket Ujian Terpilih'}</span>
+                    <span>: <strong>{printMetadata.examTitle}</strong></span>
                   </div>
                   <div className="flex">
                     <span className="w-32 font-bold text-slate-700">Standar KKM Sekolah</span>
@@ -857,7 +944,7 @@ export default function CbtReportView({
                   </div>
                   <div className="flex">
                     <span className="w-32 font-bold text-slate-700">Guru / Pengampu</span>
-                    <span>: {isGuru ? currentUserName : (exams.find(e => e.id === examFilter)?.authorName || 'Tim Kurikulum & CBT')}</span>
+                    <span>: <strong>{printMetadata.teacher}</strong></span>
                   </div>
                   <div className="flex">
                     <span className="w-32 font-bold text-slate-700">Waktu Cetak</span>
@@ -881,21 +968,24 @@ export default function CbtReportView({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-black/40">
-                    {filteredRows.length === 0 ? (
+                    {sortedFilteredRows.length === 0 ? (
                       <tr>
                         <td colSpan={9} className="py-6 text-center text-slate-500 italic">
                           Tidak ada data peserta ujian yang sesuai filter.
                         </td>
                       </tr>
                     ) : (
-                      filteredRows.map((r, idx) => {
+                      sortedFilteredRows.map((r, idx) => {
                         const isTuntas = r.score >= kkmScore;
-                        let grade = 'C';
-                        if (r.score >= 90) grade = 'A';
-                        else if (r.score >= 80) grade = 'B';
-                        else if (r.score >= 75) grade = 'C+';
-                        else if (r.score >= 60) grade = 'C';
-                        else grade = 'D';
+                        const isSubmitted = r.status === 'SUBMITTED';
+                        let grade = '-';
+                        if (isSubmitted) {
+                          if (r.score >= 90) grade = 'A';
+                          else if (r.score >= 80) grade = 'B';
+                          else if (r.score >= 75) grade = 'C+';
+                          else if (r.score >= 60) grade = 'C';
+                          else grade = 'D';
+                        }
 
                         return (
                           <tr key={r.attemptId} className="text-center print-avoid-break">
@@ -904,10 +994,14 @@ export default function CbtReportView({
                             <td className="py-1.5 px-3 border-r border-black text-left font-semibold uppercase">{r.studentName}</td>
                             <td className="py-1.5 px-2 border-r border-black font-bold">{r.studentClass}</td>
                             <td className="py-1.5 px-2 border-r border-black font-semibold">{r.totalCorrect} / {r.totalQuestions}</td>
-                            <td className="py-1.5 px-2 border-r border-black font-black text-sm">{Math.round(r.score)}</td>
+                            <td className="py-1.5 px-2 border-r border-black font-black text-sm">
+                              {Math.round(r.score)}
+                            </td>
                             <td className="py-1.5 px-2 border-r border-black font-bold">{grade}</td>
                             <td className="py-1.5 px-2 border-r border-black font-bold text-[10px]">
-                              {isTuntas ? (
+                              {!isSubmitted ? (
+                                <span className="text-amber-700">SEDANG UJIAN</span>
+                              ) : isTuntas ? (
                                 <span className="text-emerald-800">TUNTAS</span>
                               ) : (
                                 <span className="text-rose-800">REMEDIAL</span>
@@ -944,15 +1038,15 @@ export default function CbtReportView({
 
                 {/* 🔒 KEABSAHAN SISTEM CBT */}
                 <CbtSecurityValidationBox
-                  examTitle={exams.find(e => e.id === examFilter)?.title || 'Rekapitulasi Evaluasi CBT'}
+                  examTitle={printMetadata.examTitle}
                 />
 
                 {/* 🖋️ TANDA TANGAN 3 PIHAK */}
                 <CbtOfficialSignatures
                   config={kopSuratConfig}
-                  teacherName={isGuru ? currentUserName : (exams.find(e => e.id === examFilter)?.authorName || 'Bpk. Ahmad ST')}
-                  subjectName={subjectFilter !== 'ALL' ? subjectFilter : (exams.find(e => e.id === examFilter)?.subject || 'Mata Pelajaran')}
-                  classNameTarget={classFilter !== 'ALL' ? classFilter : undefined}
+                  teacherName={printMetadata.teacher}
+                  subjectName={printMetadata.singleSubject || (printMetadata.subject.includes('Seluruh') ? undefined : printMetadata.subject)}
+                  classNameTarget={printMetadata.classTarget !== 'Seluruh Rombel Kelas' ? printMetadata.classTarget : undefined}
                   mode="three-column"
                 />
               </div>
@@ -1039,6 +1133,8 @@ export default function CbtReportView({
                   <div className="flex items-center gap-3 text-xs text-slate-700 pt-0.5">
                     <span>Target: <strong>{printStudentCard.studentClass}</strong></span>
                     <span>•</span>
+                    <span>Guru Pengampu: <strong>{printStudentCard.examAuthor || 'Guru Pengampu'}</strong></span>
+                    <span>•</span>
                     <span>KKM: <strong>75.00</strong></span>
                     <span>•</span>
                     <span>Total Soal: <strong>{printStudentCard.totalQuestions} Butir</strong></span>
@@ -1083,7 +1179,7 @@ export default function CbtReportView({
 
                 <CbtOfficialSignatures
                   config={kopSuratConfig}
-                  teacherName={isGuru ? currentUserName : 'Guru Pengampu / Proktor'}
+                  teacherName={printStudentCard.examAuthor || (isGuru ? currentUserName : (currentUser?.name || 'Guru Mata Pelajaran'))}
                   subjectName={printStudentCard.subject}
                   classNameTarget={printStudentCard.studentClass}
                   mode="two-column"

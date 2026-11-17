@@ -24,7 +24,7 @@ export default async function GuruPresensiPage() {
       if (user) teacherName = user.name;
     } catch {}
   }
-  if (!teacherName) teacherName = 'Bpk. Ahmad ST';
+  if (!teacherName) teacherName = 'Guru Mata Pelajaran';
 
   const students = await prisma.user.findMany({
     where: { role: 'Siswa' },

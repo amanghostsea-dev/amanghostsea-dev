@@ -27,7 +27,7 @@ export default async function PortalGuru() {
       if (dbUser && dbUser.name) teacherName = dbUser.name;
     } catch {}
   }
-  if (!teacherName) teacherName = 'Bpk. Ahmad ST';
+  if (!teacherName) teacherName = 'Guru Mata Pelajaran';
 
   const isSuperAdmin = dbUser?.role === 'Super Admin' || dbUser?.role === 'Admin Utama';
 
@@ -45,7 +45,7 @@ export default async function PortalGuru() {
       proctorConditions.push({ proctorId: dbUser.id });
       proctorConditions.push({ proctor2Id: dbUser.id });
     }
-    if (teacherName && teacherName !== 'Bpk. Ahmad ST') {
+    if (teacherName && teacherName !== 'Guru Mata Pelajaran') {
       proctorConditions.push({ proctorName: { equals: teacherName, mode: 'insensitive' as const } });
       proctorConditions.push({ proctor2Name: { equals: teacherName, mode: 'insensitive' as const } });
     }

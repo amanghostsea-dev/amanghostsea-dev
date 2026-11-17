@@ -451,7 +451,7 @@ export async function batchCreateExamsWithSchedule(
           classTarget: item.classTarget,
           duration: Number(item.duration) || 60,
           token: `${token}|${new Date().toISOString()}`,
-          authorName: item.authorName || 'Bpk. Ahmad ST',
+          authorName: item.authorName || 'Guru Pengampu',
           status: 'PUBLISHED',
           shuffleQuestions: true,
           startTime: item.startTime ? new Date(item.startTime) : null,

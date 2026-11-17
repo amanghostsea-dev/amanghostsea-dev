@@ -176,7 +176,7 @@ export default function CbtDashboard({
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isParticipantCardModalOpen, setIsParticipantCardModalOpen] = useState(false);
 
-  const teacherName = currentUser?.name || 'Bpk. Ahmad ST';
+  const teacherName = currentUser?.name || 'Guru Pengampu';
   const isSuperAdmin = currentUser?.role === 'Super Admin' || currentUser?.role === 'Admin Utama';
   const unassignedProctorsCount = exams.filter(e => !e.proctorName).length;
 
@@ -1625,7 +1625,7 @@ export default function CbtDashboard({
                             </span>
                           </td>
                           <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300 font-medium">
-                            {exam.authorName || 'Bpk. Ahmad ST'}
+                            {exam.authorName || 'Guru Pengampu'}
                           </td>
                           <td className="py-3.5 px-4">
                             {isInlineEditMode ? (
@@ -1936,7 +1936,7 @@ export default function CbtDashboard({
                   <div className="text-[11px] text-slate-500 mb-3 flex items-center justify-between gap-1.5 flex-wrap">
                     <div className="flex items-center gap-1.5">
                       <span>Guru Pengampu:</span>
-                      <strong className="text-slate-700 dark:text-slate-300 font-semibold">{exam.authorName || 'Bpk. Ahmad ST'}</strong>
+                      <strong className="text-slate-700 dark:text-slate-300 font-semibold">{exam.authorName || 'Guru Pengampu'}</strong>
                     </div>
                     {isExamProctor(exam) && (
                       <span className="px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 font-bold text-[10px] flex items-center gap-1">

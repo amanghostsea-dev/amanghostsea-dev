@@ -3514,6 +3514,10 @@ Poin: 15`}
                     <span>: <strong>75.00</strong> (Kriteria Ketuntasan Minimal)</span>
                   </div>
                   <div className="flex">
+                    <span className="w-32 font-bold text-slate-700">Guru / Pengampu</span>
+                    <span>: <strong>{exam.authorName || 'Guru Mata Pelajaran'}</strong></span>
+                  </div>
+                  <div className="flex">
                     <span className="w-32 font-bold text-slate-700">Alokasi Soal & Waktu</span>
                     <span>: {exam.questions.length} Butir Soal • {exam.duration} Menit</span>
                   </div>
@@ -3610,6 +3614,7 @@ Poin: 15`}
                 {/* 🖋️ TANDA TANGAN 3 PIHAK */}
                 <CbtOfficialSignatures
                   config={kopSuratConfig}
+                  teacherName={exam.authorName || 'Guru Mata Pelajaran'}
                   subjectName={exam.subject}
                   classNameTarget={exam.classTarget}
                   mode="three-column"
