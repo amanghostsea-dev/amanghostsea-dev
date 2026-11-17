@@ -1,8 +1,11 @@
-import { Users, Settings, Database, Server, Shield, Activity, LogOut, BookOpen, Network, TrendingUp, Briefcase, MonitorPlay, Calendar } from 'lucide-react';
+import { Users, Settings, Database, Server, Shield, Activity, LogOut, BookOpen, Network, TrendingUp, Briefcase, MonitorPlay, Calendar, GraduationCap } from 'lucide-react';
 import Link from 'next/link';
 import SchoolLogo from '@/components/SchoolLogo';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import prisma from '@/lib/prisma';
+
+export const dynamic = 'force-dynamic';
 
 export default async function SuperAdminDashboard() {
   const cookieStore = await cookies();
@@ -17,33 +20,117 @@ export default async function SuperAdminDashboard() {
   if (role === 'Guru') {
     redirect('/portal/guru');
   }
+
+  // 🔄 Sinkronisasi Data Pengguna Aktif Real-Time dari Database
+  const [
+    activeUsersCount,
+    activeStudentsCount,
+    activeTeachersCount,
+    activeStaffCount,
+    cbtExamsCount,
+  ] = await Promise.all([
+    prisma.user.count({
+      where: { status: { equals: 'Aktif', mode: 'insensitive' } },
+    }),
+    prisma.user.count({
+      where: {
+        role: 'Siswa',
+        status: { equals: 'Aktif', mode: 'insensitive' },
+      },
+    }),
+    prisma.user.count({
+      where: {
+        role: 'Guru',
+        status: { equals: 'Aktif', mode: 'insensitive' },
+      },
+    }),
+    prisma.user.count({
+      where: {
+        role: { notIn: ['Siswa', 'Guru'] },
+        status: { equals: 'Aktif', mode: 'insensitive' },
+      },
+    }),
+    prisma.exam.count(),
+  ]);
+
   return (
-    <main className="p-6 md:p-10">
-      <div className="flex justify-between items-center mb-8">
+    <main className="p-4 sm:p-6 md:p-10 w-full max-w-full overflow-x-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">System Overview</h1>
-          <p className="text-gray-500 dark:text-gray-400">Selamat datang, Administrator Utama.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1 sm:mb-2">System Overview</h1>
+          <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm">Selamat datang, Administrator Utama.</p>
         </div>
-        <div className="flex items-center gap-3 px-4 py-2 bg-white dark:bg-gray-900 rounded-full border border-gray-200 dark:border-gray-800 shadow-sm">
-          <Shield className="text-blue-500" size={20} />
-          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Level: Super Admin</span>
+        <div className="inline-flex items-center gap-2.5 px-4 py-2 bg-white dark:bg-gray-900 rounded-full border border-gray-200 dark:border-gray-800 shadow-sm w-fit">
+          <Shield className="text-blue-500" size={18} />
+          <span className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Level: Super Admin</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
-          <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-4">
-            <Users size={24} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
+        {/* Card 1: Total Pengguna Aktif (Sinkron Database Real-Time) */}
+        <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-4">
+              <Users size={24} />
+            </div>
+            <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Total Pengguna Aktif</p>
+            <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-1">
+              {activeUsersCount.toLocaleString('id-ID')}
+            </h3>
           </div>
-          <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Total Pengguna Aktif</p>
-          <h3 className="text-3xl font-bold text-gray-900 dark:text-white">1,248</h3>
+          <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 text-[11px] text-gray-500 dark:text-gray-400 font-medium flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <span className="truncate">{activeStudentsCount} Siswa • {activeTeachersCount} Guru • {activeStaffCount} Admin</span>
+          </div>
         </div>
-        <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
-          <div className="w-12 h-12 bg-green-100 text-green-600 rounded-xl flex items-center justify-center mb-4">
-            <Server size={24} />
+
+        {/* Card 2: Siswa Aktif Terdaftar */}
+        <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center mb-4">
+              <GraduationCap size={24} />
+            </div>
+            <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Siswa Aktif Terdaftar</p>
+            <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-1">
+              {activeStudentsCount.toLocaleString('id-ID')}
+            </h3>
           </div>
-          <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Status Server</p>
-          <h3 className="text-3xl font-bold text-gray-900 dark:text-white text-green-500">Normal</h3>
+          <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 text-[11px] text-purple-600 dark:text-purple-400 font-medium">
+            Terhubung ke Ujian CBT & Rapor
+          </div>
+        </div>
+
+        {/* Card 3: Paket Ujian CBT */}
+        <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center mb-4">
+              <MonitorPlay size={24} />
+            </div>
+            <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Paket Ujian CBT</p>
+            <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-1">
+              {cbtExamsCount.toLocaleString('id-ID')}
+            </h3>
+          </div>
+          <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+            Bank Soal & Penjadwalan Terintegrasi
+          </div>
+        </div>
+
+        {/* Card 4: Status Server */}
+        <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center mb-4">
+              <Server size={24} />
+            </div>
+            <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Status Server</p>
+            <h3 className="text-3xl font-bold text-emerald-600 dark:text-emerald-400 mt-1 flex items-center gap-2">
+              <span>Normal</span>
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
+            </h3>
+          </div>
+          <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+            PostgreSQL Database & API Online
+          </div>
         </div>
       </div>
 
