@@ -749,7 +749,7 @@ export default function SettingsClient(props: { initialData: any }) {
                         {kopSurat.signatureUrl ? (
                           <img src={kopSurat.signatureUrl} alt="TTD Kepala Sekolah" className="w-full h-full object-contain filter contrast-125" />
                         ) : (
-                          <span className="text-[9px] font-bold text-gray-400 text-center">TTD Vektor</span>
+                          <span className="text-[9px] font-bold text-gray-400 text-center">Tanpa TTD</span>
                         )}
                       </div>
                       <div className="space-y-1.5 flex-1">

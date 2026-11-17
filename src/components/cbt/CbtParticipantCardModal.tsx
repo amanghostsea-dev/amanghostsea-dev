@@ -573,13 +573,13 @@ export default function CbtParticipantCardModal({
                     {signaturePreview ? (
                       <img src={signaturePreview} alt="TTD Kepala Sekolah" className="w-full h-full object-contain filter contrast-125" />
                     ) : (
-                      <HeadmasterSignatureStroke size={{ width: 70, height: 28 }} />
+                      <span className="text-[10px] font-bold text-slate-400 text-center">Tanpa TTD</span>
                     )}
                   </div>
 
                   <div className="flex-1 min-w-0 space-y-1">
                     <span className="block text-[11px] font-bold text-slate-800 dark:text-slate-200">
-                      Tanda Tangan Kepsek: {signaturePreview ? <strong className="text-emerald-600">(Gambar Upload)</strong> : <span className="text-slate-400">(Kaligrafi Pen Otomatis)</span>}
+                      Tanda Tangan Kepsek: {signaturePreview ? <strong className="text-emerald-600">(Gambar Upload)</strong> : <span className="text-slate-400">(Dikosongkan / Belum Diunggah)</span>}
                     </span>
                     <div className="flex items-center gap-2">
                       <label className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 rounded-md text-[11px] font-bold border border-indigo-200 dark:border-indigo-800 cursor-pointer transition-all">
@@ -596,7 +596,7 @@ export default function CbtParticipantCardModal({
                           type="button"
                           onClick={handleRemoveSignature}
                           className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded text-[11px] font-bold flex items-center gap-0.5 cursor-pointer"
-                          title="Hapus tanda tangan upload (gunakan kaligrafi otomatis)"
+                          title="Hapus tanda tangan upload (kosongkan tanda tangan)"
                         >
                           <Trash2 size={12} /> Hapus
                         </button>

@@ -239,7 +239,7 @@ export function CbtOfficialSignatures({
               {effectiveRoleTitle}
             </div>
             <div className="h-20 flex items-center justify-center">
-              <HeadmasterSignatureStroke size={{ width: 110, height: 42 }} />
+              <HeadmasterSignatureStroke signatureUrl={null} size={{ width: 110, height: 42 }} />
             </div>
             <div className="font-bold underline">{signerName}</div>
             <div className="text-[10px] text-slate-600">
@@ -288,7 +288,7 @@ export function CbtOfficialSignatures({
           <div>Diperiksa & Diverifikasi,</div>
           <div className="font-bold">Koordinator Proktor CBT</div>
           <div className="h-20 flex items-center justify-center">
-            <HeadmasterSignatureStroke size={{ width: 100, height: 40 }} />
+            <HeadmasterSignatureStroke signatureUrl={null} size={{ width: 100, height: 40 }} />
           </div>
           <div className="font-bold underline text-xs">{pName}</div>
           <div className="text-[10px] text-slate-600">NIP. {pNip}</div>
@@ -299,7 +299,7 @@ export function CbtOfficialSignatures({
           <div>{cityName}, {currentDate}</div>
           <div className="font-bold">Guru Mata Pelajaran</div>
           <div className="h-20 flex items-center justify-center">
-            <HeadmasterSignatureStroke size={{ width: 110, height: 42 }} />
+            <HeadmasterSignatureStroke signatureUrl={null} size={{ width: 110, height: 42 }} />
           </div>
           <div className="font-bold underline text-xs">{teacherName}</div>
           <div className="text-[10px] text-slate-600">
@@ -312,7 +312,9 @@ export function CbtOfficialSignatures({
 }
 
 /**
- * 🖋️ TANDA TANGAN RESMI KEPALA SEKOLAH (STROKE VECTOR / GAMBAR UPLOAD)
+ * 🖋️ TANDA TANGAN RESMI (HANYA MUNCUL JIKA ADA FILE UPLOAD ASLI DARI ADMIN)
+ * Jika tidak ada file yang diupload (atau dihapus oleh admin utama),
+ * tanda tangan dikosongkan (blank space) untuk ditandatangani basah secara manual.
  */
 export function HeadmasterSignatureStroke({
   signatureUrl,
@@ -323,7 +325,7 @@ export function HeadmasterSignatureStroke({
   className?: string;
   size?: { width: number; height: number };
 }) {
-  if (signatureUrl) {
+  if (signatureUrl && signatureUrl.trim() !== '') {
     return (
       <div 
         className={`pointer-events-none select-none flex items-center justify-center ${className}`}
@@ -331,33 +333,15 @@ export function HeadmasterSignatureStroke({
       >
         <img 
           src={signatureUrl} 
-          alt="Tanda Tangan Kepala Sekolah" 
+          alt="Tanda Tangan Resmi" 
           className="w-full h-full object-contain filter contrast-125 drop-shadow-xs"
         />
       </div>
     );
   }
 
-  // Realistic dynamic calligraphic pen signature path
-  return (
-    <svg
-      viewBox="0 0 160 55"
-      width={size.width}
-      height={size.height}
-      className={`pointer-events-none select-none text-slate-900 ${className}`}
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M10 38 C 22 20, 28 8, 38 12 C 45 15, 32 44, 48 35 C 58 29, 65 18, 72 26 C 78 32, 70 42, 85 36 C 96 32, 102 24, 114 28 C 122 31, 116 42, 130 36 C 142 30, 148 22, 155 18 M 28 42 C 60 40, 105 38, 145 42 M 18 28 C 35 32, 60 28, 80 34"
-        stroke="#1e293b"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        opacity="0.95"
-      />
-    </svg>
-  );
+  // Tanpa tanda tangan dummy: dikosongkan jika tidak ada file upload
+  return null;
 }
 
 /**
