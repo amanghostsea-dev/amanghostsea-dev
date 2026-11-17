@@ -1,6 +1,30 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Users, Settings, Database, Activity, LogOut, BookOpen, Network, LayoutDashboard, TrendingUp, Briefcase, ExternalLink, CheckSquare, Banknote, MonitorPlay, FileText, Calendar, Menu, X, Layers, Award, ChevronDown } from 'lucide-react';
+import { 
+  Users, 
+  Settings, 
+  Database, 
+  Activity, 
+  LogOut, 
+  BookOpen, 
+  Network, 
+  LayoutDashboard, 
+  TrendingUp, 
+  Briefcase, 
+  ExternalLink, 
+  CheckSquare, 
+  Banknote, 
+  MonitorPlay, 
+  FileText, 
+  Calendar, 
+  Menu, 
+  X, 
+  Layers, 
+  Award, 
+  ChevronDown,
+  PanelLeftClose,
+  PanelLeftOpen
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import SchoolLogo from '@/components/SchoolLogo';
@@ -30,9 +54,27 @@ interface MenuItem {
 
 export default function AdminSidebar({ logoUrl, userRole = 'Super Admin', userName = 'Admin' }: AdminSidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const pathname = usePathname();
   const [jurusanDropdownOpen, setJurusanDropdownOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('jurusan');
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('admin_sidebar_collapsed');
+      if (saved !== null) {
+        setIsCollapsed(saved === 'true');
+      }
+    } catch {}
+  }, []);
+
+  const toggleCollapse = () => {
+    const next = !isCollapsed;
+    setIsCollapsed(next);
+    try {
+      localStorage.setItem('admin_sidebar_collapsed', String(next));
+    } catch {}
+  };
 
   useEffect(() => {
     if (pathname?.startsWith('/admin/jurusan')) {
@@ -263,24 +305,60 @@ export default function AdminSidebar({ logoUrl, userRole = 'Super Admin', userNa
         </div>
       )}
 
-      {/* Desktop Persistent Sidebar */}
-      <aside className="w-64 bg-slate-900 text-white flex flex-col h-screen sticky top-0 hidden md:flex flex-shrink-0 shadow-xl border-r border-slate-800/80">
-        <div className="p-6 border-b border-slate-800">
-          <div className="flex items-center gap-3">
+      {/* Desktop Persistent Sidebar with Collapsible Rail Mode */}
+      <aside className={`${isCollapsed ? 'w-20' : 'w-64'} bg-slate-900 text-white flex flex-col h-screen sticky top-0 hidden md:flex flex-shrink-0 shadow-xl border-r border-slate-800/80 transition-all duration-300 z-30 select-none`}>
+        {/* Header */}
+        <div className={`border-b border-slate-800 transition-all ${isCollapsed ? 'p-3 flex flex-col items-center gap-2' : 'p-4 sm:p-5 flex items-center justify-between'}`}>
+          <div className="flex items-center gap-3 min-w-0">
             <SchoolLogo logoUrl={logoUrl} />
-            <div>
-              <span className="font-bold text-lg tracking-tight block">
-                {roleTitle}
-              </span>
-              <span className="text-xs text-blue-400 block font-normal truncate max-w-[140px]">
-                {roleSubtitle}
-              </span>
-            </div>
+            {!isCollapsed && (
+              <div className="min-w-0">
+                <span className="font-bold text-base tracking-tight block truncate">
+                  {roleTitle}
+                </span>
+                <span className="text-[11px] text-blue-400 block font-normal truncate max-w-[130px]" title={roleSubtitle}>
+                  {roleSubtitle}
+                </span>
+              </div>
+            )}
           </div>
+          <button
+            type="button"
+            onClick={toggleCollapse}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
+            title={isCollapsed ? 'Perluas Menu Sidebar' : 'Ciutkan Menu Sidebar (Compact)'}
+          >
+            {isCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          </button>
         </div>
 
-        <div className="p-4 flex-1 space-y-1 overflow-y-auto custom-scrollbar">
+        {/* Menu Items List */}
+        <div className={`flex-1 overflow-y-auto custom-scrollbar ${isCollapsed ? 'p-2 space-y-2' : 'p-3 space-y-1'}`}>
           {menuItems.map((item) => {
+            const isItemActive = isActive(item.path);
+
+            if (isCollapsed) {
+              return (
+                <div key={item.path} className="relative group flex justify-center">
+                  <Link
+                    href={item.path}
+                    prefetch={true}
+                    className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
+                      isItemActive
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20 font-bold'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    {item.icon}
+                  </Link>
+                  {/* Floating Tooltip */}
+                  <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-slate-950 text-white text-xs font-semibold rounded-lg shadow-2xl border border-slate-800 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                    {item.name}
+                  </div>
+                </div>
+              );
+            }
+
             if (item.isDropdown && item.subItems) {
               const isParentActive = pathname?.startsWith(item.path);
               return (
@@ -288,7 +366,7 @@ export default function AdminSidebar({ logoUrl, userRole = 'Super Admin', userNa
                   <button
                     type="button"
                     onClick={() => setJurusanDropdownOpen(!jurusanDropdownOpen)}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg font-medium transition-all duration-150 ${
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 cursor-pointer ${
                       isParentActive
                         ? 'bg-blue-600/20 text-blue-300 font-semibold border border-blue-500/30'
                         : 'text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -299,14 +377,14 @@ export default function AdminSidebar({ logoUrl, userRole = 'Super Admin', userNa
                       <span>{item.name}</span>
                     </div>
                     <ChevronDown
-                      size={18}
+                      size={17}
                       className={`transition-transform duration-200 ${
                         jurusanDropdownOpen ? 'rotate-180 text-blue-400' : 'text-slate-400'
                       }`}
                     />
                   </button>
                   {jurusanDropdownOpen && (
-                    <div className="pl-6 pr-1 py-1 space-y-1 border-l-2 border-slate-700/80 ml-5 my-1">
+                    <div className="pl-5 pr-1 py-1 space-y-1 border-l-2 border-slate-700/80 ml-4 my-1">
                       {item.subItems.map((sub) => {
                         const isSubActive = isParentActive && activeTab === sub.tab;
                         return (
@@ -344,40 +422,87 @@ export default function AdminSidebar({ logoUrl, userRole = 'Super Admin', userNa
                 key={item.path}
                 href={item.path}
                 prefetch={true}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-150 ${
-                  isActive(item.path)
-                    ? 'bg-blue-600 text-white shadow-md'
+                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 ${
+                  isItemActive
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20 font-semibold'
                     : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                 }`}
               >
-                {item.icon} {item.name}
+                {item.icon}
+                <span>{item.name}</span>
               </Link>
             );
           })}
         </div>
 
-        <div className="p-4 border-t border-slate-800 space-y-1">
-          <Link
-            href="/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3 px-4 py-3 text-blue-400 hover:bg-slate-800 rounded-lg font-medium transition-colors"
-          >
-            <ExternalLink size={20} /> Lihat Website
-          </Link>
-          <form action={logoutAction}>
-            <button
-              type="submit"
-              className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-slate-800 rounded-lg font-medium transition-colors text-left"
-            >
-              <LogOut size={20} /> Keluar
-            </button>
-          </form>
+        {/* Footer Actions */}
+        <div className={`border-t border-slate-800 space-y-1 ${isCollapsed ? 'p-2' : 'p-3'}`}>
+          {isCollapsed ? (
+            <div className="space-y-1.5 flex flex-col items-center">
+              <div className="relative group">
+                <Link
+                  href="/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-11 h-11 rounded-xl flex items-center justify-center text-blue-400 hover:bg-slate-800 hover:text-blue-300 transition-colors"
+                >
+                  <ExternalLink size={18} />
+                </Link>
+                <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-slate-950 text-white text-xs font-semibold rounded-lg shadow-xl border border-slate-800 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                  Lihat Website
+                </div>
+              </div>
+
+              <form action={logoutAction} className="w-full flex justify-center">
+                <div className="relative group">
+                  <button
+                    type="submit"
+                    className="w-11 h-11 rounded-xl flex items-center justify-center text-red-400 hover:bg-slate-800 hover:text-red-300 transition-colors cursor-pointer"
+                  >
+                    <LogOut size={18} />
+                  </button>
+                  <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-slate-950 text-white text-xs font-semibold rounded-lg shadow-xl border border-slate-800 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                    Keluar
+                  </div>
+                </div>
+              </form>
+            </div>
+          ) : (
+            <>
+              <Link
+                href="/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 px-3.5 py-2.5 text-blue-400 hover:bg-slate-800 rounded-xl font-medium text-sm transition-colors"
+              >
+                <ExternalLink size={18} />
+                <span>Lihat Website</span>
+              </Link>
+              <form action={logoutAction}>
+                <button
+                  type="submit"
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 text-red-400 hover:bg-slate-800 rounded-xl font-medium text-sm transition-colors text-left cursor-pointer"
+                >
+                  <LogOut size={18} />
+                  <span>Keluar</span>
+                </button>
+              </form>
+            </>
+          )}
         </div>
 
-        <div className="px-5 py-3 border-t border-slate-800/80 text-[11px] font-mono text-slate-400 flex items-center justify-between bg-slate-950/40">
-          <span className="text-slate-400">Created by</span>
-          <span className="font-bold text-slate-200">Abdul Rahman</span>
+        {/* Copyright / Creator Info */}
+        <div className={`border-t border-slate-800/80 font-mono text-slate-400 bg-slate-950/40 ${
+          isCollapsed ? 'py-2.5 text-center text-[10px]' : 'px-4 py-2.5 text-[11px] flex items-center justify-between'
+        }`}>
+          {isCollapsed ? (
+            <span className="font-bold text-slate-300" title="Created by Abdul Rahman">AR</span>
+          ) : (
+            <>
+              <span className="text-slate-400">Created by</span>
+              <span className="font-bold text-slate-200">Abdul Rahman</span>
+            </>
+          )}
         </div>
       </aside>
     </>
