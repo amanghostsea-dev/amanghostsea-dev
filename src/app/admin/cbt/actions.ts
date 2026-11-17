@@ -3,11 +3,19 @@
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
-import { isClassOverlap, CbtTimezone, DEFAULT_CBT_TIMEZONE } from '@/lib/cbt-schedule';
+import { isClassOverlap, CbtTimezone, DEFAULT_CBT_TIMEZONE, parseDateTimeInputToIso } from '@/lib/cbt-schedule';
 import { getKopSuratConfig, getWebSettings, getCbtTimezone } from '@/lib/settings';
 import { getDynamicClassTargets, ensureDefaultJurusans } from '@/lib/jurusan-service';
 import { clearDeviceSession } from '@/lib/device-session';
 import type { KopSuratConfig } from '@/app/admin/settings/types';
+
+function toSafeDateInTimezone(val?: string | Date | null, tz: CbtTimezone = 'WITA'): Date | null {
+  if (!val) return null;
+  if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
+  const iso = parseDateTimeInputToIso(val, tz);
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? null : d;
+}
 
 // Helper: Generate clean 6-character alphanumeric token without confusing symbols (0, O, 1, I)
 function generateRandomCbtToken(): string {
@@ -35,7 +43,7 @@ export async function rotateExamToken(id: string, customToken?: string) {
     const nextToken = customToken?.trim().toUpperCase() || generateRandomCbtToken();
 
     // Store new token and keep old primary as fallback for grace period (graceful rotation)
-    const combinedToken = currentPrimary && currentPrimary !== nextToken 
+    const combinedToken = currentPrimary && currentPrimary !== nextToken
       ? `${nextToken}|${currentPrimary}`
       : nextToken;
 
@@ -52,9 +60,9 @@ export async function rotateExamToken(id: string, customToken?: string) {
     revalidatePath(`/portal/siswa/cbt/${id}`);
     revalidatePath('/ujian');
 
-    return { 
-      success: true, 
-      displayToken: nextToken, 
+    return {
+      success: true,
+      displayToken: nextToken,
       token: combinedToken,
       updatedAt: updated.updatedAt,
     };
@@ -86,12 +94,12 @@ export async function toggleExamSession(id: string, openSession: boolean, custom
     revalidatePath('/portal/siswa/cbt');
     revalidatePath(`/portal/siswa/cbt/${id}`);
     revalidatePath('/ujian');
-    return { 
-      success: true, 
+    return {
+      success: true,
       data: {
         ...updated,
         displayToken: updated.token ? updated.token.split('|')[0].trim() : '',
-      } 
+      }
     };
   } catch (error: any) {
     return { error: error.message };
@@ -234,8 +242,8 @@ export async function createExam(data: {
         status: data.status || 'PUBLISHED',
         shuffleQuestions: data.shuffleQuestions ?? true,
         authorName: finalAuthorName,
-        startTime: data.startTime ? new Date(data.startTime) : null,
-        endTime: data.endTime ? new Date(data.endTime) : null,
+        startTime: toSafeDateInTimezone(data.startTime),
+        endTime: toSafeDateInTimezone(data.endTime),
         proctorId: data.proctorId ?? null,
         proctorName: data.proctorName?.trim() || null,
         proctorNip: data.proctorNip?.trim() || null,
@@ -332,8 +340,8 @@ export async function updateExam(
         ...(data.status && { status: data.status }),
         ...(isSuperAdmin && data.authorName && { authorName: data.authorName.trim() }),
         ...(data.shuffleQuestions !== undefined && { shuffleQuestions: data.shuffleQuestions }),
-        ...(data.startTime !== undefined && { startTime: data.startTime ? new Date(data.startTime) : null }),
-        ...(data.endTime !== undefined && { endTime: data.endTime ? new Date(data.endTime) : null }),
+        ...(data.startTime !== undefined && { startTime: toSafeDateInTimezone(data.startTime) }),
+        ...(data.endTime !== undefined && { endTime: toSafeDateInTimezone(data.endTime) }),
         ...(data.proctorId !== undefined && { proctorId: data.proctorId }),
         ...(data.proctorName !== undefined && { proctorName: data.proctorName?.trim() || null }),
         ...(data.proctorNip !== undefined && { proctorNip: data.proctorNip?.trim() || null }),
@@ -372,6 +380,40 @@ export async function batchUpdateExamSchedules(
       return { success: false, error: 'Tidak ada jadwal yang dipilih untuk diperbarui.' };
     }
 
+    const cookieStore = await cookies();
+    const userRole = cookieStore.get('auth_token')?.value;
+    const userName = cookieStore.get('auth_name')?.value;
+    const isSuperAdmin = userRole === 'Super Admin' || userRole === 'Admin Utama';
+
+    // 🔒 Otorisasi Ketat: Guru hanya dapat memperbarui jadwal paket ujian miliknya sendiri
+    if (!isSuperAdmin) {
+      const examIds = schedules.map((s) => s.id);
+      const targetExams = await prisma.exam.findMany({
+        where: { id: { in: examIds } },
+        select: { id: true, title: true, authorName: true },
+      });
+      const cleanUser = userName ? userName.trim().toLowerCase() : '';
+      for (const ex of targetExams) {
+        const cleanAuthor = ex.authorName ? ex.authorName.trim().toLowerCase() : '';
+        if (cleanAuthor && cleanUser && cleanAuthor !== cleanUser && !cleanAuthor.includes(cleanUser) && !cleanUser.includes(cleanAuthor)) {
+          return { 
+            error: `Akses ditolak: Anda tidak memiliki izin mengubah jadwal ujian "${ex.title}" milik ${ex.authorName}.` 
+          };
+        }
+      }
+    }
+
+    // Validasi urutan waktu mulai dan selesai
+    for (const item of schedules) {
+      if (item.startTime && item.endTime) {
+        const s = toSafeDateInTimezone(item.startTime);
+        const e = toSafeDateInTimezone(item.endTime);
+        if (s && e && s >= e) {
+          return { error: 'Jadwal Mulai harus lebih awal daripada Jadwal Selesai.' };
+        }
+      }
+    }
+
     // Step 1: Pre-validate conflicts if allowConflict is false
     if (!allowConflict) {
       for (const item of schedules) {
@@ -405,8 +447,8 @@ export async function batchUpdateExamSchedules(
       const updated = await prisma.exam.update({
         where: { id: item.id },
         data: {
-          startTime: item.startTime ? new Date(item.startTime) : null,
-          endTime: item.endTime ? new Date(item.endTime) : null,
+          startTime: toSafeDateInTimezone(item.startTime),
+          endTime: toSafeDateInTimezone(item.endTime),
         },
       });
       updatedExams.push(updated);
@@ -521,9 +563,9 @@ async function verifyExamAuthorOrAdmin(examId: string) {
     }
   }
 
-  return { 
-    allowed: false, 
-    error: 'Akses ditolak: Anda bertugas sebagai Pengawas dan tidak memiliki wewenang untuk menambah, mengubah, atau menghapus butir soal.' 
+  return {
+    allowed: false,
+    error: 'Akses ditolak: Anda bertugas sebagai Pengawas dan tidak memiliki wewenang untuk menambah, mengubah, atau menghapus butir soal.'
   };
 }
 
@@ -759,7 +801,7 @@ export async function resetStudentAttemptAction(attemptId: string) {
         if (studentUser) {
           await clearDeviceSession(studentUser.id);
         }
-      } catch {}
+      } catch { }
     }
 
     revalidatePath('/admin/cbt');
@@ -768,9 +810,9 @@ export async function resetStudentAttemptAction(attemptId: string) {
     revalidatePath(`/portal/siswa/cbt/${attempt.examId}`);
     revalidatePath('/ujian');
 
-    return { 
-      success: true, 
-      message: `Pengerjaan ujian siswa "${attempt.studentName}" berhasil di-reset. Siswa kini dapat mengerjakan ulang ujian.` 
+    return {
+      success: true,
+      message: `Pengerjaan ujian siswa "${attempt.studentName}" berhasil di-reset. Siswa kini dapat mengerjakan ulang ujian.`
     };
   } catch (error: any) {
     return { error: error.message };
@@ -935,9 +977,9 @@ export async function assignExamProctorAction(examId: string, input: AssignProct
     const cookieStore = await cookies();
     const role = cookieStore.get('auth_token')?.value || '';
     if (role !== 'Super Admin' && role !== 'Admin Utama' && role !== 'ADMIN') {
-      return { 
-        success: false, 
-        error: 'Akses Ditolak: Hanya Admin Utama / Super Admin yang berwenang mem-plotting pengawas ujian!' 
+      return {
+        success: false,
+        error: 'Akses Ditolak: Hanya Admin Utama / Super Admin yang berwenang mem-plotting pengawas ujian!'
       };
     }
 
@@ -986,8 +1028,8 @@ export async function proctorResetStudentLoginAction(attemptId: string) {
 
     // ⛔ JIKA STRIKE 3: Pengawas TIDAK BISA reset/buka blokir, hanya Admin Utama yang berwenang!
     if (attempt.tabSwitchCount >= 3 || attempt.proctorNotes?.includes('[STRIKE_3_BLOKIR]')) {
-      return { 
-        error: 'Siswa telah melanggar tata tertib sebanyak 3 kali (Strike 3) dan di-suspend total oleh sistem. Pengawas Ruangan tidak berwenang membuka blokir ini, siswa wajib melapor ke Admin Utama!' 
+      return {
+        error: 'Siswa telah melanggar tata tertib sebanyak 3 kali (Strike 3) dan di-suspend total oleh sistem. Pengawas Ruangan tidak berwenang membuka blokir ini, siswa wajib melapor ke Admin Utama!'
       };
     }
 
@@ -1030,7 +1072,7 @@ export async function proctorResetStudentLoginAction(attemptId: string) {
         if (studentUser) {
           await clearDeviceSession(studentUser.id);
         }
-      } catch {}
+      } catch { }
     }
 
     revalidatePath('/admin/cbt');
@@ -1101,8 +1143,8 @@ export async function proctorToggleBlockAction(attemptId: string, shouldBlock: b
 
     // Jika siswa diblokir karena Strike 3 (3x pelanggaran), pengawas tidak bisa membuka blokir
     if (!shouldBlock && (attempt.tabSwitchCount >= 3 || attempt.proctorNotes?.includes('[STRIKE_3_BLOKIR]'))) {
-      return { 
-        error: 'Siswa diblokir otomatis oleh sistem karena mencapai 3x pelanggaran kecurangan. Pengawas ruangan tidak berwenang membuka blokir ini. Siswa wajib melapor ke Admin Utama!' 
+      return {
+        error: 'Siswa diblokir otomatis oleh sistem karena mencapai 3x pelanggaran kecurangan. Pengawas ruangan tidak berwenang membuka blokir ini. Siswa wajib melapor ke Admin Utama!'
       };
     }
 
@@ -1161,15 +1203,15 @@ export async function proctorUnlockStrike2Action(attemptId: string, proctorName?
     }
 
     if (attempt.tabSwitchCount >= 3 || attempt.proctorNotes?.includes('[STRIKE_3_BLOKIR]')) {
-      return { 
-        error: 'Siswa telah melanggar tata tertib sebanyak 3 kali dan diblokir total oleh sistem. Hanya Admin Utama yang berwenang membuka blokir ini!' 
+      return {
+        error: 'Siswa telah melanggar tata tertib sebanyak 3 kali dan diblokir total oleh sistem. Hanya Admin Utama yang berwenang membuka blokir ini!'
       };
     }
 
     const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     const pName = proctorName?.trim() || 'Pengawas Ruang';
     const noteEntry = `[IZIN_LANJUT_P2] Izin lanjut ujian (Pelanggaran ke-2) diberikan oleh Pengawas (${pName}) pada ${timeStr} (Tercatat di BAP)`;
-    
+
     // Jangan duplikasi tag jika sudah ada
     let updatedNotes = attempt.proctorNotes || '';
     if (!updatedNotes.includes('[IZIN_LANJUT_P2]')) {
@@ -1216,7 +1258,7 @@ export async function adminUnblockStrike3Action(attemptId: string, adminName?: s
     const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     const aName = adminName?.trim() || 'Admin Utama';
     const noteEntry = `[ADMIN_UNBLOCK] Blokir CBT Pelanggaran ke-3 dicabut oleh Admin Utama (${aName}) pada ${timeStr}. Siswa diberi dispensasi melanjutkan ujian.`;
-    
+
     const existingNotes = attempt.proctorNotes || '';
     const updatedNotes = `${existingNotes} | ${noteEntry} | [IZIN_LANJUT_P2] Dispensasi Admin Utama`;
 
@@ -1246,7 +1288,7 @@ export async function adminUnblockStrike3Action(attemptId: string, adminName?: s
         if (studentUser) {
           await clearDeviceSession(studentUser.id);
         }
-      } catch {}
+      } catch { }
     }
 
     revalidatePath('/admin/cbt');
@@ -1290,7 +1332,7 @@ export async function proctorForceSubmitAction(attemptId: string) {
     let answersObj: Record<string, string> = {};
     try {
       answersObj = JSON.parse(attempt.answers || '{}');
-    } catch {}
+    } catch { }
 
     let correctCount = 0;
     const questions = attempt.exam.questions;
@@ -1589,6 +1631,15 @@ export async function saveSchoolStampAndSignatureAction(data: {
 
 export async function saveCbtTimezone(timezone: CbtTimezone) {
   try {
+    const cookieStore = await cookies();
+    const userRole = cookieStore.get('auth_token')?.value;
+    const isSuperAdmin = userRole === 'Super Admin' || userRole === 'Admin Utama';
+
+    // Guru biasa dapat beralih tampilan zona waktu di perangkatnya, namun tidak mengubah default database sekolah
+    if (!isSuperAdmin) {
+      return { success: true, timezone, isLocalOnly: true };
+    }
+
     const current = await prisma.setting.findUnique({
       where: { key: 'webSettings' },
     });

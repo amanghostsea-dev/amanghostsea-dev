@@ -750,8 +750,8 @@ export function parseDateTimeInputToIso(
 ): string {
   if (!val || !val.trim()) return '';
   const clean = val.trim();
-  // If already has offset or Z, return as is
-  if (clean.includes('+') || clean.includes('Z') || clean.endsWith('z')) {
+  // If already has timezone offset (+HH:mm or -HH:mm) or ends with Z, return as is
+  if (/([+-]\d{2}:\d{2}|Z)$/i.test(clean)) {
     return clean;
   }
   const offset = TIMEZONE_OFFSET_MAP[tz] || '+08:00';
@@ -762,6 +762,44 @@ export function parseDateTimeInputToIso(
     return `${clean}${offset}`;
   }
   return `${clean}${offset}`;
+}
+
+/**
+ * ⚡ Add duration (in minutes) to a datetime-local input string (YYYY-MM-DDTHH:mm)
+ * strictly evaluated in the target Indonesian timezone (WIB, WITA, WIT),
+ * completely immune to client device system timezone differences.
+ */
+export function addDurationToDateTimeInput(
+  val?: string | null,
+  durationMinutes: number = 60,
+  tz: CbtTimezone = DEFAULT_CBT_TIMEZONE
+): string {
+  if (!val || !val.trim()) return '';
+  const iso = parseDateTimeInputToIso(val, tz);
+  const start = new Date(iso);
+  if (isNaN(start.getTime())) return '';
+  const end = new Date(start.getTime() + durationMinutes * 60000);
+  return toDateTimeLocalInput(end, tz);
+}
+
+/**
+ * ⚡ Generate a rock-solid preset datetime-local string (YYYY-MM-DDTHH:mm) in target timezone
+ * completely immune to client device system timezone differences or .setHours() leakage.
+ */
+export function getPresetDateTimeInTimezone(
+  dayOffset: number = 0,
+  hour: number = 8,
+  minute: number = 0,
+  tz: CbtTimezone = DEFAULT_CBT_TIMEZONE
+): string {
+  const now = new Date();
+  const parts = getTimePartsInTimezone(now, tz);
+  const baseDate = new Date(parseDateTimeInputToIso(`${parts.year}-${parts.month}-${parts.day}T12:00`, tz));
+  baseDate.setDate(baseDate.getDate() + dayOffset);
+  const targetParts = getTimePartsInTimezone(baseDate, tz);
+  
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${targetParts.year}-${targetParts.month}-${targetParts.day}T${pad(hour)}:${pad(minute)}`;
 }
 
 /**

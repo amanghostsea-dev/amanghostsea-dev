@@ -64,6 +64,8 @@ import {
   ScheduleDiscrepancyResult,
   toDateTimeLocalInput,
   parseDateTimeInputToIso,
+  addDurationToDateTimeInput,
+  getPresetDateTimeInTimezone,
   formatScheduleTime,
   formatScheduleDate,
   formatClassTargetDisplay,
@@ -153,16 +155,22 @@ export default function CbtDashboard({
   const [adminTeacherFilter, setAdminTeacherFilter] = useState('ALL');
   const [sessionLoadingId, setSessionLoadingId] = useState<string | null>(null);
 
+  const teacherName = currentUser?.name || 'Guru Pengampu';
+  const isSuperAdmin = currentUser?.role === 'Super Admin' || currentUser?.role === 'Admin Utama';
+
   // Timezone State (WIB, WITA, WIT)
   const [cbtTimezone, setCbtTimezone] = useState<CbtTimezone>(initialTimezone || DEFAULT_CBT_TIMEZONE);
 
   const handleTimezoneChange = async (newTz: CbtTimezone) => {
     if (newTz === cbtTimezone) return;
     setCbtTimezone(newTz);
-    try {
-      await saveCbtTimezone(newTz);
-    } catch (err) {
-      console.error('Gagal menyimpan zona waktu CBT:', err);
+    // Hanya Super Admin yang dapat menyimpan zona waktu default sekolah secara global ke database
+    if (isSuperAdmin) {
+      try {
+        await saveCbtTimezone(newTz);
+      } catch (err) {
+        console.error('Gagal menyimpan zona waktu CBT:', err);
+      }
     }
   };
 
@@ -176,8 +184,6 @@ export default function CbtDashboard({
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isParticipantCardModalOpen, setIsParticipantCardModalOpen] = useState(false);
 
-  const teacherName = currentUser?.name || 'Guru Pengampu';
-  const isSuperAdmin = currentUser?.role === 'Super Admin' || currentUser?.role === 'Admin Utama';
   const unassignedProctorsCount = exams.filter(e => !e.proctorName).length;
 
   // Helper pencocokan kepemilikan author / guru pengampu
@@ -263,6 +269,10 @@ export default function CbtDashboard({
     Record<string, { startTime: string; endTime: string }>
   >({});
   const [inlineSaving, setInlineSaving] = useState(false);
+  const [modifiedInlineIds, setModifiedInlineIds] = useState<Set<string>>(new Set());
+
+  // ⚡ Schedule Manual Override Tracking (Mencegah auto-overwrite saat guru set jam selesai kustom)
+  const [isEndTimeManuallyEdited, setIsEndTimeManuallyEdited] = useState(false);
 
   // 📊 CSV Import / Export State
   const csvFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -443,11 +453,13 @@ export default function CbtDashboard({
         };
       });
       setInlineSchedules(initial);
+      setModifiedInlineIds(new Set());
     }
     setIsInlineEditMode(!isInlineEditMode);
   };
 
   const handleInlineChange = (id: string, field: 'startTime' | 'endTime', val: string) => {
+    setModifiedInlineIds((prev) => new Set(prev).add(id));
     setInlineSchedules((prev) => ({
       ...prev,
       [id]: {
@@ -458,35 +470,42 @@ export default function CbtDashboard({
   };
 
   const handleInlinePreset = (id: string, minutes: number) => {
+    setModifiedInlineIds((prev) => new Set(prev).add(id));
     setInlineSchedules((prev) => {
       const current = prev[id] || { startTime: '', endTime: '' };
-      const baseStart = current.startTime ? new Date(parseDateTimeInputToIso(current.startTime, cbtTimezone)) : new Date();
-      if (!current.startTime) {
-        baseStart.setHours(8, 0, 0, 0);
-      }
-      const end = new Date(baseStart.getTime() + minutes * 60 * 1000);
+      const startStr = current.startTime || getPresetDateTimeInTimezone(0, 8, 0, cbtTimezone);
+      const endStr = addDurationToDateTimeInput(startStr, minutes, cbtTimezone);
       return {
         ...prev,
         [id]: {
-          startTime: toDateTimeLocalInput(baseStart, cbtTimezone),
-          endTime: toDateTimeLocalInput(end, cbtTimezone),
+          startTime: startStr,
+          endTime: endStr,
         },
       };
     });
   };
 
   const handleSaveInlineSchedules = async () => {
+    if (modifiedInlineIds.size === 0) {
+      setIsInlineEditMode(false);
+      return;
+    }
     setInlineSaving(true);
-    const payload = Object.entries(inlineSchedules).map(([id, sched]) => ({
-      id,
-      startTime: sched.startTime ? parseDateTimeInputToIso(sched.startTime, cbtTimezone) : null,
-      endTime: sched.endTime ? parseDateTimeInputToIso(sched.endTime, cbtTimezone) : null,
-    }));
+    const modifiedList = Array.from(modifiedInlineIds);
+    const payload = modifiedList.map((id) => {
+      const sched = inlineSchedules[id] || { startTime: '', endTime: '' };
+      return {
+        id,
+        startTime: sched.startTime ? parseDateTimeInputToIso(sched.startTime, cbtTimezone) : null,
+        endTime: sched.endTime ? parseDateTimeInputToIso(sched.endTime, cbtTimezone) : null,
+      };
+    });
 
     const res = await batchUpdateExamSchedules(payload, true);
     if (res.success) {
       setExams((prev) =>
         prev.map((e) => {
+          if (!modifiedInlineIds.has(e.id)) return e;
           const mod = inlineSchedules[e.id];
           if (!mod) return e;
           return {
@@ -496,6 +515,7 @@ export default function CbtDashboard({
           };
         })
       );
+      setModifiedInlineIds(new Set());
       setIsInlineEditMode(false);
       alert(`Berhasil menyimpan perubahan jadwal untuk ${payload.length} paket ujian!`);
     } else {
@@ -761,8 +781,8 @@ export default function CbtDashboard({
     setCsvSaving(true);
     const payload = csvParsedRows.map((r) => ({
       id: r.id,
-      startTime: r.startTime,
-      endTime: r.endTime,
+      startTime: parseDateTimeInputToIso(r.startTime, cbtTimezone),
+      endTime: parseDateTimeInputToIso(r.endTime, cbtTimezone),
     }));
 
     const res = await batchUpdateExamSchedules(payload, true);
@@ -791,10 +811,10 @@ export default function CbtDashboard({
     setEditingExam(null);
     setIsCustomClassTarget(false);
     setClassTargetMode('preset');
+    setIsEndTimeManuallyEdited(false);
     const randomToken = 'CBT' + Math.floor(100 + Math.random() * 900);
-    const now = new Date();
-    const startStr = toDateTimeLocalInput(now, cbtTimezone);
-    const endStr = toDateTimeLocalInput(new Date(now.getTime() + 60 * 60000), cbtTimezone);
+    const startStr = getPresetDateTimeInTimezone(0, 8, 0, cbtTimezone);
+    const endStr = addDurationToDateTimeInput(startStr, 60, cbtTimezone);
 
     const defaultClass = (selectedClassFilter !== 'ALL' && selectedClassFilter)
       ? selectedClassFilter
@@ -826,6 +846,7 @@ export default function CbtDashboard({
       return;
     }
     setEditingExam(exam);
+    setIsEndTimeManuallyEdited(true);
     setIsCustomClassTarget(!classPresets.includes(exam.classTarget));
     if (exam.classTarget.includes(',')) {
       setClassTargetMode('multi');
@@ -1431,7 +1452,8 @@ export default function CbtDashboard({
                 type="button"
                 onClick={() => {
                   if (selectedExamIds.length === 0) {
-                    setSelectedExamIds(scheduledExams.map((e) => e.id));
+                    alert('Pilih minimal 1 paket ujian dengan mencentang kotak di tabel terlebih dahulu.');
+                    return;
                   }
                   setIsBatchModalOpen(true);
                 }}
@@ -2665,17 +2687,17 @@ export default function CbtDashboard({
                           value={formData.startTime}
                           onChange={(e) => {
                             const val = e.target.value;
-                            setFormData((prev) => {
-                              const updated = { ...prev, startTime: val };
-                              if (val && prev.duration) {
-                                const end = new Date(new Date(val).getTime() + prev.duration * 60000);
-                                updated.endTime = toDateTimeLocalInput(end, cbtTimezone);
-                              }
-                              return updated;
-                            });
+                            let nextEnd = formData.endTime;
+                            if (val && formData.duration && (!isEndTimeManuallyEdited || !formData.endTime)) {
+                              nextEnd = addDurationToDateTimeInput(val, formData.duration, cbtTimezone);
+                            }
+                            setFormData((prev) => ({
+                              ...prev,
+                              startTime: val,
+                              endTime: nextEnd,
+                            }));
                             if (val) {
-                              const end = new Date(new Date(val).getTime() + formData.duration * 60000);
-                              runConflictCheck(val, toDateTimeLocalInput(end, cbtTimezone), formData.classTarget);
+                              runConflictCheck(val, nextEnd, formData.classTarget);
                             }
                           }}
                           className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-none"
@@ -2692,6 +2714,7 @@ export default function CbtDashboard({
                           value={formData.endTime}
                           onChange={(e) => {
                             const val = e.target.value;
+                            setIsEndTimeManuallyEdited(true);
                             setFormData({ ...formData, endTime: val });
                             runConflictCheck(formData.startTime, val, formData.classTarget);
                           }}
@@ -2706,55 +2729,108 @@ export default function CbtDashboard({
                       <button
                         type="button"
                         onClick={() => {
-                          if (!formData.startTime) {
-                            const now = new Date();
-                            const startStr = toDateTimeLocalInput(now, cbtTimezone);
-                            const endStr = toDateTimeLocalInput(new Date(now.getTime() + formData.duration * 60000), cbtTimezone);
-                            setFormData({ ...formData, startTime: startStr, endTime: endStr });
-                            runConflictCheck(startStr, endStr, formData.classTarget);
-                          } else {
-                            const end = new Date(new Date(formData.startTime).getTime() + formData.duration * 60000);
-                            const endStr = toDateTimeLocalInput(end, cbtTimezone);
-                            setFormData({ ...formData, endTime: endStr });
-                            runConflictCheck(formData.startTime, endStr, formData.classTarget);
-                          }
+                          const startStr = formData.startTime || getPresetDateTimeInTimezone(0, 8, 0, cbtTimezone);
+                          const endStr = addDurationToDateTimeInput(startStr, formData.duration, cbtTimezone);
+                          setIsEndTimeManuallyEdited(false);
+                          setFormData({ ...formData, startTime: startStr, endTime: endStr });
+                          runConflictCheck(startStr, endStr, formData.classTarget);
                         }}
-                        className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[10px] font-semibold text-purple-600 dark:text-purple-400 hover:bg-purple-50"
+                        className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[10px] font-semibold text-purple-600 dark:text-purple-400 hover:bg-purple-50 transition-colors cursor-pointer"
                       >
                         + {formData.duration} Menit (Durasi)
                       </button>
                       <button
                         type="button"
                         onClick={() => {
-                          const today = new Date();
-                          today.setHours(8, 0, 0, 0);
-                          const startStr = toDateTimeLocalInput(today, cbtTimezone);
-                          today.setHours(10, 0, 0, 0);
-                          const endStr = toDateTimeLocalInput(today, cbtTimezone);
+                          const startStr = getPresetDateTimeInTimezone(0, 8, 0, cbtTimezone);
+                          const endStr = getPresetDateTimeInTimezone(0, 10, 0, cbtTimezone);
+                          setIsEndTimeManuallyEdited(true);
                           setFormData({ ...formData, startTime: startStr, endTime: endStr });
                           runConflictCheck(startStr, endStr, formData.classTarget);
                         }}
-                        className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[10px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50"
+                        className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[10px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-colors cursor-pointer"
                       >
                         Hari Ini 08:00 - 10:00 ({cbtTimezone})
                       </button>
                       <button
                         type="button"
                         onClick={() => {
-                          const tomorrow = new Date();
-                          tomorrow.setDate(tomorrow.getDate() + 1);
-                          tomorrow.setHours(8, 0, 0, 0);
-                          const startStr = toDateTimeLocalInput(tomorrow, cbtTimezone);
-                          tomorrow.setHours(10, 0, 0, 0);
-                          const endStr = toDateTimeLocalInput(tomorrow, cbtTimezone);
+                          const startStr = getPresetDateTimeInTimezone(1, 8, 0, cbtTimezone);
+                          const endStr = getPresetDateTimeInTimezone(1, 10, 0, cbtTimezone);
+                          setIsEndTimeManuallyEdited(true);
                           setFormData({ ...formData, startTime: startStr, endTime: endStr });
                           runConflictCheck(startStr, endStr, formData.classTarget);
                         }}
-                        className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[10px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50"
+                        className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[10px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-colors cursor-pointer"
                       >
                         Besok 08:00 - 10:00 ({cbtTimezone})
                       </button>
                     </div>
+
+                    {/* ⚡ Pratinjau Jadwal Terkunci & Validasi Canggih */}
+                    {formData.startTime && formData.endTime && (() => {
+                      const startIso = parseDateTimeInputToIso(formData.startTime, cbtTimezone);
+                      const endIso = parseDateTimeInputToIso(formData.endTime, cbtTimezone);
+                      const startDate = new Date(startIso);
+                      const endDate = new Date(endIso);
+                      const isValid = !isNaN(startDate.getTime()) && !isNaN(endDate.getTime());
+                      const isEndAfterStart = isValid && endDate > startDate;
+                      const windowMinutes = isEndAfterStart ? Math.round((endDate.getTime() - startDate.getTime()) / 60000) : 0;
+                      const isWindowEnough = windowMinutes >= (formData.duration || 60);
+
+                      return (
+                        <div className={`p-3 rounded-xl border text-xs transition-all ${
+                          !isEndAfterStart
+                            ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200'
+                            : !isWindowEnough
+                            ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200'
+                            : 'bg-indigo-50/70 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800/60 text-indigo-950 dark:text-indigo-200'
+                        }`}>
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <div className="flex items-center gap-1.5 font-bold">
+                              <Calendar size={13} className="text-purple-600 dark:text-purple-400 shrink-0" />
+                              <span>Pratinjau Jadwal Terkunci ({cbtTimezone})</span>
+                            </div>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              !isEndAfterStart
+                                ? 'bg-rose-200 text-rose-800 dark:bg-rose-900 dark:text-rose-200'
+                                : !isWindowEnough
+                                ? 'bg-amber-200 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
+                                : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200'
+                            }`}>
+                              {!isEndAfterStart ? '⚠️ Waktu Tidak Valid' : !isWindowEnough ? '⚠️ Jendela Terlalu Singkat' : '✓ Jadwal Tepat & Terkunci'}
+                            </span>
+                          </div>
+
+                          <div className="space-y-1 text-[11px]">
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-600 dark:text-slate-400">Rentang Waktu:</span>
+                              <span className="font-semibold text-slate-900 dark:text-white">
+                                {formatExamScheduleRange(startDate, endDate, cbtTimezone)}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-600 dark:text-slate-400">Jendela Ujian Terbuka:</span>
+                              <span className="font-semibold text-slate-900 dark:text-white">
+                                {isEndAfterStart ? `${windowMinutes} Menit` : '-'}
+                                <span className="text-slate-500 font-normal ml-1">(Durasi Pengerjaan: {formData.duration} Menit)</span>
+                              </span>
+                            </div>
+                          </div>
+
+                          {!isEndAfterStart && (
+                            <p className="text-[11px] text-rose-700 dark:text-rose-300 font-medium mt-1.5 pt-1.5 border-t border-rose-200 dark:border-rose-800">
+                              ⚠️ Waktu selesai harus lebih lambat dari waktu mulai ujian!
+                            </p>
+                          )}
+                          {isEndAfterStart && !isWindowEnough && (
+                            <p className="text-[11px] text-amber-800 dark:text-amber-300 font-medium mt-1.5 pt-1.5 border-t border-amber-200 dark:border-amber-800">
+                              ⚠️ Jendela ujian ({windowMinutes} menit) lebih singkat dari durasi pengerjaan siswa ({formData.duration} menit). Siswa yang baru mulai di tengah waktu tidak akan mendapat waktu penuh!
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {/* Conflict Indicator */}
                     {checkingConflict && (
