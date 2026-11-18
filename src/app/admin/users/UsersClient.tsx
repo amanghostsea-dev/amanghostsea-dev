@@ -1664,193 +1664,223 @@ export default function UsersCRUD({
 
         {/* Modal Single Add / Edit */}
         {isModalOpen && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 w-full max-w-lg overflow-hidden text-gray-900 dark:text-white transition-all">
-              <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">{isEditing ? 'Edit Pengguna' : 'Tambah Pengguna Baru'}</h3>
-                <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"><X size={20} /></button>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl sm:rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-800 w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden text-gray-900 dark:text-white transition-all my-auto animate-in fade-in zoom-in-95 duration-200">
+              {/* Modal Header */}
+              <div className="px-5 py-4 sm:px-6 sm:py-4.5 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center shrink-0 bg-white dark:bg-gray-900">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center shadow-xs">
+                    {isEditing ? <Edit2 size={18} /> : <UserPlus size={18} />}
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white leading-tight">
+                      {isEditing ? 'Edit Pengguna' : 'Tambah Pengguna Baru'}
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {isEditing ? 'Perbarui data akun dan hak akses pengguna' : 'Buat akun login baru untuk pengguna sistem'}
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => setIsModalOpen(false)} 
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
               </div>
-              <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Nama Lengkap</label>
-                  <input 
-                    required 
-                    type="text" 
-                    value={formData.name} 
-                    onChange={e => setFormData({...formData, name: e.target.value})} 
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:bg-white dark:focus:bg-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-medium" 
-                    placeholder="Contoh: Ahmad Fauzi Pratama"
-                  />
-                </div>
 
-                <div className="grid grid-cols-2 gap-4">
+              {/* Form Body - Scrollable */}
+              <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Role (Peran)</label>
-                    <select 
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1.5">Nama Lengkap *</label>
+                    <input 
                       required 
-                      value={formData.role} 
-                      onChange={e => setFormData({...formData, role: e.target.value})} 
-                      className="w-full px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-medium"
-                    >
-                      <option value="Siswa">Siswa</option>
-                      <option value="Guru">Guru</option>
-                      <option value="Panitia PPDB">Panitia PPDB</option>
-                      <option value="Admin BKK">Admin BKK</option>
-                      <option value="Super Admin">Super Admin</option>
-                    </select>
+                      type="text" 
+                      value={formData.name} 
+                      onChange={e => setFormData({...formData, name: e.target.value})} 
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:bg-white dark:focus:bg-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-medium" 
+                      placeholder="Contoh: Ahmad Fauzi Pratama"
+                    />
                   </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Status Akun</label>
-                    <select 
-                      value={formData.status} 
-                      onChange={e => setFormData({...formData, status: e.target.value})} 
-                      className="w-full px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-medium"
-                    >
-                      <option value="Aktif">Aktif</option>
-                      <option value="Nonaktif">Nonaktif</option>
-                    </select>
-                  </div>
-                </div>
 
-                {/* NISN & Jurusan Khusus Siswa */}
-                {formData.role === 'Siswa' && (
-                  <div className="p-4 bg-purple-50/70 dark:bg-purple-950/30 rounded-xl border border-purple-200 dark:border-purple-900/50 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <label className="block text-xs font-bold text-purple-950 dark:text-purple-300 flex items-center gap-1.5">
-                        <GraduationCap size={15} /> NISN Siswa (Nomor Induk Siswa Nasional)
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1.5">Role (Peran) *</label>
+                      <select 
+                        required 
+                        value={formData.role} 
+                        onChange={e => setFormData({...formData, role: e.target.value})} 
+                        className="w-full px-3 sm:px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-semibold cursor-pointer"
+                      >
+                        <option value="Siswa">Siswa</option>
+                        <option value="Guru">Guru</option>
+                        <option value="Panitia PPDB">Panitia PPDB</option>
+                        <option value="Admin BKK">Admin BKK</option>
+                        <option value="Super Admin">Super Admin</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1.5">Status Akun</label>
+                      <select 
+                        value={formData.status} 
+                        onChange={e => setFormData({...formData, status: e.target.value})} 
+                        className="w-full px-3 sm:px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-semibold cursor-pointer"
+                      >
+                        <option value="Aktif">Aktif</option>
+                        <option value="Nonaktif">Nonaktif</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* NISN & Jurusan Khusus Siswa */}
+                  {formData.role === 'Siswa' && (
+                    <div className="p-3.5 sm:p-4 bg-purple-50/70 dark:bg-purple-950/30 rounded-xl border border-purple-200 dark:border-purple-900/50 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-xs font-bold text-purple-950 dark:text-purple-300 flex items-center gap-1.5">
+                          <GraduationCap size={15} className="text-purple-600" /> NISN Siswa (Nomor Induk Siswa Nasional)
+                        </label>
+                        <span className="text-[10px] bg-purple-200 dark:bg-purple-800/60 text-purple-800 dark:text-purple-200 px-2 py-0.5 rounded-full font-bold">Wajib Siswa</span>
+                      </div>
+                      <input 
+                        type="text" 
+                        maxLength={12}
+                        value={formData.nisn} 
+                        onChange={e => {
+                          const val = e.target.value.replace(/[^\d]/g, '');
+                          setFormData(prev => ({
+                            ...prev, 
+                            nisn: val,
+                            username: (!prev.username || prev.username === prev.nisn) ? val : prev.username
+                          }));
+                        }} 
+                        placeholder="Contoh: 0071234567" 
+                        className="w-full px-3.5 py-2 rounded-lg border border-purple-300 dark:border-purple-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder:text-gray-400 focus:ring-2 focus:ring-purple-500 outline-none transition-all font-mono text-sm font-semibold"
+                      />
+                      <div className="flex items-center justify-between text-[11px] text-purple-700 dark:text-purple-400">
+                        <span>Format 10 digit angka resmi Dapodik</span>
+                        {formData.nisn && formData.username !== formData.nisn && (
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, username: prev.nisn }))}
+                            className="text-purple-600 dark:text-purple-300 hover:underline font-bold cursor-pointer"
+                          >
+                            Gunakan sebagai username
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Dropdown Jurusan & Rombel Kelas untuk Siswa */}
+                      <div className="pt-2.5 border-t border-purple-200/80 dark:border-purple-800/40 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-purple-950 dark:text-purple-300 mb-1 flex items-center gap-1">
+                            <Layers size={13} className="text-purple-600" /> Program Keahlian (Jurusan) *
+                          </label>
+                          <select
+                            value={selectedJurusanCode}
+                            onChange={(e) => handleJurusanChange(e.target.value)}
+                            className="w-full px-3 py-2 rounded-lg border border-purple-300 dark:border-purple-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-xs font-semibold focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
+                          >
+                            {jurusans.map((j) => (
+                              <option key={j.id} value={j.code}>
+                                {j.code} - {j.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-purple-950 dark:text-purple-300 mb-1 flex items-center gap-1">
+                            <GraduationCap size={13} className="text-purple-600" /> Target Kelas Siswa *
+                          </label>
+                          <select
+                            value={formData.studentClass}
+                            onChange={(e) => setFormData(prev => ({ ...prev, studentClass: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-lg border border-purple-300 dark:border-purple-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-xs font-bold text-purple-700 dark:text-purple-300 focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
+                          >
+                            {availableClassesForJurusan.map((c) => (
+                              <option key={c} value={c}>
+                                {c}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="sm:col-span-2 pt-2 border-t border-purple-200/60 dark:border-purple-800/40">
+                          <label className="block text-xs font-bold text-purple-950 dark:text-purple-300 mb-1 flex items-center justify-between">
+                            <span className="flex items-center gap-1">
+                              <Sparkles size={13} className="text-purple-600" /> Agama Siswa (Routing Otomatis CBT) *
+                            </span>
+                            <span className="text-[10px] text-purple-600 dark:text-purple-400 font-normal">
+                              Untuk ujian agama serentak 1 token
+                            </span>
+                          </label>
+                          <select
+                            value={formData.religion || 'ISLAM'}
+                            onChange={(e) => setFormData(prev => ({ ...prev, religion: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-lg border border-purple-300 dark:border-purple-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
+                          >
+                            <option value="ISLAM">☪️ Islam (Pendidikan Agama Islam & Budi Pekerti)</option>
+                            <option value="KRISTEN">✝️ Kristen (Pendidikan Agama Kristen & Budi Pekerti)</option>
+                            <option value="KATOLIK">⛪ Katolik (Pendidikan Agama Katolik & Budi Pekerti)</option>
+                            <option value="HINDU">🕉️ Hindu (Pendidikan Agama Hindu & Budi Pekerti)</option>
+                            <option value="BUDDHA">☸️ Buddha (Pendidikan Agama Buddha & Budi Pekerti)</option>
+                            <option value="KHONGHUCU">☯️ Khonghucu (Pendidikan Agama Khonghucu & Budi Pekerti)</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1.5">Username Login *</label>
+                      <input 
+                        required 
+                        type="text" 
+                        value={formData.username} 
+                        onChange={e => setFormData({...formData, username: e.target.value})} 
+                        className="w-full px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:bg-white dark:focus:bg-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono text-sm" 
+                        placeholder="username atau NISN"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1.5">
+                        Password
                       </label>
-                      <span className="text-[10px] bg-purple-200 dark:bg-purple-800/60 text-purple-800 dark:text-purple-200 px-2 py-0.5 rounded-full font-bold">Wajib Siswa</span>
+                      <input 
+                        type="text" 
+                        value={formData.password} 
+                        onChange={e => setFormData({...formData, password: e.target.value})} 
+                        placeholder={isEditing ? 'Biarkan kosong jika tetap' : (formData.nisn ? 'Kosong = NISN' : 'Kosong = Acak')} 
+                        className="w-full px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:bg-white dark:focus:bg-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono text-sm" 
+                      />
                     </div>
-                    <input 
-                      type="text" 
-                      maxLength={12}
-                      value={formData.nisn} 
-                      onChange={e => {
-                        const val = e.target.value.replace(/[^\d]/g, '');
-                        setFormData(prev => ({
-                          ...prev, 
-                          nisn: val,
-                          username: (!prev.username || prev.username === prev.nisn) ? val : prev.username
-                        }));
-                      }} 
-                      placeholder="Contoh: 0071234567" 
-                      className="w-full px-3.5 py-2 rounded-lg border border-purple-300 dark:border-purple-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder:text-gray-400 focus:ring-2 focus:ring-purple-500 outline-none transition-all font-mono text-sm font-semibold"
-                    />
-                    <div className="flex items-center justify-between text-[11px] text-purple-700 dark:text-purple-400">
-                      <span>Format 10 digit angka resmi Dapodik</span>
-                      {formData.nisn && formData.username !== formData.nisn && (
-                        <button
-                          type="button"
-                          onClick={() => setFormData(prev => ({ ...prev, username: prev.nisn }))}
-                          className="text-purple-600 dark:text-purple-300 hover:underline font-bold"
-                        >
-                          Gunakan sebagai username
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Dropdown Jurusan & Rombel Kelas untuk Siswa */}
-                    <div className="pt-3 border-t border-purple-200/80 dark:border-purple-800/40 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-bold text-purple-950 dark:text-purple-300 mb-1 flex items-center gap-1">
-                          <Layers size={13} className="text-purple-600" /> Program Keahlian (Jurusan) *
-                        </label>
-                        <select
-                          value={selectedJurusanCode}
-                          onChange={(e) => handleJurusanChange(e.target.value)}
-                          className="w-full px-3 py-2 rounded-lg border border-purple-300 dark:border-purple-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-xs font-semibold focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
-                        >
-                          {jurusans.map((j) => (
-                            <option key={j.id} value={j.code}>
-                              {j.code} - {j.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-purple-950 dark:text-purple-300 mb-1 flex items-center gap-1">
-                          <GraduationCap size={13} className="text-purple-600" /> Target Kelas Siswa *
-                        </label>
-                        <select
-                          value={formData.studentClass}
-                          onChange={(e) => setFormData(prev => ({ ...prev, studentClass: e.target.value }))}
-                          className="w-full px-3 py-2 rounded-lg border border-purple-300 dark:border-purple-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-xs font-bold text-purple-700 dark:text-purple-300 focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
-                        >
-                          {availableClassesForJurusan.map((c) => (
-                            <option key={c} value={c}>
-                              {c}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="sm:col-span-2 pt-2 border-t border-purple-200/60 dark:border-purple-800/40">
-                        <label className="block text-xs font-bold text-purple-950 dark:text-purple-300 mb-1 flex items-center justify-between">
-                          <span className="flex items-center gap-1">
-                            <Sparkles size={13} className="text-purple-600" /> Agama Siswa (Routing Otomatis CBT) *
-                          </span>
-                          <span className="text-[10px] text-purple-600 dark:text-purple-400 font-normal">
-                            Untuk ujian agama serentak 1 token
-                          </span>
-                        </label>
-                        <select
-                          value={formData.religion || 'ISLAM'}
-                          onChange={(e) => setFormData(prev => ({ ...prev, religion: e.target.value }))}
-                          className="w-full px-3 py-2 rounded-lg border border-purple-300 dark:border-purple-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
-                        >
-                          <option value="ISLAM">☪️ Islam (Pendidikan Agama Islam & Budi Pekerti)</option>
-                          <option value="KRISTEN">✝️ Kristen (Pendidikan Agama Kristen & Budi Pekerti)</option>
-                          <option value="KATOLIK">⛪ Katolik (Pendidikan Agama Katolik & Budi Pekerti)</option>
-                          <option value="HINDU">🕉️ Hindu (Pendidikan Agama Hindu & Budi Pekerti)</option>
-                          <option value="BUDDHA">☸️ Buddha (Pendidikan Agama Buddha & Budi Pekerti)</option>
-                          <option value="KHONGHUCU">☯️ Khonghucu (Pendidikan Agama Khonghucu & Budi Pekerti)</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Username Login</label>
-                    <input 
-                      required 
-                      type="text" 
-                      value={formData.username} 
-                      onChange={e => setFormData({...formData, username: e.target.value})} 
-                      className="w-full px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:bg-white dark:focus:bg-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono text-sm" 
-                      placeholder="username atau NISN"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                      Password
-                    </label>
-                    <input 
-                      type="text" 
-                      value={formData.password} 
-                      onChange={e => setFormData({...formData, password: e.target.value})} 
-                      placeholder={isEditing ? 'Biarkan kosong jika tidak diubah' : (formData.nisn ? 'Kosong = NISN' : 'Kosong = Acak')} 
-                      className="w-full px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:bg-white dark:focus:bg-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono text-sm" 
-                    />
                   </div>
                 </div>
 
-                <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 dark:border-gray-800">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-gray-700 dark:text-gray-300 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-xl font-medium transition-colors text-sm">Batal</button>
+                {/* Sticky Modal Footer */}
+                <div className="px-5 py-3.5 sm:px-6 sm:py-4 bg-gray-50/90 dark:bg-gray-900/90 backdrop-blur-md border-t border-gray-100 dark:border-gray-800 flex items-center justify-end gap-3 shrink-0">
+                  <button 
+                    type="button" 
+                    onClick={() => setIsModalOpen(false)} 
+                    className="px-4 py-2 sm:px-5 sm:py-2.5 text-gray-700 dark:text-gray-300 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-xl font-medium transition-colors text-sm cursor-pointer"
+                  >
+                    Batal
+                  </button>
                   <button 
                     type="submit" 
                     disabled={loading}
-                    className="px-5 py-2.5 text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 rounded-xl font-medium transition-all flex items-center gap-2 text-sm shadow-sm shadow-indigo-600/30"
+                    className="px-5 py-2 sm:px-6 sm:py-2.5 text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 rounded-xl font-medium transition-all flex items-center gap-2 text-sm shadow-md shadow-indigo-600/30 cursor-pointer"
                   >
                     {loading ? (
                       <>
-                        <Loader2 size={18} className="animate-spin" /> Menyimpan...
+                        <Loader2 size={17} className="animate-spin" /> Menyimpan...
                       </>
                     ) : (
                       <>
-                        <Check size={18} /> Simpan
+                        <Check size={17} /> {isEditing ? 'Simpan Perubahan' : 'Simpan Pengguna'}
                       </>
                     )}
                   </button>
@@ -2608,9 +2638,9 @@ export default function UsersCRUD({
 
         {/* Modal Atur Kelas & Jurusan Kolektif (Bulk Assign Class) */}
         {isBulkClassModalOpen && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 w-full max-w-md overflow-hidden text-gray-900 dark:text-white transition-all">
-              <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-transparent">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl sm:rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-800 w-full max-w-md max-h-[92vh] flex flex-col overflow-hidden text-gray-900 dark:text-white transition-all my-auto">
+              <div className="p-5 sm:p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-transparent shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-md shadow-purple-600/30">
                     <GraduationCap size={20} />
@@ -2628,7 +2658,7 @@ export default function UsersCRUD({
                 </button>
               </div>
 
-              <div className="p-6 space-y-4">
+              <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
                 <div className="p-3.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-xs text-purple-900 dark:text-purple-200 space-y-1">
                   <div className="font-bold flex items-center gap-1.5">
                     <CheckCircle2 size={14} className="text-purple-600" />
@@ -2677,7 +2707,7 @@ export default function UsersCRUD({
                 )}
               </div>
 
-              <div className="p-5 border-t border-gray-100 dark:border-gray-800 flex items-center justify-end gap-2.5 bg-gray-50/50 dark:bg-gray-900/50">
+              <div className="p-4 sm:p-5 border-t border-gray-100 dark:border-gray-800 flex items-center justify-end gap-2.5 bg-gray-50/80 dark:bg-gray-900/80 backdrop-blur-sm shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsBulkClassModalOpen(false)}
