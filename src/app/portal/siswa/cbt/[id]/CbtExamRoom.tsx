@@ -33,6 +33,7 @@ import { startOrResumeAttempt, saveProgress, submitExam, getExamSessionStatus, c
 import { formatExamScheduleRange, getExamScheduleState, isExamTokenActive, formatClassTargetDisplay } from '@/lib/cbt-schedule';
 import CbtRichText from '@/components/cbt/CbtRichText';
 import CbtQuestionImageViewer from '@/components/cbt/CbtQuestionImageViewer';
+import CbtQuestionContent from '@/components/cbt/CbtQuestionContent';
 
 interface QuestionItem {
   id: string;
@@ -1371,18 +1372,13 @@ export default function CbtExamRoom({
               </button>
             </div>
 
-            {/* Question Text & Math Formulas */}
-            <div className="text-base md:text-lg font-medium text-slate-900 dark:text-white leading-relaxed mb-4">
-              <CbtRichText text={currentQ?.questionText || ''} />
-            </div>
-
-            {/* Dedicated Question Image Visualizer (with Zoom Lightbox) */}
-            {currentQ?.imageUrl && (
-              <CbtQuestionImageViewer 
-                imageUrl={currentQ.imageUrl} 
-                alt={`Visualisasi Gambar Soal No. ${currentIndex + 1}`} 
-              />
-            )}
+            {/* Question Text, Middle Image (if any) & Math Formulas */}
+            <CbtQuestionContent
+              questionText={currentQ?.questionText || ''}
+              imageUrl={currentQ?.imageUrl}
+              imageAlt={`Visualisasi Gambar Soal No. ${currentIndex + 1}`}
+              className="text-base md:text-lg font-medium mb-4"
+            />
 
             {/* Multiple Choice Options */}
             <div className="space-y-3 mt-6">

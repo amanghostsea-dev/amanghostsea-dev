@@ -51,7 +51,9 @@ import {
   EyeOff,
   Zap,
   X,
-  Table
+  Table,
+  ArrowUpDown,
+  AlignLeft
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import { 
@@ -86,6 +88,7 @@ import {
 import { KopSuratConfig } from '@/app/admin/settings/types';
 import CbtRichText from '@/components/cbt/CbtRichText';
 import CbtQuestionImageViewer from '@/components/cbt/CbtQuestionImageViewer';
+import CbtQuestionContent, { parseQuestionContent } from '@/components/cbt/CbtQuestionContent';
 import CbtMathToolbar from '@/components/cbt/CbtMathToolbar';
 import CbtOptionInputItem from '@/components/cbt/CbtOptionInputItem';
 import CbtTableBuilderModal from '@/components/cbt/CbtTableBuilderModal';
@@ -307,6 +310,7 @@ function parseBulkQuestions(rawText: string, defaultPoints: number = 10): Parsed
       const imgMatch = bLine.match(imageRegex);
       if (imgMatch) {
         imageUrl = imgMatch[1].trim();
+        qTextParts.push('[GAMBAR]');
         continue;
       }
 
@@ -778,6 +782,9 @@ export default function ExamDetailClient({
   const [isAddQuestionModal, setIsAddQuestionModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const createQuestionTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const createQuestionBeforeRef = useRef<HTMLTextAreaElement>(null);
+  const [activeCreateField, setActiveCreateField] = useState<'before' | 'after'>('after');
+  const [questionTextBefore, setQuestionTextBefore] = useState('');
   const [questionText, setQuestionText] = useState('');
   const [questionImageUrl, setQuestionImageUrl] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -871,10 +878,34 @@ export default function ExamDetailClient({
       return;
     }
 
+    let finalQuestionText = questionText.trim();
+    if (questionImageUrl.trim()) {
+      const before = questionTextBefore.trim();
+      const after = questionText.trim();
+      if (before && after) {
+        finalQuestionText = `${before}\n\n[GAMBAR]\n\n${after}`;
+      } else if (before && !after) {
+        finalQuestionText = `${before}\n\n[GAMBAR]`;
+      } else if (!before && after) {
+        finalQuestionText = `[GAMBAR]\n\n${after}`;
+      } else {
+        finalQuestionText = '[GAMBAR]';
+      }
+    } else {
+      const before = questionTextBefore.trim();
+      const after = questionText.trim();
+      finalQuestionText = before && after ? `${before}\n\n${after}` : (after || before);
+    }
+
+    if (!finalQuestionText.trim() && !questionImageUrl.trim()) {
+      alert('Pertanyaan atau gambar visualisasi soal harus diisi!');
+      return;
+    }
+
     setLoading(true);
     const res = await createQuestion({
       examId: exam.id,
-      questionText,
+      questionText: finalQuestionText,
       imageUrl: questionImageUrl.trim() || null,
       options,
       correctAnswer,
@@ -884,8 +915,10 @@ export default function ExamDetailClient({
     if (res.success && res.data) {
       setQuestions([...questions, res.data]);
       setIsAddQuestionModal(false);
+      setQuestionTextBefore('');
       setQuestionText('');
       setQuestionImageUrl('');
+      setActiveCreateField('after');
       setOptions(['', '', '', '']);
       setCorrectAnswer('0');
       setPoints(10);
@@ -1328,6 +1361,9 @@ Poin: 10
   const [isEditQModal, setIsEditQModal] = useState(false);
   const [editingQId, setEditingQId] = useState<string | null>(null);
   const editQuestionTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const editQuestionBeforeRef = useRef<HTMLTextAreaElement>(null);
+  const [activeEditField, setActiveEditField] = useState<'before' | 'after'>('after');
+  const [editQuestionTextBefore, setEditQuestionTextBefore] = useState('');
   const [editQuestionText, setEditQuestionText] = useState('');
   const [editImageUrl, setEditImageUrl] = useState('');
   const [editUploadingImage, setEditUploadingImage] = useState(false);
@@ -1342,9 +1378,17 @@ Poin: 10
 
   const handleInsertTable = (tableMarkdown: string) => {
     if (tableTarget === 'create') {
-      setQuestionText((prev) => (prev ? `${prev.trim()}\n\n${tableMarkdown.trim()}\n` : `${tableMarkdown.trim()}\n`));
+      if (activeCreateField === 'before' && questionImageUrl) {
+        setQuestionTextBefore((prev) => (prev ? `${prev.trim()}\n\n${tableMarkdown.trim()}\n` : `${tableMarkdown.trim()}\n`));
+      } else {
+        setQuestionText((prev) => (prev ? `${prev.trim()}\n\n${tableMarkdown.trim()}\n` : `${tableMarkdown.trim()}\n`));
+      }
     } else if (tableTarget === 'edit') {
-      setEditQuestionText((prev) => (prev ? `${prev.trim()}\n\n${tableMarkdown.trim()}\n` : `${tableMarkdown.trim()}\n`));
+      if (activeEditField === 'before' && editImageUrl) {
+        setEditQuestionTextBefore((prev) => (prev ? `${prev.trim()}\n\n${tableMarkdown.trim()}\n` : `${tableMarkdown.trim()}\n`));
+      } else {
+        setEditQuestionText((prev) => (prev ? `${prev.trim()}\n\n${tableMarkdown.trim()}\n` : `${tableMarkdown.trim()}\n`));
+      }
     } else if (tableTarget === 'bulk') {
       setBatchRawText((prev) => (prev ? `${prev.trim()}\n\n${tableMarkdown.trim()}\n` : `${tableMarkdown.trim()}\n`));
     }
@@ -1352,11 +1396,20 @@ Poin: 10
 
   const handleOpenEditModal = (q: QuestionItem) => {
     setEditingQId(q.id);
-    setEditQuestionText(q.questionText);
+    const parsed = parseQuestionContent(q.questionText, q.imageUrl);
+    if (parsed.hasImageTag) {
+      setEditQuestionTextBefore(parsed.textBefore);
+      setEditQuestionText(parsed.textAfter);
+      setActiveEditField(parsed.textAfter ? 'after' : 'before');
+    } else {
+      setEditQuestionTextBefore(parsed.textBefore);
+      setEditQuestionText('');
+      setActiveEditField(parsed.textBefore ? 'before' : 'after');
+    }
     setEditImageUrl(q.imageUrl || '');
     try {
-      const parsed = JSON.parse(q.options);
-      setEditOptions(Array.isArray(parsed) && parsed.length >= 2 ? parsed : ['', '', '', '']);
+      const parsedOpts = JSON.parse(q.options);
+      setEditOptions(Array.isArray(parsedOpts) && parsedOpts.length >= 2 ? parsedOpts : ['', '', '', '']);
     } catch {
       setEditOptions(['', '', '', '']);
     }
@@ -1401,9 +1454,33 @@ Poin: 10
       return;
     }
 
+    let finalEditQuestionText = editQuestionText.trim();
+    if (editImageUrl.trim()) {
+      const before = editQuestionTextBefore.trim();
+      const after = editQuestionText.trim();
+      if (before && after) {
+        finalEditQuestionText = `${before}\n\n[GAMBAR]\n\n${after}`;
+      } else if (before && !after) {
+        finalEditQuestionText = `${before}\n\n[GAMBAR]`;
+      } else if (!before && after) {
+        finalEditQuestionText = `[GAMBAR]\n\n${after}`;
+      } else {
+        finalEditQuestionText = '[GAMBAR]';
+      }
+    } else {
+      const before = editQuestionTextBefore.trim();
+      const after = editQuestionText.trim();
+      finalEditQuestionText = before && after ? `${before}\n\n${after}` : (after || before);
+    }
+
+    if (!finalEditQuestionText.trim() && !editImageUrl.trim()) {
+      alert('Pertanyaan atau gambar visualisasi soal harus diisi!');
+      return;
+    }
+
     setLoading(true);
     const res = await updateQuestion(editingQId, exam.id, {
-      questionText: editQuestionText,
+      questionText: finalEditQuestionText,
       imageUrl: editImageUrl.trim() || null,
       options: editOptions,
       correctAnswer: editCorrectAnswer,
@@ -1414,7 +1491,10 @@ Poin: 10
       setQuestions(questions.map(q => q.id === editingQId ? res.data : q));
       setIsEditQModal(false);
       setEditingQId(null);
+      setEditQuestionTextBefore('');
+      setEditQuestionText('');
       setEditImageUrl('');
+      setActiveEditField('after');
     } else {
       alert(res.error || 'Gagal memperbarui butir soal.');
     }
@@ -1975,15 +2055,14 @@ Poin: 10
                       )}
                     </div>
 
-                    {/* Visualisasi Gambar Soal (Jika Ada) */}
-                    {q.imageUrl && (
-                      <div className="mt-3">
-                        <CbtQuestionImageViewer imageUrl={q.imageUrl} alt={`Visualisasi Gambar Soal No. ${idx + 1}`} compact />
-                      </div>
-                    )}
-
+                    {/* Visualisasi Konten Soal (Teks Atas, Gambar, & Teks Bawah) */}
                     <div className="mt-4 text-slate-900 dark:text-white font-medium text-base">
-                      <CbtRichText text={q.questionText} />
+                      <CbtQuestionContent
+                        questionText={q.questionText}
+                        imageUrl={q.imageUrl}
+                        compactImage
+                        imageAlt={`Visualisasi Gambar Soal No. ${idx + 1}`}
+                      />
                     </div>
 
                     {/* Options Grid */}
@@ -2352,18 +2431,24 @@ Poin: 10
             <form onSubmit={handleAddQuestion} className="p-6 space-y-4 max-h-[82vh] overflow-y-auto">
               {/* 🎨 Toolbar Format Teks, Font, Ukuran, Warna, dan Kotak Terminal */}
               <CbtFormatToolbar
-                textareaRef={createQuestionTextareaRef}
-                value={questionText}
-                onChange={setQuestionText}
-                targetLabel="soal baru"
+                textareaRef={activeCreateField === 'before' && questionImageUrl ? createQuestionBeforeRef : createQuestionTextareaRef}
+                value={activeCreateField === 'before' && questionImageUrl ? questionTextBefore : questionText}
+                onChange={activeCreateField === 'before' && questionImageUrl ? setQuestionTextBefore : setQuestionText}
+                targetLabel={activeCreateField === 'before' && questionImageUrl ? "teks sebelum gambar" : (questionImageUrl ? "pertanyaan di bawah gambar" : "soal baru")}
               />
 
               {/* Toolbar Rumus MTK & KaTeX & Pembuat Tabel */}
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex-1 min-w-[260px]">
                   <CbtMathToolbar
-                    onInsert={(snippet) => setQuestionText((prev) => prev ? `${prev} ${snippet}` : snippet)}
-                    targetLabel="soal ujian"
+                    onInsert={(snippet) => {
+                      if (activeCreateField === 'before' && questionImageUrl) {
+                        setQuestionTextBefore((prev) => prev ? `${prev} ${snippet}` : snippet);
+                      } else {
+                        setQuestionText((prev) => prev ? `${prev} ${snippet}` : snippet);
+                      }
+                    }}
+                    targetLabel={activeCreateField === 'before' && questionImageUrl ? "teks sebelum gambar" : "soal ujian"}
                   />
                 </div>
                 <button
@@ -2380,36 +2465,65 @@ Poin: 10
                 </button>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Pertanyaan / Isi Soal (Mendukung Format Teks, Blok Terminal & KaTeX $...$) <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  ref={createQuestionTextareaRef}
-                  rows={4}
-                  required
-                  placeholder="Tuliskan pertanyaan soal ujian di sini... Anda bisa blok kata untuk mengganti font, ukuran, warna, atau klik tombol Kotak Terminal di atas."
-                  value={questionText}
-                  onChange={(e) => setQuestionText(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500 outline-none font-sans"
-                />
-              </div>
+              {/* 📝 BAGIAN 1: TEKS PENGANTAR / STIMULUS (DI ATAS GAMBAR) */}
+              {questionImageUrl ? (
+                <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <AlignLeft size={14} className="text-purple-600 dark:text-purple-400" />
+                      <span>1. Teks Pengantar / Stimulus (Di Atas Gambar - Opsional)</span>
+                    </label>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                      Muncul di Atas Gambar
+                    </span>
+                  </div>
+                  <textarea
+                    ref={createQuestionBeforeRef}
+                    rows={2}
+                    placeholder="Contoh: Perhatikan gambar diagram / topologi jaringan di bawah ini dengan saksama:"
+                    value={questionTextBefore}
+                    onFocus={() => setActiveCreateField('before')}
+                    onChange={(e) => setQuestionTextBefore(e.target.value)}
+                    className={`w-full px-3.5 py-2.5 rounded-xl border bg-white dark:bg-slate-900 text-sm outline-none transition font-sans ${
+                      activeCreateField === 'before'
+                        ? 'border-purple-500 ring-2 ring-purple-500/20'
+                        : 'border-slate-200 dark:border-slate-800'
+                    }`}
+                  />
+                </div>
+              ) : null}
 
-              {/* Upload Gambar / Tautan Gambar Visualisasi Soal */}
+              {/* 🖼️ BAGIAN 2: GAMBAR / VISUALISASI SOAL */}
               <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                     <ImageIcon size={14} className="text-purple-600 dark:text-purple-400" />
-                    <span>Gambar / Visualisasi Soal (Opsional)</span>
+                    <span>{questionImageUrl ? '2. Gambar / Visualisasi Soal' : 'Gambar / Visualisasi Soal (Opsional)'}</span>
                   </label>
                   {questionImageUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setQuestionImageUrl('')}
-                      className="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer"
-                    >
-                      Hapus Gambar
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const temp = questionTextBefore;
+                          setQuestionTextBefore(questionText);
+                          setQuestionText(temp);
+                        }}
+                        className="text-[11px] font-semibold text-purple-600 hover:text-purple-700 hover:underline flex items-center gap-1 cursor-pointer"
+                        title="Tukar posisi teks atas dan bawah gambar"
+                      >
+                        <ArrowUpDown size={12} />
+                        <span>Tukar Teks Atas & Bawah</span>
+                      </button>
+                      <span className="text-slate-300 dark:text-slate-700">•</span>
+                      <button
+                        type="button"
+                        onClick={() => setQuestionImageUrl('')}
+                        className="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer"
+                      >
+                        Hapus Gambar
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -2440,7 +2554,7 @@ Poin: 10
                   />
                 </div>
 
-                {questionImageUrl && (
+                {questionImageUrl ? (
                   <div className="mt-2 p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-3">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -2457,7 +2571,50 @@ Poin: 10
                       </span>
                     </div>
                   </div>
+                ) : (
+                  <div className="text-[11px] text-slate-400 italic">
+                    💡 Tips: Jika soal memiliki gambar diagram/skema, unggah di sini agar Anda bisa menulis teks pengantar di atas gambar dan kalimat pertanyaan di bawah gambar.
+                  </div>
                 )}
+              </div>
+
+              {/* ❓ BAGIAN 3: PERTANYAAN / PERINTAH SOAL (DI BAWAH GAMBAR) */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    {questionImageUrl ? (
+                      <span className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
+                        <HelpCircle size={14} className="text-purple-600 dark:text-purple-400" />
+                        <span>3. Pertanyaan / Perintah Soal (Di Bawah Gambar)</span> <span className="text-red-500">*</span>
+                      </span>
+                    ) : (
+                      <span>Pertanyaan / Isi Soal (Mendukung Format Teks, Blok Terminal & KaTeX $...$) <span className="text-red-500">*</span></span>
+                    )}
+                  </label>
+                  {questionImageUrl && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                      Muncul di Bawah Gambar
+                    </span>
+                  )}
+                </div>
+                <textarea
+                  ref={createQuestionTextareaRef}
+                  rows={questionImageUrl ? 3 : 4}
+                  required={!questionImageUrl && !questionTextBefore}
+                  placeholder={
+                    questionImageUrl
+                      ? "Tuliskan pertanyaan inti atau perintah soal di sini (misal: Berdasarkan gambar di atas, fungsi perangkat tersebut adalah...)"
+                      : "Tuliskan pertanyaan soal ujian di sini... Anda bisa blok kata untuk mengganti font, ukuran, warna, atau klik tombol Kotak Terminal di atas."
+                  }
+                  value={questionText}
+                  onFocus={() => setActiveCreateField('after')}
+                  onChange={(e) => setQuestionText(e.target.value)}
+                  className={`w-full px-3.5 py-2.5 rounded-xl border bg-white dark:bg-slate-950 text-sm outline-none transition font-sans ${
+                    activeCreateField === 'after'
+                      ? 'border-purple-500 ring-2 ring-purple-500/20'
+                      : 'border-slate-200 dark:border-slate-800'
+                  }`}
+                />
               </div>
 
               {/* Live Preview Realtime Tampilan Siswa */}
@@ -2478,19 +2635,24 @@ Poin: 10
                 </div>
 
                 {showLivePreview && (
-                  <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs space-y-2">
-                    {questionText ? (
-                      <div className="text-slate-900 dark:text-white font-medium text-sm">
-                        <CbtRichText text={questionText} />
-                      </div>
+                  <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs">
+                    {(questionTextBefore || questionText || questionImageUrl) ? (
+                      <CbtQuestionContent
+                        questionText={
+                          questionImageUrl
+                            ? (questionTextBefore && questionText
+                                ? `${questionTextBefore}\n\n[GAMBAR]\n\n${questionText}`
+                                : questionTextBefore
+                                  ? `${questionTextBefore}\n\n[GAMBAR]`
+                                  : `[GAMBAR]\n\n${questionText}`)
+                            : (questionText || questionTextBefore)
+                        }
+                        imageUrl={questionImageUrl}
+                        compactImage
+                        imageAlt="Pratinjau Gambar Soal Baru"
+                      />
                     ) : (
-                      <span className="text-slate-400 italic">Ketikkan pertanyaan di atas untuk melihat preview rumus matematika...</span>
-                    )}
-
-                    {questionImageUrl && (
-                      <div className="pt-2">
-                        <CbtQuestionImageViewer imageUrl={questionImageUrl} compact />
-                      </div>
+                      <span className="text-slate-400 italic">Ketikkan pertanyaan di atas untuk melihat preview rumus matematika & gambar...</span>
                     )}
                   </div>
                 )}
@@ -2922,7 +3084,11 @@ Poin: 15`}
                         </div>
 
                         <div className="text-sm font-medium text-slate-900 dark:text-white pl-9">
-                          <CbtRichText text={item.questionText} />
+                          <CbtQuestionContent
+                            questionText={item.questionText}
+                            imageUrl={item.imageUrl}
+                            compactImage
+                          />
                         </div>
 
                         {/* Options */}
@@ -3075,18 +3241,24 @@ Poin: 15`}
             <form onSubmit={handleSaveEditQuestion} className="p-6 space-y-4 max-h-[82vh] overflow-y-auto">
               {/* 🎨 Toolbar Format Teks, Font, Ukuran, Warna, dan Kotak Terminal */}
               <CbtFormatToolbar
-                textareaRef={editQuestionTextareaRef}
-                value={editQuestionText}
-                onChange={setEditQuestionText}
-                targetLabel="edit soal"
+                textareaRef={activeEditField === 'before' && editImageUrl ? editQuestionBeforeRef : editQuestionTextareaRef}
+                value={activeEditField === 'before' && editImageUrl ? editQuestionTextBefore : editQuestionText}
+                onChange={activeEditField === 'before' && editImageUrl ? setEditQuestionTextBefore : setEditQuestionText}
+                targetLabel={activeEditField === 'before' && editImageUrl ? "teks sebelum gambar" : (editImageUrl ? "pertanyaan di bawah gambar" : "edit soal")}
               />
 
               {/* Toolbar Rumus MTK & KaTeX & Pembuat Tabel */}
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex-1 min-w-[260px]">
                   <CbtMathToolbar
-                    onInsert={(snippet) => setEditQuestionText((prev) => prev ? `${prev} ${snippet}` : snippet)}
-                    targetLabel="soal ujian"
+                    onInsert={(snippet) => {
+                      if (activeEditField === 'before' && editImageUrl) {
+                        setEditQuestionTextBefore((prev) => prev ? `${prev} ${snippet}` : snippet);
+                      } else {
+                        setEditQuestionText((prev) => prev ? `${prev} ${snippet}` : snippet);
+                      }
+                    }}
+                    targetLabel={activeEditField === 'before' && editImageUrl ? "teks sebelum gambar" : "soal ujian"}
                   />
                 </div>
                 <button
@@ -3103,36 +3275,65 @@ Poin: 15`}
                 </button>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Pertanyaan / Isi Soal (Mendukung Format Teks, Blok Terminal & KaTeX $...$) <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  ref={editQuestionTextareaRef}
-                  rows={4}
-                  required
-                  placeholder="Tuliskan pertanyaan soal ujian di sini... Anda bisa blok kata untuk mengganti font, ukuran, warna, atau klik tombol Kotak Terminal di atas."
-                  value={editQuestionText}
-                  onChange={(e) => setEditQuestionText(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500 outline-none font-sans"
-                />
-              </div>
+              {/* 📝 BAGIAN 1: TEKS PENGANTAR / STIMULUS (DI ATAS GAMBAR) */}
+              {editImageUrl ? (
+                <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <AlignLeft size={14} className="text-purple-600 dark:text-purple-400" />
+                      <span>1. Teks Pengantar / Stimulus (Di Atas Gambar - Opsional)</span>
+                    </label>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                      Muncul di Atas Gambar
+                    </span>
+                  </div>
+                  <textarea
+                    ref={editQuestionBeforeRef}
+                    rows={2}
+                    placeholder="Contoh: Perhatikan gambar diagram / topologi jaringan di bawah ini dengan saksama:"
+                    value={editQuestionTextBefore}
+                    onFocus={() => setActiveEditField('before')}
+                    onChange={(e) => setEditQuestionTextBefore(e.target.value)}
+                    className={`w-full px-3.5 py-2.5 rounded-xl border bg-white dark:bg-slate-900 text-sm outline-none transition font-sans ${
+                      activeEditField === 'before'
+                        ? 'border-purple-500 ring-2 ring-purple-500/20'
+                        : 'border-slate-200 dark:border-slate-800'
+                    }`}
+                  />
+                </div>
+              ) : null}
 
-              {/* Upload Gambar / Tautan Gambar Visualisasi Soal */}
+              {/* 🖼️ BAGIAN 2: GAMBAR / VISUALISASI SOAL */}
               <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                     <ImageIcon size={14} className="text-purple-600 dark:text-purple-400" />
-                    <span>Gambar / Visualisasi Soal (Opsional)</span>
+                    <span>{editImageUrl ? '2. Gambar / Visualisasi Soal' : 'Gambar / Visualisasi Soal (Opsional)'}</span>
                   </label>
                   {editImageUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setEditImageUrl('')}
-                      className="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer"
-                    >
-                      Hapus Gambar
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const temp = editQuestionTextBefore;
+                          setEditQuestionTextBefore(editQuestionText);
+                          setEditQuestionText(temp);
+                        }}
+                        className="text-[11px] font-semibold text-purple-600 hover:text-purple-700 hover:underline flex items-center gap-1 cursor-pointer"
+                        title="Tukar posisi teks atas dan bawah gambar"
+                      >
+                        <ArrowUpDown size={12} />
+                        <span>Tukar Teks Atas & Bawah</span>
+                      </button>
+                      <span className="text-slate-300 dark:text-slate-700">•</span>
+                      <button
+                        type="button"
+                        onClick={() => setEditImageUrl('')}
+                        className="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer"
+                      >
+                        Hapus Gambar
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -3163,7 +3364,7 @@ Poin: 15`}
                   />
                 </div>
 
-                {editImageUrl && (
+                {editImageUrl ? (
                   <div className="mt-2 p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-3">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -3180,7 +3381,50 @@ Poin: 15`}
                       </span>
                     </div>
                   </div>
+                ) : (
+                  <div className="text-[11px] text-slate-400 italic">
+                    💡 Tips: Jika soal memiliki gambar diagram/skema, unggah di sini agar Anda bisa menulis teks pengantar di atas gambar dan kalimat pertanyaan di bawah gambar.
+                  </div>
                 )}
+              </div>
+
+              {/* ❓ BAGIAN 3: PERTANYAAN / PERINTAH SOAL (DI BAWAH GAMBAR) */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    {editImageUrl ? (
+                      <span className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
+                        <HelpCircle size={14} className="text-purple-600 dark:text-purple-400" />
+                        <span>3. Pertanyaan / Perintah Soal (Di Bawah Gambar)</span> <span className="text-red-500">*</span>
+                      </span>
+                    ) : (
+                      <span>Pertanyaan / Isi Soal (Mendukung Format Teks, Blok Terminal & KaTeX $...$) <span className="text-red-500">*</span></span>
+                    )}
+                  </label>
+                  {editImageUrl && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                      Muncul di Bawah Gambar
+                    </span>
+                  )}
+                </div>
+                <textarea
+                  ref={editQuestionTextareaRef}
+                  rows={editImageUrl ? 3 : 4}
+                  required={!editImageUrl && !editQuestionTextBefore}
+                  placeholder={
+                    editImageUrl
+                      ? "Tuliskan pertanyaan inti atau perintah soal di sini (misal: Berdasarkan gambar di atas, fungsi perangkat tersebut adalah...)"
+                      : "Tuliskan pertanyaan soal ujian di sini... Anda bisa blok kata untuk mengganti font, ukuran, warna, atau klik tombol Kotak Terminal di atas."
+                  }
+                  value={editQuestionText}
+                  onFocus={() => setActiveEditField('after')}
+                  onChange={(e) => setEditQuestionText(e.target.value)}
+                  className={`w-full px-3.5 py-2.5 rounded-xl border bg-white dark:bg-slate-950 text-sm outline-none transition font-sans ${
+                    activeEditField === 'after'
+                      ? 'border-purple-500 ring-2 ring-purple-500/20'
+                      : 'border-slate-200 dark:border-slate-800'
+                  }`}
+                />
               </div>
 
               {/* Live Preview Realtime Tampilan Siswa */}
@@ -3201,19 +3445,24 @@ Poin: 15`}
                 </div>
 
                 {showEditPreview && (
-                  <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs space-y-2">
-                    {editQuestionText ? (
-                      <div className="text-slate-900 dark:text-white font-medium text-sm">
-                        <CbtRichText text={editQuestionText} />
-                      </div>
+                  <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs">
+                    {(editQuestionTextBefore || editQuestionText || editImageUrl) ? (
+                      <CbtQuestionContent
+                        questionText={
+                          editImageUrl
+                            ? (editQuestionTextBefore && editQuestionText
+                                ? `${editQuestionTextBefore}\n\n[GAMBAR]\n\n${editQuestionText}`
+                                : editQuestionTextBefore
+                                  ? `${editQuestionTextBefore}\n\n[GAMBAR]`
+                                  : `[GAMBAR]\n\n${editQuestionText}`)
+                            : (editQuestionText || editQuestionTextBefore)
+                        }
+                        imageUrl={editImageUrl}
+                        compactImage
+                        imageAlt="Pratinjau Gambar Edit Soal"
+                      />
                     ) : (
-                      <span className="text-slate-400 italic">Ketikkan pertanyaan di atas untuk melihat preview rumus matematika...</span>
-                    )}
-
-                    {editImageUrl && (
-                      <div className="pt-2">
-                        <CbtQuestionImageViewer imageUrl={editImageUrl} compact />
-                      </div>
+                      <span className="text-slate-400 italic">Ketikkan pertanyaan di atas untuk melihat preview rumus matematika & gambar...</span>
                     )}
                   </div>
                 )}
