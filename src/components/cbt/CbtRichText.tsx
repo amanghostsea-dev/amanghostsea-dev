@@ -519,6 +519,21 @@ export default function CbtRichText({
             );
           }
 
+          if (seg.type === 'hr') {
+            return <hr key={idx} className="my-4 border-t border-slate-300 dark:border-slate-700" />;
+          }
+
+          if (seg.type === 'quote') {
+            return (
+              <blockquote
+                key={idx}
+                className="my-3 p-3.5 sm:p-4 rounded-xl bg-purple-50/70 dark:bg-purple-950/30 border-l-4 border-l-purple-500 dark:border-l-purple-400 text-slate-800 dark:text-slate-200 italic leading-relaxed shadow-xs select-text block"
+              >
+                {renderInlineRichFormatting(seg.content, `qt-${idx}`)}
+              </blockquote>
+            );
+          }
+
           if (seg.type === 'code-block') {
             return (
               <div
