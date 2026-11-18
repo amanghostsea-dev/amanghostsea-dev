@@ -31,6 +31,7 @@ import Link from 'next/link';
 import { saveWebSettings } from './actions';
 import { KopSuratConfig, DEFAULT_KOP_SURAT_CONFIG } from './types';
 import { CbtOfficialKopSurat } from '@/components/cbt/CbtOfficialPrintComponents';
+import { compressImageFile } from '@/lib/client-image-compressor';
 
 export default function SettingsClient(props: { initialData: any }) {
   const [formData, setFormData] = useState(props.initialData || {
@@ -77,42 +78,45 @@ export default function SettingsClient(props: { initialData: any }) {
     setLoading(false);
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
+      try {
+        const res = await compressImageFile(file, { maxWidth: 600, maxHeight: 600 });
+        const base64String = res.dataUrl;
         setPreviewLogo(base64String);
         setFormData({ ...formData, logoUrl: file.name });
         // Automatically sync to kop surat left logo if empty
         if (!kopSurat.logoLeftUrl) {
           setKopSurat(prev => ({ ...prev, logoLeftUrl: base64String }));
         }
-      };
-      reader.readAsDataURL(file);
+      } catch (err: any) {
+        alert(err.message || 'Gagal memproses gambar logo');
+      }
     }
   };
 
-  const handleKopLogoLeftUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleKopLogoLeftUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setKopSurat(prev => ({ ...prev, logoLeftUrl: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+      try {
+        const res = await compressImageFile(file, { maxWidth: 600, maxHeight: 600 });
+        setKopSurat(prev => ({ ...prev, logoLeftUrl: res.dataUrl }));
+      } catch (err: any) {
+        alert(err.message || 'Gagal memproses gambar logo');
+      }
     }
   };
 
-  const handleKopLogoRightUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleKopLogoRightUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setKopSurat(prev => ({ ...prev, logoRightUrl: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+      try {
+        const res = await compressImageFile(file, { maxWidth: 600, maxHeight: 600 });
+        setKopSurat(prev => ({ ...prev, logoRightUrl: res.dataUrl }));
+      } catch (err: any) {
+        alert(err.message || 'Gagal memproses gambar logo');
+      }
     }
   };
 
@@ -714,14 +718,15 @@ export default function SettingsClient(props: { initialData: any }) {
                             <input
                               type="file"
                               accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                              onChange={(e) => {
+                              onChange={async (e) => {
                                 const file = e.target.files?.[0];
                                 if (file) {
-                                  const reader = new FileReader();
-                                  reader.onloadend = () => {
-                                    setKopSurat(prev => ({ ...prev, stampUrl: reader.result as string }));
-                                  };
-                                  reader.readAsDataURL(file);
+                                  try {
+                                    const res = await compressImageFile(file, { maxWidth: 800, maxHeight: 800 });
+                                    setKopSurat(prev => ({ ...prev, stampUrl: res.dataUrl }));
+                                  } catch (err: any) {
+                                    alert(err.message || 'Gagal memproses gambar stempel');
+                                  }
                                 }
                               }}
                               className="hidden"
@@ -762,14 +767,15 @@ export default function SettingsClient(props: { initialData: any }) {
                             <input
                               type="file"
                               accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                              onChange={(e) => {
+                              onChange={async (e) => {
                                 const file = e.target.files?.[0];
                                 if (file) {
-                                  const reader = new FileReader();
-                                  reader.onloadend = () => {
-                                    setKopSurat(prev => ({ ...prev, signatureUrl: reader.result as string }));
-                                  };
-                                  reader.readAsDataURL(file);
+                                  try {
+                                    const res = await compressImageFile(file, { maxWidth: 800, maxHeight: 800 });
+                                    setKopSurat(prev => ({ ...prev, signatureUrl: res.dataUrl }));
+                                  } catch (err: any) {
+                                    alert(err.message || 'Gagal memproses gambar tanda tangan');
+                                  }
                                 }
                               }}
                               className="hidden"

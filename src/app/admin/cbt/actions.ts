@@ -1590,6 +1590,14 @@ export async function saveSchoolStampAndSignatureAction(data: {
       };
     }
 
+    // Perlindungan ukuran payload: pastikan string base64 wajar (< 2MB) agar database cepat & aman
+    if (data.stampUrl && data.stampUrl.length > 2.5 * 1024 * 1024) {
+      return { error: 'Ukuran gambar stempel terlalu besar. Mohon unggah ulang gambar agar sistem mengompresnya secara otomatis.' };
+    }
+    if (data.signatureUrl && data.signatureUrl.length > 2.5 * 1024 * 1024) {
+      return { error: 'Ukuran gambar tanda tangan terlalu besar. Mohon unggah ulang gambar agar sistem mengompresnya secara otomatis.' };
+    }
+
     const currentSettings = (await getWebSettings()) || {};
     const currentKopSurat = currentSettings.kopSurat || {};
 

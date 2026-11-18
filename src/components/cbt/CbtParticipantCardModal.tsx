@@ -35,6 +35,7 @@ import { KopSuratConfig, DEFAULT_KOP_SURAT_CONFIG } from '@/app/admin/settings/t
 import { CbtDigitalStamp, HeadmasterSignatureStroke } from './CbtOfficialPrintComponents';
 import { generateQrSvg } from '@/lib/pure-qr';
 import { CbtTimezone, DEFAULT_CBT_TIMEZONE, formatScheduleTime } from '@/lib/cbt-schedule';
+import { compressImageFile } from '@/lib/client-image-compressor';
 import { 
   getCbtStudentCardsDataAction, 
   saveSchoolStampAndSignatureAction,
@@ -74,6 +75,10 @@ export default function CbtParticipantCardModal({
   const [stampPreview, setStampPreview] = useState<string | null>(initialKopConfig?.stampUrl || null);
   const [signaturePreview, setSignaturePreview] = useState<string | null>(initialKopConfig?.signatureUrl || null);
   const [isSavingStamp, setIsSavingStamp] = useState<boolean>(false);
+  const [isCompressingStamp, setIsCompressingStamp] = useState<boolean>(false);
+  const [isCompressingSig, setIsCompressingSig] = useState<boolean>(false);
+  const [stampCompressionBadge, setStampCompressionBadge] = useState<string | null>(null);
+  const [signatureCompressionBadge, setSignatureCompressionBadge] = useState<string | null>(null);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
 
   // Filter States
@@ -178,40 +183,62 @@ export default function CbtParticipantCardModal({
     }
   };
 
-  // Upload Handlers
-  const handleStampUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Upload Handlers dengan Kompresi Otomatis (Mencegah Error 413 / Server Response Error)
+  const handleStampUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        setStampPreview(base64);
-        setKopConfig(prev => ({ ...prev, stampUrl: base64 }));
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    if (file.size > 20 * 1024 * 1024) {
+      alert('Ukuran file terlalu besar (maksimal 20MB). Silakan gunakan gambar dengan ukuran lebih kecil.');
+      return;
+    }
+
+    setIsCompressingStamp(true);
+    try {
+      const res = await compressImageFile(file, { maxWidth: 800, maxHeight: 800 });
+      setStampPreview(res.dataUrl);
+      setKopConfig(prev => ({ ...prev, stampUrl: res.dataUrl }));
+      setStampCompressionBadge(`✓ Dioptimalkan: ${res.formattedCompressedSize} (asli: ${res.formattedOriginalSize})`);
+    } catch (err: any) {
+      alert(err.message || 'Gagal memproses file stempel.');
+    } finally {
+      setIsCompressingStamp(false);
+      e.target.value = '';
     }
   };
 
-  const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSignatureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        setSignaturePreview(base64);
-        setKopConfig(prev => ({ ...prev, signatureUrl: base64 }));
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    if (file.size > 20 * 1024 * 1024) {
+      alert('Ukuran file terlalu besar (maksimal 20MB). Silakan gunakan gambar dengan ukuran lebih kecil.');
+      return;
+    }
+
+    setIsCompressingSig(true);
+    try {
+      const res = await compressImageFile(file, { maxWidth: 800, maxHeight: 800 });
+      setSignaturePreview(res.dataUrl);
+      setKopConfig(prev => ({ ...prev, signatureUrl: res.dataUrl }));
+      setSignatureCompressionBadge(`✓ Dioptimalkan: ${res.formattedCompressedSize} (asli: ${res.formattedOriginalSize})`);
+    } catch (err: any) {
+      alert(err.message || 'Gagal memproses file tanda tangan.');
+    } finally {
+      setIsCompressingSig(false);
+      e.target.value = '';
     }
   };
 
   const handleRemoveStamp = () => {
     setStampPreview(null);
+    setStampCompressionBadge(null);
     setKopConfig(prev => ({ ...prev, stampUrl: null }));
   };
 
   const handleRemoveSignature = () => {
     setSignaturePreview(null);
+    setSignatureCompressionBadge(null);
     setKopConfig(prev => ({ ...prev, signatureUrl: null }));
   };
 
@@ -234,7 +261,13 @@ export default function CbtParticipantCardModal({
         setTimeout(() => setSaveSuccessMsg(null), 4000);
       }
     } catch (err: any) {
-      alert(err.message || 'Gagal menyimpan stempel ke database.');
+      console.error('Error saving stamp & signature:', err);
+      const msg = err.message || '';
+      if (msg.includes('unexpected response') || msg.includes('413') || msg.includes('Payload')) {
+        alert('Gagal menyimpan: File gambar stempel atau tanda tangan sebelumnya berukuran terlalu besar bagi server. Silakan klik tombol "Unggah Stempel" atau "Unggah TTD" kembali agar sistem mengompres gambarnya secara otomatis.');
+      } else {
+        alert(msg || 'Gagal menyimpan stempel ke database.');
+      }
     } finally {
       setIsSavingStamp(false);
     }
@@ -542,13 +575,15 @@ export default function CbtParticipantCardModal({
                     <span className="block text-[11px] font-bold text-slate-800 dark:text-slate-200">
                       Stempel Sekolah: {stampPreview ? <strong className="text-emerald-600">(Gambar Upload)</strong> : <span className="text-slate-400">(Cap Vektor Otomatis)</span>}
                     </span>
-                    <div className="flex items-center gap-2">
-                      <label className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 rounded-md text-[11px] font-bold border border-indigo-200 dark:border-indigo-800 cursor-pointer transition-all">
-                        <Upload size={12} /> Unggah Stempel (PNG)
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 rounded-md text-[11px] font-bold border border-indigo-200 dark:border-indigo-800 cursor-pointer transition-all disabled:opacity-50">
+                        {isCompressingStamp ? <RefreshCw size={12} className="animate-spin text-indigo-600" /> : <Upload size={12} />}
+                        <span>{isCompressingStamp ? 'Mengompres...' : 'Unggah Stempel (PNG)'}</span>
                         <input
                           type="file"
                           accept="image/png,image/jpeg,image/webp,image/svg+xml"
                           onChange={handleStampUpload}
+                          disabled={isCompressingStamp}
                           className="hidden"
                         />
                       </label>
@@ -563,6 +598,11 @@ export default function CbtParticipantCardModal({
                         </button>
                       )}
                     </div>
+                    {stampCompressionBadge && (
+                      <span className="inline-block text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                        {stampCompressionBadge}
+                      </span>
+                    )}
                     <p className="text-[10px] text-slate-500">Disarankan format PNG transparan agar menempel alami.</p>
                   </div>
                 </div>
@@ -581,13 +621,15 @@ export default function CbtParticipantCardModal({
                     <span className="block text-[11px] font-bold text-slate-800 dark:text-slate-200">
                       Tanda Tangan Kepsek: {signaturePreview ? <strong className="text-emerald-600">(Gambar Upload)</strong> : <span className="text-slate-400">(Dikosongkan / Belum Diunggah)</span>}
                     </span>
-                    <div className="flex items-center gap-2">
-                      <label className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 rounded-md text-[11px] font-bold border border-indigo-200 dark:border-indigo-800 cursor-pointer transition-all">
-                        <Upload size={12} /> Unggah TTD (PNG)
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 rounded-md text-[11px] font-bold border border-indigo-200 dark:border-indigo-800 cursor-pointer transition-all disabled:opacity-50">
+                        {isCompressingSig ? <RefreshCw size={12} className="animate-spin text-indigo-600" /> : <Upload size={12} />}
+                        <span>{isCompressingSig ? 'Mengompres...' : 'Unggah TTD (PNG)'}</span>
                         <input
                           type="file"
                           accept="image/png,image/jpeg,image/webp,image/svg+xml"
                           onChange={handleSignatureUpload}
+                          disabled={isCompressingSig}
                           className="hidden"
                         />
                       </label>
@@ -602,6 +644,11 @@ export default function CbtParticipantCardModal({
                         </button>
                       )}
                     </div>
+                    {signatureCompressionBadge && (
+                      <span className="inline-block text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                        {signatureCompressionBadge}
+                      </span>
+                    )}
                     <p className="text-[10px] text-slate-500">Gunakan coretan tanda tangan asli berlatar belakang transparan.</p>
                   </div>
                 </div>
