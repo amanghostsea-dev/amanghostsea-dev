@@ -357,9 +357,10 @@ export default function CbtDashboard({
     endTime: '',
     enableSchedule: true,
     allowConflict: false,
+    targetReligion: 'ALL',
   });
 
-  const runConflictCheck = async (startTime: string, endTime: string, classTarget: string) => {
+  const runConflictCheck = async (startTime: string, endTime: string, classTarget: string, targetReligion?: string) => {
     if (!startTime || !endTime) {
       setConflicts([]);
       setConflictWarning(null);
@@ -372,6 +373,7 @@ export default function CbtDashboard({
         classTarget,
         startTime: parseDateTimeInputToIso(startTime, cbtTimezone),
         endTime: parseDateTimeInputToIso(endTime, cbtTimezone),
+        targetReligion: targetReligion !== undefined ? targetReligion : formData.targetReligion,
       });
       if (res.hasConflict && res.conflicts && res.conflicts.length > 0) {
         setConflicts(res.conflicts);
@@ -836,6 +838,7 @@ export default function CbtDashboard({
       endTime: endStr,
       enableSchedule: true,
       allowConflict: false,
+      targetReligion: 'ALL',
     });
     setConflicts([]);
     setConflictWarning(null);
@@ -877,6 +880,7 @@ export default function CbtDashboard({
       endTime: endStr,
       enableSchedule: Boolean(exam.startTime || exam.endTime),
       allowConflict: false,
+      targetReligion: exam.targetReligion || 'ALL',
     });
     setConflicts([]);
     setConflictWarning(null);
@@ -950,6 +954,7 @@ export default function CbtDashboard({
       startTime: startIso,
       endTime: endIso,
       allowConflict: formData.allowConflict,
+      targetReligion: formData.targetReligion || 'ALL',
     };
 
     if (editingExam) {
@@ -1972,12 +1977,26 @@ export default function CbtDashboard({
                 <div className="p-4 sm:p-5 flex-1 flex flex-col">
                   {/* Top Status & Subject Bar */}
                   <div className="flex items-start justify-between gap-2 mb-2.5">
-                    <span 
-                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/60 truncate max-w-[190px]"
-                      title={exam.subject}
-                    >
-                      {exam.subject}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                      <span 
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/60 truncate max-w-[170px]"
+                        title={exam.subject}
+                      >
+                        {exam.subject}
+                      </span>
+                      {exam.targetReligion && exam.targetReligion !== 'ALL' && (() => {
+                        const rel = getReligionConfig(exam.targetReligion);
+                        return (
+                          <span 
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold border inline-flex items-center gap-1 shrink-0 ${rel.bgBadge} ${rel.borderBadge} ${rel.textBadge}`}
+                            title={`Khusus Siswa: ${rel.label}`}
+                          >
+                            <span>{rel.icon}</span>
+                            <span>{rel.badgeLabel}</span>
+                          </span>
+                        );
+                      })()}
+                    </div>
                     <span
                       className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-bold shrink-0 ${
                         isLive
@@ -2288,6 +2307,39 @@ export default function CbtDashboard({
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
                   />
                 </div>
+              </div>
+
+              {/* 🕌 VARIAN AGAMA SISWA (UNTUK MAPEL AGAMA SERENTAK DENGAN TOKEN BERSAMA) */}
+              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50/70 via-sky-50/60 to-purple-50/60 dark:from-emerald-950/20 dark:via-sky-950/20 dark:to-purple-950/20 border border-emerald-200/80 dark:border-emerald-800/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <span>🕌</span>
+                    <span>Target Varian Agama Siswa:</span>
+                  </label>
+                  <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/50 px-2 py-0.5 rounded-md">
+                    Multi-Agama Serentak
+                  </span>
+                </div>
+                <select
+                  value={formData.targetReligion}
+                  onChange={(e) => {
+                    const newRel = e.target.value;
+                    setFormData({ ...formData, targetReligion: newRel });
+                    if (formData.startTime && formData.endTime) {
+                      runConflictCheck(formData.startTime, formData.endTime, formData.classTarget, newRel);
+                    }
+                  }}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                >
+                  {RELIGION_OPTIONS.map((opt) => (
+                    <option key={opt.code} value={opt.code}>
+                      {opt.icon} {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  💡 <strong>Untuk Mapel Agama:</strong> Pilih agama spesifik agar siswa yang berbeda agama di kelas ini dapat mengerjakan ujian secara serentak dengan <strong>1 token bersama</strong> tanpa bentrok jadwal.
+                </p>
               </div>
 
               {/* 🎯 TARGET KELAS & JURUSAN (LINTAS JURUSAN & MULTI-ROMBEL) */}

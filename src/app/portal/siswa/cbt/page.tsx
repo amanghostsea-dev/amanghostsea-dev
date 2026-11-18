@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import SiswaCbtClient from './SiswaCbtClient';
 import { getKopSuratConfig, getCbtTimezone } from '@/lib/settings';
 import { isClassTargetMatch } from '@/lib/cbt-schedule';
+import { isStudentReligionMatch } from '@/lib/cbt-religion';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +28,7 @@ export default async function SiswaCbtListPage() {
   let studentName = authName || '';
   let studentNis = authUser || '';
   let studentClass = '';
+  let studentReligion = '';
 
   // 1. Temukan data user akun lengkap di database (baik lewat authUser maupun authName jika berisi NISN/username/nama)
   try {
@@ -43,6 +45,9 @@ export default async function SiswaCbtListPage() {
       studentNis = user.nisn || user.username;
       if (user.studentClass) {
         studentClass = user.studentClass;
+      }
+      if (user.religion) {
+        studentReligion = user.religion;
       }
     }
   } catch (err) {
@@ -180,9 +185,18 @@ export default async function SiswaCbtListPage() {
   // Filter ujian yang relevan:
   // 1. Siswa telah memiliki attempt (agar riwayat nilai dan transkrip tetap dapat diakses di portal)
   // 2. ATAU Target kelas ujian cocok dengan kelas aktual siswa (Semua Kelas, Tingkat Lintas Jurusan, atau Rombel spesifik)
+  // 3. DAN jika ujian memiliki target agama spesifik, saring sesuai agama siswa (jika terdaftar)
   const relevantExams = exams.filter((exam) => {
     if (exam.attempts && exam.attempts.length > 0) return true;
-    return isClassTargetMatch(exam.classTarget, studentClass);
+    const isClassMatch = isClassTargetMatch(exam.classTarget, studentClass);
+    if (!isClassMatch) return false;
+
+    // Saring varian agama jika siswa sudah terdaftar agamanya
+    if (studentReligion && exam.targetReligion && exam.targetReligion !== 'ALL') {
+      return isStudentReligionMatch(exam.targetReligion, studentReligion);
+    }
+
+    return true;
   });
 
   return (
@@ -191,6 +205,7 @@ export default async function SiswaCbtListPage() {
       studentName={studentName}
       studentNis={studentNis}
       studentClass={studentClass}
+      studentReligion={studentReligion}
       initials={initials}
       kopSuratConfig={kopSuratConfig}
       timezone={cbtTimezone}

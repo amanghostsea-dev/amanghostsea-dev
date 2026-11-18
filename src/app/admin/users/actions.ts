@@ -19,6 +19,7 @@ export async function createUser(data: {
   nisn?: string | null;
   password?: string;
   studentClass?: string | null;
+  religion?: string | null;
 }) {
   await requireSuperAdmin();
   try {
@@ -56,6 +57,7 @@ export async function createUser(data: {
         nisn,
         password,
         studentClass: data.role === 'Siswa' ? (data.studentClass?.trim() || null) : null,
+        religion: data.role === 'Siswa' ? (data.religion?.trim() || null) : null,
       }
     });
 
@@ -117,6 +119,7 @@ export async function updateUser(id: string, data: {
   nisn?: string | null;
   password?: string;
   studentClass?: string | null;
+  religion?: string | null;
 }) {
   await requireSuperAdmin();
   try {
@@ -149,6 +152,7 @@ export async function updateUser(id: string, data: {
       nisn: string | null;
       password?: string;
       studentClass?: string | null;
+      religion?: string | null;
     } = {
       name: data.name.trim(),
       username,
@@ -156,6 +160,7 @@ export async function updateUser(id: string, data: {
       status: data.status,
       nisn,
       studentClass: data.role === 'Siswa' ? (data.studentClass?.trim() || null) : null,
+      religion: data.role === 'Siswa' ? (data.religion?.trim() || null) : null,
     };
 
     if (data.password && data.password.trim() !== '') {
@@ -352,6 +357,32 @@ export async function updateStudentClass(userId: string, studentClass: string) {
     return { success: true, user: updated };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Gagal memperbarui kelas siswa';
+    return { error: msg };
+  }
+}
+
+/**
+ * 🕌 Update Agama Siswa Resmi (Islam, Kristen, Katolik, Hindu, Buddha, Khonghucu)
+ */
+export async function updateStudentReligion(userId: string, religion: string) {
+  await requireSuperAdmin();
+  try {
+    const trimmedReligion = (religion || '').trim().toUpperCase();
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        religion: trimmedReligion && trimmedReligion !== 'ALL' ? trimmedReligion : null,
+      },
+    });
+
+    revalidatePath('/admin/users');
+    revalidatePath('/admin/cbt');
+    revalidatePath('/portal/siswa');
+    revalidatePath('/ujian');
+
+    return { success: true, user: updated };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Gagal memperbarui agama siswa';
     return { error: msg };
   }
 }

@@ -191,6 +191,7 @@ export default function UsersCRUD({
     password: '',
     nisn: '',
     studentClass: classTargets.find(c => c !== 'Semua Kelas' && !c.includes('Semua Jurusan')) || 'XI TJKT 1',
+    religion: 'ISLAM',
   });
   const [selectedJurusanCode, setSelectedJurusanCode] = useState(jurusans[0]?.code || 'TJKT');
   const [isEditing, setIsEditing] = useState(false);
@@ -341,6 +342,7 @@ export default function UsersCRUD({
       password: '', 
       nisn: '',
       studentClass: defaultClass,
+      religion: 'ISLAM',
     });
     setIsEditing(false);
     setIsModalOpen(true);
@@ -361,6 +363,7 @@ export default function UsersCRUD({
       password: '',
       nisn: item.nisn || '',
       studentClass: userClass,
+      religion: (item as any).religion || 'ISLAM',
     });
     setIsEditing(true);
     setIsModalOpen(true);
@@ -1579,10 +1582,17 @@ export default function UsersCRUD({
                             if (userClass) {
                               return (
                                 <div className="flex flex-col gap-1 items-start">
-                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 shadow-xs">
-                                    <GraduationCap size={13} className="text-purple-600 dark:text-purple-400 shrink-0" />
-                                    <span>{userClass}</span>
-                                  </span>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 shadow-xs">
+                                      <GraduationCap size={13} className="text-purple-600 dark:text-purple-400 shrink-0" />
+                                      <span>{userClass}</span>
+                                    </span>
+                                    {(item as any).religion && (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800" title={`Agama: ${(item as any).religion}`}>
+                                        {(item as any).religion}
+                                      </span>
+                                    )}
+                                  </div>
                                   {matchedJurusan ? (
                                     <span 
                                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 max-w-[210px] truncate" 
@@ -1772,6 +1782,29 @@ export default function UsersCRUD({
                               {c}
                             </option>
                           ))}
+                        </select>
+                      </div>
+
+                      <div className="sm:col-span-2 pt-2 border-t border-purple-200/60 dark:border-purple-800/40">
+                        <label className="block text-xs font-bold text-purple-950 dark:text-purple-300 mb-1 flex items-center justify-between">
+                          <span className="flex items-center gap-1">
+                            <Sparkles size={13} className="text-purple-600" /> Agama Siswa (Routing Otomatis CBT) *
+                          </span>
+                          <span className="text-[10px] text-purple-600 dark:text-purple-400 font-normal">
+                            Untuk ujian agama serentak 1 token
+                          </span>
+                        </label>
+                        <select
+                          value={formData.religion || 'ISLAM'}
+                          onChange={(e) => setFormData(prev => ({ ...prev, religion: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-lg border border-purple-300 dark:border-purple-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
+                        >
+                          <option value="ISLAM">☪️ Islam (Pendidikan Agama Islam & Budi Pekerti)</option>
+                          <option value="KRISTEN">✝️ Kristen (Pendidikan Agama Kristen & Budi Pekerti)</option>
+                          <option value="KATOLIK">⛪ Katolik (Pendidikan Agama Katolik & Budi Pekerti)</option>
+                          <option value="HINDU">🕉️ Hindu (Pendidikan Agama Hindu & Budi Pekerti)</option>
+                          <option value="BUDDHA">☸️ Buddha (Pendidikan Agama Buddha & Budi Pekerti)</option>
+                          <option value="KHONGHUCU">☯️ Khonghucu (Pendidikan Agama Khonghucu & Budi Pekerti)</option>
                         </select>
                       </div>
                     </div>

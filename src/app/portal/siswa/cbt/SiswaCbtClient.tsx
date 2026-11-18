@@ -75,6 +75,7 @@ export interface ExamItem {
     questions: number;
   };
   attempts: AttemptItem[];
+  targetReligion?: string | null;
 }
 
 interface SiswaCbtClientProps {
@@ -82,6 +83,7 @@ interface SiswaCbtClientProps {
   studentName: string;
   studentNis?: string;
   studentClass: string;
+  studentReligion?: string;
   initials: string;
   kopSuratConfig?: KopSuratConfig;
   timezone?: CbtTimezone;
@@ -92,6 +94,7 @@ export default function SiswaCbtClient({
   studentName,
   studentNis = '-',
   studentClass,
+  studentReligion,
   initials,
   kopSuratConfig,
   timezone = DEFAULT_CBT_TIMEZONE,
