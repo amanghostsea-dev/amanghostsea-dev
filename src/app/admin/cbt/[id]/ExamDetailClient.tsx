@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { 
   ArrowLeft, 
@@ -87,6 +87,7 @@ import CbtQuestionImageViewer from '@/components/cbt/CbtQuestionImageViewer';
 import CbtMathToolbar from '@/components/cbt/CbtMathToolbar';
 import CbtOptionInputItem from '@/components/cbt/CbtOptionInputItem';
 import CbtTableBuilderModal from '@/components/cbt/CbtTableBuilderModal';
+import CbtFormatToolbar from '@/components/cbt/CbtFormatToolbar';
 
 interface ParsedQuestion {
   questionText: string;
@@ -774,6 +775,7 @@ export default function ExamDetailClient({
   // Modal Create Question
   const [isAddQuestionModal, setIsAddQuestionModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const createQuestionTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [questionText, setQuestionText] = useState('');
   const [questionImageUrl, setQuestionImageUrl] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -1260,6 +1262,7 @@ Poin: 10
   // Edit Question Modal state
   const [isEditQModal, setIsEditQModal] = useState(false);
   const [editingQId, setEditingQId] = useState<string | null>(null);
+  const editQuestionTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [editQuestionText, setEditQuestionText] = useState('');
   const [editImageUrl, setEditImageUrl] = useState('');
   const [editUploadingImage, setEditUploadingImage] = useState(false);
@@ -2204,6 +2207,14 @@ Poin: 10
             </div>
 
             <form onSubmit={handleAddQuestion} className="p-6 space-y-4 max-h-[82vh] overflow-y-auto">
+              {/* 🎨 Toolbar Format Teks, Font, Ukuran, Warna, dan Kotak Terminal */}
+              <CbtFormatToolbar
+                textareaRef={createQuestionTextareaRef}
+                value={questionText}
+                onChange={setQuestionText}
+                targetLabel="soal baru"
+              />
+
               {/* Toolbar Rumus MTK & KaTeX & Pembuat Tabel */}
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex-1 min-w-[260px]">
@@ -2228,12 +2239,13 @@ Poin: 10
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Pertanyaan / Isi Soal (Mendukung Rumus KaTeX $...$) <span className="text-red-500">*</span>
+                  Pertanyaan / Isi Soal (Mendukung Format Teks, Blok Terminal & KaTeX $...$) <span className="text-red-500">*</span>
                 </label>
                 <textarea
+                  ref={createQuestionTextareaRef}
                   rows={4}
                   required
-                  placeholder="Tuliskan pertanyaan soal ujian di sini... Contoh rumus: $x^2 + 5x + 6 = 0$ atau gunakan tombol rumus di atas."
+                  placeholder="Tuliskan pertanyaan soal ujian di sini... Anda bisa blok kata untuk mengganti font, ukuran, warna, atau klik tombol Kotak Terminal di atas."
                   value={questionText}
                   onChange={(e) => setQuestionText(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500 outline-none font-sans"
@@ -2918,6 +2930,14 @@ Poin: 15`}
             </div>
 
             <form onSubmit={handleSaveEditQuestion} className="p-6 space-y-4 max-h-[82vh] overflow-y-auto">
+              {/* 🎨 Toolbar Format Teks, Font, Ukuran, Warna, dan Kotak Terminal */}
+              <CbtFormatToolbar
+                textareaRef={editQuestionTextareaRef}
+                value={editQuestionText}
+                onChange={setEditQuestionText}
+                targetLabel="edit soal"
+              />
+
               {/* Toolbar Rumus MTK & KaTeX & Pembuat Tabel */}
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex-1 min-w-[260px]">
@@ -2942,12 +2962,13 @@ Poin: 15`}
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Pertanyaan / Isi Soal (Mendukung Rumus KaTeX $...$) <span className="text-red-500">*</span>
+                  Pertanyaan / Isi Soal (Mendukung Format Teks, Blok Terminal & KaTeX $...$) <span className="text-red-500">*</span>
                 </label>
                 <textarea
+                  ref={editQuestionTextareaRef}
                   rows={4}
                   required
-                  placeholder="Tuliskan pertanyaan soal ujian di sini... Contoh rumus: $x^2 + 5x + 6 = 0$ atau gunakan tombol rumus di atas."
+                  placeholder="Tuliskan pertanyaan soal ujian di sini... Anda bisa blok kata untuk mengganti font, ukuran, warna, atau klik tombol Kotak Terminal di atas."
                   value={editQuestionText}
                   onChange={(e) => setEditQuestionText(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm focus:ring-2 focus:ring-purple-500 outline-none font-sans"

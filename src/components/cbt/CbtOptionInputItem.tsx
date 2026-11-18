@@ -69,8 +69,18 @@ export default function CbtOptionInputItem({
   const imageMatch = value.match(imageRegex);
   const attachedImageUrl = imageMatch ? imageMatch[2] : null;
 
-  // Cek apakah opsi ini mengandung rumus ($...$) atau foto
-  const hasRichContent = Boolean(value.includes('$') || attachedImageUrl);
+  // Cek apakah opsi ini mengandung rumus ($...$), foto, atau format teks khusus
+  const hasRichContent = Boolean(
+    value.includes('$') || 
+    attachedImageUrl ||
+    value.includes('`') ||
+    value.includes('[') ||
+    value.includes('*') ||
+    value.includes('_') ||
+    value.includes('<') ||
+    value.includes('~') ||
+    value.includes('==')
+  );
 
   // Sisipkan rumus KaTeX ke dalam opsi
   const handleInsertFormula = (latex: string) => {
