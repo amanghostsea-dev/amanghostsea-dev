@@ -1828,22 +1828,23 @@ Poin: 10
             </div>
           )}
 
-          {/* 🌟 Panel Header Daftar Soal & Pusat Aksi Tombol (Ultra Modern, Rapi & Beranimasi) */}
-          <div className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs relative overflow-hidden transition-all duration-300">
+          {/* 🌟 Panel Header Daftar Soal & Pusat Aksi Tombol (Ultra Modern, Rapi, Simetris & Beranimasi) */}
+          <div className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs relative overflow-hidden transition-all duration-300">
             {/* Ambient Background Glow Halus */}
-            <div className="absolute -top-16 -right-16 w-48 h-48 bg-purple-500/10 dark:bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-emerald-500/10 dark:bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -top-16 -right-16 w-56 h-56 bg-purple-500/10 dark:bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-16 -left-16 w-56 h-56 bg-emerald-500/10 dark:bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
 
-            <div className="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-4 sm:gap-5">
-              {/* Kiri: Informasi Judul, Badge Jumlah Soal & Ringkasan Poin */}
-              <div className="space-y-1.5">
-                <div className="flex flex-wrap items-center gap-2.5">
+            <div className="relative z-10 space-y-4">
+              {/* ── BARIS 1 (ATAS): Judul, Badge Jumlah Soal & Ringkasan Skor (Satu Baris Rapi) ── */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-3.5 border-b border-slate-100 dark:border-slate-800/80">
+                {/* Kiri: Judul Soal & Badge */}
+                <div className="flex items-center gap-2.5">
                   <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                     {isProctorOnly ? 'Pratinjau Naskah Soal Ujian' : 'Daftar Butir Soal'}
                   </h2>
                   
                   {/* Badge Jumlah Soal dengan Indikator Pulsa Halus */}
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-purple-100/80 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800 shadow-2xs">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-purple-100/90 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800 shadow-2xs">
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-600"></span>
@@ -1854,44 +1855,44 @@ Poin: 10
                   {isProctorOnly && (
                     <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 flex items-center gap-1">
                       <ShieldCheck size={12} className="text-amber-600" />
-                      <span>Mode Hanya Lihat (Read-Only)</span>
+                      <span>Mode Hanya Lihat</span>
                     </span>
                   )}
                 </div>
 
-                {/* Ringkasan Skor & Rata-rata */}
-                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  <span className="flex items-center gap-1.5 bg-slate-100/80 dark:bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-200/60 dark:border-slate-700/60">
-                    <span className="text-slate-400">Total Nilai:</span>
+                {/* Kanan: Ringkasan Nilai & Rata-rata Horisontal */}
+                <div className="flex items-center gap-2 text-xs">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 shadow-2xs">
+                    <span className="text-slate-400 font-medium">Total Skor:</span>
                     <strong className="text-emerald-600 dark:text-emerald-400 font-black">
                       {Math.round(totalPoints * 100) / 100} Poin
                     </strong>
-                  </span>
+                  </div>
 
                   {questions.length > 0 && (
-                    <span className="flex items-center gap-1.5 bg-slate-100/80 dark:bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-200/60 dark:border-slate-700/60">
-                      <span className="text-slate-400">Rata-rata:</span>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 shadow-2xs">
+                      <span className="text-slate-400 font-medium">Rata-rata:</span>
                       <strong className="text-purple-700 dark:text-purple-300 font-bold">
                         {Math.round((totalPoints / questions.length) * 100) / 100} Poin/Soal
                       </strong>
-                    </span>
+                    </div>
                   )}
                 </div>
               </div>
 
-              {/* Kanan: Pusat Aksi Tombol dengan Animasi Interaktif */}
+              {/* ── BARIS 2 (BAWAH): Pusat Tombol Aksi (Grid 4 Tombol Simetris & Sempurna) ── */}
               {!isProctorOnly ? (
-                <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
                   {/* 1. TOMBOL UTAMA: Tambah Soal Manual (Hero Action) */}
                   <button
                     type="button"
                     onClick={() => setIsAddQuestionModal(true)}
-                    className="group relative overflow-hidden flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-500 hover:via-indigo-500 hover:to-purple-600 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-purple-500/25 hover:shadow-lg hover:shadow-purple-500/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 cursor-pointer"
+                    className="group relative overflow-hidden flex items-center justify-center gap-2 px-4 py-2.5 sm:py-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-500 hover:via-indigo-500 hover:to-purple-600 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md shadow-purple-500/25 hover:shadow-lg hover:shadow-purple-500/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 cursor-pointer"
                   >
                     {/* Shimmer sweep effect */}
                     <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
                     <Plus size={16} className="group-hover:rotate-90 transition-transform duration-300 shrink-0" />
-                    <span>Tambah Soal Manual</span>
+                    <span className="truncate">Tambah Soal Manual</span>
                   </button>
 
                   {/* 2. TOMBOL KOLEKTIF: Input Batch Soal */}
@@ -1901,35 +1902,35 @@ Poin: 10
                       setBatchStep('input');
                       setIsBatchModalOpen(true);
                     }}
-                    className="group relative overflow-hidden flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-emerald-500/25 hover:shadow-lg hover:shadow-emerald-500/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 cursor-pointer"
+                    className="group relative overflow-hidden flex items-center justify-center gap-2 px-4 py-2.5 sm:py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md shadow-emerald-500/25 hover:shadow-lg hover:shadow-emerald-500/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 cursor-pointer"
                     title="Upload soal secara banyak sekaligus via teks atau tabel"
                   >
                     <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
                     <UploadCloud size={16} className="group-hover:-translate-y-0.5 group-hover:scale-110 transition-transform duration-300 shrink-0" />
-                    <span>Input Kolektif (Batch)</span>
+                    <span className="truncate">Input Kolektif (Batch)</span>
                   </button>
 
                   {/* 3. TOMBOL TEMPLATE: Unduh Format CSV */}
                   <button
                     type="button"
                     onClick={() => handleDownloadCsvTemplate('csv')}
-                    className="group flex items-center gap-2 px-3.5 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-emerald-500/80 dark:hover:border-emerald-500/80 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/30 text-slate-700 dark:text-slate-200 rounded-xl text-xs sm:text-sm font-bold shadow-2xs hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 cursor-pointer"
+                    className="group flex items-center justify-center gap-2 px-4 py-2.5 sm:py-3 bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 hover:border-emerald-500/80 dark:hover:border-emerald-500/80 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/30 text-slate-700 dark:text-slate-200 rounded-2xl text-xs sm:text-sm font-bold shadow-2xs hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 cursor-pointer"
                     title="Unduh Template Excel CSV Resmi dengan Kolom Siap Isi"
                   >
                     <FileSpreadsheet size={16} className="text-emerald-600 dark:text-emerald-400 group-hover:scale-115 transition-transform duration-200 shrink-0" />
-                    <span>Unduh Template CSV</span>
+                    <span className="truncate">Unduh Template CSV</span>
                   </button>
 
                   {/* 4. TOMBOL DISTRIBUSI: Bagi Rata Nilai Otomatis */}
                   <button
                     type="button"
                     onClick={() => setIsAutoDistributeModalOpen(true)}
-                    className="group relative overflow-hidden flex items-center gap-2 px-3.5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-amber-500/20 hover:shadow-lg hover:shadow-amber-500/30 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 cursor-pointer"
+                    className="group relative overflow-hidden flex items-center justify-center gap-2 px-4 py-2.5 sm:py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md shadow-amber-500/20 hover:shadow-lg hover:shadow-amber-500/30 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 cursor-pointer"
                     title="Bagi rata nilai otomatis ke seluruh butir soal (contoh: 40 soal dengan total 100 = 2.5 poin/soal)"
                   >
                     <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
                     <Calculator size={16} className="group-hover:rotate-12 group-hover:scale-110 transition-transform duration-200 shrink-0" />
-                    <span>Bagi Rata Nilai (Otomatis)</span>
+                    <span className="truncate">Bagi Rata Nilai (Otomatis)</span>
                   </button>
                 </div>
               ) : (
