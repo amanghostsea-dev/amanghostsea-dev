@@ -74,6 +74,7 @@ import {
   CbtTimezone,
   DEFAULT_CBT_TIMEZONE
 } from '@/lib/cbt-schedule';
+import { RELIGION_OPTIONS, getReligionConfig } from '@/lib/cbt-religion';
 import CbtReportView from './CbtReportView';
 import CbtProctorPlottingView, { TeacherUserItem } from './CbtProctorPlottingView';
 import { KopSuratConfig } from '@/app/admin/settings/types';
@@ -88,6 +89,7 @@ interface ExamItem {
   token: string | null;
   description: string | null;
   status: string;
+  targetReligion?: string | null;
   shuffleQuestions: boolean;
   authorName: string | null;
   proctorId?: string | null;
