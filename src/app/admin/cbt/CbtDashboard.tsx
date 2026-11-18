@@ -1125,29 +1125,29 @@ export default function CbtDashboard({
           </p>
         </div>
 
-        {/* Action Buttons: Responsive Grid on Mobile, Flex on Desktop */}
-        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-stretch sm:items-center gap-2 sm:gap-3 w-full md:w-auto">
+        {/* Action Buttons: Responsive Grid on Mobile, Clean Flex on Desktop */}
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-2.5 w-full md:w-auto">
           {isSuperAdmin && (
             <button
               onClick={() => setIsParticipantCardModalOpen(true)}
-              className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md shadow-orange-500/25 transition-all cursor-pointer text-center"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 sm:px-4 py-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md shadow-orange-500/25 transition-all cursor-pointer text-center whitespace-nowrap"
               title="Cetak Kartu Login & Peserta Ujian CBT Siswa (Khusus Admin Utama)"
             >
               <CreditCard size={16} className="shrink-0" />
-              <span className="truncate">Cetak Kartu</span>
+              <span>Cetak Kartu</span>
             </button>
           )}
           <Link
             href="/portal/siswa/cbt"
             target="_blank"
-            className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-medium text-xs sm:text-sm transition-all shadow-sm text-center"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 sm:px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-medium text-xs sm:text-sm transition-all shadow-sm text-center whitespace-nowrap"
           >
             <ExternalLink size={15} className="shrink-0" />
-            <span className="truncate">Tampilan Siswa</span>
+            <span>Tampilan Siswa</span>
           </Link>
           <button
             onClick={handleOpenCreate}
-            className={`${isSuperAdmin ? 'col-span-2 sm:col-auto' : 'col-span-2 sm:col-auto'} flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md shadow-purple-500/25 transition-all text-center cursor-pointer`}
+            className="w-full sm:w-auto flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md shadow-purple-500/25 transition-all text-center cursor-pointer whitespace-nowrap"
           >
             <Plus size={17} className="shrink-0" />
             <span>Buat Paket Ujian Baru</span>
@@ -1155,34 +1155,39 @@ export default function CbtDashboard({
         </div>
       </div>
 
-      {/* 🌟 VIEW MODE SELECTOR TABS */}
+      {/* 🌟 VIEW MODE SELECTOR TABS (CYBER COMMAND NAVIGATION BAR - RESPONSIVE SEGMENTED CONTROL) */}
       <div className="space-y-3 border-b border-slate-200 dark:border-slate-800 pb-3 sm:pb-4 w-full">
-        <div className="w-full overflow-x-auto no-scrollbar -mx-3.5 px-3.5 sm:mx-0 sm:px-0">
-          <div className="inline-flex items-center gap-2 min-w-max pb-1">
+        <div className="w-full p-1.5 sm:p-2 rounded-2xl bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 shadow-inner backdrop-blur-md">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 sm:gap-2 w-full">
             <button
               type="button"
               onClick={() => handleTabSwitch('exams')}
-              className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              className={`w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer min-w-0 ${
                 activeMainTab === 'exams'
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-500/25'
-                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-500/25 ring-1 ring-purple-400/40'
+                  : 'bg-white/80 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 shadow-2xs'
               }`}
             >
-              <BookOpen size={16} className="shrink-0" /> Daftar Paket Ujian ({totalExams})
+              <BookOpen size={16} className={`shrink-0 ${activeMainTab === 'exams' ? 'text-white' : 'text-purple-500'}`} />
+              <span className="truncate">Daftar Paket Ujian</span>
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black shrink-0 ${activeMainTab === 'exams' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}`}>
+                {totalExams}
+              </span>
             </button>
 
             <button
               type="button"
               onClick={() => handleTabSwitch('schedule')}
-              className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              className={`w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer min-w-0 ${
                 activeMainTab === 'schedule'
-                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/25 ring-2 ring-indigo-400/30'
-                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+                  ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/25 ring-1 ring-indigo-400/40'
+                  : 'bg-white/80 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 shadow-2xs'
               }`}
             >
-              <Calendar size={16} className="shrink-0" /> Matriks Jadwal Ujian & Anti-Bentrok
+              <Calendar size={16} className={`shrink-0 ${activeMainTab === 'schedule' ? 'text-white' : 'text-indigo-500'}`} />
+              <span className="truncate">Matriks Jadwal Ujian</span>
               {systemConflicts.length > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white animate-pulse">
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white animate-pulse shrink-0">
                   {systemConflicts.length} Bentrok!
                 </span>
               )}
@@ -1191,27 +1196,29 @@ export default function CbtDashboard({
             <button
               type="button"
               onClick={() => handleTabSwitch('reports')}
-              className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              className={`w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer min-w-0 ${
                 activeMainTab === 'reports'
-                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/25 ring-2 ring-emerald-400/30'
-                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/25 ring-1 ring-emerald-400/40'
+                  : 'bg-white/80 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 shadow-2xs'
               }`}
             >
-              <FileSpreadsheet size={16} className="shrink-0" /> Laporan Hasil & Rekap Nilai CBT
+              <FileSpreadsheet size={16} className={`shrink-0 ${activeMainTab === 'reports' ? 'text-white' : 'text-emerald-500'}`} />
+              <span className="truncate">Laporan & Rekap Nilai</span>
             </button>
 
             <button
               type="button"
               onClick={() => handleTabSwitch('proctors')}
-              className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              className={`w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer min-w-0 ${
                 activeMainTab === 'proctors'
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 ring-2 ring-blue-400/30'
-                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 ring-1 ring-blue-400/40'
+                  : 'bg-white/80 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 shadow-2xs'
               }`}
             >
-              <ShieldCheck size={16} className="shrink-0" /> Plotting Pengawas Ruangan
+              <ShieldCheck size={16} className={`shrink-0 ${activeMainTab === 'proctors' ? 'text-white' : 'text-blue-500'}`} />
+              <span className="truncate">Plotting Pengawas</span>
               {unassignedProctorsCount > 0 && isSuperAdmin && (
-                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white animate-pulse">
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white animate-pulse shrink-0">
                   {unassignedProctorsCount} Belum Di-plot
                 </span>
               )}
