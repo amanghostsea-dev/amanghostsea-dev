@@ -2429,41 +2429,24 @@ Poin: 10
             </div>
 
             <form onSubmit={handleAddQuestion} className="p-6 space-y-4 max-h-[82vh] overflow-y-auto">
-              {/* 🎨 Toolbar Format Teks, Font, Ukuran, Warna, dan Kotak Terminal */}
+              {/* 🎨 Studio Toolbar Terpadu: Format Teks, Font, Warna, AKM, Tabel & Rumus (Auto-Hide Canggih) */}
               <CbtFormatToolbar
                 textareaRef={activeCreateField === 'before' && questionImageUrl ? createQuestionBeforeRef : createQuestionTextareaRef}
                 value={activeCreateField === 'before' && questionImageUrl ? questionTextBefore : questionText}
                 onChange={activeCreateField === 'before' && questionImageUrl ? setQuestionTextBefore : setQuestionText}
                 targetLabel={activeCreateField === 'before' && questionImageUrl ? "teks sebelum gambar" : (questionImageUrl ? "pertanyaan di bawah gambar" : "soal baru")}
+                onOpenTable={() => {
+                  setTableTarget('create');
+                  setIsTableModalOpen(true);
+                }}
+                onInsertMath={(snippet) => {
+                  if (activeCreateField === 'before' && questionImageUrl) {
+                    setQuestionTextBefore((prev) => prev ? `${prev} ${snippet}` : snippet);
+                  } else {
+                    setQuestionText((prev) => prev ? `${prev} ${snippet}` : snippet);
+                  }
+                }}
               />
-
-              {/* Toolbar Rumus MTK & KaTeX & Pembuat Tabel */}
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex-1 min-w-[260px]">
-                  <CbtMathToolbar
-                    onInsert={(snippet) => {
-                      if (activeCreateField === 'before' && questionImageUrl) {
-                        setQuestionTextBefore((prev) => prev ? `${prev} ${snippet}` : snippet);
-                      } else {
-                        setQuestionText((prev) => prev ? `${prev} ${snippet}` : snippet);
-                      }
-                    }}
-                    targetLabel={activeCreateField === 'before' && questionImageUrl ? "teks sebelum gambar" : "soal ujian"}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTableTarget('create');
-                    setIsTableModalOpen(true);
-                  }}
-                  className="px-3.5 py-2 rounded-xl bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/40 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs shrink-0"
-                  title="Buka generator pembuat tabel fleksibel untuk soal ujian ini"
-                >
-                  <Table size={14} className="text-purple-600 dark:text-purple-400" />
-                  <span>📊 Buat / Sisipkan Tabel</span>
-                </button>
-              </div>
 
               {/* 📝 BAGIAN 1: TEKS PENGANTAR / STIMULUS (DI ATAS GAMBAR) */}
               {questionImageUrl ? (
@@ -3239,41 +3222,24 @@ Poin: 15`}
             </div>
 
             <form onSubmit={handleSaveEditQuestion} className="p-6 space-y-4 max-h-[82vh] overflow-y-auto">
-              {/* 🎨 Toolbar Format Teks, Font, Ukuran, Warna, dan Kotak Terminal */}
+              {/* 🎨 Studio Toolbar Terpadu: Format Teks, Font, Warna, AKM, Tabel & Rumus (Auto-Hide Canggih) */}
               <CbtFormatToolbar
                 textareaRef={activeEditField === 'before' && editImageUrl ? editQuestionBeforeRef : editQuestionTextareaRef}
                 value={activeEditField === 'before' && editImageUrl ? editQuestionTextBefore : editQuestionText}
                 onChange={activeEditField === 'before' && editImageUrl ? setEditQuestionTextBefore : setEditQuestionText}
                 targetLabel={activeEditField === 'before' && editImageUrl ? "teks sebelum gambar" : (editImageUrl ? "pertanyaan di bawah gambar" : "edit soal")}
+                onOpenTable={() => {
+                  setTableTarget('edit');
+                  setIsTableModalOpen(true);
+                }}
+                onInsertMath={(snippet) => {
+                  if (activeEditField === 'before' && editImageUrl) {
+                    setEditQuestionTextBefore((prev) => prev ? `${prev} ${snippet}` : snippet);
+                  } else {
+                    setEditQuestionText((prev) => prev ? `${prev} ${snippet}` : snippet);
+                  }
+                }}
               />
-
-              {/* Toolbar Rumus MTK & KaTeX & Pembuat Tabel */}
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex-1 min-w-[260px]">
-                  <CbtMathToolbar
-                    onInsert={(snippet) => {
-                      if (activeEditField === 'before' && editImageUrl) {
-                        setEditQuestionTextBefore((prev) => prev ? `${prev} ${snippet}` : snippet);
-                      } else {
-                        setEditQuestionText((prev) => prev ? `${prev} ${snippet}` : snippet);
-                      }
-                    }}
-                    targetLabel={activeEditField === 'before' && editImageUrl ? "teks sebelum gambar" : "soal ujian"}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTableTarget('edit');
-                    setIsTableModalOpen(true);
-                  }}
-                  className="px-3.5 py-2 rounded-xl bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/40 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs shrink-0"
-                  title="Buka generator pembuat tabel fleksibel untuk mengedit tabel soal ini"
-                >
-                  <Table size={14} className="text-purple-600 dark:text-purple-400" />
-                  <span>📊 Buat / Sisipkan Tabel</span>
-                </button>
-              </div>
 
               {/* 📝 BAGIAN 1: TEKS PENGANTAR / STIMULUS (DI ATAS GAMBAR) */}
               {editImageUrl ? (
