@@ -786,6 +786,55 @@ export async function deleteQuestion(questionId: string, examId: string) {
 }
 
 /**
+ * 🗑️ Hapus Butir Soal Terpilih Secara Kolektif (Bulk Delete Questions)
+ */
+export async function deleteBulkQuestions(questionIds: string[], examId: string) {
+  try {
+    const authCheck = await verifyExamAuthorOrAdmin(examId);
+    if (!authCheck.allowed) {
+      return { error: authCheck.error };
+    }
+
+    if (!questionIds || questionIds.length === 0) {
+      return { error: 'Tidak ada butir soal yang dipilih untuk dihapus.' };
+    }
+
+    const res = await prisma.examQuestion.deleteMany({
+      where: {
+        id: { in: questionIds },
+        examId: examId,
+      },
+    });
+
+    revalidatePath(`/admin/cbt/${examId}`);
+    return { success: true, count: res.count };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+/**
+ * 🗑️ Hapus Semua Butir Soal Sekaligus (Reset All Questions)
+ */
+export async function deleteAllQuestions(examId: string) {
+  try {
+    const authCheck = await verifyExamAuthorOrAdmin(examId);
+    if (!authCheck.allowed) {
+      return { error: authCheck.error };
+    }
+
+    const res = await prisma.examQuestion.deleteMany({
+      where: { examId: examId },
+    });
+
+    revalidatePath(`/admin/cbt/${examId}`);
+    return { success: true, count: res.count };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+/**
  * ⚡ Bagi Rata Nilai Soal Otomatis (Auto-Distribute Question Points)
  * Contoh: 40 butir soal dengan target nilai total 100 -> otomatis 2.5 poin per butir soal.
  */

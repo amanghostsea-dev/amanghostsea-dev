@@ -57,6 +57,8 @@ import ConfirmModal from '@/components/ConfirmModal';
 import { 
   createQuestion, 
   deleteQuestion, 
+  deleteBulkQuestions,
+  deleteAllQuestions,
   deleteAttempt, 
   toggleExamSession, 
   createBatchQuestions, 
@@ -899,12 +901,75 @@ export default function ExamDetailClient({
     const res = await deleteQuestion(deleteQId, exam.id);
     if (res.success) {
       setQuestions(questions.filter((q) => q.id !== deleteQId));
+      setSelectedQIds((prev) => prev.filter((id) => id !== deleteQId));
       setIsDeleteQModal(false);
       setDeleteQId(null);
     } else {
       alert(res.error || 'Gagal menghapus soal.');
     }
     setLoading(false);
+  };
+
+  // 🗑️ Bulk Selection & Collective Delete Handlers
+  const [selectedQIds, setSelectedQIds] = useState<string[]>([]);
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+  const [isDeleteAllModalOpen, setIsDeleteAllModalOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  const handleToggleSelectQ = (id: string) => {
+    setSelectedQIds((prev) => 
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllQ = () => {
+    if (selectedQIds.length === questions.length) {
+      setSelectedQIds([]);
+    } else {
+      setSelectedQIds(questions.map((q) => q.id));
+    }
+  };
+
+  const handleClearSelectedQ = () => {
+    setSelectedQIds([]);
+  };
+
+  const confirmDeleteBulkQuestions = async () => {
+    if (selectedQIds.length === 0) return;
+    setBulkDeleting(true);
+    try {
+      const res = await deleteBulkQuestions(selectedQIds, exam.id);
+      if (res.success) {
+        setQuestions((prev) => prev.filter((q) => !selectedQIds.includes(q.id)));
+        setSelectedQIds([]);
+        setIsBulkDeleteModalOpen(false);
+      } else {
+        alert(res.error || 'Gagal menghapus butir soal terpilih.');
+      }
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Gagal menghapus butir soal terpilih.');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  const confirmDeleteAllQuestions = async () => {
+    if (questions.length === 0) return;
+    setBulkDeleting(true);
+    try {
+      const res = await deleteAllQuestions(exam.id);
+      if (res.success) {
+        setQuestions([]);
+        setSelectedQIds([]);
+        setIsDeleteAllModalOpen(false);
+      } else {
+        alert(res.error || 'Gagal mengosongkan semua butir soal.');
+      }
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Gagal mengosongkan semua butir soal.');
+    } finally {
+      setBulkDeleting(false);
+    }
   };
 
   const confirmDeleteAttempt = async () => {
@@ -1784,6 +1849,61 @@ Poin: 10
             </div>
           ) : (
             <div className="space-y-4">
+              {/* 🎛️ Bilah Aksi Kolektif / Bulk Selection Bar */}
+              {!isProctorOnly && (
+                <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer select-none text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={questions.length > 0 && selectedQIds.length === questions.length}
+                        onChange={handleSelectAllQ}
+                        className="w-4 h-4 rounded border-slate-300 dark:border-slate-700 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                      />
+                      <span>Pilih Semua ({questions.length} Butir Soal)</span>
+                    </label>
+
+                    {selectedQIds.length > 0 && (
+                      <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                        {selectedQIds.length} Terpilih
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {selectedQIds.length > 0 ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setIsBulkDeleteModalOpen(true)}
+                          className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm shadow-red-600/30 transition cursor-pointer"
+                        >
+                          <Trash2 size={14} />
+                          <span>Hapus ({selectedQIds.length}) Soal Terpilih</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleClearSelectedQ}
+                          className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-medium transition cursor-pointer"
+                        >
+                          Batal
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setIsDeleteAllModalOpen(true)}
+                        className="px-3 py-1.5 rounded-xl text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer border border-red-200/60 dark:border-red-900/40"
+                        title="Kosongkan seluruh butir soal dalam paket ujian ini"
+                      >
+                        <Trash2 size={13} />
+                        <span>Kosongkan Semua Soal</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {questions.map((q, idx) => {
                 let parsedOptions: string[] = [];
                 try {
@@ -1792,15 +1912,38 @@ Poin: 10
                   parsedOptions = [];
                 }
                 const correctIdx = parseInt(q.correctAnswer, 10);
+                const isSelected = selectedQIds.includes(q.id);
 
                 return (
                   <div
                     key={q.id}
-                    className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm relative group"
+                    className={`p-6 bg-white dark:bg-slate-900 rounded-2xl border shadow-sm relative group transition-all ${
+                      isSelected 
+                        ? 'border-purple-400 dark:border-purple-600 ring-2 ring-purple-500/30 bg-purple-50/15 dark:bg-purple-950/15'
+                        : 'border-slate-200 dark:border-slate-800'
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex items-center gap-3">
-                        <span className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 font-bold text-sm flex items-center justify-center flex-shrink-0">
+                        {!isProctorOnly && (
+                          <label 
+                            className="flex items-center justify-center cursor-pointer select-none"
+                            onClick={(e) => e.stopPropagation()}
+                            title={isSelected ? 'Batalkan pilihan' : 'Pilih butir soal ini'}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleToggleSelectQ(q.id)}
+                              className="w-4 h-4 rounded border-slate-300 dark:border-slate-700 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                            />
+                          </label>
+                        )}
+                        <span className={`w-8 h-8 rounded-lg font-bold text-sm flex items-center justify-center flex-shrink-0 transition-colors ${
+                          isSelected
+                            ? 'bg-purple-600 text-white shadow-xs'
+                            : 'bg-purple-50 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300'
+                        }`}>
                           {idx + 1}
                         </span>
                         <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
@@ -3370,6 +3513,30 @@ Poin: 15`}
         confirmText="Ya, Hapus Soal"
         variant="danger"
         isLoading={loading}
+      />
+
+      {/* Modal Hapus Soal Terpilih Secara Kolektif */}
+      <ConfirmModal
+        isOpen={isBulkDeleteModalOpen}
+        onClose={() => setIsBulkDeleteModalOpen(false)}
+        onConfirm={confirmDeleteBulkQuestions}
+        title="Hapus Butir Soal Terpilih"
+        message={`Apakah Anda yakin ingin menghapus ${selectedQIds.length} butir soal yang dipilih? Tindakan ini akan menghapus soal-soal tersebut secara permanen dari server.`}
+        confirmText={`Ya, Hapus (${selectedQIds.length}) Soal`}
+        variant="danger"
+        isLoading={bulkDeleting}
+      />
+
+      {/* Modal Kosongkan Seluruh Butir Soal */}
+      <ConfirmModal
+        isOpen={isDeleteAllModalOpen}
+        onClose={() => setIsDeleteAllModalOpen(false)}
+        onConfirm={confirmDeleteAllQuestions}
+        title="Kosongkan Semua Butir Soal"
+        message={`PERINGATAN KRUSIAL: Anda akan menghapus SELURUH ${questions.length} butir soal dalam paket ujian ini. Seluruh butir soal dan opsi jawabannya akan dikosongkan secara permanen. Apakah Anda yakin ingin melanjutkan?`}
+        confirmText="Ya, Kosongkan Semua Soal"
+        variant="danger"
+        isLoading={bulkDeleting}
       />
 
       {/* Modal Reset Attempt Siswa */}
