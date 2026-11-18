@@ -1135,9 +1135,11 @@ export default function CbtExamRoom({
                 <button
                   type="submit"
                   disabled={startLoading}
-                  className="w-full py-3.5 bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#5aa08c] hover:to-[#dfba6f] text-white rounded-xl font-bold text-sm shadow-lg shadow-[#5fa08d]/25 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                  className="group relative overflow-hidden w-full py-3.5 bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#5aa08c] hover:to-[#dfba6f] text-white rounded-xl font-black text-sm shadow-lg shadow-[#5fa08d]/25 hover:shadow-xl hover:shadow-[#5fa08d]/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  {startLoading ? 'Menyiapkan Lembar Ujian...' : 'Mulai Kerjakan Ujian Sekarang →'}
+                  <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                  <span>{startLoading ? 'Menyiapkan Lembar Ujian...' : 'Mulai Kerjakan Ujian Sekarang'}</span>
+                  <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform duration-200" />
                 </button>
               </form>
             </div>
@@ -1335,7 +1337,7 @@ export default function CbtExamRoom({
 
           <button
             onClick={toggleFullscreen}
-            className="p-1.5 sm:p-2 text-slate-500 hover:text-slate-800 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="p-1.5 sm:p-2 text-slate-500 hover:text-slate-800 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer"
             title="Layar Penuh"
           >
             {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={18} />}
@@ -1343,9 +1345,12 @@ export default function CbtExamRoom({
 
           <button
             onClick={() => setIsSubmitModalOpen(true)}
-            className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-500/20 flex items-center gap-1 sm:gap-1.5 transition-all shrink-0"
+            className="group relative overflow-hidden px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-black text-xs shadow-md shadow-emerald-500/25 hover:shadow-lg hover:shadow-emerald-500/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 flex items-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer"
           >
-            <Send size={13} className="shrink-0" /> <span className="hidden xs:inline">Selesai Ujian</span><span className="xs:hidden">Selesai</span>
+            <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+            <Send size={13} className="shrink-0 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200" />
+            <span className="hidden xs:inline">Selesai Ujian</span>
+            <span className="xs:hidden">Selesai</span>
           </button>
         </div>
       </header>
@@ -1363,12 +1368,13 @@ export default function CbtExamRoom({
               </span>
               <button
                 onClick={toggleDoubtful}
-                className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${isCurrentDoubtful
-                    ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/50 dark:text-amber-300'
-                    : 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300'
-                  }`}
+                className={`group flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold border transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-2xs ${
+                  isCurrentDoubtful
+                    ? 'bg-amber-100 text-amber-900 border-amber-400 dark:bg-amber-950/70 dark:text-amber-200 shadow-amber-500/20'
+                    : 'bg-slate-50 hover:bg-amber-50 text-slate-600 hover:text-amber-700 border-slate-200 hover:border-amber-300 dark:bg-slate-800 dark:text-slate-300'
+                }`}
               >
-                {isCurrentDoubtful ? '★ Status: Ragu-Ragu' : 'Tandai Ragu-Ragu'}
+                <span>{isCurrentDoubtful ? '★ Status: Ragu-Ragu' : 'Tandai Ragu-Ragu'}</span>
               </button>
             </div>
 
@@ -1391,16 +1397,18 @@ export default function CbtExamRoom({
                     key={idx}
                     type="button"
                     onClick={() => handleSelectOption(idx)}
-                    className={`w-full text-left p-4 rounded-2xl border transition-all flex items-start gap-4 ${isSelected
-                        ? 'border-[#5fa08d] bg-[#5fa08d]/10 dark:bg-[#14231e]/60 ring-2 ring-[#5fa08d]/25 text-[#1b332c] dark:text-[#c4ded4] font-semibold'
+                    className={`group relative w-full text-left p-4 rounded-2xl border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-[0.99] flex items-start gap-4 cursor-pointer ${
+                      isSelected
+                        ? 'border-[#5fa08d] bg-[#5fa08d]/10 dark:bg-[#14231e]/70 ring-2 ring-[#5fa08d]/30 text-[#1b332c] dark:text-[#c4ded4] font-semibold shadow-xs'
                         : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200'
-                      }`}
+                    }`}
                   >
                     <span
-                      className={`w-8 h-8 rounded-xl font-bold text-sm flex items-center justify-center flex-shrink-0 transition-colors ${isSelected
-                          ? 'bg-gradient-to-br from-[#4d8675] via-[#5fa08d] to-[#caa55d] text-white shadow-md shadow-[#5fa08d]/30'
+                      className={`w-8 h-8 rounded-xl font-bold text-sm flex items-center justify-center flex-shrink-0 transition-all duration-200 group-hover:scale-110 ${
+                        isSelected
+                          ? 'bg-gradient-to-br from-[#4d8675] via-[#5fa08d] to-[#caa55d] text-white shadow-md shadow-[#5fa08d]/30 scale-105'
                           : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                        }`}
+                      }`}
                     >
                       {label}
                     </span>
@@ -1408,7 +1416,7 @@ export default function CbtExamRoom({
                       <CbtRichText text={opt} />
                     </span>
                     {isSelected && (
-                      <Check className="text-[#caa55d] flex-shrink-0 mt-1" size={18} />
+                      <Check className="text-[#caa55d] flex-shrink-0 mt-1 animate-in zoom-in-75 duration-200" size={18} />
                     )}
                   </button>
                 );
@@ -1421,24 +1429,29 @@ export default function CbtExamRoom({
             <button
               onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
               disabled={currentIndex === 0}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 transition-colors"
+              className="group relative flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 font-bold text-xs hover:bg-slate-50 dark:hover:bg-slate-700/80 shadow-2xs hover:shadow-md hover:-translate-x-0.5 active:translate-x-0 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none transition-all duration-200 cursor-pointer"
             >
-              <ArrowLeft size={16} /> Soal Sebelumnya
+              <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform duration-200" />
+              <span>Soal Sebelumnya</span>
             </button>
 
             {currentIndex < questions.length - 1 ? (
               <button
                 onClick={() => setCurrentIndex((prev) => Math.min(questions.length - 1, prev + 1))}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#5aa08c] hover:to-[#dfba6f] text-white font-bold text-xs shadow-md shadow-[#5fa08d]/25 transition-all hover:scale-[1.02]"
+                className="group relative overflow-hidden flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#5aa08c] hover:to-[#dfba6f] text-white font-black text-xs shadow-md shadow-[#5fa08d]/25 hover:shadow-lg hover:shadow-[#5fa08d]/35 hover:translate-x-0.5 active:translate-x-0 active:scale-[0.98] transition-all duration-200 cursor-pointer"
               >
-                Soal Berikutnya <ArrowRight size={16} />
+                <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                <span>Soal Berikutnya</span>
+                <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform duration-200" />
               </button>
             ) : (
               <button
                 onClick={() => setIsSubmitModalOpen(true)}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-500/20 transition-all hover:scale-[1.02]"
+                className="group relative overflow-hidden flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs shadow-md shadow-emerald-500/25 hover:shadow-lg hover:shadow-emerald-500/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 cursor-pointer"
               >
-                Kumpulkan Ujian <Send size={16} />
+                <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                <span>Kumpulkan Ujian</span>
+                <Send size={16} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200" />
               </button>
             )}
           </div>
@@ -1473,8 +1486,11 @@ export default function CbtExamRoom({
                   <button
                     key={q.id}
                     onClick={() => setCurrentIndex(idx)}
-                    className={`h-10 rounded-xl font-bold text-xs flex items-center justify-center transition-all ${bgClass} ${isCurrent ? 'ring-2 ring-[#5fa08d] ring-offset-2 dark:ring-offset-slate-900 scale-105' : 'hover:opacity-80'
-                      }`}
+                    className={`relative h-10 rounded-xl font-bold text-xs flex items-center justify-center transition-all duration-200 cursor-pointer hover:scale-110 active:scale-95 hover:shadow-md ${bgClass} ${
+                      isCurrent
+                        ? 'ring-2 ring-[#5fa08d] ring-offset-2 dark:ring-offset-slate-900 scale-105 shadow-md font-black'
+                        : 'hover:opacity-90'
+                    }`}
                   >
                     {idx + 1}
                   </button>

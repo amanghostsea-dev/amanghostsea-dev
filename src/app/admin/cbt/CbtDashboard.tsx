@@ -1137,26 +1137,28 @@ export default function CbtDashboard({
           {isSuperAdmin && (
             <button
               onClick={() => setIsParticipantCardModalOpen(true)}
-              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 sm:px-4 py-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md shadow-orange-500/25 transition-all cursor-pointer text-center whitespace-nowrap"
+              className="group relative overflow-hidden flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 sm:px-4 py-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-600 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md shadow-orange-500/25 hover:shadow-lg hover:shadow-orange-500/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 cursor-pointer text-center whitespace-nowrap"
               title="Cetak Kartu Login & Peserta Ujian CBT Siswa (Khusus Admin Utama)"
             >
-              <CreditCard size={16} className="shrink-0" />
+              <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+              <CreditCard size={16} className="shrink-0 group-hover:scale-110 group-hover:rotate-6 transition-transform duration-200" />
               <span>Cetak Kartu</span>
             </button>
           )}
           <Link
             href="/portal/siswa/cbt"
             target="_blank"
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 sm:px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-medium text-xs sm:text-sm transition-all shadow-sm text-center whitespace-nowrap"
+            className="group flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 sm:px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-2xs hover:shadow-sm hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] text-center whitespace-nowrap"
           >
-            <ExternalLink size={15} className="shrink-0" />
+            <ExternalLink size={15} className="shrink-0 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200" />
             <span>Tampilan Siswa</span>
           </Link>
           <button
             onClick={handleOpenCreate}
-            className="w-full sm:w-auto flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md shadow-purple-500/25 transition-all text-center cursor-pointer whitespace-nowrap"
+            className="group relative overflow-hidden w-full sm:w-auto flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md shadow-purple-500/25 hover:shadow-lg hover:shadow-purple-500/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 text-center cursor-pointer whitespace-nowrap"
           >
-            <Plus size={17} className="shrink-0" />
+            <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+            <Plus size={17} className="shrink-0 group-hover:rotate-90 transition-transform duration-300" />
             <span>Buat Paket Ujian Baru</span>
           </button>
         </div>
@@ -1169,13 +1171,13 @@ export default function CbtDashboard({
             <button
               type="button"
               onClick={() => handleTabSwitch('exams')}
-              className={`w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer min-w-0 ${
+              className={`group w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer min-w-0 ${
                 activeMainTab === 'exams'
                   ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-500/25 ring-1 ring-purple-400/40'
                   : 'bg-white/80 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 shadow-2xs'
               }`}
             >
-              <BookOpen size={16} className={`shrink-0 ${activeMainTab === 'exams' ? 'text-white' : 'text-purple-500'}`} />
+              <BookOpen size={16} className={`shrink-0 group-hover:scale-115 transition-transform duration-200 ${activeMainTab === 'exams' ? 'text-white' : 'text-purple-500'}`} />
               <span className="truncate">Daftar Paket Ujian</span>
               <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black shrink-0 ${activeMainTab === 'exams' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}`}>
                 {totalExams}
@@ -1185,13 +1187,13 @@ export default function CbtDashboard({
             <button
               type="button"
               onClick={() => handleTabSwitch('schedule')}
-              className={`w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer min-w-0 ${
+              className={`group w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer min-w-0 ${
                 activeMainTab === 'schedule'
                   ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/25 ring-1 ring-indigo-400/40'
                   : 'bg-white/80 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 shadow-2xs'
               }`}
             >
-              <Calendar size={16} className={`shrink-0 ${activeMainTab === 'schedule' ? 'text-white' : 'text-indigo-500'}`} />
+              <Calendar size={16} className={`shrink-0 group-hover:scale-115 transition-transform duration-200 ${activeMainTab === 'schedule' ? 'text-white' : 'text-indigo-500'}`} />
               <span className="truncate">Matriks Jadwal Ujian</span>
               {systemConflicts.length > 0 && (
                 <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white animate-pulse shrink-0">
@@ -1203,26 +1205,26 @@ export default function CbtDashboard({
             <button
               type="button"
               onClick={() => handleTabSwitch('reports')}
-              className={`w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer min-w-0 ${
+              className={`group w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer min-w-0 ${
                 activeMainTab === 'reports'
                   ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/25 ring-1 ring-emerald-400/40'
                   : 'bg-white/80 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 shadow-2xs'
               }`}
             >
-              <FileSpreadsheet size={16} className={`shrink-0 ${activeMainTab === 'reports' ? 'text-white' : 'text-emerald-500'}`} />
+              <FileSpreadsheet size={16} className={`shrink-0 group-hover:scale-115 transition-transform duration-200 ${activeMainTab === 'reports' ? 'text-white' : 'text-emerald-500'}`} />
               <span className="truncate">Laporan & Rekap Nilai</span>
             </button>
 
             <button
               type="button"
               onClick={() => handleTabSwitch('proctors')}
-              className={`w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer min-w-0 ${
+              className={`group w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer min-w-0 ${
                 activeMainTab === 'proctors'
                   ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 ring-1 ring-blue-400/40'
                   : 'bg-white/80 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 shadow-2xs'
               }`}
             >
-              <ShieldCheck size={16} className={`shrink-0 ${activeMainTab === 'proctors' ? 'text-white' : 'text-blue-500'}`} />
+              <ShieldCheck size={16} className={`shrink-0 group-hover:scale-115 transition-transform duration-200 ${activeMainTab === 'proctors' ? 'text-white' : 'text-blue-500'}`} />
               <span className="truncate">Plotting Pengawas</span>
               {unassignedProctorsCount > 0 && isSuperAdmin && (
                 <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white animate-pulse shrink-0">
@@ -2161,27 +2163,28 @@ export default function CbtDashboard({
                       type="button"
                       onClick={() => handleQuickToggleSession(exam)}
                       disabled={isSessionLoading}
-                      className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs shrink-0 cursor-pointer ${
+                      className={`group relative overflow-hidden px-3.5 py-1.5 rounded-xl font-black text-xs flex items-center gap-1.5 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] shadow-xs hover:shadow-md shrink-0 cursor-pointer disabled:opacity-50 ${
                         tokenStatus.isActive
-                          ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                          ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/20 hover:shadow-rose-600/30'
                           : tokenStatus.isExpired
-                          ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                          : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                          ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/20 hover:shadow-amber-600/30'
+                          : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20 hover:shadow-emerald-600/30'
                       }`}
                     >
+                      <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
                       {isSessionLoading ? (
                         <RefreshCw size={12} className="animate-spin" />
                       ) : tokenStatus.isActive ? (
                         <>
-                          <Square size={12} className="fill-white" /> <span>Tutup Sesi</span>
+                          <Square size={12} className="fill-white group-hover:scale-110 transition-transform duration-200" /> <span>Tutup Sesi</span>
                         </>
                       ) : tokenStatus.isExpired ? (
                         <>
-                          <Play size={12} className="fill-white" /> <span>Rilis Susulan</span>
+                          <Play size={12} className="fill-white group-hover:scale-115 group-hover:translate-x-0.5 transition-transform duration-200" /> <span>Rilis Susulan</span>
                         </>
                       ) : (
                         <>
-                          <Play size={12} className="fill-white" /> <span>Rilis Token</span>
+                          <Play size={12} className="fill-white group-hover:scale-115 group-hover:translate-x-0.5 transition-transform duration-200" /> <span>Rilis Token</span>
                         </>
                       )}
                     </button>
@@ -2193,18 +2196,20 @@ export default function CbtDashboard({
                   {isExamProctor(exam) ? (
                     <Link
                       href={`/admin/cbt/${exam.id}`}
-                      className="flex-1 text-center py-2 px-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-bold text-xs transition-all shadow-sm flex items-center justify-center gap-1.5"
+                      className="group relative overflow-hidden flex-1 text-center py-2.5 px-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-bold text-xs transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] flex items-center justify-center gap-1.5"
                     >
-                      <ShieldCheck size={14} />
+                      <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                      <ShieldCheck size={14} className="group-hover:scale-110 transition-transform duration-200" />
                       <span>Ruang Pengawasan & Monitoring</span>
                     </Link>
                   ) : (
                     <>
                       <Link
                         href={`/admin/cbt/${exam.id}`}
-                        className="flex-1 text-center py-2 px-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold text-xs transition-colors shadow-sm flex items-center justify-center gap-1.5"
+                        className="group relative overflow-hidden flex-1 text-center py-2.5 px-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-bold text-xs transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] flex items-center justify-center gap-1.5"
                       >
-                        <BookOpen size={14} />
+                        <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                        <BookOpen size={14} className="group-hover:scale-110 transition-transform duration-200" />
                         <span>Buka Bank Soal & Nilai</span>
                       </Link>
                       {isExamOwner(exam) && (
@@ -2212,10 +2217,10 @@ export default function CbtDashboard({
                           <button
                             type="button"
                             onClick={() => handleOpenEdit(exam)}
-                            className="p-2 text-slate-500 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                            className="group p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/40 rounded-xl hover:scale-115 active:scale-90 transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-xs"
                             title="Edit Pengaturan Ujian"
                           >
-                            <Edit3 size={15} />
+                            <Edit3 size={15} className="group-hover:rotate-12 transition-transform duration-200" />
                           </button>
                           <button
                             type="button"
@@ -2223,10 +2228,10 @@ export default function CbtDashboard({
                               setDeleteTargetId(exam.id);
                               setIsDeleteModalOpen(true);
                             }}
-                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                            className="group p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl hover:scale-115 active:scale-90 transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-xs"
                             title="Hapus Ujian"
                           >
-                            <Trash2 size={15} />
+                            <Trash2 size={15} className="group-hover:rotate-12 group-hover:scale-110 transition-transform duration-200" />
                           </button>
                         </div>
                       )}

@@ -1579,9 +1579,10 @@ Poin: 10
             <button
               type="button"
               onClick={() => setIsWhiteboardModalOpen(true)}
-              className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl font-bold text-xs shadow-md shadow-indigo-500/20 flex items-center gap-2 cursor-pointer transition-all hover:scale-[1.02]"
+              className="group relative overflow-hidden px-4 py-2.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl font-bold text-xs shadow-md shadow-indigo-500/25 hover:shadow-lg hover:shadow-indigo-500/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] flex items-center gap-2 cursor-pointer transition-all duration-300"
             >
-              <Maximize2 size={15} />
+              <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+              <Maximize2 size={15} className="group-hover:scale-110 group-hover:rotate-12 transition-transform duration-200" />
               <span>Buka Papan Tulis Proyektor</span>
             </button>
           </div>
@@ -1665,7 +1666,7 @@ Poin: 10
                       type="button"
                       onClick={handleCopyToken}
                       title="Salin Token"
-                      className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-500 hover:text-emerald-600 transition cursor-pointer"
+                      className="p-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg text-slate-500 hover:text-emerald-600 hover:scale-115 active:scale-95 transition-all duration-200 cursor-pointer"
                     >
                       {copiedToken ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
                     </button>
@@ -1701,11 +1702,11 @@ Poin: 10
                       type="button"
                       onClick={() => handleRotateToken()}
                       disabled={isRotatingToken}
-                      className="w-full mt-1 py-1 px-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-800 text-[10px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+                      className="group w-full mt-1 py-1.5 px-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-800 text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer disabled:opacity-50"
                       title="Generate token acak baru sekarang (Siklus 10 menit singkron dengan pengawas)"
                     >
-                      <RefreshCw size={10} className={isRotatingToken ? 'animate-spin' : ''} />
-                      {isRotatingToken ? 'Memperbarui...' : 'Perbarui Token Sekarang'}
+                      <RefreshCw size={10} className={isRotatingToken ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'} />
+                      <span>{isRotatingToken ? 'Memperbarui...' : 'Perbarui Token Sekarang'}</span>
                     </button>
                   </div>
                 </div>
@@ -1714,9 +1715,10 @@ Poin: 10
                   <button
                     type="button"
                     onClick={() => setIsWhiteboardModalOpen(true)}
-                    className="px-4 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    className="group relative overflow-hidden px-4 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/25 hover:shadow-lg hover:shadow-indigo-600/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <Maximize2 size={14} />
+                    <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                    <Maximize2 size={14} className="group-hover:scale-115 transition-transform duration-200" />
                     <span>Mode Proyektor (Layar Penuh)</span>
                   </button>
 
@@ -1724,9 +1726,10 @@ Poin: 10
                     type="button"
                     onClick={() => handleToggleSession(false)}
                     disabled={togglingSession}
-                    className="px-5 py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    className="group relative overflow-hidden px-5 py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md shadow-rose-600/20 hover:shadow-lg hover:shadow-rose-600/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                   >
-                    <Square size={14} className="fill-white" />
+                    <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                    <Square size={14} className="fill-white group-hover:scale-110 transition-transform duration-200" />
                     <span>{togglingSession ? 'Menutup...' : 'Tutup Sesi'}</span>
                   </button>
                 </div>
@@ -1748,9 +1751,10 @@ Poin: 10
                   type="button"
                   onClick={() => handleToggleSession(true)}
                   disabled={togglingSession}
-                  className="px-5 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs shadow-md shadow-emerald-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="group relative overflow-hidden px-5 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs shadow-md shadow-emerald-600/25 hover:shadow-lg hover:shadow-emerald-600/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
-                  <Play size={14} className="fill-white" />
+                  <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                  <Play size={14} className="fill-white group-hover:scale-115 group-hover:translate-x-0.5 transition-transform duration-200" />
                   <span>{togglingSession ? 'Membuka Sesi...' : schedState.state === 'ENDED' ? 'Buka Sesi Susulan & Rilis Token' : 'Buka Sesi Ujian & Tampilkan Token'}</span>
                 </button>
               </div>
@@ -1765,50 +1769,50 @@ Poin: 10
           <>
             <button
               onClick={() => setActiveTab('results')}
-              className={`flex items-center gap-2 pb-4 font-bold text-sm transition-colors border-b-2 -mb-px ${
+              className={`group flex items-center gap-2 pb-4 font-bold text-sm transition-all duration-200 border-b-2 -mb-px hover:scale-[1.02] active:scale-[0.98] cursor-pointer ${
                 activeTab === 'results'
                   ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
                   : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
               }`}
             >
-              <Users size={18} />
-              Monitoring & Presensi Peserta ({attempts.length})
+              <Users size={18} className="group-hover:scale-115 transition-transform duration-200" />
+              <span>Monitoring & Presensi Peserta ({attempts.length})</span>
             </button>
             <button
               onClick={() => setActiveTab('questions')}
-              className={`flex items-center gap-2 pb-4 font-bold text-sm transition-colors border-b-2 -mb-px ${
+              className={`group flex items-center gap-2 pb-4 font-bold text-sm transition-all duration-200 border-b-2 -mb-px hover:scale-[1.02] active:scale-[0.98] cursor-pointer ${
                 activeTab === 'questions'
                   ? 'border-purple-600 text-purple-600 dark:text-purple-400'
                   : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
               }`}
             >
-              <FileText size={18} />
-              Pratinjau Soal (Hanya Lihat) ({questions.length})
+              <FileText size={18} className="group-hover:scale-115 transition-transform duration-200" />
+              <span>Pratinjau Soal (Hanya Lihat) ({questions.length})</span>
             </button>
           </>
         ) : (
           <>
             <button
               onClick={() => setActiveTab('questions')}
-              className={`flex items-center gap-2 pb-4 font-semibold text-sm transition-colors border-b-2 -mb-px ${
+              className={`group flex items-center gap-2 pb-4 font-bold text-sm transition-all duration-200 border-b-2 -mb-px hover:scale-[1.02] active:scale-[0.98] cursor-pointer ${
                 activeTab === 'questions'
                   ? 'border-purple-600 text-purple-600 dark:text-purple-400'
                   : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
               }`}
             >
-              <FileText size={18} />
-              Bank Soal ({questions.length})
+              <FileText size={18} className="group-hover:scale-115 transition-transform duration-200" />
+              <span>Bank Soal ({questions.length})</span>
             </button>
             <button
               onClick={() => setActiveTab('results')}
-              className={`flex items-center gap-2 pb-4 font-semibold text-sm transition-colors border-b-2 -mb-px ${
+              className={`group flex items-center gap-2 pb-4 font-bold text-sm transition-all duration-200 border-b-2 -mb-px hover:scale-[1.02] active:scale-[0.98] cursor-pointer ${
                 activeTab === 'results'
                   ? 'border-purple-600 text-purple-600 dark:text-purple-400'
                   : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
               }`}
             >
-              <Award size={18} />
-              Hasil & Rekap Nilai Siswa ({attempts.length})
+              <Award size={18} className="group-hover:scale-115 transition-transform duration-200" />
+              <span>Hasil & Rekap Nilai Siswa ({attempts.length})</span>
             </button>
           </>
         )}
@@ -2007,15 +2011,16 @@ Poin: 10
                         <button
                           type="button"
                           onClick={() => setIsBulkDeleteModalOpen(true)}
-                          className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm shadow-red-600/30 transition cursor-pointer"
+                          className="group relative overflow-hidden px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-red-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-red-600/30 hover:shadow-lg hover:shadow-red-600/40 hover:-translate-y-0.5 active:translate-y-0 active:scale-95 transition-all duration-200 cursor-pointer"
                         >
-                          <Trash2 size={14} />
+                          <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                          <Trash2 size={14} className="group-hover:rotate-12 group-hover:scale-110 transition-transform duration-200" />
                           <span>Hapus ({selectedQIds.length}) Soal Terpilih</span>
                         </button>
                         <button
                           type="button"
                           onClick={handleClearSelectedQ}
-                          className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-medium transition cursor-pointer"
+                          className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-2xs"
                         >
                           Batal
                         </button>
@@ -2024,10 +2029,10 @@ Poin: 10
                       <button
                         type="button"
                         onClick={() => setIsDeleteAllModalOpen(true)}
-                        className="px-3 py-1.5 rounded-xl text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer border border-red-200/60 dark:border-red-900/40"
+                        className="group px-3.5 py-2 rounded-xl text-red-600 hover:text-white hover:bg-red-600 dark:hover:bg-red-600 text-xs font-bold flex items-center gap-1.5 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer border border-red-300 dark:border-red-900/60 shadow-2xs hover:shadow-md hover:shadow-red-500/20"
                         title="Kosongkan seluruh butir soal dalam paket ujian ini"
                       >
-                        <Trash2 size={13} />
+                        <Trash2 size={13} className="group-hover:rotate-12 transition-transform duration-200" />
                         <span>Kosongkan Semua Soal</span>
                       </button>
                     )}
@@ -2048,10 +2053,10 @@ Poin: 10
                 return (
                   <div
                     key={q.id}
-                    className={`p-6 bg-white dark:bg-slate-900 rounded-2xl border shadow-sm relative group transition-all ${
+                    className={`p-6 bg-white dark:bg-slate-900 rounded-2xl border shadow-sm relative group transition-all duration-200 ${
                       isSelected 
                         ? 'border-purple-400 dark:border-purple-600 ring-2 ring-purple-500/30 bg-purple-50/15 dark:bg-purple-950/15'
-                        : 'border-slate-200 dark:border-slate-800'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-4">
@@ -2082,14 +2087,14 @@ Poin: 10
                         </span>
                       </div>
                       {!isProctorOnly && (
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => handleOpenEditModal(q)}
-                            className="p-1.5 text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/30 rounded-lg transition-colors cursor-pointer"
+                            className="group p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/40 rounded-xl hover:scale-115 active:scale-90 transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-xs"
                             title="Edit Soal & Bobot Nilai"
                           >
-                            <Edit3 size={16} />
+                            <Edit3 size={16} className="group-hover:rotate-12 transition-transform duration-200" />
                           </button>
                           <button
                             type="button"
@@ -2097,10 +2102,10 @@ Poin: 10
                               setDeleteQId(q.id);
                               setIsDeleteQModal(true);
                             }}
-                            className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors cursor-pointer"
+                            className="group p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl hover:scale-115 active:scale-90 transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-xs"
                             title="Hapus Soal"
                           >
-                            <Trash2 size={16} />
+                            <Trash2 size={16} className="group-hover:rotate-12 group-hover:scale-110 transition-transform duration-200" />
                           </button>
                         </div>
                       )}
@@ -2177,9 +2182,10 @@ Poin: 10
               <button
                 type="button"
                 onClick={() => setIsDownloadModalOpen(true)}
-                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+                className="group relative overflow-hidden px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold transition-all duration-200 shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/30 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] flex items-center gap-2 cursor-pointer"
               >
-                <Download size={15} />
+                <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                <Download size={15} className="group-hover:-translate-y-0.5 group-hover:scale-110 transition-transform duration-200" />
                 <span>Unduh Nilai Excel / CSV</span>
                 {resultJurusanFilter !== 'ALL' && (
                   <span className="px-1.5 py-0.5 rounded bg-white/20 text-[10px]">
@@ -2191,9 +2197,9 @@ Poin: 10
               <button
                 type="button"
                 onClick={() => setIsPrintExamModalOpen(true)}
-                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+                className="group px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all duration-200 shadow-2xs hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] flex items-center gap-2 cursor-pointer"
               >
-                <Printer size={15} />
+                <Printer size={15} className="group-hover:scale-110 transition-transform duration-200" />
                 <span>Cetak Lembar Nilai</span>
               </button>
             </div>
@@ -2259,7 +2265,7 @@ Poin: 10
                       setResultClassFilter('ALL');
                       setResultSearch('');
                     }}
-                    className="px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 font-bold transition-all text-xs cursor-pointer"
+                    className="px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 font-bold transition-all duration-200 text-xs hover:scale-105 active:scale-95 cursor-pointer shadow-2xs"
                   >
                     Reset Filter
                   </button>
@@ -2399,10 +2405,11 @@ Poin: 10
                                     }
                                   }
                                 }}
-                                className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-sm transition inline-flex items-center gap-1 cursor-pointer animate-pulse"
+                                className="group px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md shadow-amber-500/25 hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-200 inline-flex items-center gap-1.5 cursor-pointer animate-pulse"
                                 title="Buka Kunci Layar Ujian (Pelanggaran ke-2) - Siswa Langsung Melanjutkan"
                               >
-                                <Unlock size={13} /> Buka Kunci P2
+                                <Unlock size={13} className="group-hover:rotate-12 transition-transform duration-200" />
+                                <span>Buka Kunci P2</span>
                               </button>
                             )}
 
@@ -2425,10 +2432,11 @@ Poin: 10
                                     }
                                   }
                                 }}
-                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition inline-flex items-center gap-1 cursor-pointer"
+                                className="group px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/25 hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-200 inline-flex items-center gap-1.5 cursor-pointer"
                                 title="Buka Suspend Siswa (Wewenang Khusus Admin Utama)"
                               >
-                                <ShieldCheck size={13} /> Buka Suspend
+                                <ShieldCheck size={13} className="group-hover:scale-110 transition-transform duration-200" />
+                                <span>Buka Suspend</span>
                               </button>
                             )}
 
@@ -2438,10 +2446,10 @@ Poin: 10
                                   setDeleteAttemptId(att.id);
                                   setIsDeleteAttemptModal(true);
                                 }}
-                                className="p-1.5 text-slate-400 hover:text-red-600 transition-colors rounded-lg cursor-pointer"
+                                className="group p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl hover:scale-115 active:scale-90 transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-xs"
                                 title="⚠️ Hapus Riwayat & Ulang Ujian dari Nol"
                               >
-                                <Trash2 size={16} />
+                                <Trash2 size={16} className="group-hover:rotate-12 transition-transform duration-200" />
                               </button>
                             ) : (
                               <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
@@ -2771,16 +2779,17 @@ Poin: 10
                 <button
                   type="button"
                   onClick={() => setIsAddQuestionModal(false)}
-                  className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium hover:bg-slate-50"
+                  className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200 active:scale-95 cursor-pointer shadow-2xs"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-semibold shadow-md shadow-purple-500/30 disabled:opacity-50"
+                  className="group relative overflow-hidden px-5 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-sm font-bold shadow-md shadow-purple-500/30 hover:shadow-lg hover:shadow-purple-500/40 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 cursor-pointer"
                 >
-                  {loading ? 'Menyimpan...' : 'Simpan Butir Soal'}
+                  <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                  <span>{loading ? 'Menyimpan...' : 'Simpan Butir Soal'}</span>
                 </button>
               </div>
             </form>
@@ -3213,7 +3222,7 @@ Poin: 15`}
                   <button
                     type="button"
                     onClick={() => setIsBatchModalOpen(false)}
-                    className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium hover:bg-slate-100"
+                    className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200 active:scale-95 cursor-pointer shadow-2xs"
                   >
                     Batal
                   </button>
@@ -3221,9 +3230,11 @@ Poin: 15`}
                   <button
                     type="button"
                     onClick={handleParseBatch}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-500/25 transition cursor-pointer"
+                    className="group relative overflow-hidden flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-500/25 hover:shadow-lg hover:shadow-emerald-500/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 cursor-pointer"
                   >
-                    <Search size={16} /> Analisis & Pratinjau Butir Soal →
+                    <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                    <Search size={16} className="group-hover:scale-115 transition-transform duration-200" />
+                    <span>Analisis & Pratinjau Butir Soal →</span>
                   </button>
                 </>
               ) : (
@@ -3231,21 +3242,24 @@ Poin: 15`}
                   <button
                     type="button"
                     onClick={() => setBatchStep('input')}
-                    className="flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium hover:bg-slate-100 cursor-pointer"
+                    className="group flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200 hover:-translate-x-0.5 active:scale-95 cursor-pointer shadow-2xs"
                   >
-                    ← Kembali Edit Teks
+                    <span>← Kembali Edit Teks</span>
                   </button>
 
                   <button
                     type="button"
                     disabled={batchLoading || parsedBatch.length === 0}
                     onClick={handleSaveBatchQuestions}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-500/25 transition disabled:opacity-50 cursor-pointer"
+                    className="group relative overflow-hidden flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-500/25 hover:shadow-lg hover:shadow-emerald-500/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 disabled:opacity-50 cursor-pointer"
                   >
-                    <CheckCircle size={16} />
-                    {batchLoading
-                      ? 'Sedang Menyimpan...'
-                      : `Simpan Semua Soal (${parsedBatch.length} Butir Soal)`}
+                    <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                    <CheckCircle size={16} className="group-hover:scale-115 transition-transform duration-200" />
+                    <span>
+                      {batchLoading
+                        ? 'Sedang Menyimpan...'
+                        : `Simpan Semua Soal (${parsedBatch.length} Butir Soal)`}
+                    </span>
                   </button>
                 </>
               )}
@@ -3569,16 +3583,17 @@ Poin: 15`}
                 <button
                   type="button"
                   onClick={() => setIsEditQModal(false)}
-                  className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium hover:bg-slate-50 cursor-pointer"
+                  className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200 active:scale-95 cursor-pointer shadow-2xs"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-semibold shadow-md shadow-purple-500/30 disabled:opacity-50 cursor-pointer"
+                  className="group relative overflow-hidden px-5 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-sm font-bold shadow-md shadow-purple-500/30 hover:shadow-lg hover:shadow-purple-500/40 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 cursor-pointer"
                 >
-                  {loading ? 'Menyimpan...' : 'Simpan Perubahan'}
+                  <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                  <span>{loading ? 'Menyimpan...' : 'Simpan Perubahan'}</span>
                 </button>
               </div>
             </form>
@@ -3742,7 +3757,7 @@ Poin: 15`}
               <button
                 type="button"
                 onClick={() => setIsAutoDistributeModalOpen(false)}
-                className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200 active:scale-95 cursor-pointer shadow-2xs"
               >
                 Batal
               </button>
@@ -3750,9 +3765,10 @@ Poin: 15`}
                 type="button"
                 disabled={distributeLoading || questions.length === 0 || targetTotalPointsInput <= 0}
                 onClick={() => handleAutoDistributePoints(targetTotalPointsInput)}
-                className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-sm font-bold shadow-md shadow-amber-500/30 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="group relative overflow-hidden flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 hover:from-amber-400 hover:to-orange-400 text-white rounded-xl text-sm font-bold shadow-md shadow-amber-500/30 hover:shadow-lg hover:shadow-amber-500/40 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Calculator size={16} />
+                <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                <Calculator size={16} className="group-hover:rotate-12 group-hover:scale-110 transition-transform duration-200" />
                 <span>
                   {distributeLoading
                     ? 'Menerapkan...'
@@ -3838,7 +3854,7 @@ Poin: 15`}
 
             <button
               onClick={() => setIsWhiteboardModalOpen(false)}
-              className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-white/20"
+              className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95 flex items-center gap-1.5 cursor-pointer border border-white/20 shadow-xs"
             >
               <Minimize2 size={16} /> Keluar Layar Penuh (ESC)
             </button>
@@ -3891,9 +3907,9 @@ Poin: 15`}
                 <button
                   type="button"
                   onClick={handleCopyToken}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-sm cursor-pointer"
+                  className="group px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-emerald-600/30 active:scale-95 shadow-sm cursor-pointer"
                 >
-                  {copiedToken ? <Check size={16} /> : <Copy size={16} />}
+                  {copiedToken ? <Check size={16} /> : <Copy size={16} className="group-hover:scale-115 transition-transform duration-200" />}
                   <span>{copiedToken ? 'Token Tersalin!' : 'Salin Token'}</span>
                 </button>
 
@@ -3901,10 +3917,10 @@ Poin: 15`}
                   type="button"
                   onClick={() => handleRotateToken()}
                   disabled={isRotatingToken}
-                  className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition border border-white/20 cursor-pointer disabled:opacity-50"
+                  className="group px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all duration-200 hover:scale-105 active:scale-95 border border-white/20 cursor-pointer disabled:opacity-50"
                   title="Generate token baru sekarang"
                 >
-                  <RefreshCw size={14} className={isRotatingToken ? 'animate-spin text-emerald-400' : ''} />
+                  <RefreshCw size={14} className={isRotatingToken ? 'animate-spin text-emerald-400' : 'group-hover:rotate-180 transition-transform duration-500'} />
                   <span>{isRotatingToken ? 'Memperbarui...' : 'Perbarui Token Sekarang'}</span>
                 </button>
               </div>

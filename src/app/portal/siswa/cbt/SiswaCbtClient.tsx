@@ -643,18 +643,19 @@ export default function SiswaCbtClient({
                           <div className="grid grid-cols-2 gap-2">
                             <Link
                               href={`/portal/siswa/cbt/${exam.id}`}
-                              className="block text-center py-2 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold text-xs transition-colors shadow-sm"
+                              className="group block text-center py-2.5 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold text-xs transition-all duration-200 shadow-2xs hover:shadow-xs hover:-translate-y-0.5 active:scale-95"
                             >
-                              Rincian Ujian
+                              <span>Rincian Ujian</span>
                             </Link>
                             <button
                               type="button"
                               onClick={() => {
                                 setSelectedExamForModal(exam);
                               }}
-                              className="text-center py-2 px-3 bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#5aa08c] hover:to-[#dfba6f] text-white rounded-xl font-bold text-xs transition-colors shadow-sm flex items-center justify-center gap-1"
+                              className="group text-center py-2.5 px-3 bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#5aa08c] hover:to-[#dfba6f] text-white rounded-xl font-bold text-xs transition-all duration-200 shadow-xs hover:shadow-md hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
                             >
-                              <FileText size={13} /> Kartu Nilai
+                              <FileText size={13} className="group-hover:scale-110 transition-transform duration-200" />
+                              <span>Kartu Nilai</span>
                             </button>
                           </div>
                         ) : schedState.state === 'ENDED' && !isInProgress && !isLiveTeacher ? (
@@ -676,16 +677,20 @@ export default function SiswaCbtClient({
                         ) : (
                           <Link
                             href={`/portal/siswa/cbt/${exam.id}`}
-                            className={`w-full block text-center py-2.5 px-4 rounded-xl font-bold text-xs transition-all hover:scale-[1.02] active:scale-[0.98] ${isLiveTeacher || schedState.state === 'ONGOING'
-                                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md shadow-emerald-500/25'
-                                : 'bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#5aa08c] hover:to-[#dfba6f] text-white shadow-md shadow-[#5fa08d]/25'
-                              }`}
+                            className={`group relative overflow-hidden w-full block text-center py-3 px-4 rounded-xl font-black text-xs transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] ${
+                              isLiveTeacher || schedState.state === 'ONGOING'
+                                ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md shadow-emerald-500/25 hover:shadow-emerald-500/35'
+                                : 'bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#5aa08c] hover:to-[#dfba6f] text-white shadow-md shadow-[#5fa08d]/25 hover:shadow-[#5fa08d]/35'
+                            }`}
                           >
-                            {isInProgress
-                              ? 'Lanjutkan Pengerjaan Ujian →'
-                              : isLiveTeacher || schedState.state === 'ONGOING'
-                                ? 'Masuk Ujian Sekarang →'
-                                : 'Masuk Ruang Tunggu Standby →'}
+                            <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                            <span>
+                              {isInProgress
+                                ? 'Lanjutkan Pengerjaan Ujian →'
+                                : isLiveTeacher || schedState.state === 'ONGOING'
+                                  ? 'Masuk Ujian Sekarang →'
+                                  : 'Masuk Ruang Tunggu Standby →'}
+                            </span>
                           </Link>
                         )}
                       </div>
