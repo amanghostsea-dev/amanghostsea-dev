@@ -1828,85 +1828,132 @@ Poin: 10
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                  {isProctorOnly ? 'Pratinjau Naskah Soal Ujian' : 'Daftar Butir Soal'}
-                </h2>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300">
-                  {questions.length} Butir
-                </span>
-                {isProctorOnly && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
-                    Mode Hanya Lihat (Read-Only)
+          {/* 🌟 Panel Header Daftar Soal & Pusat Aksi Tombol (Ultra Modern, Rapi & Beranimasi) */}
+          <div className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs relative overflow-hidden transition-all duration-300">
+            {/* Ambient Background Glow Halus */}
+            <div className="absolute -top-16 -right-16 w-48 h-48 bg-purple-500/10 dark:bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-emerald-500/10 dark:bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-4 sm:gap-5">
+              {/* Kiri: Informasi Judul, Badge Jumlah Soal & Ringkasan Poin */}
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                    {isProctorOnly ? 'Pratinjau Naskah Soal Ujian' : 'Daftar Butir Soal'}
+                  </h2>
+                  
+                  {/* Badge Jumlah Soal dengan Indikator Pulsa Halus */}
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-purple-100/80 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800 shadow-2xs">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-600"></span>
+                    </span>
+                    <span>{questions.length} Butir Soal</span>
+                  </div>
+
+                  {isProctorOnly && (
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 flex items-center gap-1">
+                      <ShieldCheck size={12} className="text-amber-600" />
+                      <span>Mode Hanya Lihat (Read-Only)</span>
+                    </span>
+                  )}
+                </div>
+
+                {/* Ringkasan Skor & Rata-rata */}
+                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  <span className="flex items-center gap-1.5 bg-slate-100/80 dark:bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-200/60 dark:border-slate-700/60">
+                    <span className="text-slate-400">Total Nilai:</span>
+                    <strong className="text-emerald-600 dark:text-emerald-400 font-black">
+                      {Math.round(totalPoints * 100) / 100} Poin
+                    </strong>
                   </span>
-                )}
+
+                  {questions.length > 0 && (
+                    <span className="flex items-center gap-1.5 bg-slate-100/80 dark:bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-200/60 dark:border-slate-700/60">
+                      <span className="text-slate-400">Rata-rata:</span>
+                      <strong className="text-purple-700 dark:text-purple-300 font-bold">
+                        {Math.round((totalPoints / questions.length) * 100) / 100} Poin/Soal
+                      </strong>
+                    </span>
+                  )}
+                </div>
               </div>
-              <p className="text-xs text-slate-500 mt-1">
-                Total Nilai Maksimal: <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{Math.round(totalPoints * 100) / 100} Poin</strong>
-                {questions.length > 0 && (
-                  <span> • Rata-rata: <strong className="text-slate-700 dark:text-slate-300 font-semibold">{Math.round((totalPoints / questions.length) * 100) / 100} Poin/Soal</strong></span>
-                )}
-              </p>
+
+              {/* Kanan: Pusat Aksi Tombol dengan Animasi Interaktif */}
+              {!isProctorOnly ? (
+                <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+                  {/* 1. TOMBOL UTAMA: Tambah Soal Manual (Hero Action) */}
+                  <button
+                    type="button"
+                    onClick={() => setIsAddQuestionModal(true)}
+                    className="group relative overflow-hidden flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-500 hover:via-indigo-500 hover:to-purple-600 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-purple-500/25 hover:shadow-lg hover:shadow-purple-500/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 cursor-pointer"
+                  >
+                    {/* Shimmer sweep effect */}
+                    <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                    <Plus size={16} className="group-hover:rotate-90 transition-transform duration-300 shrink-0" />
+                    <span>Tambah Soal Manual</span>
+                  </button>
+
+                  {/* 2. TOMBOL KOLEKTIF: Input Batch Soal */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBatchStep('input');
+                      setIsBatchModalOpen(true);
+                    }}
+                    className="group relative overflow-hidden flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-emerald-500/25 hover:shadow-lg hover:shadow-emerald-500/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 cursor-pointer"
+                    title="Upload soal secara banyak sekaligus via teks atau tabel"
+                  >
+                    <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                    <UploadCloud size={16} className="group-hover:-translate-y-0.5 group-hover:scale-110 transition-transform duration-300 shrink-0" />
+                    <span>Input Kolektif (Batch)</span>
+                  </button>
+
+                  {/* 3. TOMBOL TEMPLATE: Unduh Format CSV */}
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadCsvTemplate('csv')}
+                    className="group flex items-center gap-2 px-3.5 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-emerald-500/80 dark:hover:border-emerald-500/80 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/30 text-slate-700 dark:text-slate-200 rounded-xl text-xs sm:text-sm font-bold shadow-2xs hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 cursor-pointer"
+                    title="Unduh Template Excel CSV Resmi dengan Kolom Siap Isi"
+                  >
+                    <FileSpreadsheet size={16} className="text-emerald-600 dark:text-emerald-400 group-hover:scale-115 transition-transform duration-200 shrink-0" />
+                    <span>Unduh Template CSV</span>
+                  </button>
+
+                  {/* 4. TOMBOL DISTRIBUSI: Bagi Rata Nilai Otomatis */}
+                  <button
+                    type="button"
+                    onClick={() => setIsAutoDistributeModalOpen(true)}
+                    className="group relative overflow-hidden flex items-center gap-2 px-3.5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-amber-500/20 hover:shadow-lg hover:shadow-amber-500/30 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 cursor-pointer"
+                    title="Bagi rata nilai otomatis ke seluruh butir soal (contoh: 40 soal dengan total 100 = 2.5 poin/soal)"
+                  >
+                    <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                    <Calculator size={16} className="group-hover:rotate-12 group-hover:scale-110 transition-transform duration-200 shrink-0" />
+                    <span>Bagi Rata Nilai (Otomatis)</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="px-4 py-2.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-xs font-semibold flex items-center gap-2 border border-amber-200 dark:border-amber-800 shadow-2xs">
+                  <ShieldCheck size={18} className="text-amber-600 shrink-0" />
+                  <span>Naskah soal dikunci. Pengawas tidak diizinkan menambah atau mengubah soal.</span>
+                </div>
+              )}
             </div>
-            {!isProctorOnly ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAutoDistributeModalOpen(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-sm font-bold shadow-md shadow-amber-500/25 transition-all cursor-pointer"
-                  title="Bagi rata nilai otomatis ke seluruh butir soal (contoh: 40 soal dengan total 100 = 2.5 poin/soal)"
-                >
-                  <Calculator size={16} />
-                  <span>Bagi Rata Nilai (Otomatis)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDownloadCsvTemplate('csv')}
-                  className="flex items-center gap-1.5 px-3.5 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-semibold transition shadow-sm cursor-pointer"
-                  title="Unduh Template Excel CSV Resmi dengan Kolom Siap Isi"
-                >
-                  <FileSpreadsheet size={16} className="text-emerald-600 dark:text-emerald-400" />
-                  <span>Unduh Template CSV</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBatchStep('input');
-                    setIsBatchModalOpen(true);
-                  }}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-500/25 transition-all cursor-pointer"
-                >
-                  <UploadCloud size={16} /> Input Kolektif (Batch)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsAddQuestionModal(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-semibold shadow-md shadow-purple-500/25 transition-all cursor-pointer"
-                >
-                  <Plus size={16} /> Tambah Soal Manual
-                </button>
-              </div>
-            ) : (
-              <div className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold flex items-center gap-2 border border-slate-200 dark:border-slate-700">
-                <ShieldCheck size={16} className="text-amber-500 shrink-0" />
-                <span>Naskah soal dikunci. Pengawas tidak diizinkan menambah atau mengubah soal.</span>
-              </div>
-            )}
           </div>
 
           {questions.length === 0 ? (
             <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
               <HelpCircle className="mx-auto text-slate-300 dark:text-slate-600 mb-3" size={48} />
               <p className="text-slate-500 font-medium">Belum ada butir soal dalam paket ujian ini.</p>
-              <div className="flex flex-wrap items-center justify-center gap-3 mt-4">
+              <div className="flex flex-wrap items-center justify-center gap-3 mt-5">
                 <button
                   type="button"
-                  onClick={() => handleDownloadCsvTemplate('csv')}
-                  className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-semibold flex items-center gap-2 shadow-sm cursor-pointer"
+                  onClick={() => setIsAddQuestionModal(true)}
+                  className="group relative overflow-hidden flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-500 hover:via-indigo-500 hover:to-purple-600 text-white rounded-xl text-sm font-bold shadow-md shadow-purple-500/25 hover:shadow-lg hover:-translate-y-0.5 active:scale-95 transition-all duration-200 cursor-pointer"
                 >
-                  <FileSpreadsheet size={16} className="text-emerald-600 dark:text-emerald-400" /> Unduh Template CSV
+                  <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                  <Plus size={16} className="group-hover:rotate-90 transition-transform duration-300" />
+                  <span>Tambah Soal Manual</span>
                 </button>
                 <button
                   type="button"
@@ -1914,16 +1961,19 @@ Poin: 10
                     setBatchStep('input');
                     setIsBatchModalOpen(true);
                   }}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-md shadow-emerald-500/25 cursor-pointer"
+                  className="group relative overflow-hidden flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-500/25 hover:shadow-lg hover:-translate-y-0.5 active:scale-95 transition-all duration-200 cursor-pointer"
                 >
-                  <UploadCloud size={16} /> Input Soal Kolektif (Batch)
+                  <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                  <UploadCloud size={16} className="group-hover:-translate-y-0.5 group-hover:scale-110 transition-transform duration-300" />
+                  <span>Input Kolektif (Batch)</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsAddQuestionModal(true)}
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-semibold flex items-center gap-2 shadow-md shadow-purple-500/25 cursor-pointer"
+                  onClick={() => handleDownloadCsvTemplate('csv')}
+                  className="group flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-emerald-500 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/30 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-bold shadow-2xs hover:shadow-md hover:-translate-y-0.5 active:scale-95 transition-all duration-200 cursor-pointer"
                 >
-                  <Plus size={16} /> Tambah Soal Manual
+                  <FileSpreadsheet size={16} className="text-emerald-600 dark:text-emerald-400 group-hover:scale-115 transition-transform duration-200" />
+                  <span>Unduh Template CSV</span>
                 </button>
               </div>
             </div>
