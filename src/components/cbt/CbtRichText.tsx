@@ -14,6 +14,8 @@ interface CbtRichTextProps {
 type TextSegment =
   | { type: 'text'; content: string }
   | { type: 'code-block'; content: string }
+  | { type: 'quote'; content: string }
+  | { type: 'hr' }
   | { type: 'inline-math'; math: string }
   | { type: 'block-math'; math: string }
   | { type: 'image'; alt: string; src: string }
@@ -73,7 +75,7 @@ function parseTableBlock(rawTable: string): {
 function parseMathCodeAndImages(rawText: string): TextSegment[] {
   if (!rawText) return [];
   const segments: TextSegment[] = [];
-  const regex = /(```[\s\S]*?```|\[box\][\s\S]*?\[\/box\]|\[terminal\][\s\S]*?\[\/terminal\]|\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\$(?!\s)[^$\n]+(?<!\s)\$|\\\([\s\S]*?\\\)|\!\[(.*?)\]\((.*?)\))/g;
+  const regex = /(```[\s\S]*?```|\[box\][\s\S]*?\[\/box\]|\[terminal\][\s\S]*?\[\/terminal\]|\[quote\][\s\S]*?\[\/quote\]|\[hr\]|^\s*---+\s*$|\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\$(?!\s)[^$\n]+(?<!\s)\$|\\\([\s\S]*?\\\)|\!\[(.*?)\]\((.*?)\))/gm;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
@@ -95,6 +97,11 @@ function parseMathCodeAndImages(rawText: string): TextSegment[] {
     } else if (matchedStr.startsWith('[terminal]')) {
       const inner = matchedStr.slice(10, -11).replace(/^\r?\n/, '').replace(/\r?\n$/, '');
       segments.push({ type: 'code-block', content: inner });
+    } else if (matchedStr.startsWith('[quote]')) {
+      const inner = matchedStr.slice(7, -8).replace(/^\r?\n/, '').replace(/\r?\n$/, '');
+      segments.push({ type: 'quote', content: inner });
+    } else if (matchedStr === '[hr]' || /^\s*---+\s*$/.test(matchedStr)) {
+      segments.push({ type: 'hr' });
     } else if (matchedStr.startsWith('![')) {
       const alt = match[2] || 'Gambar Soal';
       const src = match[3] || '';
@@ -175,14 +182,13 @@ function renderKaTeX(math: string, displayMode: boolean): string {
 
 /**
  * 🎨 Recursive Inline Formatting Parser
- * Mendukung Font (sans/serif/mono), Ukuran (xs/sm/base/lg/xl/2xl), Warna, Highlight, Bold, Italic, Underline, Kbd, dan Code
+ * Mendukung Font, Ukuran, Warna, Highlight, Bold, Italic, Underline, Kbd, Code, Subscript, Superscript, Rata Teks, Kutipan, dan Soal Rumpang
  */
 function renderInlineRichFormatting(text: string, keyPrefix: string = 'inline'): React.ReactNode[] {
   if (!text) return [];
 
   const nodes: React.ReactNode[] = [];
-  // Tokenizer pattern
-  const pattern = /(?:`([^`\n]+)`|<kbd>([\s\S]*?)<\/kbd>|\[\[([\s\S]*?)\]\]|\*\*([\s\S]*?)\*\*|<b>([\s\S]*?)<\/b>|<strong>([\s\S]*?)<\/strong>|~~([\s\S]*?)~~|<s>([\s\S]*?)<\/s>|<del>([\s\S]*?)<\/del>|<u>([\s\S]*?)<\/u>|__([\s\S]*?)__|==([\s\S]*?)==|\[bg:([a-zA-Z0-9#]+)\]([\s\S]*?)\[\/bg\]|\[font:([a-zA-Z0-9-]+)\]([\s\S]*?)\[\/font\]|\[(serif|mono|sans)\]([\s\S]*?)\[\/\17\]|\[size:([a-zA-Z0-9-]+)\]([\s\S]*?)\[\/size\]|\[color:([a-zA-Z0-9#-]+)\]([\s\S]*?)\[\/color\]|\[(red|blue|green|yellow|amber|purple|gray)\]([\s\S]*?)\[\/\23\]|\*([^\*\n]+)\*|_([^\_\n]+)_|<i>([\s\S]*?)<\/i>|<em>([\s\S]*?)<\/em>)/g;
+  const pattern = /(?:`[^`\n]+`|<kbd>[\s\S]*?<\/kbd>|\[\[[\s\S]*?\]\]|\*\*[\s\S]*?\*\*|<b>[\s\S]*?<\/b>|<strong>[\s\S]*?<\/strong>|~~[\s\S]*?~~|<s>[\s\S]*?<\/s>|<del>[\s\S]*?<\/del>|<u>[\s\S]*?<\/u>|__[\s\S]*?__|==[\s\S]*?==|\[bg:[a-zA-Z0-9#]+\][\s\S]*?\[\/bg\]|\[font:[a-zA-Z0-9-]+\][\s\S]*?\[\/font\]|\[(?:serif|mono|sans)\][\s\S]*?\[\/(?:serif|mono|sans)\]|\[size:[a-zA-Z0-9-]+\][\s\S]*?\[\/size\]|\[color:[a-zA-Z0-9#-]+\][\s\S]*?\[\/color\]|\[(?:red|blue|green|yellow|amber|purple|gray)\][\s\S]*?\[\/(?:red|blue|green|yellow|amber|purple|gray)\]|<sub>[\s\S]*?<\/sub>|\[sub\][\s\S]*?\[\/sub\]|~[^~\s\n]+~|<sup>[\s\S]*?<\/sup>|\[sup\][\s\S]*?\[\/sup\]|\^[^\^\s\n]+\^|\[(?:center|right|justify|left)\][\s\S]*?\[\/(?:center|right|justify|left)\]|\[quote\][\s\S]*?\[\/quote\]|\[blank(?::\d+)?\]|\.{5,}|\*[^\*\n]+\*|_[^\_\n]+_|<i>[\s\S]*?<\/i>|<em>[\s\S]*?<\/em>)/g;
 
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -197,70 +203,160 @@ function renderInlineRichFormatting(text: string, keyPrefix: string = 'inline'):
     const fullMatch = match[0];
 
     // 1. Inline code: `...`
-    if (match[1] !== undefined) {
+    if (fullMatch.startsWith('`')) {
       nodes.push(
         <code
           key={key}
           className="px-1.5 py-0.5 rounded-md font-mono text-xs sm:text-sm bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 font-semibold mx-0.5 select-text"
         >
-          {match[1]}
+          {fullMatch.slice(1, -1)}
         </code>
       );
     }
     // 2. Kbd: <kbd>...</kbd> or [[...]]
-    else if (match[2] !== undefined || match[3] !== undefined) {
-      const kbdText = match[2] ?? match[3];
+    else if (fullMatch.startsWith('<kbd>') || fullMatch.startsWith('[[')) {
+      const content = fullMatch.startsWith('<kbd>') ? fullMatch.slice(5, -6) : fullMatch.slice(2, -2);
       nodes.push(
         <kbd
           key={key}
           className="inline-flex items-center px-2 py-0.5 mx-0.5 rounded-md font-mono text-xs font-bold bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 shadow-xs text-slate-800 dark:text-slate-200 align-baseline select-text"
         >
-          {renderInlineRichFormatting(kbdText, `${key}-k`)}
+          {renderInlineRichFormatting(content, `${key}-k`)}
         </kbd>
       );
     }
-    // 3. Bold: **...**, <b>...</b>, <strong>...</strong>
-    else if (match[4] !== undefined || match[5] !== undefined || match[6] !== undefined) {
-      const content = match[4] ?? match[5] ?? match[6];
+    // 3. Subscript: <sub>...</sub> or [sub]...[/sub] or ~...~
+    else if (fullMatch.startsWith('<sub>') || fullMatch.startsWith('[sub]') || (fullMatch.startsWith('~') && !fullMatch.startsWith('~~'))) {
+      const content = fullMatch.startsWith('<sub>')
+        ? fullMatch.slice(5, -6)
+        : fullMatch.startsWith('[sub]')
+        ? fullMatch.slice(5, -6)
+        : fullMatch.slice(1, -1);
+      nodes.push(
+        <sub key={key} className="align-baseline text-[0.75em] relative -bottom-[0.25em] font-medium select-text">
+          {renderInlineRichFormatting(content, `${key}-sub`)}
+        </sub>
+      );
+    }
+    // 4. Superscript: <sup>...</sup> or [sup]...[/sup] or ^...^
+    else if (fullMatch.startsWith('<sup>') || fullMatch.startsWith('[sup]') || fullMatch.startsWith('^')) {
+      const content = fullMatch.startsWith('<sup>')
+        ? fullMatch.slice(5, -6)
+        : fullMatch.startsWith('[sup]')
+        ? fullMatch.slice(5, -6)
+        : fullMatch.slice(1, -1);
+      nodes.push(
+        <sup key={key} className="align-baseline text-[0.75em] relative -top-[0.45em] font-medium select-text">
+          {renderInlineRichFormatting(content, `${key}-sup`)}
+        </sup>
+      );
+    }
+    // 5. Perataan Teks (Alignment): [center], [right], [justify], [left]
+    else if (
+      fullMatch.startsWith('[center]') ||
+      fullMatch.startsWith('[right]') ||
+      fullMatch.startsWith('[justify]') ||
+      fullMatch.startsWith('[left]')
+    ) {
+      let alignClass = 'text-left';
+      let content = '';
+      if (fullMatch.startsWith('[center]')) {
+        alignClass = 'text-center';
+        content = fullMatch.slice(8, -9);
+      } else if (fullMatch.startsWith('[right]')) {
+        alignClass = 'text-right';
+        content = fullMatch.slice(7, -8);
+      } else if (fullMatch.startsWith('[justify]')) {
+        alignClass = 'text-justify';
+        content = fullMatch.slice(9, -10);
+      } else {
+        alignClass = 'text-left';
+        content = fullMatch.slice(6, -7);
+      }
+
+      nodes.push(
+        <span key={key} className={`block ${alignClass} my-1 leading-relaxed select-text`}>
+          {renderInlineRichFormatting(content, `${key}-align`)}
+        </span>
+      );
+    }
+    // 6. Kutipan / Blok Quote inline: [quote]...[/quote]
+    else if (fullMatch.startsWith('[quote]')) {
+      const content = fullMatch.slice(7, -8).replace(/^\r?\n/, '').replace(/\r?\n$/, '');
+      nodes.push(
+        <blockquote
+          key={key}
+          className="my-2.5 p-3 sm:p-3.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/30 border-l-4 border-l-purple-500 dark:border-l-purple-400 text-slate-800 dark:text-slate-200 italic shadow-xs block select-text leading-relaxed"
+        >
+          {renderInlineRichFormatting(content, `${key}-qt`)}
+        </blockquote>
+      );
+    }
+    // 7. Soal Rumpang / Fill-in-the-blank: [blank] or ...........
+    else if (fullMatch.startsWith('[blank') || /^\.{5,}$/.test(fullMatch)) {
+      nodes.push(
+        <span
+          key={key}
+          className="inline-block border-b-2 border-slate-400 dark:border-slate-500 min-w-[70px] mx-1 text-transparent select-none align-baseline"
+          title="Soal rumpang (isilah bagian yang kosong)"
+        >
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        </span>
+      );
+    }
+    // 8. Bold: **...**, <b>...</b>, <strong>...</strong>
+    else if (fullMatch.startsWith('**') || fullMatch.startsWith('<b>') || fullMatch.startsWith('<strong>')) {
+      const content = fullMatch.startsWith('**')
+        ? fullMatch.slice(2, -2)
+        : fullMatch.startsWith('<b>')
+        ? fullMatch.slice(3, -4)
+        : fullMatch.slice(8, -9);
       nodes.push(
         <strong key={key} className="font-bold text-slate-950 dark:text-white">
           {renderInlineRichFormatting(content, `${key}-b`)}
         </strong>
       );
     }
-    // 4. Strikethrough: ~~...~~, <s>...</s>, <del>...</del>
-    else if (match[7] !== undefined || match[8] !== undefined || match[9] !== undefined) {
-      const content = match[7] ?? match[8] ?? match[9];
+    // 9. Strikethrough: ~~...~~, <s>...</s>, <del>...</del>
+    else if (fullMatch.startsWith('~~') || fullMatch.startsWith('<s>') || fullMatch.startsWith('<del>')) {
+      const content = fullMatch.startsWith('~~')
+        ? fullMatch.slice(2, -2)
+        : fullMatch.startsWith('<s>')
+        ? fullMatch.slice(3, -4)
+        : fullMatch.slice(5, -6);
       nodes.push(
         <del key={key} className="line-through opacity-75">
           {renderInlineRichFormatting(content, `${key}-s`)}
         </del>
       );
     }
-    // 5. Underline: <u>...</u>, __...__
-    else if (match[10] !== undefined || match[11] !== undefined) {
-      const content = match[10] ?? match[11];
+    // 10. Underline: <u>...</u>, __...__
+    else if (fullMatch.startsWith('<u>') || fullMatch.startsWith('__')) {
+      const content = fullMatch.startsWith('<u>') ? fullMatch.slice(3, -4) : fullMatch.slice(2, -2);
       nodes.push(
         <span key={key} className="underline decoration-current underline-offset-2 decoration-1.5">
           {renderInlineRichFormatting(content, `${key}-u`)}
         </span>
       );
     }
-    // 6. Highlight: ==...==
-    else if (match[12] !== undefined) {
+    // 11. Highlight: ==...==
+    else if (fullMatch.startsWith('==')) {
+      const content = fullMatch.slice(2, -2);
       nodes.push(
         <mark
           key={key}
           className="bg-amber-200/90 dark:bg-amber-900/60 text-slate-900 dark:text-amber-100 px-1 py-0.5 rounded-sm font-medium"
         >
-          {renderInlineRichFormatting(match[12], `${key}-hl`)}
+          {renderInlineRichFormatting(content, `${key}-hl`)}
         </mark>
       );
     }
-    // 7. Highlight by color: [bg:COLOR]...[/bg]
-    else if (match[13] !== undefined && match[14] !== undefined) {
-      const colorParam = match[13].toLowerCase();
-      const content = match[14];
+    // 12. Highlight by color: [bg:COLOR]...[/bg]
+    else if (fullMatch.startsWith('[bg:')) {
+      const colorMatch = fullMatch.match(/^\[bg:([a-zA-Z0-9#]+)\]([\s\S]*?)\[\/bg\]$/i);
+      const colorParam = colorMatch?.[1]?.toLowerCase() || 'yellow';
+      const content = colorMatch?.[2] || '';
+
       let bgClass = 'bg-amber-200/90 dark:bg-amber-900/60 text-slate-900 dark:text-amber-100';
       let customStyle: React.CSSProperties | undefined;
 
@@ -280,13 +376,26 @@ function renderInlineRichFormatting(text: string, keyPrefix: string = 'inline'):
         </mark>
       );
     }
-    // 8. Font family: [font:NAME]...[/font] or [serif]...[/serif], [mono]...[/mono], [sans]...[/sans]
-    else if (match[15] !== undefined || match[17] !== undefined) {
-      const fontName = (match[15] ?? match[17]).toLowerCase();
-      const content = match[16] ?? match[18];
+    // 13. Font family: [font:NAME]...[/font] or [serif]...[/serif], [mono]...[/mono], [sans]...[/sans]
+    else if (fullMatch.startsWith('[font:') || fullMatch.startsWith('[serif]') || fullMatch.startsWith('[mono]') || fullMatch.startsWith('[sans]')) {
       let fontClass = 'font-sans';
-      if (fontName.includes('serif')) fontClass = 'font-serif';
-      else if (fontName.includes('mono')) fontClass = 'font-mono tracking-tight';
+      let content = '';
+      if (fullMatch.startsWith('[font:')) {
+        const fMatch = fullMatch.match(/^\[font:([a-zA-Z0-9-]+)\]([\s\S]*?)\[\/font\]$/i);
+        const fontName = fMatch?.[1]?.toLowerCase() || 'sans';
+        content = fMatch?.[2] || '';
+        if (fontName.includes('serif')) fontClass = 'font-serif';
+        else if (fontName.includes('mono')) fontClass = 'font-mono tracking-tight';
+      } else if (fullMatch.startsWith('[serif]')) {
+        fontClass = 'font-serif';
+        content = fullMatch.slice(7, -8);
+      } else if (fullMatch.startsWith('[mono]')) {
+        fontClass = 'font-mono tracking-tight';
+        content = fullMatch.slice(6, -7);
+      } else {
+        fontClass = 'font-sans';
+        content = fullMatch.slice(6, -7);
+      }
 
       nodes.push(
         <span key={key} className={fontClass}>
@@ -294,10 +403,12 @@ function renderInlineRichFormatting(text: string, keyPrefix: string = 'inline'):
         </span>
       );
     }
-    // 9. Font size: [size:SIZE]...[/size]
-    else if (match[19] !== undefined && match[20] !== undefined) {
-      const sizeParam = match[19].toLowerCase();
-      const content = match[20];
+    // 14. Font size: [size:SIZE]...[/size]
+    else if (fullMatch.startsWith('[size:')) {
+      const sMatch = fullMatch.match(/^\[size:([a-zA-Z0-9-]+)\]([\s\S]*?)\[\/size\]$/i);
+      const sizeParam = sMatch?.[1]?.toLowerCase() || 'base';
+      const content = sMatch?.[2] || '';
+
       let sizeClass = 'text-base';
       if (sizeParam === 'xs' || sizeParam === '12') sizeClass = 'text-xs leading-normal';
       else if (sizeParam === 'sm' || sizeParam === '14') sizeClass = 'text-sm leading-normal';
@@ -312,20 +423,36 @@ function renderInlineRichFormatting(text: string, keyPrefix: string = 'inline'):
         </span>
       );
     }
-    // 10. Font color: [color:COLOR]...[/color] or [red]...[/red], etc.
-    else if (match[21] !== undefined || match[23] !== undefined) {
-      const colorParam = (match[21] ?? match[23]).toLowerCase();
-      const content = match[22] ?? match[24];
+    // 15. Font color: [color:COLOR]...[/color] or [red]...[/red], etc.
+    else if (fullMatch.startsWith('[color:') || /^\[(red|blue|green|yellow|amber|purple|gray)\]/i.test(fullMatch)) {
       let colorClass = 'text-slate-900 dark:text-white';
       let customStyle: React.CSSProperties | undefined;
+      let content = '';
 
-      if (colorParam === 'red' || colorParam === 'rose') colorClass = 'text-rose-600 dark:text-rose-400 font-medium';
-      else if (colorParam === 'blue' || colorParam === 'sky') colorClass = 'text-sky-600 dark:text-sky-400 font-medium';
-      else if (colorParam === 'green' || colorParam === 'emerald') colorClass = 'text-emerald-600 dark:text-emerald-400 font-medium';
-      else if (colorParam === 'yellow' || colorParam === 'amber' || colorParam === 'gold') colorClass = 'text-amber-600 dark:text-amber-400 font-medium';
-      else if (colorParam === 'purple' || colorParam === 'violet') colorClass = 'text-purple-600 dark:text-purple-400 font-medium';
-      else if (colorParam === 'gray' || colorParam === 'slate') colorClass = 'text-slate-500 dark:text-slate-400';
-      else if (colorParam.startsWith('#')) customStyle = { color: colorParam };
+      if (fullMatch.startsWith('[color:')) {
+        const cMatch = fullMatch.match(/^\[color:([a-zA-Z0-9#-]+)\]([\s\S]*?)\[\/color\]$/i);
+        const colorParam = cMatch?.[1]?.toLowerCase() || 'inherit';
+        content = cMatch?.[2] || '';
+
+        if (colorParam === 'red' || colorParam === 'rose') colorClass = 'text-rose-600 dark:text-rose-400 font-medium';
+        else if (colorParam === 'blue' || colorParam === 'sky') colorClass = 'text-sky-600 dark:text-sky-400 font-medium';
+        else if (colorParam === 'green' || colorParam === 'emerald') colorClass = 'text-emerald-600 dark:text-emerald-400 font-medium';
+        else if (colorParam === 'yellow' || colorParam === 'amber' || colorParam === 'gold') colorClass = 'text-amber-600 dark:text-amber-400 font-medium';
+        else if (colorParam === 'purple' || colorParam === 'violet') colorClass = 'text-purple-600 dark:text-purple-400 font-medium';
+        else if (colorParam === 'gray' || colorParam === 'slate') colorClass = 'text-slate-500 dark:text-slate-400';
+        else if (colorParam.startsWith('#')) customStyle = { color: colorParam };
+      } else {
+        const cMatch = fullMatch.match(/^\[(red|blue|green|yellow|amber|purple|gray)\]([\s\S]*?)\[\/\1\]$/i);
+        const colorParam = cMatch?.[1]?.toLowerCase() || 'inherit';
+        content = cMatch?.[2] || '';
+
+        if (colorParam === 'red') colorClass = 'text-rose-600 dark:text-rose-400 font-medium';
+        else if (colorParam === 'blue') colorClass = 'text-sky-600 dark:text-sky-400 font-medium';
+        else if (colorParam === 'green') colorClass = 'text-emerald-600 dark:text-emerald-400 font-medium';
+        else if (colorParam === 'yellow' || colorParam === 'amber') colorClass = 'text-amber-600 dark:text-amber-400 font-medium';
+        else if (colorParam === 'purple') colorClass = 'text-purple-600 dark:text-purple-400 font-medium';
+        else if (colorParam === 'gray') colorClass = 'text-slate-500 dark:text-slate-400';
+      }
 
       nodes.push(
         <span key={key} style={customStyle} className={colorClass}>
@@ -333,9 +460,13 @@ function renderInlineRichFormatting(text: string, keyPrefix: string = 'inline'):
         </span>
       );
     }
-    // 11. Italic: *...*, _..._, <i>...</i>, <em>...</em>
-    else if (match[25] !== undefined || match[26] !== undefined || match[27] !== undefined || match[28] !== undefined) {
-      const content = match[25] ?? match[26] ?? match[27] ?? match[28];
+    // 16. Italic: *...*, _..._, <i>...</i>, <em>...</em>
+    else if (fullMatch.startsWith('*') || fullMatch.startsWith('_') || fullMatch.startsWith('<i>') || fullMatch.startsWith('<em>')) {
+      const content = fullMatch.startsWith('*') || fullMatch.startsWith('_')
+        ? fullMatch.slice(1, -1)
+        : fullMatch.startsWith('<i>')
+        ? fullMatch.slice(3, -4)
+        : fullMatch.slice(4, -5);
       nodes.push(
         <em key={key} className="italic">
           {renderInlineRichFormatting(content, `${key}-i`)}
