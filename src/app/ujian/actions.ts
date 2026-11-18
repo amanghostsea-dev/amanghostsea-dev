@@ -4,6 +4,12 @@ import prisma from '@/lib/prisma';
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { isClassTargetMatch, formatClassTargetDisplay, isExamTokenActive } from '@/lib/cbt-schedule';
+import { 
+  isStudentReligionMatch, 
+  getReligionConfig, 
+  normalizeReligion, 
+  ReligionCode 
+} from '@/lib/cbt-religion';
 import {
   checkActiveDeviceSession,
   registerDeviceSession,
@@ -56,6 +62,7 @@ export async function lookupStudentIdentityAction(query: string) {
         nisn: true,
         username: true,
         studentClass: true,
+        religion: true,
       },
     });
 
@@ -105,6 +112,7 @@ export async function lookupStudentIdentityAction(query: string) {
         nisn: user.nisn || user.username,
         username: user.username,
         studentClass,
+        religion: user.religion || null,
       },
     };
   } catch {
@@ -119,6 +127,7 @@ export interface VerifiedStudentData {
   username: string;
   studentClass: string;
   majorName: string;
+  religion?: string | null;
 }
 
 export interface VerifiedExamData {
@@ -128,6 +137,21 @@ export interface VerifiedExamData {
   classTarget: string;
   duration: number;
   roomName: string;
+  targetReligion?: string | null;
+}
+
+export interface ReligionVariantChoice {
+  examId: string;
+  religionCode: ReligionCode;
+  religionLabel: string;
+  shortLabel: string;
+  icon: string;
+  title: string;
+  subject: string;
+  duration: number;
+  bgBadge: string;
+  borderBadge: string;
+  textBadge: string;
 }
 
 export interface WrongRoomDetails {
@@ -157,6 +181,8 @@ export async function verifyAndPrepareExamJoinAction(params: {
   student?: VerifiedStudentData;
   exam?: VerifiedExamData | null;
   token?: string;
+  needsReligionSelection?: boolean;
+  religionVariants?: ReligionVariantChoice[];
   isDeviceConflict?: boolean;
   conflictData?: DeviceSessionData;
 }> {
@@ -347,11 +373,13 @@ export async function verifyAndPrepareExamJoinAction(params: {
           startTime: true,
           endTime: true,
           status: true,
+          targetReligion: true,
           updatedAt: true,
         },
       });
 
-      const matchedExam = candidates.find((exam) => {
+      // 1. Saring kandidat ujian yang memiliki token sesuai input
+      const tokenMatches = candidates.filter((exam) => {
         if (!exam.token) return false;
         const allowedTokens = exam.token
           .split('|')
@@ -360,14 +388,111 @@ export async function verifyAndPrepareExamJoinAction(params: {
         return allowedTokens.includes(inputToken);
       });
 
-      if (!matchedExam) {
+      if (tokenMatches.length === 0) {
         return {
           success: false,
           error: `Token ujian "${inputToken}" tidak valid atau tidak terdaftar. Silakan periksa kembali token di papan tulis kelas Anda.`,
         };
       }
 
-      // ⏰ CEK APAKAH TOKEN AKTIF & BELUM KADALUARSA
+      // 2. Saring kandidat ujian yang cocok dengan kelas siswa
+      const classMatches = tokenMatches.filter((exam) =>
+        !studentClass || isClassTargetMatch(exam.classTarget, studentClass)
+      );
+
+      if (classMatches.length === 0) {
+        const sampleTarget = tokenMatches[0];
+        const targetDisplay = formatClassTargetDisplay(sampleTarget.classTarget, true);
+        return {
+          success: false,
+          errorType: 'WRONG_ROOM',
+          error: `Salah Kamar Ujian: Token ini khusus untuk ${targetDisplay}, sedangkan Anda terdaftar di kelas "${studentClass}".`,
+          wrongRoomDetails: {
+            examTitle: sampleTarget.title,
+            examSubject: sampleTarget.subject,
+            targetClass: targetDisplay,
+            studentClass: studentClass,
+          },
+        };
+      }
+
+      // 3. 🕌 SMART RELIGION AUTO-ROUTING
+      // Cek apakah ada varian agama serentak di ruangan/jadwal ini
+      let matchedExam: (typeof classMatches)[0] | null = null;
+      const hasReligiousVariants = classMatches.some(
+        (e) => e.targetReligion && e.targetReligion !== 'ALL'
+      );
+
+      if (hasReligiousVariants && classMatches.length > 1) {
+        const studentRel = matchedUser.religion ? normalizeReligion(matchedUser.religion) : null;
+
+        if (studentRel && studentRel !== 'ALL') {
+          // Cari ujian varian agama yang cocok dengan agama siswa
+          matchedExam = classMatches.find(
+            (e) => normalizeReligion(e.targetReligion) === studentRel
+          ) || null;
+
+          // Fallback jika tidak ada yang spesifik, cari yang 'ALL'
+          if (!matchedExam) {
+            matchedExam = classMatches.find(
+              (e) => normalizeReligion(e.targetReligion) === 'ALL'
+            ) || null;
+          }
+        }
+
+        // Jika siswa belum memiliki data agama di akunnya atau tidak ada yang cocok otomatis:
+        if (!matchedExam) {
+          const religionVariants: ReligionVariantChoice[] = classMatches.map((e) => {
+            const relConfig = getReligionConfig(e.targetReligion);
+            return {
+              examId: e.id,
+              religionCode: relConfig.code,
+              religionLabel: relConfig.label,
+              shortLabel: relConfig.shortLabel,
+              icon: relConfig.icon,
+              title: e.title,
+              subject: e.subject,
+              duration: e.duration,
+              bgBadge: relConfig.bgBadge,
+              borderBadge: relConfig.borderBadge,
+              textBadge: relConfig.textBadge,
+            };
+          });
+
+          return {
+            success: true,
+            needsReligionSelection: true,
+            religionVariants,
+            student: {
+              id: matchedUser.id,
+              name: matchedUser.name,
+              nisn: matchedUser.nisn || matchedUser.username,
+              username: matchedUser.username,
+              studentClass,
+              majorName,
+              religion: matchedUser.religion || null,
+            },
+            token: inputToken,
+          };
+        }
+      } else {
+        matchedExam = classMatches[0];
+
+        // Validasi jika ujian tunggal ini ditargetkan khusus untuk agama tertentu
+        if (matchedExam.targetReligion && matchedExam.targetReligion !== 'ALL') {
+          const studentRel = matchedUser.religion ? normalizeReligion(matchedUser.religion) : null;
+          if (studentRel && studentRel !== normalizeReligion(matchedExam.targetReligion)) {
+            const examRel = getReligionConfig(matchedExam.targetReligion);
+            const stuRel = getReligionConfig(studentRel);
+            return {
+              success: false,
+              error: `Paket soal "${matchedExam.title}" ini khusus untuk siswa beragama ${examRel.shortLabel}, sedangkan akun Anda tercatat beragama ${stuRel.shortLabel}. Hubungi pengawas jika Anda membutuhkan soal yang sesuai.`,
+            };
+          }
+        }
+      }
+
+      // 4. ⏰ CEK STATUS TOKEN AKTIF / KADALUARSA
       const tokenCheck = isExamTokenActive(matchedExam);
       if (!tokenCheck.isActive) {
         if (tokenCheck.isExpired) {
@@ -384,25 +509,6 @@ export async function verifyAndPrepareExamJoinAction(params: {
         };
       }
 
-      // 🔒 VERIFIKASI KELAS & JURUSAN (ANTI SALAH KAMAR & BOCOR SOAL)
-      if (studentClass) {
-        const isClassAllowed = isClassTargetMatch(matchedExam.classTarget, studentClass);
-        if (!isClassAllowed) {
-          const targetDisplay = formatClassTargetDisplay(matchedExam.classTarget, true);
-          return {
-            success: false,
-            errorType: 'WRONG_ROOM',
-            error: `Salah Kamar Ujian: Token ini khusus untuk ${targetDisplay}, sedangkan Anda terdaftar di kelas "${studentClass}".`,
-            wrongRoomDetails: {
-              examTitle: matchedExam.title,
-              examSubject: matchedExam.subject,
-              targetClass: targetDisplay,
-              studentClass: studentClass,
-            },
-          };
-        }
-      }
-
       targetExam = {
         id: matchedExam.id,
         title: matchedExam.title,
@@ -410,6 +516,7 @@ export async function verifyAndPrepareExamJoinAction(params: {
         classTarget: matchedExam.classTarget,
         duration: matchedExam.duration,
         roomName: matchedExam.roomName || 'Ruang CBT',
+        targetReligion: matchedExam.targetReligion,
       };
     }
 
@@ -422,6 +529,7 @@ export async function verifyAndPrepareExamJoinAction(params: {
         username: matchedUser.username,
         studentClass,
         majorName,
+        religion: matchedUser.religion || null,
       },
       exam: targetExam,
       token: inputToken,
@@ -429,6 +537,57 @@ export async function verifyAndPrepareExamJoinAction(params: {
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Terjadi kesalahan sistem saat memvalidasi data siswa.';
     return { success: false, error: msg };
+  }
+}
+
+/**
+ * 🕌 Aksi Pemilihan Agama Siswa & Pengambilan Paket Ujian yang Cocok
+ * Disimpan permanen ke User.religion agar pengerjaan ujian berikutnya otomatis presisi
+ */
+export async function setStudentReligionAndSelectExamAction(params: {
+  userId: string;
+  examId: string;
+  religion: ReligionCode;
+}) {
+  try {
+    // 1. Simpan agama siswa ke database profil User
+    await prisma.user.update({
+      where: { id: params.userId },
+      data: { religion: params.religion },
+    });
+
+    // 2. Ambil detail paket ujian
+    const exam = await prisma.exam.findUnique({
+      where: { id: params.examId },
+      select: {
+        id: true,
+        title: true,
+        subject: true,
+        classTarget: true,
+        duration: true,
+        roomName: true,
+        targetReligion: true,
+      },
+    });
+
+    if (!exam) {
+      return { success: false, error: 'Paket ujian tidak ditemukan.' };
+    }
+
+    return {
+      success: true,
+      exam: {
+        id: exam.id,
+        title: exam.title,
+        subject: exam.subject,
+        classTarget: exam.classTarget,
+        duration: exam.duration,
+        roomName: exam.roomName || 'Ruang CBT',
+        targetReligion: exam.targetReligion,
+      },
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Gagal menyimpan pilihan agama siswa.' };
   }
 }
 

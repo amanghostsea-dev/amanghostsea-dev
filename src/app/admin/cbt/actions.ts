@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { isClassOverlap, CbtTimezone, DEFAULT_CBT_TIMEZONE, parseDateTimeInputToIso } from '@/lib/cbt-schedule';
+import { isReligiousVariantParallel, normalizeReligion } from '@/lib/cbt-religion';
 import { getKopSuratConfig, getWebSettings, getCbtTimezone } from '@/lib/settings';
 import { getDynamicClassTargets, ensureDefaultJurusans } from '@/lib/jurusan-service';
 import { clearDeviceSession } from '@/lib/device-session';
@@ -32,7 +33,15 @@ export async function rotateExamToken(id: string, customToken?: string) {
   try {
     const current = await prisma.exam.findUnique({
       where: { id },
-      select: { token: true, status: true },
+      select: {
+        token: true,
+        status: true,
+        startTime: true,
+        endTime: true,
+        roomName: true,
+        classTarget: true,
+        targetReligion: true,
+      },
     });
 
     if (!current) {
@@ -54,6 +63,25 @@ export async function rotateExamToken(id: string, customToken?: string) {
       },
     });
 
+    // 🕌 Sinkronisasi Token Otomatis untuk Varian Agama Serentak:
+    // Jika ujian ini adalah varian agama (targetReligion !== 'ALL'), cari ujian varian agama lain
+    // di ruangan dan waktu yang sama, lalu samakan tokennya secara otomatis!
+    if (current.targetReligion && current.targetReligion !== 'ALL' && current.startTime && current.endTime) {
+      await prisma.exam.updateMany({
+        where: {
+          id: { not: id },
+          status: { not: 'ARCHIVED' },
+          targetReligion: { not: 'ALL' },
+          startTime: current.startTime,
+          endTime: current.endTime,
+          roomName: current.roomName,
+        },
+        data: {
+          token: combinedToken,
+        },
+      });
+    }
+
     revalidatePath('/admin/cbt');
     revalidatePath(`/admin/cbt/${id}`);
     revalidatePath('/portal/siswa/cbt');
@@ -73,9 +101,25 @@ export async function rotateExamToken(id: string, customToken?: string) {
 
 export async function toggleExamSession(id: string, openSession: boolean, customToken?: string) {
   try {
+    const current = await prisma.exam.findUnique({
+      where: { id },
+      select: {
+        token: true,
+        status: true,
+        startTime: true,
+        endTime: true,
+        roomName: true,
+        classTarget: true,
+        targetReligion: true,
+      },
+    });
+
+    if (!current) {
+      return { error: 'Ujian tidak ditemukan.' };
+    }
+
     let token = customToken?.trim().toUpperCase();
     if (openSession && !token) {
-      const current = await prisma.exam.findUnique({ where: { id } });
       const currentPrimary = current?.token ? current.token.split('|')[0].trim() : '';
       token = currentPrimary || generateRandomCbtToken();
     }
@@ -88,6 +132,25 @@ export async function toggleExamSession(id: string, openSession: boolean, custom
         ...(token ? { token } : {}),
       },
     });
+
+    // 🕌 Sinkronisasi Sesi & Token Otomatis untuk Varian Agama Serentak di Ruang yang Sama
+    if (current.targetReligion && current.targetReligion !== 'ALL' && current.startTime && current.endTime) {
+      await prisma.exam.updateMany({
+        where: {
+          id: { not: id },
+          status: { not: 'ARCHIVED' },
+          targetReligion: { not: 'ALL' },
+          startTime: current.startTime,
+          endTime: current.endTime,
+          roomName: current.roomName,
+        },
+        data: {
+          status: openSession ? 'ACTIVE' : 'PUBLISHED',
+          updatedAt: new Date(),
+          ...(token ? { token } : {}),
+        },
+      });
+    }
 
     revalidatePath('/admin/cbt');
     revalidatePath(`/admin/cbt/${id}`);
@@ -114,17 +177,20 @@ export interface ScheduleConflictExam {
   startTime: Date | null;
   endTime: Date | null;
   duration: number;
+  targetReligion?: string | null;
 }
 
 /**
  * 🛡️ Anti-Collision Schedule Checker
  * Detects if an exam schedule overlaps with existing active exams for the same class
+ * Mendukung pengecualian cerdas untuk varian agama paralel (misal PAI & PAK serentak di kelas yang sama)
  */
 export async function checkExamScheduleConflict(params: {
   examId?: string;
   classTarget: string;
   startTime?: string | Date | null;
   endTime?: string | Date | null;
+  targetReligion?: string | null;
 }) {
   try {
     if (!params.startTime || !params.endTime) {
@@ -163,12 +229,24 @@ export async function checkExamScheduleConflict(params: {
         startTime: true,
         endTime: true,
         duration: true,
+        targetReligion: true,
       },
     });
 
-    const conflicting = timeCandidates.filter((c) =>
-      isClassOverlap(c.classTarget, params.classTarget)
-    );
+    const conflicting = timeCandidates.filter((c) => {
+      // 1. Uji apakah kelas / rombel beririsan
+      const overlapsClass = isClassOverlap(c.classTarget, params.classTarget);
+      if (!overlapsClass) return false;
+
+      // 2. 🕌 Smart Exemption Varian Agama Paralel:
+      // Jika dua ujian memiliki target agama spesifik yang berbeda (misal yang satu Islam dan yang satu Kristen),
+      // maka ini BUKAN BENTROK karena memang sengaja dijadwalkan bersamaan untuk siswa yang berbeda agama.
+      if (isReligiousVariantParallel(c.targetReligion, params.targetReligion)) {
+        return false;
+      }
+
+      return true;
+    });
 
     if (conflicting.length > 0) {
       return {
@@ -197,6 +275,7 @@ export async function createExam(data: {
   startTime?: string | Date | null;
   endTime?: string | Date | null;
   allowConflict?: boolean;
+  targetReligion?: string | null;
   proctorId?: string | null;
   proctorName?: string | null;
   proctorNip?: string | null;
@@ -220,6 +299,7 @@ export async function createExam(data: {
         classTarget: data.classTarget || 'Semua Kelas',
         startTime: data.startTime,
         endTime: data.endTime,
+        targetReligion: data.targetReligion || 'ALL',
       });
 
       if (conflictCheck.hasConflict && conflictCheck.conflicts.length > 0) {
@@ -244,6 +324,7 @@ export async function createExam(data: {
         authorName: finalAuthorName,
         startTime: toSafeDateInTimezone(data.startTime),
         endTime: toSafeDateInTimezone(data.endTime),
+        targetReligion: data.targetReligion || 'ALL',
         proctorId: data.proctorId ?? null,
         proctorName: data.proctorName?.trim() || null,
         proctorNip: data.proctorNip?.trim() || null,
@@ -278,6 +359,7 @@ export async function updateExam(
     startTime?: string | Date | null;
     endTime?: string | Date | null;
     allowConflict?: boolean;
+    targetReligion?: string | null;
     proctorId?: string | null;
     proctorName?: string | null;
     proctorNip?: string | null;
@@ -317,6 +399,7 @@ export async function updateExam(
         classTarget: targetClass,
         startTime: data.startTime,
         endTime: data.endTime,
+        targetReligion: data.targetReligion !== undefined ? data.targetReligion : existingExam.targetReligion,
       });
 
       if (conflictCheck.hasConflict && conflictCheck.conflicts.length > 0) {
@@ -342,6 +425,7 @@ export async function updateExam(
         ...(data.shuffleQuestions !== undefined && { shuffleQuestions: data.shuffleQuestions }),
         ...(data.startTime !== undefined && { startTime: toSafeDateInTimezone(data.startTime) }),
         ...(data.endTime !== undefined && { endTime: toSafeDateInTimezone(data.endTime) }),
+        ...(data.targetReligion !== undefined && { targetReligion: data.targetReligion || 'ALL' }),
         ...(data.proctorId !== undefined && { proctorId: data.proctorId }),
         ...(data.proctorName !== undefined && { proctorName: data.proctorName?.trim() || null }),
         ...(data.proctorNip !== undefined && { proctorNip: data.proctorNip?.trim() || null }),
@@ -420,7 +504,7 @@ export async function batchUpdateExamSchedules(
         if (item.startTime && item.endTime) {
           const exam = await prisma.exam.findUnique({
             where: { id: item.id },
-            select: { id: true, title: true, classTarget: true },
+            select: { id: true, title: true, classTarget: true, targetReligion: true },
           });
           if (exam) {
             const conflictCheck = await checkExamScheduleConflict({
@@ -428,6 +512,7 @@ export async function batchUpdateExamSchedules(
               classTarget: exam.classTarget,
               startTime: item.startTime,
               endTime: item.endTime,
+              targetReligion: exam.targetReligion,
             });
             if (conflictCheck.hasConflict && conflictCheck.conflicts.length > 0) {
               return {

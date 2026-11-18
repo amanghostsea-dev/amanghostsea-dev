@@ -19,6 +19,7 @@ model User {
   status       String   @default("Aktif") // Aktif, Nonaktif
   nisn         String?  @unique
   studentClass String?  // Kelas resmi siswa (misal: "X MPLB 1", "X TJKT 1", "XI DKV 1")
+  religion     String?  // Agama resmi siswa (misal: "ISLAM", "KRISTEN", "KATOLIK", "HINDU", "BUDDHA", "KHONGHUCU")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
@@ -206,6 +207,8 @@ model Exam {
   roomName         String?        @default("Ruang Utama") // Nama Ruangan / Lab
   startTime        DateTime?      // Jadwal Mulai Ujian
   endTime          DateTime?      // Jadwal Selesai Ujian
+  targetReligion   String?        @default("ALL") // "ALL", "ISLAM", "KRISTEN", "KATOLIK", "HINDU", "BUDDHA", "KHONGHUCU"
+  sharedSessionId  String?        // ID sesi bersama untuk ujian varian agama / paralel
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 

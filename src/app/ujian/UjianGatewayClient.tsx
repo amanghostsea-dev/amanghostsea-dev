@@ -33,10 +33,13 @@ import {
   lookupStudentIdentityAction,
   studentGatewayLogoutAction,
   studentDirectLoginAction,
+  setStudentReligionAndSelectExamAction,
   VerifiedStudentData,
   VerifiedExamData,
   WrongRoomDetails,
+  ReligionVariantChoice,
 } from './actions';
+import { getReligionConfig } from '@/lib/cbt-religion';
 import DeviceConflictModal from '@/components/auth/DeviceConflictModal';
 import { DeviceSessionData } from '@/lib/device-session';
 
@@ -117,6 +120,11 @@ export default function UjianGatewayClient({
   // 🛡️ States untuk Notifikasi Canggih Anti-Dual-Device Conflict
   const [conflictData, setConflictData] = useState<DeviceSessionData | null>(null);
   const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
+
+  // 🕌 States untuk Pemilihan Varian Agama Serentak (Token Bersama)
+  const [religionVariants, setReligionVariants] = useState<ReligionVariantChoice[]>([]);
+  const [isReligionModalOpen, setIsReligionModalOpen] = useState(false);
+  const [isSettingReligion, setIsSettingReligion] = useState(false);
 
   // Click ripple animations for lightweight high-tech tactile feedback
   const [ripples, setRipples] = useState<{ id: number; x: number; y: number }[]>([]);
@@ -241,6 +249,15 @@ export default function UjianGatewayClient({
         return;
       }
 
+      // 🕌 Jika sesi ujian memiliki varian agama dan siswa belum memiliki pilihan agama
+      if (res.needsReligionSelection && res.religionVariants && res.religionVariants.length > 0) {
+        setVerifiedStudent(res.student);
+        setReligionVariants(res.religionVariants);
+        setIsReligionModalOpen(true);
+        setLoading(false);
+        return;
+      }
+
       // Jika data 100% cocok dengan database, buka Modal Konfirmasi Resmi
       setVerifiedStudent(res.student);
       setVerifiedExam(res.exam || null);
@@ -250,6 +267,36 @@ export default function UjianGatewayClient({
       const msg = err instanceof Error ? err.message : 'Terjadi kendala saat memeriksa kredensial kartu siswa.';
       setErrorMessage(msg);
       setLoading(false);
+    }
+  };
+
+  // 🕌 Handle Pemilihan Varian Agama Siswa
+  const handleSelectReligionVariant = async (variant: ReligionVariantChoice) => {
+    if (!verifiedStudent) return;
+    setIsSettingReligion(true);
+    try {
+      const res = await setStudentReligionAndSelectExamAction({
+        userId: verifiedStudent.id,
+        examId: variant.examId,
+        religion: variant.religionCode,
+      });
+
+      if (!res.success || !res.exam) {
+        setErrorMessage(res.error || 'Gagal menyesuaikan varian agama.');
+        setIsReligionModalOpen(false);
+        setIsSettingReligion(false);
+        return;
+      }
+
+      setVerifiedExam(res.exam);
+      setVerifiedStudent((prev) => (prev ? { ...prev, religion: variant.religionCode } : null));
+      setIsReligionModalOpen(false);
+      setIsConfirmModalOpen(true);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Terjadi kesalahan sistem saat memilih varian agama.';
+      setErrorMessage(msg);
+    } finally {
+      setIsSettingReligion(false);
     }
   };
 
@@ -917,6 +964,85 @@ export default function UjianGatewayClient({
           </div>
         </div>
 
+        {/* 🕌 MODAL PEMILIHAN VARIAN AGAMA UNTUK TOKEN BERSAMA */}
+        {isReligionModalOpen && verifiedStudent && religionVariants.length > 0 && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in-50">
+            <div className="bg-white/95 backdrop-blur-2xl border border-white rounded-2xl sm:rounded-[32px] max-w-lg w-full p-4 sm:p-7 shadow-2xl relative overflow-hidden space-y-4 sm:space-y-5 animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
+              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-500 via-sky-500 via-indigo-500 to-amber-500"></div>
+
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center shrink-0 text-2xl">
+                    🕌
+                  </div>
+                  <div>
+                    <h3 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+                      Pilih Mata Pelajaran Agama Anda
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Sesi ujian ini menggunakan token bersama untuk beberapa varian agama di kelas Anda.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsReligionModalOpen(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Info Siswa */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs flex items-center justify-between">
+                <div>
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Peserta Ujian</span>
+                  <strong className="text-slate-900">{verifiedStudent.name}</strong> ({verifiedStudent.studentClass})
+                </div>
+                <div className="text-right">
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Token Sesi</span>
+                  <span className="font-mono font-bold text-emerald-700">{token}</span>
+                </div>
+              </div>
+
+              {/* Pilihan Varian Agama */}
+              <div className="space-y-2.5">
+                <span className="text-xs font-bold text-slate-700 block">
+                  Silakan pilih paket soal agama sesuai keyakinan Anda:
+                </span>
+                <div className="grid grid-cols-1 gap-2.5">
+                  {religionVariants.map((variant) => (
+                    <button
+                      key={variant.examId}
+                      type="button"
+                      disabled={isSettingReligion}
+                      onClick={() => handleSelectReligionVariant(variant)}
+                      className="p-3.5 rounded-2xl border-2 border-slate-200 hover:border-emerald-500 bg-white hover:bg-emerald-50/40 text-left transition-all duration-150 flex items-center justify-between group cursor-pointer shadow-2xs hover:shadow-md disabled:opacity-50"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <span className="text-2xl shrink-0">{variant.icon}</span>
+                        <div className="min-w-0">
+                          <div className="text-sm font-extrabold text-slate-900 group-hover:text-emerald-800 truncate">
+                            {variant.shortLabel}
+                          </div>
+                          <div className="text-xs text-slate-500 truncate mt-0.5">
+                            {variant.subject} • {variant.duration} Menit
+                          </div>
+                        </div>
+                      </div>
+                      <ChevronRight size={18} className="text-slate-300 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-sky-50 border border-sky-200 text-[11px] text-sky-800 leading-relaxed">
+                ℹ️ <strong>Catatan:</strong> Pilihan agama ini akan otomatis tersimpan permanen di profil akun siswa Anda, sehingga pengerjaan ujian berikutnya otomatis presisi tanpa perlu memilih ulang.
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 🌟 MODAL KONFIRMASI IDENTITAS RESMI PESERTA UJIAN */}
         {isConfirmModalOpen && verifiedStudent && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in-50">
@@ -964,6 +1090,15 @@ export default function UjianGatewayClient({
                       </span>
                       <span>•</span>
                       <span className="text-emerald-700 font-semibold">Status: Aktif</span>
+                      {verifiedStudent.religion && (
+                        <>
+                          <span>•</span>
+                          <span className="text-indigo-700 font-semibold inline-flex items-center gap-1">
+                            <span>{getReligionConfig(verifiedStudent.religion).icon}</span>
+                            <span>{getReligionConfig(verifiedStudent.religion).badgeLabel}</span>
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -999,9 +1134,17 @@ export default function UjianGatewayClient({
                     <span className="font-bold text-[#2f6354] uppercase tracking-wider flex items-center gap-1.5">
                       <MonitorPlay size={14} className="text-[#caa55d]" /> Ruang Ujian CBT
                     </span>
-                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-[#caa55d]/15 text-[#9a782a] border border-[#caa55d]/35">
-                      Token: {token}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {verifiedExam.targetReligion && verifiedExam.targetReligion !== 'ALL' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                          <span>{getReligionConfig(verifiedExam.targetReligion).icon}</span>
+                          <span>{getReligionConfig(verifiedExam.targetReligion).badgeLabel}</span>
+                        </span>
+                      )}
+                      <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-[#caa55d]/15 text-[#9a782a] border border-[#caa55d]/35">
+                        Token: {token}
+                      </span>
+                    </div>
                   </div>
                   <div className="text-sm font-bold text-slate-900">{verifiedExam.title}</div>
                   <div className="text-xs text-slate-600 flex flex-wrap items-center gap-3 pt-1">
