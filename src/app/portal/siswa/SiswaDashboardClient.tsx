@@ -24,6 +24,7 @@ import {
   Check, 
   ExternalLink,
   ChevronRight,
+  ArrowRight,
   TrendingUp,
   MapPinCheck,
   ShieldCheck,
@@ -437,35 +438,43 @@ export default function SiswaDashboardClient({
             {/* Quick Actions (CBT & Geolocation Attendance) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* CBT Card */}
-              <div className="bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 p-6 rounded-3xl text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg shadow-purple-500/20">
-                <div>
-                  <h3 className="font-bold text-lg flex items-center gap-2 mb-1">
+              <div className="bg-gradient-to-br from-purple-600 via-indigo-600 to-purple-700 p-6 rounded-3xl text-white flex flex-col justify-between gap-5 shadow-lg shadow-purple-500/20 relative overflow-hidden group">
+                <div className="absolute -right-6 -bottom-6 text-white/10 pointer-events-none group-hover:scale-110 transition-transform duration-300">
+                  <MonitorPlay size={120} />
+                </div>
+                <div className="relative z-10">
+                  <h3 className="font-bold text-lg flex items-center gap-2 mb-1.5">
                     <MonitorPlay size={20} /> Ujian Berlangsung (CBT)
                   </h3>
                   <p className="text-purple-100 text-xs sm:text-sm leading-relaxed">
                     Akses ruang ujian online, cek token sesi, dan pantau hasil nilai pengerjaan.
                   </p>
                 </div>
-                <div className="flex flex-col sm:flex-row items-center gap-2 shrink-0">
+                <div className="relative z-10 flex flex-wrap items-center gap-2.5 pt-1">
                   <Link
                     href="/portal/siswa/cbt"
-                    className="w-full sm:w-auto px-4 py-2.5 bg-white text-purple-700 rounded-xl font-bold text-xs sm:text-sm hover:scale-[1.03] transition-all shadow-md text-center whitespace-nowrap"
+                    className="px-4 py-2.5 bg-white text-purple-700 rounded-xl font-bold text-xs sm:text-sm hover:scale-[1.02] active:scale-98 transition-all shadow-md text-center whitespace-nowrap flex items-center justify-center gap-1.5"
                   >
-                    Jadwal & Nilai CBT →
+                    <span>Jadwal & Nilai CBT</span>
+                    <ArrowRight size={14} />
                   </Link>
                   <Link
                     href="/ujian"
-                    className="w-full sm:w-auto px-4 py-2.5 bg-purple-900/60 hover:bg-purple-800 text-white border border-purple-400/40 rounded-xl font-bold text-xs sm:text-sm transition-all text-center whitespace-nowrap flex items-center justify-center gap-1.5"
+                    className="px-4 py-2.5 bg-purple-900/60 hover:bg-purple-800 text-white border border-purple-400/40 rounded-xl font-bold text-xs sm:text-sm transition-all text-center whitespace-nowrap flex items-center justify-center gap-1.5 hover:scale-[1.02] active:scale-98 shadow-sm"
                   >
-                    <Key size={14} className="text-amber-300" /> Masukkan Token
+                    <Key size={14} className="text-amber-300" />
+                    <span>Masukkan Token</span>
                   </Link>
                 </div>
               </div>
 
               {/* Attendance Card */}
-              <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-6 rounded-3xl text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg shadow-emerald-500/20">
-                <div>
-                  <h3 className="font-bold text-lg flex items-center gap-2 mb-1">
+              <div className="bg-gradient-to-br from-emerald-600 to-teal-600 p-6 rounded-3xl text-white flex flex-col justify-between gap-5 shadow-lg shadow-emerald-500/20 relative overflow-hidden group">
+                <div className="absolute -right-6 -bottom-6 text-white/10 pointer-events-none group-hover:scale-110 transition-transform duration-300">
+                  <QrCode size={120} />
+                </div>
+                <div className="relative z-10">
+                  <h3 className="font-bold text-lg flex items-center gap-2 mb-1.5">
                     <QrCode size={20} /> Presensi QR & Geolocation
                   </h3>
                   <p className="text-emerald-100 text-xs sm:text-sm leading-relaxed">
@@ -476,13 +485,16 @@ export default function SiswaDashboardClient({
                     )}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setIsAbsensiModalOpen(true)}
-                  className="px-5 py-2.5 bg-white text-emerald-700 rounded-xl font-bold text-xs sm:text-sm hover:scale-[1.03] transition-all shadow-md cursor-pointer whitespace-nowrap"
-                >
-                  {absensiDone ? 'Lihat Bukti Hadir' : 'Hadir Sekarang →'}
-                </button>
+                <div className="relative z-10 flex items-center gap-2.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsAbsensiModalOpen(true)}
+                    className="px-5 py-2.5 bg-white text-emerald-700 rounded-xl font-bold text-xs sm:text-sm hover:scale-[1.02] active:scale-98 transition-all shadow-md cursor-pointer whitespace-nowrap flex items-center justify-center gap-1.5"
+                  >
+                    <span>{absensiDone ? 'Lihat Bukti Hadir' : 'Hadir Sekarang'}</span>
+                    <ArrowRight size={14} />
+                  </button>
+                </div>
               </div>
             </div>
 
