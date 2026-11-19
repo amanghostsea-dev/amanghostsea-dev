@@ -12,7 +12,8 @@ import {
   Eye, 
   EyeOff, 
   Check, 
-  Loader2 
+  Loader2,
+  Terminal
 } from 'lucide-react';
 import CbtRichText from './CbtRichText';
 
@@ -46,6 +47,13 @@ const QUICK_OPTION_FORMULAS = [
   { label: 'Tak Hingga', display: '∞', latex: '\\infty' },
 ];
 
+const QUICK_OPTION_TERMINALS = [
+  { label: 'Perintah Linux/CLI', snippet: '[terminal]sudo systemctl restart nginx[/terminal]' },
+  { label: 'Pesan Error', snippet: '[terminal]Error 404: File or directory not found[/terminal]' },
+  { label: 'Query SQL', snippet: '[terminal]SELECT * FROM users WHERE active = 1;[/terminal]' },
+  { label: 'Kotak Kosong', snippet: '[terminal]Tulis kode terminal di sini...[/terminal]' },
+];
+
 export default function CbtOptionInputItem({
   index,
   label,
@@ -59,6 +67,8 @@ export default function CbtOptionInputItem({
   onDelete,
 }: CbtOptionInputItemProps) {
   const [showMathPalette, setShowMathPalette] = useState(false);
+  const [showTerminalPalette, setShowTerminalPalette] = useState(false);
+  const [customTerminalText, setCustomTerminalText] = useState('');
   const [showImageModal, setShowImageModal] = useState(false);
   const [imageInputUrl, setImageInputUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -79,7 +89,8 @@ export default function CbtOptionInputItem({
     value.includes('_') ||
     value.includes('<') ||
     value.includes('~') ||
-    value.includes('==')
+    value.includes('==') ||
+    value.includes('terminal')
   );
 
   // Sisipkan rumus KaTeX ke dalam opsi
@@ -87,6 +98,15 @@ export default function CbtOptionInputItem({
     const wrapped = `$${latex}$`;
     const newText = value.trim() ? `${value.trim()} ${wrapped}` : wrapped;
     onChangeText(newText);
+  };
+
+  // Sisipkan kotak terminal/error ke dalam opsi
+  const handleInsertTerminal = (snippetText?: string) => {
+    const tagContent = snippetText || (customTerminalText.trim() ? `[terminal]${customTerminalText.trim()}[/terminal]` : '[terminal]Tulis kode terminal di sini...[/terminal]');
+    const newText = value.trim() ? `${value.trim()} ${tagContent}` : tagContent;
+    onChangeText(newText);
+    setCustomTerminalText('');
+    setShowTerminalPalette(false);
   };
 
   // Upload file gambar dari perangkat via /api/upload
@@ -177,15 +197,19 @@ export default function CbtOptionInputItem({
           className="flex-1 bg-transparent text-sm focus:outline-none min-w-0 font-sans text-slate-900 dark:text-white"
         />
 
-        {/* Tombol-tombol Pintas: Rumus, Foto, Kunci, Hapus */}
+        {/* Tombol-tombol Pintas: Rumus, Terminal, Foto, Kunci, Hapus */}
         <div className="flex items-center gap-1 flex-shrink-0">
           {/* Tombol Sisipkan Rumus MTK */}
           <button
             type="button"
-            onClick={() => setShowMathPalette(!showMathPalette)}
-            className={`px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition cursor-pointer ${
+            onClick={() => {
+              setShowMathPalette(!showMathPalette);
+              setShowTerminalPalette(false);
+              setShowImageModal(false);
+            }}
+            className={`px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-2xs ${
               showMathPalette
-                ? 'bg-purple-600 text-white'
+                ? 'bg-purple-600 text-white shadow-purple-600/30'
                 : 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 border border-purple-200 dark:border-purple-800'
             }`}
             title={`Sisipkan rumus matematika KaTeX ke Opsi ${label}`}
@@ -194,13 +218,36 @@ export default function CbtOptionInputItem({
             <span className="hidden sm:inline">Rumus</span>
           </button>
 
+          {/* Tombol Sisipkan Kotak Terminal / Error */}
+          <button
+            type="button"
+            onClick={() => {
+              setShowTerminalPalette(!showTerminalPalette);
+              setShowMathPalette(false);
+              setShowImageModal(false);
+            }}
+            className={`px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-2xs ${
+              showTerminalPalette
+                ? 'bg-cyan-600 text-white shadow-cyan-600/30'
+                : 'bg-cyan-50 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 border border-cyan-200 dark:border-cyan-800'
+            }`}
+            title={`Sisipkan kotak terminal/error output ke Opsi ${label}`}
+          >
+            <Terminal size={13} className={showTerminalPalette ? 'text-white' : 'text-cyan-600 dark:text-cyan-400'} />
+            <span className="hidden sm:inline">Terminal</span>
+          </button>
+
           {/* Tombol Sisipkan Foto/Gambar */}
           <button
             type="button"
-            onClick={() => setShowImageModal(!showImageModal)}
-            className={`px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition cursor-pointer ${
+            onClick={() => {
+              setShowImageModal(!showImageModal);
+              setShowMathPalette(false);
+              setShowTerminalPalette(false);
+            }}
+            className={`px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-2xs ${
               attachedImageUrl
-                ? 'bg-blue-600 text-white'
+                ? 'bg-blue-600 text-white shadow-blue-600/30'
                 : 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800'
             }`}
             title={`Sisipkan atau ubah foto/diagram untuk Opsi ${label}`}
@@ -221,7 +268,7 @@ export default function CbtOptionInputItem({
             <button
               type="button"
               onClick={onDelete}
-              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition cursor-pointer"
+              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
               title={`Hapus Pilihan ${label}`}
             >
               <Trash2 size={14} />
@@ -256,6 +303,68 @@ export default function CbtOptionInputItem({
                 <span className="text-[9px] text-slate-400 font-sans hidden sm:inline">{item.label}</span>
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Palet Pintasan Kotak Terminal Khusus Opsi Ini */}
+      {showTerminalPalette && (
+        <div className="px-3 py-2.5 bg-cyan-50/70 dark:bg-cyan-950/30 border-t border-cyan-200/60 dark:border-cyan-900/40 space-y-2 animate-in fade-in duration-150">
+          <div className="flex items-center justify-between text-[11px] font-bold text-cyan-900 dark:text-cyan-200">
+            <span className="flex items-center gap-1">
+              <Terminal size={12} className="text-cyan-600" />
+              <span>Sisipkan Kotak Terminal / Error ke Opsi {label}:</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowTerminalPalette(false)}
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs cursor-pointer"
+            >
+              ✕ Tutup
+            </button>
+          </div>
+
+          {/* Preset Cepat */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {QUICK_OPTION_TERMINALS.map((item, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => handleInsertTerminal(item.snippet)}
+                className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-cyan-200 dark:border-cyan-800 hover:border-cyan-500 hover:bg-cyan-100/60 text-slate-800 dark:text-slate-200 font-mono text-xs font-semibold shadow-2xs hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-1"
+                title={`Sisipkan template ${item.label}`}
+              >
+                <span className="text-cyan-600 dark:text-cyan-400 font-bold">&gt;_</span>
+                <span className="text-[11px] font-sans">{item.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Custom Terminal Input */}
+          <div className="flex items-center gap-1.5 pt-0.5">
+            <div className="relative flex-1">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] font-mono text-cyan-600 dark:text-cyan-400 font-bold">&gt;_</span>
+              <input
+                type="text"
+                placeholder="Ketik perintah atau error kustom (contoh: npm run build / Error 500)..."
+                value={customTerminalText}
+                onChange={(e) => setCustomTerminalText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleInsertTerminal();
+                  }
+                }}
+                className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-cyan-200 dark:border-cyan-800 bg-white dark:bg-slate-900 text-xs font-mono text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => handleInsertTerminal()}
+              className="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition-all shadow-xs hover:shadow-sm cursor-pointer whitespace-nowrap active:scale-95"
+            >
+              + Sisipkan
+            </button>
           </div>
         </div>
       )}
