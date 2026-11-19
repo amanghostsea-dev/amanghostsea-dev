@@ -1310,7 +1310,7 @@ function SingleParticipantCard({
       const separator = base.includes('?') ? '&' : '?';
       const studentUrl = `${base}${separator}u=${encodeURIComponent(student.username || student.nisn || '')}`;
       return generateQrSvg(studentUrl, {
-        size: layoutMode === '6-per-page' ? 84 : 108,
+        size: layoutMode === '6-per-page' ? 68 : 96,
         padding: 2,
         darkColor: '#000000',
         lightColor: '#ffffff',
@@ -1329,7 +1329,7 @@ function SingleParticipantCard({
   return (
     <div
       className={`relative bg-white text-slate-900 border border-slate-800 rounded-xl shadow-xs overflow-hidden print-avoid-break print:shadow-none font-sans flex flex-col justify-between h-full ${
-        isCompact ? 'p-2 sm:p-2.5' : 'p-3.5'
+        isCompact ? 'p-2 sm:p-2.5 pb-3 sm:pb-3.5 print:pb-3.5' : 'p-3 pb-4 print:pb-4'
       }`}
       style={{
         boxSizing: 'border-box',
@@ -1343,17 +1343,17 @@ function SingleParticipantCard({
       )}
 
       {/* 🏛️ CARD HEADER */}
-      <div className="flex items-center gap-2 pb-1.5 border-b border-slate-900">
+      <div className="flex items-center gap-2 pb-1 border-b border-slate-900">
         {/* School Logo */}
-        <div className="w-9 h-9 flex-shrink-0 flex items-center justify-center">
+        <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center">
           {kopConfig.logoLeftUrl ? (
             <img
               src={kopConfig.logoLeftUrl}
               alt={kopConfig.schoolName}
-              className="max-w-[34px] max-h-[34px] object-contain"
+              className="max-w-[30px] max-h-[30px] object-contain"
             />
           ) : (
-            <div className="w-8 h-8 rounded-md bg-gradient-to-br from-blue-900 to-indigo-900 text-white flex items-center justify-center font-black text-xs shadow-xs border border-amber-400">
+            <div className="w-7 h-7 rounded-md bg-gradient-to-br from-blue-900 to-indigo-900 text-white flex items-center justify-center font-black text-xs shadow-xs border border-amber-400">
               SMK
             </div>
           )}
@@ -1361,16 +1361,16 @@ function SingleParticipantCard({
 
         {/* School Name & Title */}
         <div className="flex-1 min-w-0 pr-1">
-          <div className="text-[7.5px] font-bold text-slate-500 uppercase tracking-wider truncate leading-tight">
+          <div className="text-[7px] font-bold text-slate-500 uppercase tracking-wider truncate leading-tight">
             {kopConfig.yayasanName || 'YAYASAN GARUDA MAHADHIKA'}
           </div>
-          <div className="text-[11px] font-black text-slate-950 uppercase tracking-tight truncate leading-tight">
+          <div className="text-[10.5px] font-black text-slate-950 uppercase tracking-tight truncate leading-tight">
             {kopConfig.schoolName}
           </div>
-          <div className="text-[9px] font-black text-blue-900 uppercase tracking-wide leading-tight mt-0.5">
+          <div className="text-[8.5px] font-black text-blue-900 uppercase tracking-wide leading-tight mt-0.5">
             KARTU LOGIN & PESERTA UJIAN CBT
           </div>
-          <div className="text-[7.5px] text-slate-600 font-semibold truncate leading-tight">
+          <div className="text-[7px] text-slate-600 font-semibold truncate leading-tight">
             {examTitle} • {academicYear}
           </div>
         </div>
@@ -1378,30 +1378,30 @@ function SingleParticipantCard({
         {/* Accreditation / Badge */}
         <div className="hidden sm:flex flex-col items-center justify-center px-1.5 py-0.5 rounded bg-slate-100 border border-slate-300 text-center flex-shrink-0">
           <span className="text-[6px] font-bold text-slate-500 uppercase leading-none">AKREDITASI</span>
-          <span className="text-[10px] font-black text-blue-900 leading-tight">
+          <span className="text-[9.5px] font-black text-blue-900 leading-tight">
             {kopConfig.akreditasi ? kopConfig.akreditasi.charAt(0) : 'A'}
           </span>
         </div>
       </div>
 
       {/* 👤 CARD BODY: STUDENT IDENTITY & LOGIN BOX */}
-      <div className="my-1.5 grid grid-cols-12 gap-2 items-stretch flex-1">
+      <div className="my-1 grid grid-cols-12 gap-1.5 items-stretch flex-1">
         {/* Left Column: Student Details */}
         <div className="col-span-7 flex flex-col justify-between space-y-1">
           {/* Top Info */}
           <div className="space-y-0.5">
             {/* Student Name */}
             <div>
-              <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider leading-none block">
+              <span className="text-[6.5px] font-bold text-slate-400 uppercase tracking-wider leading-none block">
                 Nama Peserta Ujian:
               </span>
-              <div className="text-[11px] font-black text-slate-900 tracking-tight leading-tight line-clamp-1">
+              <div className="text-[10.5px] font-black text-slate-900 tracking-tight leading-tight line-clamp-1">
                 {student.name}
               </div>
             </div>
 
             {/* Table of Info */}
-            <div className="text-[8px] space-y-0.5 font-medium text-slate-700">
+            <div className="text-[7.5px] space-y-0.5 font-medium text-slate-700">
               <div className="flex items-center gap-1">
                 <span className="w-14 font-semibold text-slate-500">NISN / NIS:</span>
                 <span className="font-mono font-bold text-slate-900">
@@ -1410,7 +1410,7 @@ function SingleParticipantCard({
               </div>
               <div className="flex items-center gap-1">
                 <span className="w-14 font-semibold text-slate-500">Kelas:</span>
-                <span className="inline-flex items-center px-1 py-0.2 rounded font-bold bg-purple-50 text-purple-900 border border-purple-200 text-[8px]">
+                <span className="inline-flex items-center px-1 py-0.2 rounded font-bold bg-purple-50 text-purple-900 border border-purple-200 text-[7.5px]">
                   {student.studentClass}
                 </span>
               </div>
@@ -1435,32 +1435,32 @@ function SingleParticipantCard({
           </div>
 
           {/* Mini Rules */}
-          <div className="p-1 rounded bg-slate-50 border border-slate-200 text-[6.5px] text-slate-600 leading-tight">
-            <strong>Perhatian:</strong> Kartu wajib ditaruh di meja ujian. Jaga kerahasiaan password Anda!
+          <div className="p-0.5 px-1 rounded bg-slate-50 border border-slate-200 text-[6px] text-slate-600 leading-tight">
+            <strong>Perhatian:</strong> Kartu ditaruh di meja. Jaga kerahasiaan password!
           </div>
         </div>
 
         {/* Right Column: Credentials Box & QR */}
         <div className="col-span-5 flex flex-col justify-between items-center text-center space-y-1">
-          {/* Highlighted Login Credential Box (Simple & Elegant White Style with Crisp Border & Bold Black Text) */}
-          <div className="w-full bg-white text-slate-900 rounded-md p-1.5 shadow-xs border-2 border-slate-900 flex flex-col justify-center">
-            <div className="text-[6.5px] font-black text-slate-900 uppercase tracking-wider mb-0.5 flex items-center justify-center gap-0.5 border-b border-slate-200 pb-0.5">
-              <KeyRound size={8} className="text-slate-900 shrink-0" />
+          {/* Highlighted Login Credential Box */}
+          <div className="w-full bg-white text-slate-900 rounded-md p-1 shadow-xs border-2 border-slate-900 flex flex-col justify-center">
+            <div className="text-[6px] font-black text-slate-900 uppercase tracking-wider mb-0.5 flex items-center justify-center gap-0.5 border-b border-slate-200 pb-0.5">
+              <KeyRound size={7} className="text-slate-900 shrink-0" />
               <span>Kredensial Login CBT</span>
             </div>
 
             {/* Username */}
-            <div className="text-left bg-white px-1.5 py-0.5 rounded border-2 border-slate-900 mb-0.5">
+            <div className="text-left bg-white px-1 py-0.5 rounded border-2 border-slate-900 mb-0.5">
               <div className="text-[5.5px] text-slate-700 uppercase font-black leading-none">Username:</div>
-              <div className="font-mono font-black text-[10px] text-black tracking-wide truncate leading-tight">
+              <div className="font-mono font-black text-[9.5px] text-black tracking-wide truncate leading-tight">
                 {student.username}
               </div>
             </div>
 
             {/* Password */}
-            <div className="text-left bg-white px-1.5 py-0.5 rounded border-2 border-slate-900">
+            <div className="text-left bg-white px-1 py-0.5 rounded border-2 border-slate-900">
               <div className="text-[5.5px] text-slate-700 uppercase font-black leading-none">Password:</div>
-              <div className="font-mono font-black text-[10px] text-black tracking-wide leading-tight">
+              <div className="font-mono font-black text-[9.5px] text-black tracking-wide leading-tight">
                 {showPassword ? student.password : '••••••••'}
               </div>
             </div>
@@ -1470,10 +1470,10 @@ function SingleParticipantCard({
           {showQr && studentQrSvg && (
             <div className="flex flex-col items-center mt-0.5">
               <div
-                className="w-[78px] h-[78px] sm:w-[86px] sm:h-[86px] bg-white p-1 border-2 border-slate-900 rounded-lg shadow-2xs flex items-center justify-center overflow-hidden"
+                className="w-[66px] h-[66px] sm:w-[72px] sm:h-[72px] bg-white p-0.5 border-2 border-slate-900 rounded-lg shadow-2xs flex items-center justify-center overflow-hidden"
                 dangerouslySetInnerHTML={{ __html: studentQrSvg }}
               />
-              <span className="text-[6.5px] font-black text-slate-900 uppercase tracking-wider leading-none mt-1">
+              <span className="text-[6px] font-black text-slate-900 uppercase tracking-wider leading-none mt-0.5">
                 Scan Masuk Ujian
               </span>
             </div>
@@ -1481,37 +1481,39 @@ function SingleParticipantCard({
         </div>
       </div>
 
-      {/* 🖋️ CARD FOOTER: SIGNATURE & OFFICIAL DIGITAL STAMP */}
-      <div className="pt-1 border-t border-slate-200 flex items-end justify-between text-[7px] text-slate-600">
-        <div className="text-left leading-tight">
-          <div className="font-semibold text-slate-500">Portal CBT Siswa:</div>
-          <div className="font-mono font-bold text-blue-900 text-[7.5px] truncate max-w-[130px]">
+      {/* 🖋️ CARD FOOTER: SIGNATURE & OFFICIAL DIGITAL STAMP (Dinaikkan agar aman saat digunting/dipotong) */}
+      <div className="pt-1 border-t border-slate-300 flex items-end justify-between text-[7px] text-slate-600 mb-1">
+        <div className="text-left leading-tight pb-0.5">
+          <div className="font-bold text-slate-500 text-[6.5px] uppercase tracking-wider">
+            Portal CBT Siswa:
+          </div>
+          <div className="font-mono font-black text-blue-900 text-[8px] truncate max-w-[135px] mt-0.5">
             {portalUrl.replace(/^https?:\/\//, '')}
           </div>
-          <div className="text-[6px] text-slate-400 font-mono">
-            #{cardIndex + 1} • {student.id.slice(-6).toUpperCase()} • {student.studentClass}
+          <div className="text-[6px] text-slate-400 font-mono mt-0.5">
+            #{cardIndex + 1} • {student.studentClass}
           </div>
         </div>
 
         {/* Headmaster Signature & Stamp (Authentic Placement & Wet Stamp Overlap) */}
-        <div className="relative text-right flex flex-col items-end min-w-[125px]">
-          <div className="text-[6.5px] text-slate-600 font-medium leading-tight">
+        <div className="relative text-right flex flex-col items-end min-w-[125px] pb-0.5">
+          <div className="text-[6px] text-slate-600 font-medium leading-tight">
             {kopConfig.city || 'Kota Bekasi'}, {currentDateFormatted}
           </div>
-          <div className="text-[7px] font-bold text-slate-800 leading-tight mt-0.5">
+          <div className="text-[6.5px] font-bold text-slate-800 leading-tight mt-0.5">
             Kepala Sekolah,
           </div>
 
           {/* Signature & Stamp Overlapping Area */}
-          <div className="relative h-8 w-28 flex items-center justify-center my-0.5">
+          <div className="relative h-6 w-24 flex items-center justify-center my-0.5">
             {/* Stempel Basah Resmi Sekolah: Diposisikan di sisi KIRI tanda tangan dan sedikit overlap */}
             {showStamp && (
-              <div className="absolute -left-6 -top-2.5 pointer-events-none z-10">
+              <div className="absolute -left-5 -top-2 pointer-events-none z-10">
                 <CbtDigitalStamp
                   schoolName={kopConfig.schoolName}
                   yayasanName={kopConfig.yayasanName}
                   stampUrl={kopConfig.stampUrl}
-                  size={46}
+                  size={38}
                 />
               </div>
             )}
@@ -1520,12 +1522,12 @@ function SingleParticipantCard({
             <div className="z-20">
               <HeadmasterSignatureStroke
                 signatureUrl={kopConfig.signatureUrl}
-                size={{ width: 85, height: 32 }}
+                size={{ width: 72, height: 24 }}
               />
             </div>
           </div>
 
-          <div className="font-bold underline text-slate-900 text-[7.5px] leading-tight max-w-[135px] truncate">
+          <div className="font-black underline text-slate-900 text-[8px] leading-tight max-w-[140px] truncate">
             {kopConfig.headmasterName || 'Muhammad Irham Habibie, S.Pd'}
           </div>
           <div className="text-[6px] text-slate-500 font-mono leading-tight mt-0.5">
@@ -1534,12 +1536,6 @@ function SingleParticipantCard({
               : 'NIP. -'}
           </div>
         </div>
-      </div>
-
-      {/* Developer Identity Footer (Subtle, professional) */}
-      <div className="pt-1 mt-1 border-t border-dotted border-slate-300 text-[6.5px] text-slate-400 flex items-center justify-between font-mono">
-        <span>Smart CBT Vocational System</span>
-        <span>Created By Abdul Rahman</span>
       </div>
     </div>
   );
