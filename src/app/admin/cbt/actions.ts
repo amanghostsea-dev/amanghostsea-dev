@@ -1950,6 +1950,207 @@ export async function adminUnblockGlobalAllStrike3Action(adminName?: string) {
   }
 }
 
+export interface StudentLoginItem {
+  id: string; // attempt id
+  studentName: string;
+  studentNis: string | null;
+  studentClass: string | null;
+  examId: string;
+  examTitle: string;
+  examSubject: string;
+  examClassTarget: string;
+  examAuthorName: string | null;
+  examRoomName: string | null;
+  examDuration: number;
+  status: string; // 'IN_PROGRESS' | 'SUBMITTED'
+  startedAt: string;
+  submittedAt: string | null;
+  answeredCount: number;
+  totalQuestions: number;
+  score: number;
+  totalCorrect: number;
+  tabSwitchCount: number;
+  isBlocked: boolean;
+  proctorNotes: string | null;
+  deviceInfo?: string | null;
+  deviceType?: 'desktop' | 'mobile' | 'tablet' | 'unknown';
+}
+
+/**
+ * 🟢 Ambil Seluruh Data Siswa yang Login / Mengerjakan CBT (Live Presensi & Aktivitas)
+ * Khusus Wewenang Admin Utama untuk pemantauan seluruh rombel dan paket ujian sekolah.
+ */
+export async function getGlobalStudentLoginsAction(): Promise<{
+  success: boolean;
+  data: StudentLoginItem[];
+  activeCount: number;
+  submittedCount: number;
+  totalCount: number;
+  error?: string;
+}> {
+  try {
+    const [attempts, activeSessions] = await Promise.all([
+      prisma.examAttempt.findMany({
+        include: {
+          exam: {
+            select: {
+              id: true,
+              title: true,
+              subject: true,
+              classTarget: true,
+              authorName: true,
+              roomName: true,
+              proctorName: true,
+              duration: true,
+            },
+          },
+        },
+        orderBy: { startedAt: 'desc' },
+        take: 1000,
+      }),
+      prisma.setting.findMany({
+        where: { key: { startsWith: 'active_session_' } },
+      }),
+    ]);
+
+    const sessionMap = new Map<string, any>();
+    for (const s of activeSessions) {
+      try {
+        if (s.value) {
+          const parsed = JSON.parse(s.value);
+          if (parsed.userName) {
+            sessionMap.set(parsed.userName.trim().toLowerCase(), parsed);
+          }
+        }
+      } catch {}
+    }
+
+    let activeCount = 0;
+    let submittedCount = 0;
+
+    const data: StudentLoginItem[] = attempts.map((att) => {
+      if (att.status === 'IN_PROGRESS') {
+        activeCount++;
+      } else if (att.status === 'SUBMITTED') {
+        submittedCount++;
+      }
+
+      let answered = 0;
+      try {
+        const parsedAns = JSON.parse(att.answers || '{}');
+        answered = Object.keys(parsedAns).length;
+      } catch {}
+
+      const cleanName = (att.studentName || '').trim().toLowerCase();
+      const session = sessionMap.get(cleanName);
+
+      return {
+        id: att.id,
+        studentName: att.studentName,
+        studentNis: att.studentNis,
+        studentClass: att.studentClass,
+        examId: att.examId,
+        examTitle: att.exam?.title || '-',
+        examSubject: att.exam?.subject || '-',
+        examClassTarget: att.exam?.classTarget || '-',
+        examAuthorName: att.exam?.authorName || null,
+        examRoomName: att.exam?.roomName || att.exam?.proctorName || null,
+        examDuration: att.exam?.duration || 0,
+        status: att.status,
+        startedAt: att.startedAt.toISOString(),
+        submittedAt: att.submittedAt ? att.submittedAt.toISOString() : null,
+        answeredCount: answered,
+        totalQuestions: att.totalQuestions || 0,
+        score: att.score || 0,
+        totalCorrect: att.totalCorrect || 0,
+        tabSwitchCount: att.tabSwitchCount || 0,
+        isBlocked: att.isBlocked || false,
+        proctorNotes: att.proctorNotes || null,
+        deviceInfo: session ? `${session.os || 'OS'} • ${session.browser || 'Browser'}` : null,
+        deviceType: session?.deviceType || 'unknown',
+      };
+    });
+
+    return {
+      success: true,
+      data,
+      activeCount,
+      submittedCount,
+      totalCount: attempts.length,
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      data: [],
+      activeCount: 0,
+      submittedCount: 0,
+      totalCount: 0,
+      error: error.message,
+    };
+  }
+}
+
+/**
+ * ⚡ Reset Sesi Login Siswa oleh Admin Utama (Membersihkan session device lock agar siswa bisa login di perangkat baru)
+ */
+export async function adminResetStudentSessionAction(attemptId: string, adminName?: string) {
+  try {
+    const attempt = await prisma.examAttempt.findUnique({
+      where: { id: attemptId },
+    });
+
+    if (!attempt) {
+      return { error: 'Data pengerjaan siswa tidak ditemukan.' };
+    }
+
+    const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    const aName = adminName?.trim() || 'Admin Utama';
+    const noteEntry = `[RESET_ADMIN] Sesi login & perangkat di-reset oleh Admin Utama (${aName}) pada ${timeStr}`;
+
+    let updatedNotes = attempt.proctorNotes || '';
+    if (!updatedNotes.includes('[RESET_ADMIN]')) {
+      updatedNotes = updatedNotes ? `${updatedNotes} | ${noteEntry}` : noteEntry;
+    }
+
+    await prisma.examAttempt.update({
+      where: { id: attemptId },
+      data: {
+        isBlocked: false,
+        proctorNotes: updatedNotes,
+      },
+    });
+
+    if (attempt.studentNis || attempt.studentName) {
+      try {
+        const studentUser = await prisma.user.findFirst({
+          where: {
+            role: 'Siswa',
+            OR: [
+              ...(attempt.studentNis ? [{ username: attempt.studentNis }, { nisn: attempt.studentNis }] : []),
+              ...(attempt.studentName ? [{ name: attempt.studentName }] : []),
+            ],
+          },
+          select: { id: true },
+        });
+        if (studentUser) {
+          await clearDeviceSession(studentUser.id);
+        }
+      } catch {}
+    }
+
+    revalidatePath('/admin/cbt');
+    revalidatePath(`/admin/cbt/${attempt.examId}`);
+    revalidatePath(`/portal/siswa/cbt/${attempt.examId}`);
+
+    return {
+      success: true,
+      message: `Sesi siswa "${attempt.studentName}" berhasil di-reset! Siswa dapat login kembali di perangkat baru dengan aman.`,
+    };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
 /**
  * 📥 Paksa Kumpul Ujian (Force Submit) oleh Pengawas Ruangan
  */

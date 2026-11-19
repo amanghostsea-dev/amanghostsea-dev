@@ -39,7 +39,8 @@ import {
   Zap,
   RotateCcw,
   CreditCard,
-  Globe
+  Globe,
+  Activity
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import CbtParticipantCardModal from '@/components/cbt/CbtParticipantCardModal';
@@ -78,6 +79,7 @@ import { RELIGION_OPTIONS, getReligionConfig } from '@/lib/cbt-religion';
 import CbtReportView from './CbtReportView';
 import CbtProctorPlottingView, { TeacherUserItem } from './CbtProctorPlottingView';
 import CbtSuspendCenterView from './CbtSuspendCenterView';
+import CbtStudentLoginMonitorView from './CbtStudentLoginMonitorView';
 import { KopSuratConfig } from '@/app/admin/settings/types';
 import { ShieldCheck, ShieldAlert } from 'lucide-react';
 import { SuspendedStudentItem } from './actions';
@@ -131,7 +133,7 @@ interface CbtDashboardProps {
     name: string;
     role: string;
   };
-  initialTab?: 'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend';
+  initialTab?: 'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend' | 'logins';
   dynamicClassPresets?: string[];
   dynamicSubjectPresets?: string[];
   kopSuratConfig?: KopSuratConfig;
@@ -212,8 +214,8 @@ export default function CbtDashboard({
     return isAuthorMatch(exam.proctorName) || isAuthorMatch(exam.proctor2Name);
   };
 
-  // Main View Tab: 'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend'
-  const [activeMainTab, setActiveMainTab] = useState<'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend'>(initialTab);
+  // Main View Tab: 'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend' | 'logins'
+  const [activeMainTab, setActiveMainTab] = useState<'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend' | 'logins'>(initialTab as any);
   const [selectedClassFilter, setSelectedClassFilter] = useState('ALL');
 
   // Reactively sync active tab with URL search parameter
@@ -227,12 +229,14 @@ export default function CbtDashboard({
       setActiveMainTab('proctors');
     } else if (tabParam === 'suspend' || tabParam === 'suspensi') {
       setActiveMainTab('suspend');
+    } else if (tabParam === 'logins' || tabParam === 'login' || tabParam === 'presensi') {
+      setActiveMainTab('logins');
     } else if (tabParam === 'ujian' || !tabParam) {
       setActiveMainTab('exams');
     }
   }, [searchParams]);
 
-  const handleTabSwitch = (tab: 'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend') => {
+  const handleTabSwitch = (tab: 'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend' | 'logins') => {
     setActiveMainTab(tab);
     if (tab === 'schedule') {
       router.replace('/admin/cbt?tab=jadwal', { scroll: false });
@@ -242,10 +246,25 @@ export default function CbtDashboard({
       router.replace('/admin/cbt?tab=pengawas', { scroll: false });
     } else if (tab === 'suspend') {
       router.replace('/admin/cbt?tab=suspend', { scroll: false });
+    } else if (tab === 'logins') {
+      router.replace('/admin/cbt?tab=logins', { scroll: false });
     } else {
       router.replace('/admin/cbt', { scroll: false });
     }
   };
+
+  // 🟢 State jumlah siswa login/sedang ujian realtime untuk badge tab
+  const [activeLoginsCount, setActiveLoginsCount] = useState<number>(() => {
+    let count = 0;
+    for (const e of exams) {
+      if (e.attempts) {
+        for (const a of e.attempts) {
+          if (a.status === 'IN_PROGRESS') count++;
+        }
+      }
+    }
+    return count;
+  });
 
   // 🛡️ State jumlah siswa tersuspend realtime yang sinkron 100% dengan Pusat Suspend
   const [liveSuspendedCount, setLiveSuspendedCount] = useState<number>(() => {
@@ -1204,7 +1223,7 @@ export default function CbtDashboard({
       {/* 🌟 VIEW MODE SELECTOR TABS (CYBER COMMAND NAVIGATION BAR - RESPONSIVE SEGMENTED CONTROL) */}
       <div className="space-y-3 border-b border-slate-200 dark:border-slate-800 pb-3 sm:pb-4 w-full">
         <div className="w-full p-1.5 sm:p-2 rounded-2xl bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 shadow-inner backdrop-blur-md">
-          <div className={`grid grid-cols-2 ${isSuperAdmin ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-1.5 sm:gap-2 w-full`}>
+          <div className={`grid grid-cols-2 ${isSuperAdmin ? 'lg:grid-cols-6 sm:grid-cols-3' : 'lg:grid-cols-4 sm:grid-cols-2'} gap-1.5 sm:gap-2 w-full`}>
             <button
               type="button"
               onClick={() => handleTabSwitch('exams')}
@@ -1294,6 +1313,32 @@ export default function CbtDashboard({
                 )}
               </button>
             )}
+
+            {/* 🟢 TAB KHUSUS ADMIN UTAMA: LAPORAN & MONITORING SISWA LOGIN CBT */}
+            {isSuperAdmin && (
+              <button
+                type="button"
+                onClick={() => handleTabSwitch('logins')}
+                className={`group w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer min-w-0 ${
+                  activeMainTab === 'logins'
+                    ? 'bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-md shadow-teal-500/25 ring-1 ring-teal-400/40'
+                    : 'bg-white/80 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 shadow-2xs'
+                }`}
+              >
+                <Activity size={16} className={`shrink-0 group-hover:scale-115 transition-transform duration-200 ${activeMainTab === 'logins' ? 'text-white' : 'text-teal-500'}`} />
+                <span className="truncate">Siswa Login</span>
+                {activeLoginsCount > 0 ? (
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500 text-white animate-pulse shrink-0 shadow-xs flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                    {activeLoginsCount} Online
+                  </span>
+                ) : (
+                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black shrink-0 ${activeMainTab === 'logins' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}`}>
+                    0
+                  </span>
+                )}
+              </button>
+            )}
           </div>
         </div>
 
@@ -1338,7 +1383,14 @@ export default function CbtDashboard({
         </div>
       </div>
 
-      {activeMainTab === 'suspend' && isSuperAdmin ? (
+      {activeMainTab === 'logins' && isSuperAdmin ? (
+        <CbtStudentLoginMonitorView
+          currentUser={currentUser}
+          isSuperAdmin={isSuperAdmin}
+          kopSuratConfig={kopSuratConfig}
+          onActiveLoginCountChange={(count) => setActiveLoginsCount(count)}
+        />
+      ) : activeMainTab === 'suspend' && isSuperAdmin ? (
         <CbtSuspendCenterView
           initialSuspendedStudents={initialSuspendedStudents}
           currentUser={currentUser}
