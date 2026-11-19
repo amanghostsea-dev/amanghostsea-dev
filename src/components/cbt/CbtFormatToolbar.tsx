@@ -329,8 +329,8 @@ export default function CbtFormatToolbar({
   const applyTerminalBox = () => {
     const textarea = textareaRef.current;
     if (!textarea) {
-      const snippet = '\n```\nWindows cannot be installed to this disk...\n```\n';
-      commitValue(value ? `${value}${snippet}` : snippet);
+      const snippet = '[terminal]Pesan kesalahan terminal / dialog error sistem...[/terminal]';
+      commitValue(value ? `${value} ${snippet}` : snippet);
       return;
     }
 
@@ -339,8 +339,8 @@ export default function CbtFormatToolbar({
     const selectedText = value.substring(start, end);
 
     const content = selectedText || 'Pesan kesalahan terminal / dialog error sistem...';
-    const openTag = '\n```\n';
-    const closeTag = '\n```\n';
+    const openTag = '[terminal]';
+    const closeTag = '[/terminal]';
     const newText = value.substring(0, start) + openTag + content + closeTag + value.substring(end);
 
     const newCursorStart = start + openTag.length;
@@ -1472,7 +1472,7 @@ export default function CbtFormatToolbar({
                 <div className="space-y-1 text-slate-700 dark:text-slate-300">
                   <div>• Wacana Narasi: <code className="bg-white dark:bg-slate-900 px-1 py-0.5 rounded font-mono">[quote]Teks bacaan...[/quote]</code></div>
                   <div>• Soal Rumpang: <code className="bg-white dark:bg-slate-900 px-1 py-0.5 rounded font-mono">Ibu kota negara adalah ..........</code></div>
-                  <div>• Kotak Terminal / Error: <code className="bg-white dark:bg-slate-900 px-1 py-0.5 rounded font-mono">``` pesan error ```</code></div>
+                  <div>• Kotak Terminal / Error: <code className="bg-white dark:bg-slate-900 px-1 py-0.5 rounded font-mono">[terminal]pesan error[/terminal]</code> (fleksibel inline atau baris baru)</div>
                   <div>• Tombol Keyboard: <code className="bg-white dark:bg-slate-900 px-1 py-0.5 rounded font-mono">[[Shift + F10]]</code></div>
                 </div>
               </div>

@@ -536,12 +536,11 @@ export default function CbtRichText({
 
           if (seg.type === 'code-block') {
             return (
-              <span key={idx} className="block my-2.5 max-w-full">
-                <span
-                  className="inline-block w-fit max-w-full p-2.5 sm:p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 border-l-4 border-l-cyan-600 dark:border-l-cyan-400 font-mono text-xs sm:text-sm text-slate-800 dark:text-slate-100 overflow-x-auto whitespace-pre-wrap break-words leading-relaxed shadow-2xs select-text align-top"
-                >
-                  {seg.content}
-                </span>
+              <span
+                key={idx}
+                className="inline-block align-middle my-0.5 mx-1 sm:mx-1.5 w-fit max-w-full p-2 sm:p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 border-l-4 border-l-cyan-600 dark:border-l-cyan-400 font-mono text-xs sm:text-sm text-slate-800 dark:text-slate-100 overflow-x-auto whitespace-pre-wrap break-words leading-relaxed shadow-2xs select-text text-left"
+              >
+                {seg.content}
               </span>
             );
           }
