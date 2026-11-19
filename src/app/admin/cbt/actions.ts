@@ -1783,15 +1783,28 @@ export async function getGlobalSuspendedStudentsAction(): Promise<{
     const attempts = await prisma.examAttempt.findMany({
       where: {
         OR: [
-          { isBlocked: true },
-          { tabSwitchCount: { gte: 3 } },
-          { proctorNotes: { contains: '[STRIKE_3_BLOKIR]' } },
-          { proctorNotes: { contains: '[STRIKE_4_FATAL]' } },
+          // 🛑 KASUS 1: Siswa Diskualifikasi Total / Pelanggaran ke-5 (Pasti Tampil di Pusat Suspend)
           { proctorNotes: { contains: '[DISKUALIFIKASI_FINAL]' } },
+          { tabSwitchCount: { gte: 5 } },
+
+          // ⛔ KASUS 2: Siswa Suspend Strike 3 / Pelanggaran fatal yang belum dibuka Admin Utama
+          {
+            AND: [
+              {
+                OR: [
+                  { isBlocked: true },
+                  { tabSwitchCount: { in: [3, 4] } },
+                  { proctorNotes: { contains: '[STRIKE_3_BLOKIR]' } },
+                ],
+              },
+              {
+                NOT: {
+                  proctorNotes: { contains: '[ADMIN_UNBLOCK_ACTIVE]' },
+                },
+              },
+            ],
+          },
         ],
-        NOT: {
-          proctorNotes: { contains: '[ADMIN_UNBLOCK_ACTIVE]' },
-        },
       },
       include: {
         exam: {
@@ -1845,15 +1858,28 @@ export async function adminUnblockGlobalAllStrike3Action(adminName?: string) {
     const suspendedAttempts = await prisma.examAttempt.findMany({
       where: {
         OR: [
-          { isBlocked: true },
-          { tabSwitchCount: { gte: 3 } },
-          { proctorNotes: { contains: '[STRIKE_3_BLOKIR]' } },
-          { proctorNotes: { contains: '[STRIKE_4_FATAL]' } },
+          // 🛑 KASUS 1: Siswa Diskualifikasi Total / Pelanggaran ke-5 (Pasti Tampil di Pusat Suspend)
           { proctorNotes: { contains: '[DISKUALIFIKASI_FINAL]' } },
+          { tabSwitchCount: { gte: 5 } },
+
+          // ⛔ KASUS 2: Siswa Suspend Strike 3 / Pelanggaran fatal yang belum dibuka Admin Utama
+          {
+            AND: [
+              {
+                OR: [
+                  { isBlocked: true },
+                  { tabSwitchCount: { in: [3, 4] } },
+                  { proctorNotes: { contains: '[STRIKE_3_BLOKIR]' } },
+                ],
+              },
+              {
+                NOT: {
+                  proctorNotes: { contains: '[ADMIN_UNBLOCK_ACTIVE]' },
+                },
+              },
+            ],
+          },
         ],
-        NOT: {
-          proctorNotes: { contains: '[ADMIN_UNBLOCK_ACTIVE]' },
-        },
       },
       select: { id: true, examId: true, studentName: true, studentNis: true, proctorNotes: true },
     });

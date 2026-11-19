@@ -256,10 +256,11 @@ export default function CbtDashboard({
     for (const e of exams) {
       if (e.attempts) {
         for (const a of e.attempts) {
-          const isSuspended = 
-            (a.isBlocked || (a.tabSwitchCount ?? 0) >= 3 || (a as any).proctorNotes?.includes('[STRIKE_3_BLOKIR]') || (a as any).proctorNotes?.includes('[STRIKE_4_FATAL]') || (a as any).proctorNotes?.includes('[DISKUALIFIKASI_FINAL]')) &&
+          const isDisqualified = (a.tabSwitchCount ?? 0) >= 5 || (a as any).proctorNotes?.includes('[DISKUALIFIKASI_FINAL]');
+          const isStrike3Suspended = 
+            (a.isBlocked || (a.tabSwitchCount ?? 0) >= 3 || (a as any).proctorNotes?.includes('[STRIKE_3_BLOKIR]')) &&
             !(a as any).proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]');
-          if (isSuspended) count++;
+          if (isDisqualified || isStrike3Suspended) count++;
         }
       }
     }

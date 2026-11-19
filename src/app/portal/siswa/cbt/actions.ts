@@ -235,6 +235,8 @@ export async function saveProgress(
       // 🛑 PELANGGARAN KE-5: Diskualifikasi Otomatis (Auto-Submit Permanen)
       isDisqualified = true;
       shouldBlock = true;
+      // Cabut dispensasi lama Strike 3 karena siswa sudah melanggar hingga batas final ke-5
+      newNotes = newNotes.replace(/\[ADMIN_UNBLOCK_ACTIVE\]/g, '').trim();
       if (!newNotes.includes('[DISKUALIFIKASI_FINAL]')) {
         const dsqMsg = `[DISKUALIFIKASI_FINAL] DISKUALIFIKASI TOTAL: Siswa melakukan pelanggaran ke-5 pada ${timeStr} setelah 2x dispensasi (Admin Utama & Pengawas). Ujian diakhiri otomatis.`;
         newNotes = newNotes ? `${newNotes} | ${dsqMsg}` : dsqMsg;
@@ -244,6 +246,8 @@ export async function saveProgress(
       // Hanya terkunci jika pengawas belum memberikan izin darurat [FATAL_PROCTOR_UNBLOCKED]
       if (!hasProctorFatalPermission) {
         shouldBlock = true;
+        // Cabut dispensasi lama Strike 3 karena siswa telah melakukan pelanggaran fatal ke-4
+        newNotes = newNotes.replace(/\[ADMIN_UNBLOCK_ACTIVE\]/g, '').trim();
         if (!newNotes.includes('[STRIKE_4_FATAL]')) {
           const s4Msg = `[STRIKE_4_FATAL] PELANGGARAN FATAL KE-4 pada ${timeStr} (Pasca Dispensasi Admin CBT). Pengerjaan Terkunci Kritis - Wajib Izin Darurat Pengawas Ruang!`;
           newNotes = newNotes ? `${newNotes} | ${s4Msg}` : s4Msg;
