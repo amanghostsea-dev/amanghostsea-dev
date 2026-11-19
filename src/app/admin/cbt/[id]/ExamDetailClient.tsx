@@ -53,7 +53,9 @@ import {
   X,
   Table,
   ArrowUpDown,
-  AlignLeft
+  AlignLeft,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import { 
@@ -787,6 +789,7 @@ export default function ExamDetailClient({
   const [questionTextBefore, setQuestionTextBefore] = useState('');
   const [questionText, setQuestionText] = useState('');
   const [questionImageUrl, setQuestionImageUrl] = useState('');
+  const [showCreateImageDrawer, setShowCreateImageDrawer] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [showLivePreview, setShowLivePreview] = useState(true);
   const [options, setOptions] = useState(['', '', '', '']);
@@ -918,6 +921,7 @@ export default function ExamDetailClient({
       setQuestionTextBefore('');
       setQuestionText('');
       setQuestionImageUrl('');
+      setShowCreateImageDrawer(false);
       setActiveCreateField('after');
       setOptions(['', '', '', '']);
       setCorrectAnswer('0');
@@ -1366,6 +1370,7 @@ Poin: 10
   const [editQuestionTextBefore, setEditQuestionTextBefore] = useState('');
   const [editQuestionText, setEditQuestionText] = useState('');
   const [editImageUrl, setEditImageUrl] = useState('');
+  const [showEditImageDrawer, setShowEditImageDrawer] = useState(false);
   const [editUploadingImage, setEditUploadingImage] = useState(false);
   const [showEditPreview, setShowEditPreview] = useState(true);
   const [editOptions, setEditOptions] = useState(['', '', '', '']);
@@ -1418,6 +1423,7 @@ Poin: 10
       setActiveEditField('after');
     }
     setEditImageUrl(q.imageUrl || '');
+    setShowEditImageDrawer(Boolean(q.imageUrl && q.imageUrl.trim()));
     try {
       const parsedOpts = JSON.parse(q.options);
       setEditOptions(Array.isArray(parsedOpts) && parsedOpts.length >= 2 ? parsedOpts : ['', '', '', '']);
@@ -1505,6 +1511,7 @@ Poin: 10
       setEditQuestionTextBefore('');
       setEditQuestionText('');
       setEditImageUrl('');
+      setShowEditImageDrawer(false);
       setActiveEditField('after');
     } else {
       alert(res.error || 'Gagal memperbarui butir soal.');
@@ -2546,97 +2553,130 @@ Poin: 10
                 </div>
               ) : null}
 
-              {/* 🖼️ BAGIAN 2: GAMBAR / VISUALISASI SOAL */}
-              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                    <ImageIcon size={14} className="text-purple-600 dark:text-purple-400" />
-                    <span>{questionImageUrl ? '2. Gambar / Visualisasi Soal' : 'Gambar / Visualisasi Soal (Opsional)'}</span>
-                  </label>
-                  {questionImageUrl && (
+              {/* 🖼️ BAGIAN 2: GAMBAR / VISUALISASI SOAL (Smart Collapsible Drawer) */}
+              {!showCreateImageDrawer && !questionImageUrl ? (
+                <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 p-2.5 transition-all duration-200 hover:border-purple-300 dark:hover:border-purple-800 hover:bg-purple-50/30">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-400">
+                      <ImageIcon size={15} className="text-purple-600 dark:text-purple-400" />
+                      <span>Gambar / Visualisasi Soal (Opsional)</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateImageDrawer(true)}
+                      className="px-3 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs hover:scale-102 active:scale-98"
+                    >
+                      <Plus size={13} />
+                      <span>+ Lampirkan Gambar</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-purple-200 dark:border-purple-800/80 space-y-2.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <ImageIcon size={14} className="text-purple-600 dark:text-purple-400" />
+                      <span>{questionImageUrl ? '2. Gambar / Visualisasi Soal' : 'Lampirkan Gambar / Visualisasi Soal'}</span>
+                    </label>
                     <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const temp = questionTextBefore;
-                          setQuestionTextBefore(questionText);
-                          setQuestionText(temp);
+                      {questionImageUrl && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const temp = questionTextBefore;
+                              setQuestionTextBefore(questionText);
+                              setQuestionText(temp);
+                            }}
+                            className="text-[11px] font-semibold text-purple-600 hover:text-purple-700 hover:underline flex items-center gap-1 cursor-pointer"
+                            title="Tukar posisi teks atas dan bawah gambar"
+                          >
+                            <ArrowUpDown size={12} />
+                            <span>Tukar Teks Atas & Bawah</span>
+                          </button>
+                          <span className="text-slate-300 dark:text-slate-700">•</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setQuestionImageUrl('');
+                              setShowCreateImageDrawer(false);
+                              if (questionTextBefore) {
+                                setQuestionText((prev) => questionTextBefore + (prev ? `\n\n${prev}` : ''));
+                                setQuestionTextBefore('');
+                                setActiveCreateField('after');
+                              }
+                            }}
+                            className="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer"
+                          >
+                            Hapus Gambar
+                          </button>
+                        </>
+                      )}
+                      {!questionImageUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setShowCreateImageDrawer(false)}
+                          className="text-[11px] font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:underline cursor-pointer flex items-center gap-0.5"
+                          title="Tutup panel gambar"
+                        >
+                          <ChevronUp size={12} />
+                          <span>Tutup Panel</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <label className="px-3.5 py-2 rounded-xl bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/40 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer flex-shrink-0">
+                      <Upload size={14} />
+                      <span>{uploadingImage ? 'Mengunggah...' : 'Pilih / Unggah Gambar'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={uploadingImage}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleUploadQuestionImage(f, false);
                         }}
-                        className="text-[11px] font-semibold text-purple-600 hover:text-purple-700 hover:underline flex items-center gap-1 cursor-pointer"
-                        title="Tukar posisi teks atas dan bawah gambar"
-                      >
-                        <ArrowUpDown size={12} />
-                        <span>Tukar Teks Atas & Bawah</span>
-                      </button>
-                      <span className="text-slate-300 dark:text-slate-700">•</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setQuestionImageUrl('');
-                          if (questionTextBefore) {
-                            setQuestionText((prev) => questionTextBefore + (prev ? `\n\n${prev}` : ''));
-                            setQuestionTextBefore('');
-                            setActiveCreateField('after');
-                          }
-                        }}
-                        className="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer"
-                      >
-                        Hapus Gambar
-                      </button>
+                        className="hidden"
+                      />
+                    </label>
+
+                    <span className="text-xs text-slate-400 text-center sm:text-left">atau</span>
+
+                    <input
+                      type="text"
+                      placeholder="Tempel tautan URL gambar (https://...)"
+                      value={questionImageUrl}
+                      onChange={(e) => setQuestionImageUrl(e.target.value)}
+                      className="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+
+                  {questionImageUrl ? (
+                    <div className="mt-2 p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-3">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={questionImageUrl}
+                        alt="Pratinjau Gambar Soal"
+                        className="h-16 w-24 object-contain rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block truncate">
+                          Gambar Siap Ditampilkan
+                        </span>
+                        <span className="text-[11px] text-slate-400 block truncate font-mono">
+                          {questionImageUrl}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-slate-400 italic">
+                      💡 Tips: Jika soal memiliki gambar diagram/skema, unggah di sini agar Anda bisa menulis teks pengantar di atas gambar dan kalimat pertanyaan di bawah gambar.
                     </div>
                   )}
                 </div>
-
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                  <label className="px-3.5 py-2 rounded-xl bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/40 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer flex-shrink-0">
-                    <Upload size={14} />
-                    <span>{uploadingImage ? 'Mengunggah...' : 'Pilih / Unggah Gambar'}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      disabled={uploadingImage}
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) handleUploadQuestionImage(f, false);
-                      }}
-                      className="hidden"
-                    />
-                  </label>
-
-                  <span className="text-xs text-slate-400 text-center sm:text-left">atau</span>
-
-                  <input
-                    type="text"
-                    placeholder="Tempel tautan URL gambar (https://...)"
-                    value={questionImageUrl}
-                    onChange={(e) => setQuestionImageUrl(e.target.value)}
-                    className="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-
-                {questionImageUrl ? (
-                  <div className="mt-2 p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-3">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={questionImageUrl}
-                      alt="Pratinjau Gambar Soal"
-                      className="h-16 w-24 object-contain rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block truncate">
-                        Gambar Siap Ditampilkan
-                      </span>
-                      <span className="text-[11px] text-slate-400 block truncate font-mono">
-                        {questionImageUrl}
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-[11px] text-slate-400 italic">
-                    💡 Tips: Jika soal memiliki gambar diagram/skema, unggah di sini agar Anda bisa menulis teks pengantar di atas gambar dan kalimat pertanyaan di bawah gambar.
-                  </div>
-                )}
-              </div>
+              )}
 
               {/* ❓ BAGIAN 3: PERTANYAAN / PERINTAH SOAL (DI BAWAH GAMBAR) */}
               <div>
@@ -3352,97 +3392,130 @@ Poin: 15`}
                 </div>
               ) : null}
 
-              {/* 🖼️ BAGIAN 2: GAMBAR / VISUALISASI SOAL */}
-              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                    <ImageIcon size={14} className="text-purple-600 dark:text-purple-400" />
-                    <span>{editImageUrl ? '2. Gambar / Visualisasi Soal' : 'Gambar / Visualisasi Soal (Opsional)'}</span>
-                  </label>
-                  {editImageUrl && (
+              {/* 🖼️ BAGIAN 2: GAMBAR / VISUALISASI SOAL (Smart Collapsible Drawer) */}
+              {!showEditImageDrawer && !editImageUrl ? (
+                <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 p-2.5 transition-all duration-200 hover:border-purple-300 dark:hover:border-purple-800 hover:bg-purple-50/30">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-400">
+                      <ImageIcon size={15} className="text-purple-600 dark:text-purple-400" />
+                      <span>Gambar / Visualisasi Soal (Opsional)</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowEditImageDrawer(true)}
+                      className="px-3 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs hover:scale-102 active:scale-98"
+                    >
+                      <Plus size={13} />
+                      <span>+ Lampirkan Gambar</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-purple-200 dark:border-purple-800/80 space-y-2.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <ImageIcon size={14} className="text-purple-600 dark:text-purple-400" />
+                      <span>{editImageUrl ? '2. Gambar / Visualisasi Soal' : 'Lampirkan Gambar / Visualisasi Soal'}</span>
+                    </label>
                     <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const temp = editQuestionTextBefore;
-                          setEditQuestionTextBefore(editQuestionText);
-                          setEditQuestionText(temp);
+                      {editImageUrl && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const temp = editQuestionTextBefore;
+                              setEditQuestionTextBefore(editQuestionText);
+                              setEditQuestionText(temp);
+                            }}
+                            className="text-[11px] font-semibold text-purple-600 hover:text-purple-700 hover:underline flex items-center gap-1 cursor-pointer"
+                            title="Tukar posisi teks atas dan bawah gambar"
+                          >
+                            <ArrowUpDown size={12} />
+                            <span>Tukar Teks Atas & Bawah</span>
+                          </button>
+                          <span className="text-slate-300 dark:text-slate-700">•</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditImageUrl('');
+                              setShowEditImageDrawer(false);
+                              if (editQuestionTextBefore) {
+                                setEditQuestionText((prev) => editQuestionTextBefore + (prev ? `\n\n${prev}` : ''));
+                                setEditQuestionTextBefore('');
+                                setActiveEditField('after');
+                              }
+                            }}
+                            className="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer"
+                          >
+                            Hapus Gambar
+                          </button>
+                        </>
+                      )}
+                      {!editImageUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setShowEditImageDrawer(false)}
+                          className="text-[11px] font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:underline cursor-pointer flex items-center gap-0.5"
+                          title="Tutup panel gambar"
+                        >
+                          <ChevronUp size={12} />
+                          <span>Tutup Panel</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <label className="px-3.5 py-2 rounded-xl bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/40 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer flex-shrink-0">
+                      <Upload size={14} />
+                      <span>{editUploadingImage ? 'Mengunggah...' : 'Pilih / Unggah Gambar'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={editUploadingImage}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleUploadQuestionImage(f, true);
                         }}
-                        className="text-[11px] font-semibold text-purple-600 hover:text-purple-700 hover:underline flex items-center gap-1 cursor-pointer"
-                        title="Tukar posisi teks atas dan bawah gambar"
-                      >
-                        <ArrowUpDown size={12} />
-                        <span>Tukar Teks Atas & Bawah</span>
-                      </button>
-                      <span className="text-slate-300 dark:text-slate-700">•</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditImageUrl('');
-                          if (editQuestionTextBefore) {
-                            setEditQuestionText((prev) => editQuestionTextBefore + (prev ? `\n\n${prev}` : ''));
-                            setEditQuestionTextBefore('');
-                            setActiveEditField('after');
-                          }
-                        }}
-                        className="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer"
-                      >
-                        Hapus Gambar
-                      </button>
+                        className="hidden"
+                      />
+                    </label>
+
+                    <span className="text-xs text-slate-400 text-center sm:text-left">atau</span>
+
+                    <input
+                      type="text"
+                      placeholder="Tempel tautan URL gambar (https://...)"
+                      value={editImageUrl}
+                      onChange={(e) => setEditImageUrl(e.target.value)}
+                      className="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+
+                  {editImageUrl ? (
+                    <div className="mt-2 p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-3">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={editImageUrl}
+                        alt="Pratinjau Gambar Soal"
+                        className="h-16 w-24 object-contain rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block truncate">
+                          Gambar Siap Ditampilkan
+                        </span>
+                        <span className="text-[11px] text-slate-400 block truncate font-mono">
+                          {editImageUrl}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-slate-400 italic">
+                      💡 Tips: Jika soal memiliki gambar diagram/skema, unggah di sini agar Anda bisa menulis teks pengantar di atas gambar dan kalimat pertanyaan di bawah gambar.
                     </div>
                   )}
                 </div>
-
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                  <label className="px-3.5 py-2 rounded-xl bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/40 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer flex-shrink-0">
-                    <Upload size={14} />
-                    <span>{editUploadingImage ? 'Mengunggah...' : 'Pilih / Unggah Gambar'}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      disabled={editUploadingImage}
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) handleUploadQuestionImage(f, true);
-                      }}
-                      className="hidden"
-                    />
-                  </label>
-
-                  <span className="text-xs text-slate-400 text-center sm:text-left">atau</span>
-
-                  <input
-                    type="text"
-                    placeholder="Tempel tautan URL gambar (https://...)"
-                    value={editImageUrl}
-                    onChange={(e) => setEditImageUrl(e.target.value)}
-                    className="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-
-                {editImageUrl ? (
-                  <div className="mt-2 p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-3">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={editImageUrl}
-                      alt="Pratinjau Gambar Soal"
-                      className="h-16 w-24 object-contain rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block truncate">
-                        Gambar Siap Ditampilkan
-                      </span>
-                      <span className="text-[11px] text-slate-400 block truncate font-mono">
-                        {editImageUrl}
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-[11px] text-slate-400 italic">
-                    💡 Tips: Jika soal memiliki gambar diagram/skema, unggah di sini agar Anda bisa menulis teks pengantar di atas gambar dan kalimat pertanyaan di bawah gambar.
-                  </div>
-                )}
-              </div>
+              )}
 
               {/* ❓ BAGIAN 3: PERTANYAAN / PERINTAH SOAL (DI BAWAH GAMBAR) */}
               <div>
