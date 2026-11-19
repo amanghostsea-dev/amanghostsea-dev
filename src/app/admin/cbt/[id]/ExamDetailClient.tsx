@@ -2617,10 +2617,22 @@ Poin: 10
                               </button>
                             )}
 
-                            {att.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]') && !att.isBlocked && (
+                            {att.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]') && !att.isBlocked && !att.proctorNotes?.includes('[STRIKE_4_FATAL]') && (
                               <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-300">
                                 ✓ Suspend Telah Dibuka
                               </span>
+                            )}
+
+                            {(att.tabSwitchCount === 4 || att.proctorNotes?.includes('[STRIKE_4_FATAL]')) && (
+                              att.proctorNotes?.includes('[FATAL_PROCTOR_UNBLOCKED]') ? (
+                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-300">
+                                  ✓ Izin Fatal Pengawas
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-rose-600 dark:text-rose-400 font-bold bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-full border border-rose-300 animate-pulse">
+                                  🚨 Kunci Fatal Pasca-Dispensasi
+                                </span>
+                              )
                             )}
 
                             {!isProctorOnly ? (

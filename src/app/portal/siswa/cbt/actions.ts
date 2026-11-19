@@ -215,40 +215,59 @@ export async function saveProgress(
       current.proctorNotes?.includes('[IZIN_LANJUT_P2]') || 
       current.proctorNotes?.includes('[RESET_PENGAWAS]');
 
-    // 🛡️ Jika Admin Utama telah membuka suspend (isBlocked === false di DB dan ada tag [ADMIN_UNBLOCK_ACTIVE] serta server tabSwitchCount <= 1),
-    // HANYA pada kondisi ini, kita abaikan kiriman tabSwitchCount >= 3 lama dari client browser yang belum sempat ter-reset!
-    const isRecentlyUnblockedByAdmin = 
+    const hasProctorFatalPermission =
+      current.proctorNotes?.includes('[FATAL_PROCTOR_UNBLOCKED]');
+
+    // 🛡️ Jika Admin Utama telah membuka suspend: Siswa memiliki tag [ADMIN_UNBLOCK_ACTIVE] dan isBlocked === false
+    const isUnblockedByAdmin = 
       !current.isBlocked &&
-      Boolean(current.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]')) &&
-      (current.tabSwitchCount ?? 0) <= 1;
+      Boolean(current.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]'));
 
-    let effectiveTabCount: number;
-    if (isRecentlyUnblockedByAdmin && tabSwitchCount >= 3) {
-      effectiveTabCount = current.tabSwitchCount ?? 1;
-    } else {
-      effectiveTabCount = Math.max(current.tabSwitchCount || 0, tabSwitchCount);
-    }
-
+    let effectiveTabCount = Math.max(current.tabSwitchCount || 0, tabSwitchCount);
     let shouldBlock = current.isBlocked;
     let newNotes = current.proctorNotes || '';
+    let isDisqualified = false;
 
-    // 🛡️ PROGRESSIVE 3-STRIKE ENFORCEMENT
-    // Strike 3: Otomatis Blokir Total Sistem jika mencapai 3x pelanggaran
-    if (effectiveTabCount >= 3) {
+    const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+
+    // 🛡️ PROGRESSIVE 5-TIER CBT ENFORCEMENT
+    if (effectiveTabCount >= 5) {
+      // 🛑 PELANGGARAN KE-5: Diskualifikasi Otomatis (Auto-Submit Permanen)
+      isDisqualified = true;
       shouldBlock = true;
-      if (!newNotes.includes('[STRIKE_3_BLOKIR]')) {
-        const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-        const strike3Msg = `[STRIKE_3_BLOKIR] DIBLOKIR OTOMATIS SISTEM: 3x Pelanggaran Tata Tertib (Pindah Tab/Layar) pada ${timeStr}. Pengerjaan dihentikan permanen. Wajib Lapor ke Admin Utama!`;
-        // Cabut dispensasi unblock sebelumnya jika siswa melanggar lagi ke-3
-        newNotes = newNotes.replace(/\[ADMIN_UNBLOCK_ACTIVE\]/g, '').trim();
-        newNotes = newNotes ? `${newNotes} | ${strike3Msg}` : strike3Msg;
+      if (!newNotes.includes('[DISKUALIFIKASI_FINAL]')) {
+        const dsqMsg = `[DISKUALIFIKASI_FINAL] DISKUALIFIKASI TOTAL: Siswa melakukan pelanggaran ke-5 pada ${timeStr} setelah 2x dispensasi (Admin Utama & Pengawas). Ujian diakhiri otomatis.`;
+        newNotes = newNotes ? `${newNotes} | ${dsqMsg}` : dsqMsg;
       }
-    } else if (effectiveTabCount === 2 && !hasProctorPermission && !newNotes.includes('[STRIKE_2_TERKUNCI]')) {
-      const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-      const strike2Msg = `[STRIKE_2_TERKUNCI] Pelanggaran ke-2 pada ${timeStr} (Pengerjaan Soal Terkunci Sementara Menunggu Pengawas)`;
-      newNotes = newNotes ? `${newNotes} | ${strike2Msg}` : strike2Msg;
-    } else if (isRecentlyUnblockedByAdmin && effectiveTabCount < 3) {
-      shouldBlock = false;
+    } else if (effectiveTabCount === 4) {
+      // 🚨 PELANGGARAN KE-4: Fatal Strike Pasca-Dispensasi Admin Utama
+      // Hanya terkunci jika pengawas belum memberikan izin darurat [FATAL_PROCTOR_UNBLOCKED]
+      if (!hasProctorFatalPermission) {
+        shouldBlock = true;
+        if (!newNotes.includes('[STRIKE_4_FATAL]')) {
+          const s4Msg = `[STRIKE_4_FATAL] PELANGGARAN FATAL KE-4 pada ${timeStr} (Pasca Dispensasi Admin CBT). Pengerjaan Terkunci Kritis - Wajib Izin Darurat Pengawas Ruang!`;
+          newNotes = newNotes ? `${newNotes} | ${s4Msg}` : s4Msg;
+        }
+      } else {
+        shouldBlock = false;
+      }
+    } else if (effectiveTabCount === 3) {
+      // ⛔ PELANGGARAN KE-3: Suspend Total Sistem (Wajib Admin Utama)
+      if (!isUnblockedByAdmin) {
+        shouldBlock = true;
+        if (!newNotes.includes('[STRIKE_3_BLOKIR]')) {
+          const strike3Msg = `[STRIKE_3_BLOKIR] DIBLOKIR OTOMATIS SISTEM: 3x Pelanggaran Tata Tertib (Pindah Tab/Layar) pada ${timeStr}. Pengerjaan dihentikan permanen. Wajib Lapor ke Admin Utama!`;
+          newNotes = newNotes ? `${newNotes} | ${strike3Msg}` : strike3Msg;
+        }
+      } else {
+        shouldBlock = false;
+      }
+    } else if (effectiveTabCount === 2) {
+      // 🚫 PELANGGARAN KE-2: Terkunci Sementara (Wajib Pengawas)
+      if (!hasProctorPermission && !newNotes.includes('[STRIKE_2_TERKUNCI]')) {
+        const strike2Msg = `[STRIKE_2_TERKUNCI] Pelanggaran ke-2 pada ${timeStr} (Pengerjaan Soal Terkunci Sementara Menunggu Pengawas)`;
+        newNotes = newNotes ? `${newNotes} | ${strike2Msg}` : strike2Msg;
+      }
     }
 
     const updated = await prisma.examAttempt.update({
@@ -258,6 +277,7 @@ export async function saveProgress(
         tabSwitchCount: effectiveTabCount,
         isBlocked: shouldBlock,
         proctorNotes: newNotes,
+        ...(isDisqualified ? { status: 'SUBMITTED', submittedAt: new Date() } : {}),
       },
       select: {
         id: true,
@@ -273,13 +293,16 @@ export async function saveProgress(
     });
 
     const isStrike2Locked = updated.tabSwitchCount === 2 && !hasProctorPermission && !updated.isBlocked;
+    const isStrike4FatalLocked = updated.tabSwitchCount === 4 && !hasProctorFatalPermission && updated.isBlocked;
 
     return {
       success: true,
       status: updated.status,
       isBlocked: updated.isBlocked,
       isStrike2Locked,
+      isStrike4FatalLocked,
       hasProctorPermission,
+      hasProctorFatalPermission,
       tabSwitchCount: updated.tabSwitchCount,
       proctorNotes: updated.proctorNotes,
       extraTimeMinutes: updated.extraTimeMinutes,
@@ -512,7 +535,14 @@ export async function checkAttemptStatusAction(attemptId: string) {
       attempt.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]') || 
       attempt.proctorNotes?.includes('[ADMIN_UNBLOCK]');
 
-    const isUnblocked = !attempt.isBlocked && (hasAdminOverride || attempt.tabSwitchCount < 3);
+    const hasProctorFatalPermission = 
+      attempt.proctorNotes?.includes('[FATAL_PROCTOR_UNBLOCKED]');
+
+    const isUnblocked = !attempt.isBlocked && (
+      (attempt.tabSwitchCount === 4 && hasProctorFatalPermission) ||
+      (attempt.tabSwitchCount === 3 && hasAdminOverride) ||
+      attempt.tabSwitchCount < 3
+    );
 
     return {
       success: true,
@@ -521,6 +551,8 @@ export async function checkAttemptStatusAction(attemptId: string) {
       tabSwitchCount: attempt.tabSwitchCount,
       isBlocked: attempt.isBlocked,
       proctorNotes: attempt.proctorNotes,
+      hasAdminOverride,
+      hasProctorFatalPermission,
     };
   } catch (error: any) {
     return { error: error.message };

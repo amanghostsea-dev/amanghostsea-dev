@@ -375,13 +375,27 @@ export default function CbtExamRoom({
   answersRef.current = answers;
   const violationTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isWindowBlurredRef = useRef<boolean>(false);
+  const isPageUnloadingRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (!attempt || attempt.status !== 'IN_PROGRESS' || finalResult) return;
 
+    const handleBeforeUnload = () => {
+      // 🛡️ ZERO-VIOLATION REFRESH & RELOG SHIELD:
+      // Siswa sedang me-refresh halaman (F5 / tombol reload) atau menutup tab untuk relog.
+      // Batalkan seluruh timer pelanggaran seketika agar tidak tercatat sebagai pelanggaran!
+      isPageUnloadingRef.current = true;
+      isWindowBlurredRef.current = false;
+      if (violationTimerRef.current) {
+        clearTimeout(violationTimerRef.current);
+        violationTimerRef.current = null;
+      }
+    };
+
     const executeViolation = () => {
-      // 🛡️ Jangan tambah pelanggaran jika siswa sudah dalam kondisi tersuspend total (Strike 3)
-      if ((attempt as any)?.isBlocked || tabSwitchCount >= 3) {
+      if (isPageUnloadingRef.current) return;
+      // 🛡️ Jangan tambah pelanggaran jika siswa sedang dalam kondisi tersuspend/terkunci atau sudah diskualifikasi
+      if ((attempt as any)?.isBlocked || tabSwitchCount >= 5) {
         return;
       }
 
@@ -408,12 +422,20 @@ export default function CbtExamRoom({
           setIsStrike2Locked(true);
           setShowCheatWarning(false);
           playCyberAlertSound('lock');
-        } else if (next >= 3) {
+        } else if (next === 3) {
           // ⛔ PELANGGARAN KE-3: Akun ujian DI-SUSPEND PERMANEN, wajib lapor ke Admin Utama
-          setAttempt((prevAtt) => prevAtt ? { ...prevAtt, isBlocked: true, tabSwitchCount: next } : prevAtt);
           setIsStrike2Locked(false);
           setShowCheatWarning(false);
           playCyberAlertSound('suspend');
+        } else if (next === 4) {
+          // 🚨 PELANGGARAN KE-4 (FATAL): Pasca Dispensasi Admin Utama, wajib lapor ke Pengawas Ruangan
+          setIsStrike2Locked(false);
+          setShowCheatWarning(false);
+          playCyberAlertSound('suspend');
+        } else if (next >= 5) {
+          // 🛑 PELANGGARAN KE-5 (FINAL): Diskualifikasi total & auto-submit
+          setIsStrike2Locked(false);
+          setShowCheatWarning(false);
         }
 
         // Sinkronkan state attempt di memori agar tabSwitchCount konsisten
@@ -432,7 +454,7 @@ export default function CbtExamRoom({
           );
         } catch { }
 
-        // Background sync to server with progressive 3-strike handling
+        // Background sync to server with progressive 5-tier handling
         saveProgress(attempt.id, answersRef.current, next).then((res) => {
           if (res && res.success) {
             setAttempt((prevAtt) => prevAtt ? {
@@ -447,6 +469,15 @@ export default function CbtExamRoom({
                 setIsStrike2Locked(res.isStrike2Locked);
               }
             }
+            if (res.status === 'SUBMITTED') {
+              setFinalResult({
+                score: res.score || 0,
+                totalCorrect: res.totalCorrect || 0,
+                totalQuestions: res.totalQuestions || questions.length,
+                tabSwitchCount: next,
+              });
+              localStorage.removeItem(storageKey);
+            }
           }
         }).catch(console.error);
 
@@ -455,6 +486,7 @@ export default function CbtExamRoom({
     };
 
     const handleWindowLeave = () => {
+      if (isPageUnloadingRef.current) return;
       // 📱 SMART GRACE PERIOD (3.5 Detik Toleransi Notifikasi HP & Gesture):
       // Jika siswa di HP tidak sengaja menyentuh notifikasi WA, modal baterai lemah (20%),
       // atau gesture swipe, sistem TIDAK langsung menghitung pelanggaran!
@@ -465,7 +497,7 @@ export default function CbtExamRoom({
 
       violationTimerRef.current = setTimeout(() => {
         violationTimerRef.current = null;
-        if (isWindowBlurredRef.current) {
+        if (isWindowBlurredRef.current && !isPageUnloadingRef.current) {
           executeViolation();
         }
       }, 3500);
@@ -481,6 +513,7 @@ export default function CbtExamRoom({
     };
 
     const handleVisibilityChange = () => {
+      if (isPageUnloadingRef.current) return;
       if (document.hidden) {
         handleWindowLeave();
       } else {
@@ -489,6 +522,7 @@ export default function CbtExamRoom({
     };
 
     const handleBlur = () => {
+      if (isPageUnloadingRef.current) return;
       handleWindowLeave();
     };
 
@@ -496,6 +530,8 @@ export default function CbtExamRoom({
       handleWindowReturn();
     };
 
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handleBeforeUnload);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('blur', handleBlur);
     window.addEventListener('focus', handleFocus);
@@ -505,6 +541,8 @@ export default function CbtExamRoom({
         clearTimeout(violationTimerRef.current);
         violationTimerRef.current = null;
       }
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleBlur);
       window.removeEventListener('focus', handleFocus);
@@ -833,21 +871,24 @@ export default function CbtExamRoom({
   }
 
   // ----------------------------------------------------
-  // SCREEN 2: BLOCKED / SUSPEND SCREEN (Strike 3 or admin/proctor manual block)
+  // SCREEN 2: BLOCKED / SUSPEND SCREEN (Strike 3, Strike 4 Fatal, Strike 5 Disqualified)
   // ----------------------------------------------------
+  const isStrike5Disqualified = 
+    tabSwitchCount >= 5 || 
+    Boolean((attempt as any)?.proctorNotes?.includes('[DISKUALIFIKASI_FINAL]'));
+
+  const isStrike4Fatal = 
+    !isStrike5Disqualified &&
+    (tabSwitchCount === 4 || Boolean((attempt as any)?.proctorNotes?.includes('[STRIKE_4_FATAL]'))) &&
+    !Boolean((attempt as any)?.proctorNotes?.includes('[FATAL_PROCTOR_UNBLOCKED]'));
+
   const isStrike3 = 
-    tabSwitchCount >= 3 || 
-    Boolean((attempt as any)?.isBlocked) || 
-    ((attempt as any)?.tabSwitchCount !== undefined && (attempt as any).tabSwitchCount >= 3) || 
-    Boolean((attempt as any)?.proctorNotes?.includes('[STRIKE_3_BLOKIR]') && (attempt as any)?.isBlocked !== false);
+    !isStrike5Disqualified &&
+    !isStrike4Fatal &&
+    (tabSwitchCount === 3 || Boolean((attempt as any)?.isBlocked) || ((attempt as any)?.tabSwitchCount === 3 && (attempt as any)?.isBlocked)) &&
+    !Boolean((attempt as any)?.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]'));
 
-  const isUnblockedByAdmin = 
-    !(attempt as any)?.isBlocked && 
-    tabSwitchCount < 3 && 
-    ((attempt as any)?.tabSwitchCount ?? 0) < 3 && 
-    Boolean((attempt as any)?.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]'));
-
-  const isActuallyBlocked = isStrike3 && !isUnblockedByAdmin;
+  const isActuallyBlocked = isStrike5Disqualified || isStrike4Fatal || isStrike3;
 
   // Handle manual unblock check by student
   const handleManualCheckUnblock = async () => {
@@ -857,7 +898,7 @@ export default function CbtExamRoom({
     try {
       const res = await checkAttemptStatusAction(attempt.id);
       if (res && res.success && res.isUnblocked) {
-        const count = res.tabSwitchCount ?? 1;
+        const count = res.tabSwitchCount ?? tabSwitchCount;
         setTabSwitchCount(count);
         setIsStrike2Locked(false);
         setShowCheatWarning(false);
@@ -874,9 +915,13 @@ export default function CbtExamRoom({
             localStorage.setItem(storageKey, JSON.stringify({ ...parsed, tabSwitchCount: count }));
           }
         } catch {}
-        alert('✅ Suspend Anda telah resmi dibuka oleh Admin Utama! Silakan klik OK untuk langsung melanjutkan ujian.');
+        setUnblockMessage('✅ Kunci/Suspend Anda telah resmi dibuka! Melanjutkan ujian...');
       } else {
-        setUnblockMessage('Akun Anda saat ini masih dalam status Suspend di server. Pastikan Admin Utama sudah menekan tombol "Buka Suspend".');
+        setUnblockMessage(
+          isStrike4Fatal 
+            ? 'Akun Anda saat ini masih dalam status Terkunci Kritis di server. Pastikan Pengawas Ruangan di kelas sudah menekan tombol "Buka Kunci Fatal".'
+            : 'Akun Anda saat ini masih dalam status Suspend di server. Pastikan Admin Utama sudah menekan tombol "Buka Suspend".'
+        );
       }
     } catch {
       setUnblockMessage('Gagal memeriksa status ke server. Silakan coba lagi beberapa saat.');
@@ -887,34 +932,100 @@ export default function CbtExamRoom({
   if (isActuallyBlocked) {
     return (
       <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-3 sm:p-6 font-sans relative overflow-hidden">
-        {/* Hologram Red Halo */}
-        <div className="absolute w-[600px] h-[600px] rounded-full bg-rose-600/15 blur-[140px] pointer-events-none" />
+        {/* Hologram Red/Amber Halo */}
+        <div className={`absolute w-[600px] h-[600px] rounded-full blur-[140px] pointer-events-none ${isStrike4Fatal ? 'bg-amber-600/15' : 'bg-rose-600/15'}`} />
 
-        <div className="relative max-w-lg w-full bg-slate-950/95 border-2 border-rose-500/60 rounded-3xl p-5 sm:p-8 text-center space-y-4 sm:space-y-5 shadow-[0_0_80px_-10px_rgba(244,63,94,0.4)] backdrop-blur-2xl animate-in zoom-in-95 duration-200">
+        <div className={`relative max-w-lg w-full bg-slate-950/95 border-2 rounded-3xl p-5 sm:p-8 text-center space-y-4 sm:space-y-5 backdrop-blur-2xl animate-in zoom-in-95 duration-200 ${
+          isStrike4Fatal 
+            ? 'border-amber-500/70 shadow-[0_0_80px_-10px_rgba(245,158,11,0.35)]' 
+            : 'border-rose-500/60 shadow-[0_0_80px_-10px_rgba(244,63,94,0.4)]'
+        }`}>
           {/* Top Glowing Laser Accent */}
-          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-transparent via-rose-500 to-transparent" />
+          <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${
+            isStrike4Fatal 
+              ? 'from-transparent via-amber-400 to-transparent' 
+              : 'from-transparent via-rose-500 to-transparent'
+          }`} />
 
           {/* Futuristic Quarantine Beacon */}
           <div className="relative mx-auto w-24 h-24 flex items-center justify-center">
-            <div className="absolute inset-0 rounded-full border-2 border-rose-500/50 animate-ping opacity-30" />
-            <div className="absolute inset-1 rounded-full border border-rose-500/40 bg-rose-500/15 shadow-[0_0_30px_rgba(244,63,94,0.35)]" />
-            <div className="relative z-10 w-16 h-16 rounded-2xl bg-gradient-to-br from-rose-500/40 via-rose-600/20 to-transparent border border-rose-400/60 flex items-center justify-center text-rose-300 shadow-inner">
-              <ShieldX size={38} className="text-rose-400 animate-pulse drop-shadow-[0_0_12px_rgba(244,63,94,0.8)]" />
+            <div className={`absolute inset-0 rounded-full border-2 animate-ping opacity-30 ${isStrike4Fatal ? 'border-amber-400/50' : 'border-rose-500/50'}`} />
+            <div className={`absolute inset-1 rounded-full border shadow-[0_0_30px_rgba(244,63,94,0.35)] ${isStrike4Fatal ? 'border-amber-500/40 bg-amber-500/15' : 'border-rose-500/40 bg-rose-500/15'}`} />
+            <div className={`relative z-10 w-16 h-16 rounded-2xl border flex items-center justify-center shadow-inner ${
+              isStrike4Fatal 
+                ? 'bg-gradient-to-br from-amber-500/40 via-amber-600/20 to-transparent border-amber-400/60 text-amber-300' 
+                : 'bg-gradient-to-br from-rose-500/40 via-rose-600/20 to-transparent border-rose-400/60 text-rose-300'
+            }`}>
+              {isStrike4Fatal ? (
+                <ShieldAlert size={38} className="text-amber-400 animate-pulse drop-shadow-[0_0_12px_rgba(245,158,11,0.8)]" />
+              ) : (
+                <ShieldX size={38} className="text-rose-400 animate-pulse drop-shadow-[0_0_12px_rgba(244,63,94,0.8)]" />
+              )}
             </div>
           </div>
 
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/50 text-[11px] sm:text-xs font-mono font-black uppercase tracking-wider mb-2 shadow-sm">
-              <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping" />
-              <span>{isStrike3 ? 'SYSTEM QUARANTINE • PELANGGARAN KE-3' : 'SESI UJIAN DITANGGUHKAN'}</span>
+            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] sm:text-xs font-mono font-black uppercase tracking-wider mb-2 shadow-sm border ${
+              isStrike5Disqualified
+                ? 'bg-red-500/20 text-red-300 border-red-500/50'
+                : isStrike4Fatal
+                ? 'bg-gradient-to-r from-rose-500/20 to-amber-500/20 text-amber-300 border-amber-500/50'
+                : 'bg-rose-500/20 text-rose-300 border-rose-500/50'
+            }`}>
+              <span className={`w-2 h-2 rounded-full animate-ping ${isStrike4Fatal ? 'bg-amber-400' : 'bg-rose-400'}`} />
+              <span>
+                {isStrike5Disqualified 
+                  ? '🛑 DISKUALIFIKASI TOTAL SISTEM' 
+                  : isStrike4Fatal 
+                  ? '🚨 PERINGATAN FATAL • PELANGGARAN PASCA-DISPENSASI' 
+                  : isStrike3 
+                  ? 'SYSTEM QUARANTINE • PELANGGARAN KE-3' 
+                  : 'SESI UJIAN DITANGGUHKAN'}
+              </span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-black text-rose-200 tracking-tight">
-              {isStrike3 ? 'Akun CBT Anda Di-Suspend Total' : 'Ujian Ditangguhkan Pengawas'}
+              {isStrike5Disqualified
+                ? 'Ujian Anda Telah Diakhiri Sistem'
+                : isStrike4Fatal
+                ? 'Akun Terkunci Kritis (Pelanggaran ke-4)'
+                : isStrike3
+                ? 'Akun CBT Anda Di-Suspend Total'
+                : 'Ujian Ditangguhkan Pengawas'}
             </h2>
           </div>
 
-          {/* 3-Strike Stepper with Stage 3 Terminated */}
-          {isStrike3 && (
+          {/* Stepper Progresif Pelanggaran */}
+          {isStrike4Fatal ? (
+            <div className="p-3.5 rounded-2xl bg-amber-950/30 border border-amber-500/30 space-y-2 text-left font-mono">
+              <div className="flex items-center justify-between text-[10.5px] font-bold text-slate-300">
+                <span className="flex items-center gap-1.5">
+                  <Activity size={13} className="text-amber-400" /> STATUS ESKALASI PELANGGARAN:
+                </span>
+                <span className="text-amber-400 font-black">4 / 4 (FATAL STRIKE)</span>
+              </div>
+              <div className="grid grid-cols-4 gap-1 text-center text-[9px] pt-1">
+                <div className="p-1.5 rounded-lg bg-slate-900/80 border border-slate-700 text-slate-400">
+                  <div className="font-bold">THP 1</div>
+                  <div className="text-[8.5px] text-slate-500">Teguran</div>
+                </div>
+                <div className="p-1.5 rounded-lg bg-slate-900/80 border border-slate-700 text-slate-400">
+                  <div className="font-bold">THP 2</div>
+                  <div className="text-[8.5px] text-slate-500">Kunci P2</div>
+                </div>
+                <div className="p-1.5 rounded-lg bg-slate-900/80 border border-slate-700 text-slate-400">
+                  <div className="font-bold text-emerald-400">THP 3</div>
+                  <div className="text-[8.5px] text-emerald-500">Dispensasi</div>
+                </div>
+                <div className="p-1.5 rounded-lg bg-amber-500/25 border-2 border-amber-500 text-amber-100 shadow-[0_0_15px_rgba(245,158,11,0.3)] space-y-0.5">
+                  <div className="font-black text-amber-300 flex items-center justify-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                    <span>THP 4</span>
+                  </div>
+                  <div className="text-[8.5px] font-bold text-white">FATAL RUANG</div>
+                </div>
+              </div>
+            </div>
+          ) : isStrike3 ? (
             <div className="p-3.5 rounded-2xl bg-rose-950/30 border border-rose-500/30 space-y-2 text-left font-mono">
               <div className="flex items-center justify-between text-[10.5px] font-bold text-slate-300">
                 <span className="flex items-center gap-1.5">
@@ -943,10 +1054,39 @@ export default function CbtExamRoom({
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
 
           <div className="text-xs sm:text-sm text-slate-300 leading-relaxed text-left space-y-2.5">
-            {isStrike3 ? (
+            {isStrike5Disqualified ? (
+              <div className="p-4 rounded-2xl bg-red-950/70 border border-red-600/60 text-red-200 text-xs space-y-2 shadow-inner">
+                <div className="font-bold text-red-300 flex items-center gap-1.5">
+                  <ShieldAlert size={16} /> DISKUALIFIKASI SISTEM:
+                </div>
+                <p>
+                  Anda telah melakukan <strong>pelanggaran ke-5 berturut-turut</strong> setelah sebelumnya mendapatkan 2x dispensasi (Admin Utama dan Pengawas Ruang).
+                </p>
+                <p className="font-bold text-white">
+                  Pengerjaan ujian Anda telah diakhiri secara otomatis dan nilai Anda telah dibekukan.
+                </p>
+              </div>
+            ) : isStrike4Fatal ? (
+              <>
+                <p>
+                  Perhatian Kritis: Anda sebelumnya <strong>sudah mendapatkan dispensasi resmi dari Admin CBT</strong> untuk melanjutkan ujian. Namun sistem mendeteksi Anda <strong>kembali melanggar tata tertib (4x Pindah Tab/Layar/Aplikasi)</strong>!
+                </p>
+                <div className="p-4 rounded-2xl bg-amber-950/70 border border-amber-500/60 text-amber-200 text-xs space-y-2 shadow-inner">
+                  <div className="font-bold text-amber-300 flex items-center gap-1.5">
+                    <AlertTriangle size={16} /> PERINGATAN FATAL (TOLERANSI TERAKHIR):
+                  </div>
+                  <p>
+                    Pelanggaran berulang ini telah dicatat sebagai <strong>CATATAN FATAL</strong> di Berita Acara Pelaksanaan (BAP) Pengawas.
+                  </p>
+                  <p className="font-bold text-white">
+                    🏛️ Silakan segera melapor langsung ke PENGAWAS RUANGAN di depan kelas untuk permohonan kesempatan darurat terakhir!
+                  </p>
+                </div>
+              </>
+            ) : isStrike3 ? (
               <>
                 <p>
                   Pengerjaan ujian Anda telah <strong>dihentikan permanen dan akun Anda di-suspend oleh sistem</strong> karena telah melakukan <strong>pelanggaran tata tertib sebanyak 3 kali berturut-turut</strong> (berpindah tab / jendela layar / aplikasi).
@@ -1001,7 +1141,13 @@ export default function CbtExamRoom({
               className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 cursor-pointer disabled:opacity-50"
             >
               <RefreshCw size={14} className={checkingUnblock ? 'animate-spin' : ''} />
-              <span>{checkingUnblock ? 'Memeriksa Server...' : 'Cek Status Buka Suspend & Lanjut Ujian'}</span>
+              <span>
+                {checkingUnblock 
+                  ? 'Memeriksa Server...' 
+                  : isStrike4Fatal 
+                  ? 'Cek Izin Pengawas & Lanjut Ujian' 
+                  : 'Cek Status Buka Suspend & Lanjut Ujian'}
+              </span>
             </button>
             <Link
               href="/portal/siswa/cbt"
