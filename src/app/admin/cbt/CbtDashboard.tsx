@@ -77,8 +77,10 @@ import {
 import { RELIGION_OPTIONS, getReligionConfig } from '@/lib/cbt-religion';
 import CbtReportView from './CbtReportView';
 import CbtProctorPlottingView, { TeacherUserItem } from './CbtProctorPlottingView';
+import CbtSuspendCenterView from './CbtSuspendCenterView';
 import { KopSuratConfig } from '@/app/admin/settings/types';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, ShieldAlert } from 'lucide-react';
+import { SuspendedStudentItem } from './actions';
 
 interface ExamItem {
   id: string;
@@ -129,12 +131,13 @@ interface CbtDashboardProps {
     name: string;
     role: string;
   };
-  initialTab?: 'exams' | 'schedule' | 'reports' | 'proctors';
+  initialTab?: 'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend';
   dynamicClassPresets?: string[];
   dynamicSubjectPresets?: string[];
   kopSuratConfig?: KopSuratConfig;
   teachers?: TeacherUserItem[];
   initialTimezone?: CbtTimezone;
+  initialSuspendedStudents?: SuspendedStudentItem[];
 }
 
 export default function CbtDashboard({
@@ -146,6 +149,7 @@ export default function CbtDashboard({
   kopSuratConfig,
   teachers = [],
   initialTimezone,
+  initialSuspendedStudents = [],
 }: CbtDashboardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -208,8 +212,8 @@ export default function CbtDashboard({
     return isAuthorMatch(exam.proctorName) || isAuthorMatch(exam.proctor2Name);
   };
 
-  // Main View Tab: 'exams' | 'schedule' | 'reports' | 'proctors'
-  const [activeMainTab, setActiveMainTab] = useState<'exams' | 'schedule' | 'reports' | 'proctors'>(initialTab);
+  // Main View Tab: 'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend'
+  const [activeMainTab, setActiveMainTab] = useState<'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend'>(initialTab);
   const [selectedClassFilter, setSelectedClassFilter] = useState('ALL');
 
   // Reactively sync active tab with URL search parameter
@@ -221,12 +225,14 @@ export default function CbtDashboard({
       setActiveMainTab('reports');
     } else if (tabParam === 'pengawas' || tabParam === 'proctors') {
       setActiveMainTab('proctors');
+    } else if (tabParam === 'suspend' || tabParam === 'suspensi') {
+      setActiveMainTab('suspend');
     } else if (tabParam === 'ujian' || !tabParam) {
       setActiveMainTab('exams');
     }
   }, [searchParams]);
 
-  const handleTabSwitch = (tab: 'exams' | 'schedule' | 'reports' | 'proctors') => {
+  const handleTabSwitch = (tab: 'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend') => {
     setActiveMainTab(tab);
     if (tab === 'schedule') {
       router.replace('/admin/cbt?tab=jadwal', { scroll: false });
@@ -234,10 +240,28 @@ export default function CbtDashboard({
       router.replace('/admin/cbt?tab=laporan', { scroll: false });
     } else if (tab === 'proctors') {
       router.replace('/admin/cbt?tab=pengawas', { scroll: false });
+    } else if (tab === 'suspend') {
+      router.replace('/admin/cbt?tab=suspend', { scroll: false });
     } else {
       router.replace('/admin/cbt', { scroll: false });
     }
   };
+
+  // 🛡️ Hitung jumlah siswa tersuspend di seluruh ujian untuk badge tab navigasi
+  const dynamicSuspendedCount = useMemo(() => {
+    let count = 0;
+    for (const e of exams) {
+      if (e.attempts) {
+        for (const a of e.attempts) {
+          const isSuspended = 
+            (a.isBlocked || (a.tabSwitchCount ?? 0) >= 3 || (a as any).proctorNotes?.includes('[STRIKE_3_BLOKIR]')) &&
+            !(a as any).proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]');
+          if (isSuspended) count++;
+        }
+      }
+    }
+    return Math.max(count, initialSuspendedStudents?.length || 0);
+  }, [exams, initialSuspendedStudents]);
 
   // Filter States
   const [scheduleFilter, setScheduleFilter] = useState<'ALL' | 'TODAY' | 'UPCOMING' | 'ONGOING' | 'ENDED'>('ALL');
@@ -1167,7 +1191,7 @@ export default function CbtDashboard({
       {/* 🌟 VIEW MODE SELECTOR TABS (CYBER COMMAND NAVIGATION BAR - RESPONSIVE SEGMENTED CONTROL) */}
       <div className="space-y-3 border-b border-slate-200 dark:border-slate-800 pb-3 sm:pb-4 w-full">
         <div className="w-full p-1.5 sm:p-2 rounded-2xl bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 shadow-inner backdrop-blur-md">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 sm:gap-2 w-full">
+          <div className={`grid grid-cols-2 ${isSuperAdmin ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-1.5 sm:gap-2 w-full`}>
             <button
               type="button"
               onClick={() => handleTabSwitch('exams')}
@@ -1232,6 +1256,31 @@ export default function CbtDashboard({
                 </span>
               )}
             </button>
+
+            {/* 🛡️ TAB KHUSUS ADMIN UTAMA: PUSAT MONITORING & BUKA SUSPEND CBT */}
+            {isSuperAdmin && (
+              <button
+                type="button"
+                onClick={() => handleTabSwitch('suspend')}
+                className={`group w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer min-w-0 ${
+                  activeMainTab === 'suspend'
+                    ? 'bg-gradient-to-r from-rose-600 to-red-600 text-white shadow-md shadow-rose-500/25 ring-1 ring-rose-400/40'
+                    : 'bg-white/80 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 shadow-2xs'
+                }`}
+              >
+                <ShieldAlert size={16} className={`shrink-0 group-hover:scale-115 transition-transform duration-200 ${activeMainTab === 'suspend' ? 'text-white' : 'text-rose-500'}`} />
+                <span className="truncate">Pusat Suspend</span>
+                {dynamicSuspendedCount > 0 ? (
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white animate-pulse shrink-0 shadow-xs">
+                    {dynamicSuspendedCount} Suspend
+                  </span>
+                ) : (
+                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black shrink-0 ${activeMainTab === 'suspend' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}`}>
+                    0
+                  </span>
+                )}
+              </button>
+            )}
           </div>
         </div>
 
@@ -1276,7 +1325,13 @@ export default function CbtDashboard({
         </div>
       </div>
 
-      {activeMainTab === 'proctors' ? (
+      {activeMainTab === 'suspend' && isSuperAdmin ? (
+        <CbtSuspendCenterView
+          initialSuspendedStudents={initialSuspendedStudents}
+          currentUser={currentUser}
+          isSuperAdmin={isSuperAdmin}
+        />
+      ) : activeMainTab === 'proctors' ? (
         <CbtProctorPlottingView
           exams={exams as any}
           teachers={teachers}

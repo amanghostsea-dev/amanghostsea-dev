@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import CbtDashboard from './CbtDashboard';
 import { getDynamicClassTargets } from '@/lib/jurusan-service';
 import { getKopSuratConfig, getCbtTimezone } from '@/lib/settings';
+import { getGlobalSuspendedStudentsAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,8 @@ export default async function AdminCbtPage({
     ? 'reports' 
     : sp?.tab === 'pengawas' || sp?.tab === 'proctors'
     ? 'proctors'
+    : sp?.tab === 'suspend' || sp?.tab === 'suspensi'
+    ? 'suspend'
     : 'exams';
 
   const cookieStore = await cookies();
@@ -44,7 +47,7 @@ export default async function AdminCbtPage({
         ],
       };
 
-  const [exams, classTargets, subjects, kopSuratConfig, teachers, cbtTimezone] = await Promise.all([
+  const [exams, classTargets, subjects, kopSuratConfig, teachers, cbtTimezone, suspendedStudentsRes] = await Promise.all([
     prisma.exam.findMany({
       where: examWhereClause,
       include: {
@@ -67,6 +70,7 @@ export default async function AdminCbtPage({
             tabSwitchCount: true,
             extraTimeMinutes: true,
             isBlocked: true,
+            proctorNotes: true,
             startedAt: true,
             submittedAt: true,
           },
@@ -97,6 +101,7 @@ export default async function AdminCbtPage({
       orderBy: { name: 'asc' },
     }),
     getCbtTimezone(),
+    isSuperAdmin ? getGlobalSuspendedStudentsAction() : Promise.resolve({ success: true, data: [] }),
   ]);
 
   return (
@@ -110,6 +115,7 @@ export default async function AdminCbtPage({
         kopSuratConfig={kopSuratConfig}
         teachers={teachers}
         initialTimezone={cbtTimezone}
+        initialSuspendedStudents={suspendedStudentsRes.data || []}
       />
     </Suspense>
   );

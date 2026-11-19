@@ -1650,6 +1650,175 @@ export async function adminUnblockAllStrike3Action(examId: string, adminName?: s
   }
 }
 
+export interface SuspendedStudentItem {
+  id: string; // attempt id
+  examId: string;
+  examTitle: string;
+  examSubject: string;
+  examClassTarget: string;
+  examAuthorName: string | null;
+  examRoomName: string | null;
+  examDuration: number;
+  studentName: string;
+  studentNis: string | null;
+  studentClass: string | null;
+  tabSwitchCount: number;
+  isBlocked: boolean;
+  proctorNotes: string | null;
+  startedAt: string;
+  submittedAt: string | null;
+  status: string;
+}
+
+/**
+ * 🛡️ Ambil Seluruh Siswa yang Terkena Suspend (Strike 3) di Seluruh Paket Ujian Sekolah
+ */
+export async function getGlobalSuspendedStudentsAction(): Promise<{
+  success: boolean;
+  data: SuspendedStudentItem[];
+  error?: string;
+}> {
+  try {
+    const attempts = await prisma.examAttempt.findMany({
+      where: {
+        status: 'IN_PROGRESS',
+        OR: [
+          { isBlocked: true },
+          { tabSwitchCount: { gte: 3 } },
+          { proctorNotes: { contains: '[STRIKE_3_BLOKIR]' } },
+        ],
+        NOT: {
+          proctorNotes: { contains: '[ADMIN_UNBLOCK_ACTIVE]' },
+        },
+      },
+      include: {
+        exam: {
+          select: {
+            id: true,
+            title: true,
+            subject: true,
+            classTarget: true,
+            authorName: true,
+            roomName: true,
+            proctorName: true,
+            duration: true,
+          },
+        },
+      },
+      orderBy: { startedAt: 'desc' },
+    });
+
+    return {
+      success: true,
+      data: attempts.map((att) => ({
+        id: att.id,
+        examId: att.examId,
+        examTitle: att.exam.title,
+        examSubject: att.exam.subject,
+        examClassTarget: att.exam.classTarget,
+        examAuthorName: att.exam.authorName,
+        examRoomName: att.exam.roomName || att.exam.proctorName,
+        examDuration: att.exam.duration,
+        studentName: att.studentName,
+        studentNis: att.studentNis,
+        studentClass: att.studentClass,
+        tabSwitchCount: att.tabSwitchCount,
+        isBlocked: att.isBlocked,
+        proctorNotes: att.proctorNotes,
+        startedAt: att.startedAt.toISOString(),
+        submittedAt: att.submittedAt ? att.submittedAt.toISOString() : null,
+        status: att.status,
+      })),
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message, data: [] };
+  }
+}
+
+/**
+ * 🛡️ Buka Suspend SEMUA Siswa Sekaligus di SELURUH Paket Ujian Sekolah oleh Admin Utama
+ */
+export async function adminUnblockGlobalAllStrike3Action(adminName?: string) {
+  try {
+    const suspendedAttempts = await prisma.examAttempt.findMany({
+      where: {
+        status: 'IN_PROGRESS',
+        OR: [
+          { isBlocked: true },
+          { tabSwitchCount: { gte: 3 } },
+          { proctorNotes: { contains: '[STRIKE_3_BLOKIR]' } },
+        ],
+        NOT: {
+          proctorNotes: { contains: '[ADMIN_UNBLOCK_ACTIVE]' },
+        },
+      },
+      select: { id: true, examId: true, studentName: true, studentNis: true, proctorNotes: true },
+    });
+
+    if (suspendedAttempts.length === 0) {
+      return { success: true, count: 0, message: 'Tidak ada siswa yang tersuspend di seluruh ujian sekolah saat ini.' };
+    }
+
+    const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    const aName = adminName?.trim() || 'Admin Utama';
+
+    await prisma.$transaction(
+      suspendedAttempts.map((att) => {
+        let cleanedNotes = (att.proctorNotes || '')
+          .replace(/\[STRIKE_3_BLOKIR\][^|]*/g, '')
+          .replace(/\[STRIKE_2_TERKUNCI\][^|]*/g, '')
+          .replace(/\[ADMIN_UNBLOCK_ACTIVE\]/g, '')
+          .trim();
+        const updatedNotes = `${cleanedNotes ? cleanedNotes + ' | ' : ''}[ADMIN_UNBLOCK] Suspend dicabut massal dari Pusat Suspend oleh Admin Utama (${aName}) pada ${timeStr} | [IZIN_LANJUT_P2] Dispensasi Admin Utama | [ADMIN_UNBLOCK_ACTIVE]`;
+
+        return prisma.examAttempt.update({
+          where: { id: att.id },
+          data: {
+            status: 'IN_PROGRESS',
+            isBlocked: false,
+            tabSwitchCount: 1,
+            proctorNotes: updatedNotes,
+          },
+        });
+      })
+    );
+
+    // Lepaskan kunci sesi perangkat untuk seluruh siswa
+    for (const att of suspendedAttempts) {
+      if (att.studentNis || att.studentName) {
+        try {
+          const studentUser = await prisma.user.findFirst({
+            where: {
+              role: 'Siswa',
+              OR: [
+                ...(att.studentNis ? [{ username: att.studentNis }, { nisn: att.studentNis }] : []),
+                ...(att.studentName ? [{ name: att.studentName }] : []),
+              ],
+            },
+            select: { id: true },
+          });
+          if (studentUser) {
+            await clearDeviceSession(studentUser.id);
+          }
+        } catch {}
+      }
+    }
+
+    revalidatePath('/admin/cbt');
+    revalidatePath('/portal/pengawas/cbt');
+    revalidatePath('/portal/siswa/cbt');
+    revalidatePath('/ujian');
+
+    return {
+      success: true,
+      count: suspendedAttempts.length,
+      message: `Berhasil membuka suspend ${suspendedAttempts.length} siswa di seluruh sekolah sekaligus! Semua akun dapat langsung melanjutkan ujian.`,
+    };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
 /**
  * 📥 Paksa Kumpul Ujian (Force Submit) oleh Pengawas Ruangan
  */
