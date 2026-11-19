@@ -53,8 +53,13 @@ import {
   ScheduleConflictExam,
   batchUpdateExamSchedules,
   batchCreateExamsWithSchedule,
-  saveCbtTimezone
+  saveCbtTimezone,
+  exportExamQuestionsAction
 } from './actions';
+import { 
+  generateExamQuestionsCsv,
+  triggerBrowserDownload
+} from '@/lib/cbt-bank-soal';
 import { 
   formatExamScheduleRange, 
   getExamScheduleDetails,
@@ -212,6 +217,36 @@ export default function CbtDashboard({
     if (isSuperAdmin) return false;
     if (isAuthorMatch(exam.authorName)) return false; // Jika guru adalah pembuat paketnya, dia adalah owner
     return isAuthorMatch(exam.proctorName) || isAuthorMatch(exam.proctor2Name);
+  };
+
+  // 📥 Unduh Cepat Butir Soal Bank Soal (Format Siap Upload)
+  const [downloadingExamId, setDownloadingExamId] = useState<string | null>(null);
+
+  const handleQuickDownloadExamQuestions = async (examItem: ExamItem) => {
+    setDownloadingExamId(examItem.id);
+    try {
+      const res = await exportExamQuestionsAction(examItem.id);
+      if (res.success && res.exam && res.questions) {
+        if (res.questions.length === 0) {
+          alert(`Paket ujian "${examItem.title}" belum memiliki butir soal yang diunggah.`);
+          return;
+        }
+        const csv = generateExamQuestionsCsv(res.exam.title, res.exam.subject, res.questions);
+        const cleanSubject = (res.exam.subject || 'Mapel').replace(/[^a-zA-Z0-9_\-]/g, '_');
+        const cleanTitle = (res.exam.title || 'Ujian').replace(/[^a-zA-Z0-9_\-]/g, '_');
+        triggerBrowserDownload(
+          csv,
+          `Bank_Soal_CBT_${cleanSubject}_${cleanTitle}_${res.questions.length}Soal.csv`,
+          'text/csv;charset=utf-8;'
+        );
+      } else {
+        alert(res.error || 'Gagal mengunduh bank soal.');
+      }
+    } catch (err: any) {
+      alert(err?.message || 'Terjadi kesalahan saat mengunduh bank soal.');
+    } finally {
+      setDownloadingExamId(null);
+    }
   };
 
   // Main View Tab: 'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend' | 'logins'
@@ -1851,12 +1886,27 @@ export default function CbtDashboard({
                           <td className="py-3.5 px-4 text-right">
                             <div className="flex items-center justify-end gap-1.5">
                               {isExamOwner(exam) && (
-                                <button
-                                  onClick={() => handleOpenEdit(exam)}
-                                  className="px-2.5 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 font-bold text-xs transition-colors flex items-center gap-1 cursor-pointer"
-                                >
-                                  <Edit3 size={13} /> Atur Jadwal
-                                </button>
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuickDownloadExamQuestions(exam)}
+                                    disabled={downloadingExamId === exam.id}
+                                    className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors cursor-pointer disabled:opacity-50"
+                                    title={`Unduh Bank Soal (${exam._count?.questions || 0} Soal) - Format Siap Upload`}
+                                  >
+                                    {downloadingExamId === exam.id ? (
+                                      <RefreshCw size={14} className="animate-spin text-emerald-600" />
+                                    ) : (
+                                      <Download size={14} />
+                                    )}
+                                  </button>
+                                  <button
+                                    onClick={() => handleOpenEdit(exam)}
+                                    className="px-2.5 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 font-bold text-xs transition-colors flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <Edit3 size={13} /> Atur Jadwal
+                                  </button>
+                                </>
                               )}
                               <Link
                                 href={`/admin/cbt/${exam.id}`}
@@ -2335,6 +2385,19 @@ export default function CbtDashboard({
                       </Link>
                       {isExamOwner(exam) && (
                         <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleQuickDownloadExamQuestions(exam)}
+                            disabled={downloadingExamId === exam.id}
+                            className="group p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-xl hover:scale-115 active:scale-90 transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-xs disabled:opacity-50"
+                            title={`Unduh Bank Soal (${exam._count?.questions || 0} Soal) - Format Excel/CSV Siap Upload`}
+                          >
+                            {downloadingExamId === exam.id ? (
+                              <RefreshCw size={15} className="animate-spin text-emerald-600" />
+                            ) : (
+                              <Download size={15} className="group-hover:-translate-y-0.5 transition-transform duration-200" />
+                            )}
+                          </button>
                           <button
                             type="button"
                             onClick={() => handleOpenEdit(exam)}

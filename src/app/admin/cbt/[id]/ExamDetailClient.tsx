@@ -98,6 +98,14 @@ import CbtMathToolbar from '@/components/cbt/CbtMathToolbar';
 import CbtOptionInputItem from '@/components/cbt/CbtOptionInputItem';
 import CbtTableBuilderModal from '@/components/cbt/CbtTableBuilderModal';
 import CbtFormatToolbar from '@/components/cbt/CbtFormatToolbar';
+import {
+  generateExamQuestionsCsv,
+  generateExamQuestionsTxt,
+  generateExamQuestionsJson,
+  triggerBrowserDownload,
+  splitCsvRows,
+  keyToLetter,
+} from '@/lib/cbt-bank-soal';
 
 interface ParsedQuestion {
   questionText: string;
@@ -136,15 +144,13 @@ function parseBulkQuestions(rawText: string, defaultPoints: number = 10): Parsed
   const trimmed = rawText.trim();
   if (!trimmed) return [];
 
-  const rawLines = trimmed.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  // Filter out Excel delimiter hints like "sep=;"
-  const lines = rawLines.filter((l) => !l.toLowerCase().startsWith('sep='));
-
   // Detect if content is Delimited (CSV or Tab-Separated from Excel copy-paste)
-  const isDelimited = lines.some((l) => {
-    if (l.startsWith('#')) return false;
-    return l.split(';').length >= 5 || l.split('\t').length >= 5 || (l.split(',').length >= 5 && l.includes('"'));
-  });
+  const isDelimited = trimmed.includes('sep=;') || trimmed.includes(';') || trimmed.includes('\t') || (trimmed.includes(',') && trimmed.includes('"'));
+
+  // Gunakan splitCsvRows agar baris baru di dalam tanda petik ganda tetap utuh
+  const lines = isDelimited
+    ? splitCsvRows(trimmed).filter((l) => !l.toLowerCase().startsWith('sep='))
+    : trimmed.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).filter((l) => !l.toLowerCase().startsWith('sep='));
 
   if (isDelimited) {
     const results: ParsedQuestion[] = [];
@@ -1476,6 +1482,49 @@ Poin: 10
     document.body.removeChild(link);
   };
 
+  const [isDownloadBankSoalModalOpen, setIsDownloadBankSoalModalOpen] = useState(false);
+
+  const handleDownloadExamQuestions = (
+    format: 'csv' | 'txt' | 'json' = 'csv',
+    onlySelected: boolean = false
+  ) => {
+    const targetQuestions = onlySelected && selectedQIds.length > 0
+      ? questions.filter((q) => selectedQIds.includes(q.id))
+      : questions;
+
+    if (targetQuestions.length === 0) {
+      alert('Belum ada butir soal yang dapat diunduh.');
+      return;
+    }
+
+    const cleanExamTitle = (exam.title || 'Ujian').replace(/[^a-zA-Z0-9_\-]/g, '_');
+    const cleanSubject = (exam.subject || 'Mapel').replace(/[^a-zA-Z0-9_\-]/g, '_');
+    const suffix = onlySelected ? `_Terpilih_${targetQuestions.length}Soal` : `_${targetQuestions.length}Soal`;
+
+    if (format === 'csv') {
+      const csv = generateExamQuestionsCsv(exam.title, exam.subject, targetQuestions);
+      triggerBrowserDownload(
+        csv,
+        `Bank_Soal_CBT_${cleanSubject}_${cleanExamTitle}${suffix}.csv`,
+        'text/csv;charset=utf-8;'
+      );
+    } else if (format === 'txt') {
+      const txt = generateExamQuestionsTxt(exam.title, exam.subject, targetQuestions);
+      triggerBrowserDownload(
+        txt,
+        `Bank_Soal_CBT_${cleanSubject}_${cleanExamTitle}${suffix}.txt`,
+        'text/plain;charset=utf-8;'
+      );
+    } else if (format === 'json') {
+      const json = generateExamQuestionsJson(exam.title, exam.subject, targetQuestions);
+      triggerBrowserDownload(
+        json,
+        `Bank_Soal_CBT_${cleanSubject}_${cleanExamTitle}${suffix}.json`,
+        'application/json;charset=utf-8;'
+      );
+    }
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -2067,16 +2116,29 @@ Poin: 10
                     <span className="truncate">Input Kolektif (Batch)</span>
                   </button>
 
-                  {/* 3. TOMBOL TEMPLATE: Unduh Format CSV */}
-                  <button
-                    type="button"
-                    onClick={() => handleDownloadCsvTemplate('csv')}
-                    className="group flex items-center justify-center gap-2 px-4 py-2.5 sm:py-3 bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 hover:border-emerald-500/80 dark:hover:border-emerald-500/80 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/30 text-slate-700 dark:text-slate-200 rounded-2xl text-xs sm:text-sm font-bold shadow-2xs hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 cursor-pointer"
-                    title="Unduh Template Excel CSV Resmi dengan Kolom Siap Isi"
-                  >
-                    <FileSpreadsheet size={16} className="text-emerald-600 dark:text-emerald-400 group-hover:scale-115 transition-transform duration-200 shrink-0" />
-                    <span className="truncate">Unduh Template CSV</span>
-                  </button>
+                  {/* 3. TOMBOL UNDUH BANK SOAL: Format Siap Upload */}
+                  {questions.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsDownloadBankSoalModalOpen(true)}
+                      className="group relative overflow-hidden flex items-center justify-center gap-2 px-4 py-2.5 sm:py-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:via-indigo-500 hover:to-blue-600 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md shadow-blue-500/25 hover:shadow-lg hover:shadow-blue-500/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 cursor-pointer"
+                      title="Unduh butir soal yang sudah diunggah dalam format Excel/CSV resmi (format cocok untuk langsung di-upload saat membuat paket baru)"
+                    >
+                      <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                      <Download size={16} className="group-hover:-translate-y-0.5 group-hover:scale-110 transition-transform duration-300 shrink-0" />
+                      <span className="truncate">Unduh Bank Soal ({questions.length})</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadCsvTemplate('csv')}
+                      className="group flex items-center justify-center gap-2 px-4 py-2.5 sm:py-3 bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 hover:border-emerald-500/80 dark:hover:border-emerald-500/80 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/30 text-slate-700 dark:text-slate-200 rounded-2xl text-xs sm:text-sm font-bold shadow-2xs hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 cursor-pointer"
+                      title="Unduh Template Excel CSV Resmi dengan Kolom Siap Isi"
+                    >
+                      <FileSpreadsheet size={16} className="text-emerald-600 dark:text-emerald-400 group-hover:scale-115 transition-transform duration-200 shrink-0" />
+                      <span className="truncate">Unduh Template CSV</span>
+                    </button>
+                  )}
 
                   {/* 4. TOMBOL DISTRIBUSI: Bagi Rata Nilai Otomatis */}
                   <button
@@ -2161,6 +2223,15 @@ Poin: 10
                   <div className="flex items-center gap-2">
                     {selectedQIds.length > 0 ? (
                       <>
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadExamQuestions('csv', true)}
+                          className="px-3.5 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 text-xs font-bold flex items-center gap-1.5 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-2xs"
+                          title="Unduh hanya butir soal yang dicentang dalam format Excel/CSV siap upload"
+                        >
+                          <Download size={14} className="text-emerald-600 dark:text-emerald-400" />
+                          <span>Unduh ({selectedQIds.length}) Soal Terpilih</span>
+                        </button>
                         <button
                           type="button"
                           onClick={() => setIsBulkDeleteModalOpen(true)}
@@ -3032,6 +3103,186 @@ Poin: 10
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 📥 MODAL UNDUH & EKSPOR BANK SOAL CBT */}
+      {isDownloadBankSoalModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in font-sans">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 animate-in zoom-in-95">
+            {/* Header */}
+            <div className="p-5 sm:p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-blue-50/70 via-indigo-50/50 to-slate-50/60 dark:from-blue-950/30 dark:via-indigo-950/20 dark:to-slate-950/40">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/25 shrink-0">
+                  <Download size={22} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base sm:text-lg font-black text-slate-800 dark:text-white">
+                      Unduh Bank Soal CBT
+                    </h3>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                      100% Siap Upload
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Pilih format unduhan naskah soal yang Anda perlukan
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDownloadBankSoalModalOpen(false)}
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Content Body */}
+            <div className="p-5 sm:p-6 overflow-y-auto space-y-4">
+              {/* Info Ringkas Paket */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div>
+                  <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider">Judul Paket Ujian</span>
+                  <span className="font-bold text-slate-800 dark:text-white text-sm">{exam.title}</span>
+                </div>
+                <div className="flex items-center gap-4 text-slate-600 dark:text-slate-300 font-semibold">
+                  <div>
+                    <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider">Mata Pelajaran</span>
+                    <span>{exam.subject}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider">Jumlah Soal</span>
+                    <span className="text-blue-600 dark:text-blue-400 font-extrabold">{questions.length} Butir</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider">Total Skor</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">{totalPoints} Poin</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Pilihan Format */}
+              <div className="space-y-3">
+                {/* 1. Format Excel / CSV Siap Upload */}
+                <div className="p-4 rounded-2xl border-2 border-emerald-500/40 dark:border-emerald-500/30 bg-emerald-50/30 dark:bg-emerald-950/20 hover:border-emerald-500 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                      <FileSpreadsheet size={20} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-slate-800 dark:text-white text-sm">
+                          Format Tabel Excel / Spreadsheet (.CSV)
+                        </h4>
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
+                          Sangat Direkomendasikan
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                        Format resmi bank soal CBT (pemisah <code className="px-1 py-0.5 bg-white dark:bg-slate-800 rounded font-mono font-bold text-emerald-600">;</code> & UTF-8 BOM). 
+                        Saat Anda membuat paket ujian baru, file ini <strong>bisa langsung di-upload</strong> tanpa harus diedit lagi!
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleDownloadExamQuestions('csv');
+                      setIsDownloadBankSoalModalOpen(false);
+                    }}
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer shrink-0"
+                  >
+                    <Download size={14} /> Unduh CSV (Excel)
+                  </button>
+                </div>
+
+                {/* 2. Format Word / Teks */}
+                <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-blue-500/50 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                      <FileText size={20} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-800 dark:text-white text-sm">
+                        Format Naskah Word / Dokumen Teks (.TXT)
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                        Naskah bernomor rapi (<code className="px-1 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono text-slate-600">1. Soal</code>, <code className="px-1 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono text-slate-600">A. Opsi</code>, <code className="px-1 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono text-slate-600">Kunci: A</code>). Cocok untuk dibuka di Microsoft Word, disunting, dicetak untuk arsip fisik guru, atau di-copy-paste langsung.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleDownloadExamQuestions('txt');
+                      setIsDownloadBankSoalModalOpen(false);
+                    }}
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer shrink-0"
+                  >
+                    <Download size={14} /> Unduh Teks (.TXT)
+                  </button>
+                </div>
+
+                {/* 3. Format Master Cadangan Data (.JSON) */}
+                <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-purple-500/50 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                      <Layers size={20} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-800 dark:text-white text-sm">
+                        Master Cadangan Data Digital (.JSON)
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                        Salinan digital lengkap struktur bank soal untuk cadangan (backup) data teknis dan pemulihan sistem.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleDownloadExamQuestions('json');
+                      setIsDownloadBankSoalModalOpen(false);
+                    }}
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer shrink-0"
+                  >
+                    <Download size={14} /> Unduh JSON
+                  </button>
+                </div>
+
+                {/* 4. Unduh Template Kosong Baru */}
+                <div className="p-3.5 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 font-medium">
+                    <FileDown size={16} className="text-slate-400" />
+                    <span>Perlu template Excel kosong siap isi untuk membuat soal baru dari nol?</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleDownloadCsvTemplate('csv');
+                      setIsDownloadBankSoalModalOpen(false);
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 text-slate-700 dark:text-slate-200 font-bold text-[11px] transition cursor-pointer shrink-0"
+                  >
+                    Unduh Template Kosong
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 sm:p-5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end bg-slate-50/50 dark:bg-slate-950/40">
+              <button
+                type="button"
+                onClick={() => setIsDownloadBankSoalModalOpen(false)}
+                className="px-5 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
           </div>
         </div>
       )}

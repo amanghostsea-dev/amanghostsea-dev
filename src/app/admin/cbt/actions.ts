@@ -2604,3 +2604,50 @@ export async function saveCbtTimezone(timezone: CbtTimezone) {
     return { error: error.message };
   }
 }
+
+/**
+ * Ekspor butir soal ujian (Bank Soal) untuk diunduh oleh Guru maupun Admin Utama
+ */
+export async function exportExamQuestionsAction(examId: string) {
+  try {
+    const exam = await prisma.exam.findUnique({
+      where: { id: examId },
+      include: {
+        questions: {
+          orderBy: [
+            { order: 'asc' },
+            { createdAt: 'asc' },
+            { id: 'asc' },
+          ],
+        },
+      },
+    });
+
+    if (!exam) {
+      return { success: false, error: 'Paket ujian tidak ditemukan.' };
+    }
+
+    return {
+      success: true,
+      exam: {
+        id: exam.id,
+        title: exam.title,
+        subject: exam.subject,
+        classTarget: exam.classTarget,
+        authorName: exam.authorName,
+      },
+      questions: exam.questions.map((q) => ({
+        id: q.id,
+        questionText: q.questionText,
+        imageUrl: q.imageUrl,
+        options: q.options,
+        correctAnswer: q.correctAnswer,
+        points: q.points,
+        order: q.order,
+      })),
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Gagal mengambil data bank soal.' };
+  }
+}
+
