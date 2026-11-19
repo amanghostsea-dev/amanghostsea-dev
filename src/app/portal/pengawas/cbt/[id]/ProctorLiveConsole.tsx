@@ -39,7 +39,8 @@ import {
   proctorAddExtraTimeAction,
   proctorToggleBlockAction,
   proctorForceSubmitAction,
-  proctorUnlockStrike2Action
+  proctorUnlockStrike2Action,
+  proctorUnlockFatalStrike4Action
 } from '@/app/admin/cbt/actions';
 import { 
   formatExamScheduleRange, 
@@ -142,7 +143,7 @@ export default function ProctorLiveConsole({
   const [actionTargetAttempt, setActionTargetAttempt] = useState<{
     attemptId: string;
     studentName: string;
-    type: 'RESET' | 'SUBMIT' | 'BLOCK' | 'UNBLOCK' | 'UNLOCK_STRIKE_2';
+    type: 'RESET' | 'SUBMIT' | 'BLOCK' | 'UNBLOCK' | 'UNLOCK_STRIKE_2' | 'UNLOCK_FATAL_STRIKE_4';
   } | null>(null);
 
   const [extraTimeTarget, setExtraTimeTarget] = useState<{
@@ -413,6 +414,14 @@ export default function ProctorLiveConsole({
         refreshAttemptsLive();
       } else {
         alert(res.error || 'Gagal membuka kunci ujian.');
+      }
+    } else if (type === 'UNLOCK_FATAL_STRIKE_4') {
+      const res = await proctorUnlockFatalStrike4Action(attemptId, currentUser.name);
+      if (res.success) {
+        showToast(res.message);
+        refreshAttemptsLive();
+      } else {
+        alert(res.error || 'Gagal membuka kunci darurat fatal.');
       }
     }
 
@@ -964,37 +973,63 @@ export default function ProctorLiveConsole({
                               </button>
                             )}
 
-                            {/* Reset Login Siswa (Hanya jika BUKAN Strike 3 yang aktif) */}
-                            {(item.tabSwitchCount >= 3 || att?.proctorNotes?.includes('[STRIKE_3_BLOKIR]')) && isBlocked && !att?.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]') ? (
-                              <span 
-                                className="px-2 py-1 rounded-lg bg-rose-950 text-rose-300 font-bold text-[10px] border border-rose-800"
-                                title="Siswa telah 3x melanggar tata tertib dan di-suspend total oleh sistem. Hanya Admin Utama yang berwenang membuka akun ini."
-                              >
-                                Wajib Admin Utama
-                              </span>
-                            ) : att?.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]') ? (
-                              <span 
-                                className="px-2 py-1 rounded-lg bg-emerald-950 text-emerald-300 font-bold text-[10px] border border-emerald-800"
-                                title="Akun siswa telah resmi dibuka oleh Admin Utama."
-                              >
-                                ✓ Dispensasi Admin
-                              </span>
-                            ) : (
-                              <button
-                                onClick={() => setActionTargetAttempt({
-                                  attemptId: att.id,
-                                  studentName: item.studentName,
-                                  type: 'RESET',
-                                })}
-                                className={`px-2 py-1 rounded-lg font-bold text-[11px] border transition flex items-center gap-1 cursor-pointer ${
-                                  item.tabSwitchCount === 2 && !att?.proctorNotes?.includes('[IZIN_LANJUT_P2]')
-                                    ? 'bg-amber-600/30 hover:bg-amber-600/50 text-amber-200 border-amber-500/40'
-                                    : 'bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border-blue-500/30'
-                                }`}
-                                title="Buka Kunci / Reset Siswa agar dapat langsung melanjutkan ujian"
-                              >
-                                <Unlock size={11} /> Reset
-                              </button>
+                            {/* 🚨 Tombol Khusus Strike 4: Buka Kunci Fatal Pasca-Dispensasi Admin Utama */}
+                            {(item.tabSwitchCount === 4 || att?.proctorNotes?.includes('[STRIKE_4_FATAL]')) && (
+                              !att?.proctorNotes?.includes('[FATAL_PROCTOR_UNBLOCKED]') ? (
+                                <button
+                                  onClick={() => setActionTargetAttempt({
+                                    attemptId: att.id,
+                                    studentName: item.studentName,
+                                    type: 'UNLOCK_FATAL_STRIKE_4',
+                                  })}
+                                  className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-rose-600 via-rose-500 to-amber-500 hover:from-rose-500 hover:to-amber-400 text-white font-black text-[11px] shadow-sm animate-pulse transition flex items-center gap-1 cursor-pointer border border-rose-400/50"
+                                  title="Buka Kunci Darurat Pelanggaran ke-4 (Pasca-Dispensasi Admin Utama) - Tercatat di BAP"
+                                >
+                                  <Unlock size={12} /> Buka Kunci Fatal (BAP)
+                                </button>
+                              ) : (
+                                <span 
+                                  className="px-2 py-1 rounded-lg bg-emerald-950 text-emerald-300 font-bold text-[10px] border border-emerald-800"
+                                  title="Izin darurat terakhir telah diberikan oleh Pengawas Ruang."
+                                >
+                                  ✓ Dispensasi Fatal Pengawas
+                                </span>
+                              )
+                            )}
+
+                            {/* Reset Login Siswa (Hanya jika BUKAN Strike 3 atau Strike 4 yang aktif) */}
+                            {item.tabSwitchCount !== 4 && !att?.proctorNotes?.includes('[STRIKE_4_FATAL]') && (
+                              (item.tabSwitchCount === 3 || att?.proctorNotes?.includes('[STRIKE_3_BLOKIR]')) && isBlocked && !att?.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]') ? (
+                                <span 
+                                  className="px-2 py-1 rounded-lg bg-rose-950 text-rose-300 font-bold text-[10px] border border-rose-800"
+                                  title="Siswa telah 3x melanggar tata tertib dan di-suspend total oleh sistem. Hanya Admin Utama yang berwenang membuka akun ini."
+                                >
+                                  Wajib Admin Utama
+                                </span>
+                              ) : att?.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]') ? (
+                                <span 
+                                  className="px-2 py-1 rounded-lg bg-emerald-950 text-emerald-300 font-bold text-[10px] border border-emerald-800"
+                                  title="Akun siswa telah resmi dibuka oleh Admin Utama."
+                                >
+                                  ✓ Dispensasi Admin
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => setActionTargetAttempt({
+                                    attemptId: att.id,
+                                    studentName: item.studentName,
+                                    type: 'RESET',
+                                  })}
+                                  className={`px-2 py-1 rounded-lg font-bold text-[11px] border transition flex items-center gap-1 cursor-pointer ${
+                                    item.tabSwitchCount === 2 && !att?.proctorNotes?.includes('[IZIN_LANJUT_P2]')
+                                      ? 'bg-amber-600/30 hover:bg-amber-600/50 text-amber-200 border-amber-500/40'
+                                      : 'bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border-blue-500/30'
+                                  }`}
+                                  title="Buka Kunci / Reset Siswa agar dapat langsung melanjutkan ujian"
+                                >
+                                  <Unlock size={11} /> Reset
+                                </button>
+                              )
                             )}
 
                             {/* Extra Time (+5m / +10m) */}
@@ -1177,6 +1212,8 @@ export default function ProctorLiveConsole({
             ? 'Tegur & Blokir Siswa'
             : actionTargetAttempt?.type === 'UNLOCK_STRIKE_2'
             ? 'Izinkan Lanjut Ujian (Buka Kunci Pelanggaran ke-2)'
+            : actionTargetAttempt?.type === 'UNLOCK_FATAL_STRIKE_4'
+            ? '🚨 Buka Kunci Darurat Pelanggaran Fatal ke-4 (BAP)'
             : 'Buka Blokir Siswa'
         }
         message={
@@ -1188,6 +1225,8 @@ export default function ProctorLiveConsole({
             ? `Apakah Anda yakin ingin memblokir akses ujian untuk "${actionTargetAttempt?.studentName}"? Ujian siswa akan dihentikan sementara.`
             : actionTargetAttempt?.type === 'UNLOCK_STRIKE_2'
             ? `Apakah Anda yakin ingin mengizinkan siswa "${actionTargetAttempt?.studentName}" melanjutkan ujian? Siswa telah terdeteksi melakukan pelanggaran ke-2 (keluar layar). Pemberian izin ini akan dicatat secara otomatis ke Berita Acara Ujian (BAP).`
+            : actionTargetAttempt?.type === 'UNLOCK_FATAL_STRIKE_4'
+            ? `PERHATIAN FATAL: Siswa "${actionTargetAttempt?.studentName}" sebelumnya SUDAH MENERIMA DISPENSASI DARI ADMIN UTAMA dan kembali melanggar untuk yang ke-4 kalinya di kelas. Apakah Anda yakin ingin memberikan KESEMPATAN DARURAT TERAKHIR di ruang ujian? Pemberian izin darurat ini akan dicatat secara resmi ke Berita Acara Pelaksanaan (BAP) sebagai Catatan Fatal.`
             : `Apakah Anda yakin ingin mencabut status blokir untuk "${actionTargetAttempt?.studentName}"?`
         }
         confirmText={
@@ -1199,6 +1238,8 @@ export default function ProctorLiveConsole({
             ? 'Ya, Blokir Siswa'
             : actionTargetAttempt?.type === 'UNLOCK_STRIKE_2'
             ? 'Ya, Izinkan Lanjut Ujian'
+            : actionTargetAttempt?.type === 'UNLOCK_FATAL_STRIKE_4'
+            ? 'Ya, Berikan Izin Darurat Fatal (BAP)'
             : 'Ya, Cabut Blokir'
         }
       />
@@ -1528,18 +1569,29 @@ export default function ProctorLiveConsole({
                         {combinedRoster
                           .filter((r) => r.tabSwitchCount > 0 || r.isBlocked)
                           .map((r, idx) => {
-                            const isStrike3Active = (r.tabSwitchCount >= 3 || r.isBlocked || r.attempt?.proctorNotes?.includes('[STRIKE_3_BLOKIR]')) && !r.attempt?.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]');
-                            const isStrike3Unblocked = r.attempt?.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]') || r.attempt?.proctorNotes?.includes('[ADMIN_UNBLOCK]');
-                            const isStrike2 = !isStrike3Active && !isStrike3Unblocked && r.tabSwitchCount === 2;
+                            const isStrike5 = r.tabSwitchCount >= 5 || r.attempt?.proctorNotes?.includes('[DISKUALIFIKASI_FINAL]');
+                            const isStrike4 = !isStrike5 && (r.tabSwitchCount === 4 || r.attempt?.proctorNotes?.includes('[STRIKE_4_FATAL]'));
+                            const isStrike4Unblocked = r.attempt?.proctorNotes?.includes('[FATAL_PROCTOR_UNBLOCKED]');
+                            const isStrike3Active = !isStrike5 && !isStrike4 && (r.tabSwitchCount === 3 || r.isBlocked || r.attempt?.proctorNotes?.includes('[STRIKE_3_BLOKIR]')) && !r.attempt?.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]');
+                            const isStrike3Unblocked = !isStrike5 && !isStrike4 && (r.attempt?.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]') || r.attempt?.proctorNotes?.includes('[ADMIN_UNBLOCK]'));
+                            const isStrike2 = !isStrike5 && !isStrike4 && !isStrike3Active && !isStrike3Unblocked && r.tabSwitchCount === 2;
 
                             return (
-                              <tr key={r.studentNis + r.studentName} className={isStrike3Active ? 'bg-rose-50/70 font-semibold' : ''}>
+                              <tr key={r.studentNis + r.studentName} className={isStrike4 ? 'bg-amber-50/80 font-semibold' : isStrike3Active ? 'bg-rose-50/70 font-semibold' : ''}>
                                 <td className="border border-black px-1.5 py-1 text-center font-mono">{idx + 1}</td>
                                 <td className="border border-black px-2 py-1 font-bold">{r.studentName}</td>
                                 <td className="border border-black px-1.5 py-1 text-center font-mono">{r.studentNis || '-'}</td>
                                 <td className="border border-black px-1.5 py-1 text-center font-bold font-mono">{r.tabSwitchCount}x</td>
                                 <td className="border border-black px-2 py-1">
-                                  {isStrike3Active ? (
+                                  {isStrike5 ? (
+                                    <div className="text-red-950 leading-snug">
+                                      <strong className="text-red-700">🛑 TINGKAT 5 (DISKUALIFIKASI):</strong> Melakukan 5x Pelanggaran • Ujian Diakhiri Otomatis oleh Sistem
+                                    </div>
+                                  ) : isStrike4 ? (
+                                    <div className="text-rose-950 leading-snug">
+                                      <strong className="text-rose-700">🚨 TINGKAT 4 (FATAL):</strong> Pelanggaran Pasca-Dispensasi Admin • {isStrike4Unblocked ? 'Izin Darurat Terakhir Diberikan Pengawas Ruang (Tercatat di BAP)' : 'Terkunci Kritis - Wajib Izin Pengawas'}
+                                    </div>
+                                  ) : isStrike3Active ? (
                                     <div className="text-rose-900 leading-snug">
                                       <strong className="text-rose-700">⛔ TINGKAT 3 (BERAT):</strong> Akun di-Suspend Sistem • Wajib Melapor ke Admin Utama
                                     </div>

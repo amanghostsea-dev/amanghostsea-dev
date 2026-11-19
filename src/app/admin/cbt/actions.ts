@@ -1492,6 +1492,57 @@ export async function proctorUnlockStrike2Action(attemptId: string, proctorName?
 }
 
 /**
+ * 🚨 Buka Kunci Pelanggaran Fatal ke-4 oleh Pengawas Ruang (Pasca-Dispensasi Admin Utama)
+ */
+export async function proctorUnlockFatalStrike4Action(attemptId: string, proctorName?: string) {
+  try {
+    const attempt = await prisma.examAttempt.findUnique({
+      where: { id: attemptId },
+    });
+
+    if (!attempt) {
+      return { error: 'Data pengerjaan siswa tidak ditemukan.' };
+    }
+
+    if (attempt.tabSwitchCount >= 5 || attempt.proctorNotes?.includes('[DISKUALIFIKASI_FINAL]')) {
+      return {
+        error: 'Siswa telah melanggar tata tertib sebanyak 5 kali dan didiskualifikasi permanen oleh sistem.'
+      };
+    }
+
+    const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    const pName = proctorName?.trim() || 'Pengawas Ruang';
+    const noteEntry = `[FATAL_PROCTOR_UNBLOCKED] Izin Darurat Terakhir Pelanggaran Fatal ke-4 diberikan oleh Pengawas (${pName}) pada ${timeStr} (Tercatat di BAP)`;
+
+    let updatedNotes = attempt.proctorNotes || '';
+    if (!updatedNotes.includes('[FATAL_PROCTOR_UNBLOCKED]')) {
+      updatedNotes = updatedNotes ? `${updatedNotes} | ${noteEntry}` : noteEntry;
+    }
+
+    const updated = await prisma.examAttempt.update({
+      where: { id: attemptId },
+      data: {
+        status: 'IN_PROGRESS',
+        isBlocked: false,
+        proctorNotes: updatedNotes,
+      },
+    });
+
+    revalidatePath(`/admin/cbt/${attempt.examId}`);
+    revalidatePath(`/portal/pengawas/cbt/${attempt.examId}`);
+    revalidatePath(`/portal/siswa/cbt/${attempt.examId}`);
+
+    return {
+      success: true,
+      message: `Izin darurat terakhir berhasil diberikan untuk "${attempt.studentName}". Layar siswa terbuka kembali dan tercatat di Berita Acara (BAP)!`,
+      attempt: updated,
+    };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+/**
  * 🛡️ Buka Blokir Akun CBT Siswa oleh Admin Utama (Super Admin)
  * Khusus untuk siswa yang terblokir permanen pada Pelanggaran ke-3 (Strike 3)
  */
@@ -1518,13 +1569,14 @@ export async function adminUnblockStrike3Action(attemptId: string, adminName?: s
 
     const updatedNotes = `${cleanedNotes ? cleanedNotes + ' | ' : ''}${noteEntry} | [IZIN_LANJUT_P2] Dispensasi Admin Utama | [ADMIN_UNBLOCK_ACTIVE]`;
 
-    // 🔓 Reset tabSwitchCount ke 1 dan isBlocked ke false agar akun siswa benar-benar terbuka
+    // 🔓 Buka suspend Admin Utama: Pertahankan tabSwitchCount di 3 dengan tag [ADMIN_UNBLOCK_ACTIVE]
+    // agar riwayat 3x pelanggaran tetap tercatat di BAP dan pelanggaran berikutnya menjadi Pelanggaran ke-4!
     const updated = await prisma.examAttempt.update({
       where: { id: attemptId },
       data: {
         status: 'IN_PROGRESS',
         isBlocked: false,
-        tabSwitchCount: 1, // Reset ke 1 sehingga siswa bisa langsung melanjutkan ujian tanpa terblokir lagi
+        tabSwitchCount: 3, // Tetap di angka 3 dengan tag dispensasi aktif [ADMIN_UNBLOCK_ACTIVE]
         proctorNotes: updatedNotes,
       },
     });
@@ -1604,7 +1656,7 @@ export async function adminUnblockAllStrike3Action(examId: string, adminName?: s
           data: {
             status: 'IN_PROGRESS',
             isBlocked: false,
-            tabSwitchCount: 1,
+            tabSwitchCount: 3,
             proctorNotes: updatedNotes,
           },
         });
@@ -1776,7 +1828,7 @@ export async function adminUnblockGlobalAllStrike3Action(adminName?: string) {
           data: {
             status: 'IN_PROGRESS',
             isBlocked: false,
-            tabSwitchCount: 1,
+            tabSwitchCount: 3,
             proctorNotes: updatedNotes,
           },
         });
