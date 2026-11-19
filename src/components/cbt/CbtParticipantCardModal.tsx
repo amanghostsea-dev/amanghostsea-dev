@@ -1483,15 +1483,22 @@ function SingleParticipantCard({
 
       {/* 🖋️ CARD FOOTER: SIGNATURE & OFFICIAL DIGITAL STAMP (Dinaikkan agar aman saat digunting/dipotong) */}
       <div className="pt-1 border-t border-slate-300 flex items-end justify-between text-[7px] text-slate-600 mb-1">
-        <div className="text-left leading-tight pb-0.5">
+        <div className="text-left leading-tight pb-0.5 flex flex-col justify-end">
           <div className="font-bold text-slate-500 text-[6.5px] uppercase tracking-wider">
             Portal CBT Siswa:
           </div>
-          <div className="font-mono font-black text-blue-900 text-[8px] truncate max-w-[135px] mt-0.5">
+          <div className="font-mono font-black text-blue-900 text-[8px] truncate max-w-[140px] mt-0.5">
             {portalUrl.replace(/^https?:\/\//, '')}
           </div>
-          <div className="text-[6px] text-slate-400 font-mono mt-0.5">
-            #{cardIndex + 1} • {student.studentClass}
+
+          {/* 🏷️ Teks Created by Abdul Rahman di bawah Link Vercel/Portal dengan Jarak Rapi */}
+          <div className="mt-1.5 pt-0.5">
+            <span className="text-[6.5px] font-semibold text-slate-600 font-mono block leading-none">
+              Created By Abdul Rahman
+            </span>
+            <span className="text-[5.5px] text-slate-400 font-mono block mt-0.5 leading-none">
+              #{cardIndex + 1} • {student.studentClass}
+            </span>
           </div>
         </div>
 
