@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { AlertTriangle, Trash2, X, Loader2, CheckCircle2, Info } from 'lucide-react';
+import { AlertTriangle, Trash2, X, Loader2, CheckCircle2, Info, ShieldCheck } from 'lucide-react';
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -11,7 +11,7 @@ interface ConfirmModalProps {
   message?: React.ReactNode;
   confirmText?: string;
   cancelText?: string;
-  variant?: 'danger' | 'warning' | 'info';
+  variant?: 'danger' | 'warning' | 'info' | 'success';
   isLoading?: boolean;
 }
 
@@ -46,6 +46,12 @@ export default function ConfirmModal({
       iconBg: 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-blue-500/30 ring-blue-50 dark:ring-blue-950/40',
       icon: <Info size={28} />,
       confirmBtn: 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 shadow-blue-500/35 hover:shadow-blue-500/50',
+    },
+    success: {
+      accentLine: 'bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500',
+      iconBg: 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-emerald-500/30 ring-emerald-50 dark:ring-emerald-950/40',
+      icon: <ShieldCheck size={28} />,
+      confirmBtn: 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-800 shadow-emerald-500/35 hover:shadow-emerald-500/50',
     },
   }[variant];
 

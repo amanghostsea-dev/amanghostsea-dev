@@ -539,10 +539,21 @@ export default function ExamDetailClient({
     }
   };
 
-  // 🛡️ Buka Suspend SEMUA Siswa Sekaligus oleh Admin Utama
+  // 🛡️ Buka Suspend & Kunci Dialog States (Pengganti confirm & alert browser)
   const [unblockingAll, setUnblockingAll] = useState(false);
-  const handleUnblockAll = async () => {
-    if (!confirm('Buka suspend SEMUA siswa yang terkena Strike 3 sekaligus? Seluruh siswa akan dapat langsung melanjutkan ujian kembali tanpa kehilangan jawaban.')) return;
+  const [isUnblockAllModalOpen, setIsUnblockAllModalOpen] = useState(false);
+  const [unblockStrike3Target, setUnblockStrike3Target] = useState<typeof exam.attempts[0] | null>(null);
+  const [unlockStrike2Target, setUnlockStrike2Target] = useState<typeof exam.attempts[0] | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [cbtToast, setCbtToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    if (!cbtToast) return;
+    const timer = setTimeout(() => setCbtToast(null), 5000);
+    return () => clearTimeout(timer);
+  }, [cbtToast]);
+
+  const handleExecuteUnblockAll = async () => {
     setUnblockingAll(true);
     try {
       const res = await adminUnblockAllStrike3Action(exam.id, currentUser?.name);
@@ -558,14 +569,59 @@ export default function ExamDetailClient({
           }
           return a;
         }));
-        alert(res.message);
+        setIsUnblockAllModalOpen(false);
+        setCbtToast({ type: 'success', text: res.message || 'Semua suspend berhasil dibuka!' });
       } else {
-        alert(res.error || 'Gagal membuka suspend massal');
+        setCbtToast({ type: 'error', text: res.error || 'Gagal membuka suspend massal' });
       }
     } catch (e: any) {
-      alert(e.message || 'Terjadi kesalahan sistem');
+      setCbtToast({ type: 'error', text: e.message || 'Terjadi kesalahan sistem' });
     }
     setUnblockingAll(false);
+  };
+
+  const handleExecuteUnblockSingle = async () => {
+    if (!unblockStrike3Target) return;
+    setActionLoading(true);
+    try {
+      const res = await adminUnblockStrike3Action(unblockStrike3Target.id, currentUser?.name);
+      if (res.success) {
+        setAttempts(prev => prev.map(a => a.id === unblockStrike3Target.id ? {
+          ...a,
+          isBlocked: false,
+          tabSwitchCount: 1,
+          proctorNotes: `${(a.proctorNotes || '').replace(/\[STRIKE_3_BLOKIR\][^|]*/g, '').trim()} | [ADMIN_UNBLOCK] | [ADMIN_UNBLOCK_ACTIVE]`,
+        } : a));
+        setCbtToast({ type: 'success', text: res.message || `Suspend untuk "${unblockStrike3Target.studentName}" berhasil dibuka!` });
+        setUnblockStrike3Target(null);
+      } else {
+        setCbtToast({ type: 'error', text: res.error || 'Gagal membuka suspend' });
+      }
+    } catch (e: any) {
+      setCbtToast({ type: 'error', text: e.message || 'Terjadi kesalahan sistem' });
+    }
+    setActionLoading(false);
+  };
+
+  const handleExecuteUnlockStrike2 = async () => {
+    if (!unlockStrike2Target) return;
+    setActionLoading(true);
+    try {
+      const res = await proctorUnlockStrike2Action(unlockStrike2Target.id, currentUser?.name);
+      if (res.success) {
+        setAttempts(prev => prev.map(a => a.id === unlockStrike2Target.id ? {
+          ...a,
+          proctorNotes: `${a.proctorNotes || ''} | [IZIN_LANJUT_P2] Dispensasi Pengawas`,
+        } : a));
+        setCbtToast({ type: 'success', text: res.message || `Kunci layar untuk "${unlockStrike2Target.studentName}" berhasil dibuka!` });
+        setUnlockStrike2Target(null);
+      } else {
+        setCbtToast({ type: 'error', text: res.error || 'Gagal membuka kunci' });
+      }
+    } catch (e: any) {
+      setCbtToast({ type: 'error', text: e.message || 'Terjadi kesalahan sistem' });
+    }
+    setActionLoading(false);
   };
 
   // 🔄 Dynamic 10-minute Rolling Token System (600 seconds)
@@ -2427,7 +2483,7 @@ Poin: 10
                 </span>
               </div>
               <button
-                onClick={handleUnblockAll}
+                onClick={() => setIsUnblockAllModalOpen(true)}
                 disabled={unblockingAll}
                 className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/25 transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
               >
@@ -2535,17 +2591,7 @@ Poin: 10
                             {/* Tombol Buka Kunci Layar Ujian untuk Pengawas Ruangan (Pelanggaran ke-2 / Strike 2) */}
                             {att.tabSwitchCount === 2 && !att.isBlocked && !att.proctorNotes?.includes('[IZIN_LANJUT_P2]') && (
                               <button
-                                onClick={async () => {
-                                  if (confirm(`Buka kunci layar ujian untuk siswa "${att.studentName}"? Siswa dapat langsung melanjutkan ujian tanpa kehilangan jawaban.`)) {
-                                    const res = await proctorUnlockStrike2Action(att.id, currentUser?.name);
-                                    if (res.success) {
-                                      alert(res.message);
-                                      window.location.reload();
-                                    } else {
-                                      alert(res.error || 'Gagal membuka kunci ujian');
-                                    }
-                                  }
-                                }}
+                                onClick={() => setUnlockStrike2Target(att)}
                                 className="group px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md shadow-amber-500/25 hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-200 inline-flex items-center gap-1.5 cursor-pointer animate-pulse"
                                 title="Buka Kunci Layar Ujian (Pelanggaran ke-2) - Siswa Langsung Melanjutkan"
                               >
@@ -2562,22 +2608,7 @@ Poin: 10
 
                             {isSuperAdmin && (att.isBlocked || (att.tabSwitchCount >= 3 && !att.proctorNotes?.includes('[ADMIN_UNBLOCK]')) || (att.proctorNotes?.includes('[STRIKE_3_BLOKIR]') && !att.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]'))) && (
                               <button
-                                onClick={async () => {
-                                  if (confirm(`Buka suspend akun CBT untuk siswa "${att.studentName}"? Siswa akan dapat langsung melanjutkan ujian kembali tanpa kehilangan jawaban.`)) {
-                                    const res = await adminUnblockStrike3Action(att.id, currentUser?.name);
-                                    if (res.success) {
-                                      setAttempts(prev => prev.map(a => a.id === att.id ? {
-                                        ...a,
-                                        isBlocked: false,
-                                        tabSwitchCount: 1,
-                                        proctorNotes: `${(a.proctorNotes || '').replace(/\[STRIKE_3_BLOKIR\][^|]*/g, '').trim()} | [ADMIN_UNBLOCK] | [ADMIN_UNBLOCK_ACTIVE]`,
-                                      } : a));
-                                      alert(res.message);
-                                    } else {
-                                      alert(res.error || 'Gagal membuka suspend');
-                                    }
-                                  }
-                                }}
+                                onClick={() => setUnblockStrike3Target(att)}
                                 className="group px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/25 hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-200 inline-flex items-center gap-1.5 cursor-pointer"
                                 title="Buka Suspend Siswa (Wewenang Khusus Admin Utama)"
                               >
@@ -4067,6 +4098,117 @@ Poin: 15`}
         variant="danger"
         isLoading={loading}
       />
+
+      {/* Modal Buka Suspend Siswa (Strike 3) */}
+      <ConfirmModal
+        isOpen={!!unblockStrike3Target}
+        onClose={() => setUnblockStrike3Target(null)}
+        onConfirm={handleExecuteUnblockSingle}
+        title="Buka Suspend Siswa?"
+        message={
+          unblockStrike3Target ? (
+            <div className="space-y-2 text-left">
+              <p>Buka suspend akun CBT untuk siswa <strong>&quot;{unblockStrike3Target.studentName}&quot;</strong>?</p>
+              <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200 space-y-1">
+                <div>✓ Status blokir langsung dicabut di server.</div>
+                <div>✓ Layar ujian siswa otomatis terbuka seketika.</div>
+                <div>✓ Jawaban siswa dijamin 100% aman dan tidak hilang.</div>
+              </div>
+            </div>
+          ) : ''
+        }
+        confirmText="Ya, Buka Suspend"
+        variant="success"
+        isLoading={actionLoading}
+      />
+
+      {/* Modal Buka Suspend SEMUA Siswa Sekaligus */}
+      <ConfirmModal
+        isOpen={isUnblockAllModalOpen}
+        onClose={() => setIsUnblockAllModalOpen(false)}
+        onConfirm={handleExecuteUnblockAll}
+        title="Buka Suspend Semua Siswa Sekaligus?"
+        message="PERINGATAN: Seluruh siswa yang saat ini tersuspend (Strike 3) dalam paket ujian ini akan langsung dibuka aksesnya secara bersamaan. Siswa dapat langsung melanjutkan ujian tanpa kehilangan jawaban."
+        confirmText="Ya, Buka Semua Sekarang"
+        variant="success"
+        isLoading={unblockingAll}
+      />
+
+      {/* Modal Buka Kunci P2 (Strike 2) */}
+      <ConfirmModal
+        isOpen={!!unlockStrike2Target}
+        onClose={() => setUnlockStrike2Target(null)}
+        onConfirm={handleExecuteUnlockStrike2}
+        title="Buka Kunci Layar Siswa (Strike 2)?"
+        message={
+          unlockStrike2Target ? (
+            <p>Buka kunci layar ujian untuk siswa <strong>&quot;{unlockStrike2Target.studentName}&quot;</strong>? Layar ujian siswa akan langsung terbuka kembali untuk melanjutkan pengerjaan soal.</p>
+          ) : ''
+        }
+        confirmText="Ya, Buka Kunci Layar"
+        variant="warning"
+        isLoading={actionLoading}
+      />
+
+      {/* 🚀 Floating Cyber Toast Notification */}
+      {cbtToast && (
+        <div className="fixed top-6 right-6 z-50 w-full max-w-md px-3 animate-in slide-in-from-top-3 fade-in duration-300">
+          <div
+            className={`p-4 rounded-3xl border shadow-2xl backdrop-blur-xl flex items-start gap-3.5 transition-all relative overflow-hidden ${
+              cbtToast.type === 'success'
+                ? 'bg-slate-900/95 border-emerald-500/50 text-white shadow-emerald-500/25'
+                : 'bg-slate-900/95 border-rose-500/50 text-white shadow-rose-500/25'
+            }`}
+          >
+            <div
+              className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${
+                cbtToast.type === 'success'
+                  ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white ring-4 ring-emerald-500/20'
+                  : 'bg-gradient-to-br from-rose-500 to-red-600 text-white ring-4 ring-rose-500/20'
+              }`}
+            >
+              {cbtToast.type === 'success' ? (
+                <ShieldCheck size={22} className="animate-pulse" />
+              ) : (
+                <AlertTriangle size={22} className="animate-pulse" />
+              )}
+            </div>
+            <div className="flex-1 pr-2 pt-0.5">
+              <div className="flex items-center gap-2">
+                <h4 className="text-xs sm:text-sm font-black tracking-tight">
+                  {cbtToast.type === 'success' ? 'Dispensasi Diberikan! 🎉' : 'Pemberitahuan Sistem'}
+                </h4>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                    cbtToast.type === 'success'
+                      ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/40'
+                      : 'bg-rose-500/30 text-rose-300 border border-rose-500/40'
+                  }`}
+                >
+                  {cbtToast.type === 'success' ? 'SUKSES' : 'PERHATIAN'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                {cbtToast.text}
+              </p>
+            </div>
+            <button
+              onClick={() => setCbtToast(null)}
+              className="text-slate-400 hover:text-white p-1 rounded-xl hover:bg-white/10 transition cursor-pointer shrink-0"
+              title="Tutup notifikasi"
+            >
+              <X size={16} />
+            </button>
+            <div
+              className={`absolute bottom-0 left-0 h-1 w-full ${
+                cbtToast.type === 'success'
+                  ? 'bg-gradient-to-r from-emerald-500 to-teal-300'
+                  : 'bg-gradient-to-r from-rose-500 to-amber-300'
+              }`}
+            />
+          </div>
+        </div>
+      )}
 
       {/* 📺 WHITEBOARD PROJEKTOR LAYAR PENUH (PAPAN TULIS KELAS) */}
       {isWhiteboardModalOpen && (
