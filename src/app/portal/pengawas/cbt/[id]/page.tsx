@@ -3,7 +3,8 @@ import { notFound, redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import ProctorLiveConsole from './ProctorLiveConsole';
 import { getKopSuratConfig } from '@/lib/settings';
-import { isAllLevelTarget, parseClassTargets } from '@/lib/cbt-schedule';
+import { isAllLevelTarget, parseClassTargets, isClassTargetMatch } from '@/lib/cbt-schedule';
+import { normalizeReligion } from '@/lib/cbt-religion';
 
 export const dynamic = 'force-dynamic';
 
@@ -129,74 +130,131 @@ export default async function ProctorLiveConsolePage({
     orderBy: { startedAt: 'desc' },
   });
 
-  // Query scheduled students for this class target (mendukung target 1 rombel, banyak rombel, maupun tingkat/semua jurusan)
+  // 🎓 Query siswa yang tepat sesuai Jurusan/Kelas Rombel & Mapel Agama yang di-plotting
   let scheduledStudents: Array<{ studentName: string; studentNis: string; studentClass: string }> = [];
   try {
-    let classWhereCondition: any = { studentClass: exam.classTarget };
-    if (exam.classTarget === 'Semua Kelas') {
-      classWhereCondition = {};
-    } else {
-      const level = isAllLevelTarget(exam.classTarget);
-      if (level) {
-        classWhereCondition = {
-          OR: [
-            { studentClass: { startsWith: `${level} ` } },
-            { studentClass: { startsWith: `${level}-` } },
-          ],
-        };
-      } else {
-        const parsed = parseClassTargets(exam.classTarget);
-        if (parsed.length > 1) {
-          classWhereCondition = {
-            studentClass: { in: parsed },
-          };
-        }
-      }
-    }
-
-    const grades = await prisma.studentGrade.findMany({
-      where: classWhereCondition,
-      select: {
-        studentName: true,
-        studentNis: true,
-        studentClass: true,
-      },
-      distinct: ['studentName'],
-      orderBy: { studentName: 'asc' },
-    });
-
-    scheduledStudents = grades.map((g) => ({
-      studentName: g.studentName,
-      studentNis: g.studentNis || '-',
-      studentClass: g.studentClass,
-    }));
-  } catch (err) {
-    console.error('Error fetching roster students:', err);
-  }
-
-  // If roster empty, fallback to users with role 'Siswa'
-  if (scheduledStudents.length === 0) {
-    try {
-      const users = await prisma.user.findMany({
+    const [rawStudents, studentGrades, examAttempts] = await Promise.all([
+      prisma.user.findMany({
         where: {
           role: 'Siswa',
           status: 'Aktif',
         },
         select: {
+          id: true,
           name: true,
-          nisn: true,
           username: true,
+          nisn: true,
+          studentClass: true,
+          religion: true,
         },
-        take: 40,
-        orderBy: { name: 'asc' },
-      });
+        orderBy: [{ name: 'asc' }],
+      }),
+      prisma.studentGrade.findMany({
+        select: {
+          studentName: true,
+          studentNis: true,
+          studentClass: true,
+        },
+      }),
+      prisma.examAttempt.findMany({
+        where: { studentClass: { not: '' } },
+        select: {
+          studentName: true,
+          studentNis: true,
+          studentClass: true,
+        },
+      }),
+    ]);
 
-      scheduledStudents = users.map((u) => ({
-        studentName: u.name,
-        studentNis: u.nisn || u.username,
-        studentClass: exam.classTarget,
-      }));
-    } catch {}
+    // Lookup pemetaan kelas alternatif jika data user.studentClass masih kosong
+    const studentClassMap: Record<string, string> = {};
+    for (const sg of studentGrades) {
+      if (sg.studentName && sg.studentClass) {
+        studentClassMap[sg.studentName.trim().toLowerCase()] = sg.studentClass.trim();
+      }
+      if (sg.studentNis && sg.studentClass) {
+        studentClassMap[sg.studentNis.trim().toLowerCase()] = sg.studentClass.trim();
+      }
+    }
+    for (const att of examAttempts) {
+      if (att.studentName && att.studentClass) {
+        const key = att.studentName.trim().toLowerCase();
+        if (!studentClassMap[key]) studentClassMap[key] = att.studentClass.trim();
+      }
+      if (att.studentNis && att.studentClass) {
+        const key = att.studentNis.trim().toLowerCase();
+        if (!studentClassMap[key]) studentClassMap[key] = att.studentClass.trim();
+      }
+    }
+
+    // Deteksi target agama ujian:
+    // Prioritas 1: targetReligion resmi yang diset pada paket ujian
+    // Prioritas 2: Deteksi otomatis dari nama mapel / judul ujian (misal PAI / Agama Islam / Kristen / Katolik / dsb.)
+    let effectiveTargetReligion = normalizeReligion(exam.targetReligion);
+    if (effectiveTargetReligion === 'ALL') {
+      const sub = `${exam.subject || ''} ${exam.title || ''}`.toUpperCase();
+      if (sub.includes('ISLAM') || sub.includes('PAI')) {
+        effectiveTargetReligion = 'ISLAM';
+      } else if (sub.includes('KRISTEN') || sub.includes('PAK') || sub.includes('PROTESTAN')) {
+        effectiveTargetReligion = 'KRISTEN';
+      } else if (sub.includes('KATOLIK')) {
+        effectiveTargetReligion = 'KATOLIK';
+      } else if (sub.includes('HINDU')) {
+        effectiveTargetReligion = 'HINDU';
+      } else if (sub.includes('BUDDHA') || sub.includes('BUDHA')) {
+        effectiveTargetReligion = 'BUDDHA';
+      } else if (sub.includes('KHONGHUCU') || sub.includes('KONGHUCU')) {
+        effectiveTargetReligion = 'KHONGHUCU';
+      }
+    }
+
+    const filteredStudents = rawStudents.filter((student) => {
+      const studentClass =
+        student.studentClass ||
+        (student.nisn ? studentClassMap[student.nisn.trim().toLowerCase()] : null) ||
+        studentClassMap[student.name.trim().toLowerCase()] ||
+        studentClassMap[student.username.trim().toLowerCase()] ||
+        '';
+
+      // 1. Validasi Kecocokan Rombel / Jurusan (Class Target)
+      const isClassMatch = isClassTargetMatch(exam.classTarget, studentClass);
+      if (!isClassMatch) return false;
+
+      // 2. Validasi Kecocokan Mata Pelajaran Agama (jika mapel agama)
+      if (effectiveTargetReligion !== 'ALL') {
+        const studentRel = normalizeReligion(student.religion);
+        if (effectiveTargetReligion === 'ISLAM') {
+          // Untuk ujian Agama Islam: Siswa beragama ISLAM atau yang belum terdata agamanya (default siswa di sekolah)
+          if (studentRel !== 'ISLAM' && studentRel !== 'ALL') {
+            return false;
+          }
+        } else {
+          // Untuk ujian Agama Kristen/Katolik/dll.: HANYA siswa yang beragama sesuai
+          if (studentRel !== effectiveTargetReligion) {
+            return false;
+          }
+        }
+      }
+
+      return true;
+    });
+
+    scheduledStudents = filteredStudents.map((s) => {
+      const assignedClass =
+        s.studentClass ||
+        (s.nisn ? studentClassMap[s.nisn.trim().toLowerCase()] : null) ||
+        studentClassMap[s.name.trim().toLowerCase()] ||
+        studentClassMap[s.username.trim().toLowerCase()] ||
+        exam.classTarget;
+
+      return {
+        studentName: s.name,
+        studentNis: s.nisn || s.username,
+        studentClass: assignedClass,
+      };
+    });
+  } catch (err) {
+    console.error('Error fetching roster students:', err);
   }
 
   return (

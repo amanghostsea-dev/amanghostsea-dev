@@ -335,6 +335,13 @@ export default function ProctorLiveConsole({
       }
     });
 
+    // Urutkan rapi berdasarkan Kelas/Rombel lalu Abjad Nama Siswa
+    rows.sort((a, b) => {
+      const classCompare = (a.studentClass || '').localeCompare(b.studentClass || '');
+      if (classCompare !== 0) return classCompare;
+      return (a.studentName || '').localeCompare(b.studentName || '');
+    });
+
     return rows;
   }, [scheduledStudents, attempts, exam.classTarget]);
 
@@ -835,9 +842,14 @@ export default function ProctorLiveConsole({
                       </td>
 
                       <td className="py-3 px-4 font-bold text-white uppercase">
-                        <div>{item.studentName}</div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span>{item.studentName}</span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-950/70 text-purple-300 border border-purple-800/60 normal-case tracking-tight font-sans">
+                            {item.studentClass}
+                          </span>
+                        </div>
                         {att?.proctorNotes && (
-                          <div className="text-[10px] text-amber-400 font-normal italic mt-0.5">
+                          <div className="text-[10px] text-amber-400 font-normal italic mt-0.5 normal-case font-sans">
                             Catatan: {att.proctorNotes}
                           </div>
                         )}
@@ -1318,7 +1330,10 @@ export default function ProctorLiveConsole({
                     <tr key={r.studentNis + idx} className="print-avoid-break">
                       <td className="py-2 px-1 border-r border-black font-bold text-center">{idx + 1}</td>
                       <td className="py-2 px-2 border-r border-black font-mono text-[10.5px] text-center">{r.studentNis}</td>
-                      <td className="py-2 px-3 border-r border-black font-semibold uppercase">{r.studentName}</td>
+                      <td className="py-2 px-3 border-r border-black font-semibold uppercase">
+                        <div>{r.studentName}</div>
+                        <div className="text-[9px] font-normal text-slate-700 tracking-normal capitalize">{r.studentClass}</div>
+                      </td>
                       <td className="py-2 px-2 border-r border-black text-center font-mono text-[9.5px]">
                         {r.attempt?.startedAt ? new Date(r.attempt.startedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-'}
                       </td>
