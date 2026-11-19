@@ -1477,6 +1477,26 @@ export async function proctorUnlockStrike2Action(attemptId: string, proctorName?
       },
     });
 
+    // 🛡️ Lepaskan kunci sesi perangkat agar siswa bisa melanjutkan ujian tanpa kendala sesi
+    if (attempt.studentNis || attempt.studentName) {
+      try {
+        const studentUser = await prisma.user.findFirst({
+          where: {
+            role: 'Siswa',
+            OR: [
+              ...(attempt.studentNis ? [{ username: attempt.studentNis }, { nisn: attempt.studentNis }] : []),
+              ...(attempt.studentName ? [{ name: attempt.studentName }] : []),
+            ],
+          },
+        });
+        if (studentUser) {
+          await clearDeviceSession(studentUser.id);
+        }
+      } catch (sessErr) {
+        console.warn('Gagal reset activeSessionDevice:', sessErr);
+      }
+    }
+
     revalidatePath(`/admin/cbt/${attempt.examId}`);
     revalidatePath(`/portal/pengawas/cbt/${attempt.examId}`);
     revalidatePath(`/portal/siswa/cbt/${attempt.examId}`);
@@ -1527,6 +1547,26 @@ export async function proctorUnlockFatalStrike4Action(attemptId: string, proctor
         proctorNotes: updatedNotes,
       },
     });
+
+    // 🛡️ Lepaskan kunci sesi perangkat agar siswa bisa melanjutkan ujian tanpa kendala sesi
+    if (attempt.studentNis || attempt.studentName) {
+      try {
+        const studentUser = await prisma.user.findFirst({
+          where: {
+            role: 'Siswa',
+            OR: [
+              ...(attempt.studentNis ? [{ username: attempt.studentNis }, { nisn: attempt.studentNis }] : []),
+              ...(attempt.studentName ? [{ name: attempt.studentName }] : []),
+            ],
+          },
+        });
+        if (studentUser) {
+          await clearDeviceSession(studentUser.id);
+        }
+      } catch (sessErr) {
+        console.warn('Gagal reset activeSessionDevice:', sessErr);
+      }
+    }
 
     revalidatePath(`/admin/cbt/${attempt.examId}`);
     revalidatePath(`/portal/pengawas/cbt/${attempt.examId}`);

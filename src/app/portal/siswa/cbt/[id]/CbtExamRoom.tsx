@@ -377,6 +377,14 @@ export default function CbtExamRoom({
   const isWindowBlurredRef = useRef<boolean>(false);
   const isPageUnloadingRef = useRef<boolean>(false);
 
+  // 🛡️ Live References untuk mencegah closure stale & kebocoran strike saat layar terkunci
+  const attemptRef = useRef(attempt);
+  attemptRef.current = attempt;
+  const tabSwitchCountRef = useRef(tabSwitchCount);
+  tabSwitchCountRef.current = tabSwitchCount;
+  const isStrike2LockedRef = useRef(isStrike2Locked);
+  isStrike2LockedRef.current = isStrike2Locked;
+
   useEffect(() => {
     if (!attempt || attempt.status !== 'IN_PROGRESS' || finalResult) return;
 
@@ -394,8 +402,24 @@ export default function CbtExamRoom({
 
     const executeViolation = () => {
       if (isPageUnloadingRef.current) return;
-      // 🛡️ Jangan tambah pelanggaran jika siswa sedang dalam kondisi tersuspend/terkunci atau sudah diskualifikasi
-      if ((attempt as any)?.isBlocked || tabSwitchCount >= 5) {
+
+      const currentAtt = attemptRef.current;
+      const currentTab = tabSwitchCountRef.current;
+      const notes = currentAtt?.proctorNotes || '';
+      const isBlocked = Boolean(currentAtt?.isBlocked);
+
+      // 🛡️ ZERO-LEAK SAFETY SHIELD:
+      // JANGAN tambah pelanggaran jika saat ini siswa sedang dalam kondisi TERKUNCI / TERSUSPEND / DISKUALIFIKASI:
+      // 1. Sedang Strike 2 Terkunci (menunggu pengawas buka kunci P2)
+      // 2. Sedang Strike 3 Suspend (menunggu admin utama buka suspend)
+      // 3. Sedang Strike 4 Terkunci Fatal (menunggu pengawas buka kunci fatal BAP)
+      // 4. Sedang Diskualifikasi / Blocked (isBlocked: true atau currentTab >= 5)
+      const isCurrentlyStrike2Locked = isStrike2LockedRef.current || (currentTab === 2 && !notes.includes('[IZIN_LANJUT_P2]'));
+      const isCurrentlyStrike3Suspended = (currentTab === 3 || notes.includes('[STRIKE_3_BLOKIR]')) && !notes.includes('[ADMIN_UNBLOCK_ACTIVE]');
+      const isCurrentlyStrike4FatalLocked = (currentTab === 4 || notes.includes('[STRIKE_4_FATAL]')) && !notes.includes('[FATAL_PROCTOR_UNBLOCKED]');
+      const isCurrentlyDisqualified = currentTab >= 5 || notes.includes('[DISKUALIFIKASI_FINAL]');
+
+      if (isBlocked || isCurrentlyStrike2Locked || isCurrentlyStrike3Suspended || isCurrentlyStrike4FatalLocked || isCurrentlyDisqualified) {
         return;
       }
 

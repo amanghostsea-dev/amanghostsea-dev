@@ -958,23 +958,16 @@ export default function ProctorLiveConsole({
                       <td className="py-3 px-4 text-center">
                         {att ? (
                           <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                            {/* 🔓 Tombol Khusus Strike 2: Buka Kunci Pengerjaan Ujian */}
-                            {item.tabSwitchCount === 2 && !att?.proctorNotes?.includes('[IZIN_LANJUT_P2]') && !isBlocked && (
-                              <button
-                                onClick={() => setActionTargetAttempt({
-                                  attemptId: att.id,
-                                  studentName: item.studentName,
-                                  type: 'UNLOCK_STRIKE_2',
-                                })}
-                                className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] shadow-sm animate-pulse transition flex items-center gap-1 cursor-pointer"
-                                title="Buka Kunci Pelanggaran ke-2 agar siswa bisa langsung melanjutkan ujian (Tercatat di BAP)"
+                            {/* 🛑 TIER 5: DISKUALIFIKASI TOTAL SISTEM (5x Pelanggaran) */}
+                            {(item.tabSwitchCount >= 5 || att?.proctorNotes?.includes('[DISKUALIFIKASI_FINAL]')) ? (
+                              <span 
+                                className="px-2.5 py-1 rounded-lg bg-rose-950/80 text-rose-300 font-bold text-[10px] border border-rose-800 flex items-center gap-1 shadow-xs"
+                                title="Siswa telah 5x melanggar tata tertib dan didiskualifikasi permanen oleh sistem. Hanya Admin Utama di Pusat Suspend yang berwenang memberikan dispensasi."
                               >
-                                <Unlock size={12} /> Buka Kunci P2
-                              </button>
-                            )}
-
-                            {/* 🚨 Tombol Khusus Strike 4: Buka Kunci Fatal Pasca-Dispensasi Admin Utama */}
-                            {(item.tabSwitchCount === 4 || att?.proctorNotes?.includes('[STRIKE_4_FATAL]')) && (
+                                🛑 Diskualifikasi (5x)
+                              </span>
+                            ) : (item.tabSwitchCount === 4 || att?.proctorNotes?.includes('[STRIKE_4_FATAL]')) ? (
+                              /* 🚨 TIER 4: PELANGGARAN FATAL KE-4 (Pasca Dispensasi Admin Utama) */
                               !att?.proctorNotes?.includes('[FATAL_PROCTOR_UNBLOCKED]') ? (
                                 <button
                                   onClick={() => setActionTargetAttempt({
@@ -983,7 +976,7 @@ export default function ProctorLiveConsole({
                                     type: 'UNLOCK_FATAL_STRIKE_4',
                                   })}
                                   className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-rose-600 via-rose-500 to-amber-500 hover:from-rose-500 hover:to-amber-400 text-white font-black text-[11px] shadow-sm animate-pulse transition flex items-center gap-1 cursor-pointer border border-rose-400/50"
-                                  title="Buka Kunci Darurat Pelanggaran ke-4 (Pasca-Dispensasi Admin Utama) - Tercatat di BAP"
+                                  title="Buka Kunci Darurat Pelanggaran ke-4 (Pasca-Dispensasi Admin Utama) - Siswa Langsung Melanjutkan & Tercatat di BAP"
                                 >
                                   <Unlock size={12} /> Buka Kunci Fatal (BAP)
                                 </button>
@@ -995,41 +988,58 @@ export default function ProctorLiveConsole({
                                   ✓ Dispensasi Fatal Pengawas
                                 </span>
                               )
-                            )}
-
-                            {/* Reset Login Siswa (Hanya jika BUKAN Strike 3 atau Strike 4 yang aktif) */}
-                            {item.tabSwitchCount !== 4 && !att?.proctorNotes?.includes('[STRIKE_4_FATAL]') && (
-                              (item.tabSwitchCount === 3 || att?.proctorNotes?.includes('[STRIKE_3_BLOKIR]')) && isBlocked && !att?.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]') ? (
+                            ) : (item.tabSwitchCount === 3 || att?.proctorNotes?.includes('[STRIKE_3_BLOKIR]')) ? (
+                              /* ⛔ TIER 3: SUSPEND TOTAL SISTEM (Pelanggaran ke-3) */
+                              !att?.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]') ? (
                                 <span 
                                   className="px-2 py-1 rounded-lg bg-rose-950 text-rose-300 font-bold text-[10px] border border-rose-800"
-                                  title="Siswa telah 3x melanggar tata tertib dan di-suspend total oleh sistem. Hanya Admin Utama yang berwenang membuka akun ini."
+                                  title="Siswa telah 3x melanggar tata tertib dan di-suspend total oleh sistem. Wajib dibuka oleh Admin Utama di menu Pusat Suspend."
                                 >
                                   Wajib Admin Utama
                                 </span>
-                              ) : att?.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]') ? (
+                              ) : (
                                 <span 
                                   className="px-2 py-1 rounded-lg bg-emerald-950 text-emerald-300 font-bold text-[10px] border border-emerald-800"
                                   title="Akun siswa telah resmi dibuka oleh Admin Utama."
                                 >
                                   ✓ Dispensasi Admin
                                 </span>
-                              ) : (
+                              )
+                            ) : item.tabSwitchCount === 2 ? (
+                              /* 🚫 TIER 2: TERKUNCI SEMENTARA PENGAWAS (Pelanggaran ke-2) */
+                              !att?.proctorNotes?.includes('[IZIN_LANJUT_P2]') ? (
                                 <button
                                   onClick={() => setActionTargetAttempt({
                                     attemptId: att.id,
                                     studentName: item.studentName,
-                                    type: 'RESET',
+                                    type: 'UNLOCK_STRIKE_2',
                                   })}
-                                  className={`px-2 py-1 rounded-lg font-bold text-[11px] border transition flex items-center gap-1 cursor-pointer ${
-                                    item.tabSwitchCount === 2 && !att?.proctorNotes?.includes('[IZIN_LANJUT_P2]')
-                                      ? 'bg-amber-600/30 hover:bg-amber-600/50 text-amber-200 border-amber-500/40'
-                                      : 'bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border-blue-500/30'
-                                  }`}
-                                  title="Buka Kunci / Reset Siswa agar dapat langsung melanjutkan ujian"
+                                  className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] shadow-sm animate-pulse transition flex items-center gap-1 cursor-pointer"
+                                  title="Buka Kunci Pelanggaran ke-2 agar siswa bisa langsung melanjutkan ujian (Tercatat di BAP)"
                                 >
-                                  <Unlock size={11} /> Reset
+                                  <Unlock size={12} /> Buka Kunci P2
                                 </button>
+                              ) : (
+                                <span 
+                                  className="px-2 py-1 rounded-lg bg-emerald-950 text-emerald-300 font-bold text-[10px] border border-emerald-800"
+                                  title="Kunci pelanggaran ke-2 telah dibuka oleh Pengawas."
+                                >
+                                  ✓ Kunci Telah Dibuka
+                                </span>
                               )
+                            ) : (
+                              /* 🟢 TIER 0-1: KONDISI NORMAL ATAU PERINGATAN 1x */
+                              <button
+                                onClick={() => setActionTargetAttempt({
+                                  attemptId: att.id,
+                                  studentName: item.studentName,
+                                  type: 'RESET',
+                                })}
+                                className="px-2 py-1 rounded-lg font-bold text-[11px] border transition flex items-center gap-1 cursor-pointer bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border-blue-500/30"
+                                title="Reset sesi siswa"
+                              >
+                                <Unlock size={11} /> Reset
+                              </button>
                             )}
 
                             {/* Extra Time (+5m / +10m) */}
@@ -1056,16 +1066,9 @@ export default function ProctorLiveConsole({
                               +10m
                             </button>
 
-                            {/* Toggle Block / Status Blokir */}
-                            {isBlocked ? (
-                              (item.tabSwitchCount >= 3 || att?.proctorNotes?.includes('[STRIKE_3_BLOKIR]')) && !att?.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]') ? (
-                                <span 
-                                  className="px-2 py-1 rounded-lg bg-rose-950 text-rose-300 font-bold text-[10px] border border-rose-800"
-                                  title="Siswa telah 3x melanggar tata tertib. Pembukaan blokir hanya dapat dilakukan oleh Admin Utama sekolah."
-                                >
-                                  Wajib Admin Utama
-                                </span>
-                              ) : (
+                            {/* Manual Block Toggle (Hanya untuk kasus insidental di luar sistem otomatis) */}
+                            {item.tabSwitchCount < 2 && !att?.proctorNotes?.includes('STRIKE') && (
+                              isBlocked ? (
                                 <button
                                   onClick={() => setActionTargetAttempt({
                                     attemptId: att.id,
@@ -1077,19 +1080,19 @@ export default function ProctorLiveConsole({
                                 >
                                   Buka
                                 </button>
+                              ) : (
+                                <button
+                                  onClick={() => setActionTargetAttempt({
+                                    attemptId: att.id,
+                                    studentName: item.studentName,
+                                    type: 'BLOCK',
+                                  })}
+                                  className="px-2 py-1 rounded-lg bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 font-bold text-[11px] border border-rose-500/30 transition cursor-pointer"
+                                  title="Tegur / Blokir Siswa Secara Manual"
+                                >
+                                  Blokir
+                                </button>
                               )
-                            ) : (
-                              <button
-                                onClick={() => setActionTargetAttempt({
-                                  attemptId: att.id,
-                                  studentName: item.studentName,
-                                  type: 'BLOCK',
-                                })}
-                                className="px-2 py-1 rounded-lg bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 font-bold text-[11px] border border-rose-500/30 transition cursor-pointer"
-                                title="Tegur / Blokir Siswa"
-                              >
-                                Blokir
-                              </button>
                             )}
 
                             {/* Force Submit (if in progress) */}
