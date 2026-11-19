@@ -73,6 +73,7 @@ export default function CbtOptionInputItem({
   const [imageInputUrl, setImageInputUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
+  const [isFocused, setIsFocused] = useState(false);
 
   // Cek apakah opsi ini memiliki foto dalam format markdown ![alt](url)
   const imageRegex = /!\[(.*?)\]\((.*?)\)/;
@@ -156,9 +157,12 @@ export default function CbtOptionInputItem({
     onChangeText(cleanText);
   };
 
+  const isAnyPaletteOpen = showMathPalette || showTerminalPalette || showImageModal;
+  const isAutoShow = isFocused || isAnyPaletteOpen;
+
   return (
     <div
-      className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
+      className={`group relative rounded-2xl border transition-all duration-200 overflow-hidden ${
         isChecked
           ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20 shadow-xs'
           : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-slate-300 dark:hover:border-slate-700'
@@ -193,12 +197,40 @@ export default function CbtOptionInputItem({
           required={!attachedImageUrl}
           placeholder={placeholder || `Teks atau rumus pilihan jawaban ${label}...`}
           value={value}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           onChange={(e) => onChangeText(e.target.value)}
           className="flex-1 bg-transparent text-sm focus:outline-none min-w-0 font-sans text-slate-900 dark:text-white"
         />
 
-        {/* Tombol-tombol Pintas: Rumus, Terminal, Foto, Kunci, Hapus */}
-        <div className="flex items-center gap-1 flex-shrink-0">
+        {/* Indikator Mini Foto Saat Diam (Jika Ada Lampiran Gambar) */}
+        {attachedImageUrl && (
+          <div
+            className={`items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-lg border border-blue-200 dark:border-blue-800 flex-shrink-0 transition-all ${
+              isAutoShow ? 'hidden' : 'flex group-hover:hidden group-focus-within:hidden'
+            }`}
+          >
+            <ImageIcon size={12} />
+            <span className="hidden sm:inline">Foto</span>
+          </div>
+        )}
+
+        {/* Badge Kunci Jawaban (Selalu tampil jika opsi ini adalah kunci) */}
+        {isChecked && (
+          <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/50 px-2 py-0.5 rounded-full flex-shrink-0">
+            <CheckCircle size={12} />
+            <span className="hidden sm:inline">Kunci</span>
+          </span>
+        )}
+
+        {/* 🎛️ Tombol-tombol Pintas: Rumus, Terminal, Foto, Hapus (Auto-Hide on Hover & Focus) */}
+        <div
+          className={`flex items-center gap-1 flex-shrink-0 transition-all duration-200 ease-out ${
+            isAutoShow
+              ? 'opacity-100 translate-x-0 pointer-events-auto'
+              : 'opacity-0 translate-x-2 pointer-events-none group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:translate-x-0 group-focus-within:pointer-events-auto'
+          }`}
+        >
           {/* Tombol Sisipkan Rumus MTK */}
           <button
             type="button"
@@ -255,13 +287,6 @@ export default function CbtOptionInputItem({
             <ImageIcon size={13} />
             <span className="hidden sm:inline">{attachedImageUrl ? 'Foto Ada' : 'Foto'}</span>
           </button>
-
-          {/* Badge Kunci Jawaban */}
-          {isChecked && (
-            <span className="hidden md:flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/50 px-2 py-0.5 rounded-full">
-              <CheckCircle size={12} /> Kunci
-            </span>
-          )}
 
           {/* Tombol Hapus Opsi */}
           {canDelete && (
