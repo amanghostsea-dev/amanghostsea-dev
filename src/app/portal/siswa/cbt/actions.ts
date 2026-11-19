@@ -206,13 +206,31 @@ export async function saveProgress(
       return { error: 'Data pengerjaan tidak ditemukan.' };
     }
 
+    const hasAdminOverride = 
+      current.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]') || 
+      current.proctorNotes?.includes('[ADMIN_UNBLOCK]');
+
     const hasProctorPermission = 
+      hasAdminOverride ||
       current.proctorNotes?.includes('[IZIN_LANJUT_P2]') || 
       current.proctorNotes?.includes('[RESET_PENGAWAS]');
 
-    const effectiveTabCount = Math.max(current.tabSwitchCount || 0, tabSwitchCount);
+    // 🛡️ Jika Admin Utama telah membuka suspend (isBlocked === false di DB atau ada admin override dan server tabSwitchCount < 3),
+    // JANGAN biarkan nilai tabSwitchCount lama dari browser siswa memicu suspend/blokir ulang!
+    let effectiveTabCount: number;
+    if ((!current.isBlocked || hasAdminOverride) && (current.tabSwitchCount ?? 0) < 3 && tabSwitchCount >= 3) {
+      effectiveTabCount = current.tabSwitchCount ?? 1;
+    } else {
+      effectiveTabCount = Math.max(current.tabSwitchCount || 0, tabSwitchCount);
+    }
+
     let shouldBlock = current.isBlocked;
     let newNotes = current.proctorNotes || '';
+
+    // Jika Admin sudah membuka suspend dan tabCount di bawah 3, pastikan shouldBlock tetap false
+    if (!current.isBlocked && effectiveTabCount < 3) {
+      shouldBlock = false;
+    }
 
     // 🛡️ PROGRESSIVE 3-STRIKE ENFORCEMENT
     // Strike 3: Otomatis Blokir Total Sistem jika mencapai 3x pelanggaran
@@ -286,7 +304,12 @@ export async function checkStudentExamLockStatus(attemptId: string) {
 
     if (!attempt) return { error: 'Attempt tidak ditemukan' };
 
+    const hasAdminOverride = 
+      attempt.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]') || 
+      attempt.proctorNotes?.includes('[ADMIN_UNBLOCK]');
+
     const hasProctorPermission = 
+      hasAdminOverride ||
       attempt.proctorNotes?.includes('[IZIN_LANJUT_P2]') || 
       attempt.proctorNotes?.includes('[RESET_PENGAWAS]');
 
@@ -454,6 +477,46 @@ export async function submitExam(
         totalQuestions: questions.length,
         tabSwitchCount,
       },
+    };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+/**
+ * 🔄 Cek Status Realtime Attempt Siswa (Cek Buka Suspend / Status Terkini)
+ */
+export async function checkAttemptStatusAction(attemptId: string) {
+  try {
+    const attempt = await prisma.examAttempt.findUnique({
+      where: { id: attemptId },
+      select: {
+        id: true,
+        status: true,
+        isBlocked: true,
+        tabSwitchCount: true,
+        proctorNotes: true,
+        extraTimeMinutes: true,
+      },
+    });
+
+    if (!attempt) {
+      return { error: 'Data pengerjaan tidak ditemukan.' };
+    }
+
+    const hasAdminOverride = 
+      attempt.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]') || 
+      attempt.proctorNotes?.includes('[ADMIN_UNBLOCK]');
+
+    const isUnblocked = !attempt.isBlocked && (hasAdminOverride || attempt.tabSwitchCount < 3);
+
+    return {
+      success: true,
+      attempt,
+      isUnblocked,
+      tabSwitchCount: attempt.tabSwitchCount,
+      isBlocked: attempt.isBlocked,
+      proctorNotes: attempt.proctorNotes,
     };
   } catch (error: any) {
     return { error: error.message };

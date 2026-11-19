@@ -72,6 +72,7 @@ import {
   reorderExamQuestions,
   moveQuestionOrder,
   adminUnblockStrike3Action,
+  adminUnblockAllStrike3Action,
   proctorUnlockStrike2Action
 } from '../actions';
 import { 
@@ -536,6 +537,35 @@ export default function ExamDetailClient({
       console.error(e);
       setQuestions(questions); // revert
     }
+  };
+
+  // 🛡️ Buka Suspend SEMUA Siswa Sekaligus oleh Admin Utama
+  const [unblockingAll, setUnblockingAll] = useState(false);
+  const handleUnblockAll = async () => {
+    if (!confirm('Buka suspend SEMUA siswa yang terkena Strike 3 sekaligus? Seluruh siswa akan dapat langsung melanjutkan ujian kembali tanpa kehilangan jawaban.')) return;
+    setUnblockingAll(true);
+    try {
+      const res = await adminUnblockAllStrike3Action(exam.id, currentUser?.name);
+      if (res.success) {
+        setAttempts(prev => prev.map(a => {
+          if (a.isBlocked || a.tabSwitchCount >= 3 || a.proctorNotes?.includes('[STRIKE_3_BLOKIR]')) {
+            return {
+              ...a,
+              isBlocked: false,
+              tabSwitchCount: 1,
+              proctorNotes: `${(a.proctorNotes || '').replace(/\[STRIKE_3_BLOKIR\][^|]*/g, '').trim()} | [ADMIN_UNBLOCK] | [ADMIN_UNBLOCK_ACTIVE]`,
+            };
+          }
+          return a;
+        }));
+        alert(res.message);
+      } else {
+        alert(res.error || 'Gagal membuka suspend massal');
+      }
+    } catch (e: any) {
+      alert(e.message || 'Terjadi kesalahan sistem');
+    }
+    setUnblockingAll(false);
   };
 
   // 🔄 Dynamic 10-minute Rolling Token System (600 seconds)
@@ -2387,6 +2417,26 @@ Poin: 10
             </div>
           </div>
 
+          {/* 🛡️ Banner Admin Utama: Buka Suspend Massal jika ada siswa terkena Strike 3 */}
+          {isSuperAdmin && attempts.some(a => (a.isBlocked || a.tabSwitchCount >= 3 || a.proctorNotes?.includes('[STRIKE_3_BLOKIR]')) && !a.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]')) && (
+            <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-900/60 flex items-center justify-between flex-wrap gap-3 shadow-xs animate-in fade-in">
+              <div className="flex items-center gap-2.5">
+                <AlertTriangle size={18} className="text-rose-600 dark:text-rose-400 flex-shrink-0 animate-pulse" />
+                <span className="text-xs sm:text-sm font-bold text-rose-800 dark:text-rose-200">
+                  Terdapat <strong>{attempts.filter(a => (a.isBlocked || a.tabSwitchCount >= 3 || a.proctorNotes?.includes('[STRIKE_3_BLOKIR]')) && !a.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]')).length} siswa</strong> yang terkena Suspend Total (Strike 3).
+                </span>
+              </div>
+              <button
+                onClick={handleUnblockAll}
+                disabled={unblockingAll}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/25 transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <ShieldCheck size={14} />
+                <span>{unblockingAll ? 'Membuka Suspend...' : 'Buka Suspend Semua Siswa Sekaligus'}</span>
+              </button>
+            </div>
+          )}
+
           {filteredAttempts.length === 0 ? (
             <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
               <Users className="mx-auto text-slate-300 dark:text-slate-600 mb-3" size={48} />
@@ -2446,9 +2496,15 @@ Poin: 10
                               <CheckCircle size={12} /> Bersih (0x)
                             </span>
                           ) : att.tabSwitchCount === 1 ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-300">
-                              <AlertTriangle size={12} /> 1x (Peringatan Layar)
-                            </span>
+                            att.proctorNotes?.includes('[ADMIN_UNBLOCK]') ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-300">
+                                <ShieldCheck size={12} /> 1x (Dispensasi Admin)
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-300">
+                                <AlertTriangle size={12} /> 1x (Peringatan Layar)
+                              </span>
+                            )
                           ) : att.tabSwitchCount === 2 ? (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40">
                               <Lock size={12} /> 2x (Terkunci Pengawas)
@@ -2504,14 +2560,19 @@ Poin: 10
                               </span>
                             )}
 
-                            {isSuperAdmin && att.isBlocked && (
+                            {isSuperAdmin && (att.isBlocked || (att.tabSwitchCount >= 3 && !att.proctorNotes?.includes('[ADMIN_UNBLOCK]')) || (att.proctorNotes?.includes('[STRIKE_3_BLOKIR]') && !att.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]'))) && (
                               <button
                                 onClick={async () => {
-                                  if (confirm(`Buka suspend akun CBT untuk siswa "${att.studentName}"? Siswa akan dapat melanjutkan ujian kembali.`)) {
+                                  if (confirm(`Buka suspend akun CBT untuk siswa "${att.studentName}"? Siswa akan dapat langsung melanjutkan ujian kembali tanpa kehilangan jawaban.`)) {
                                     const res = await adminUnblockStrike3Action(att.id, currentUser?.name);
                                     if (res.success) {
+                                      setAttempts(prev => prev.map(a => a.id === att.id ? {
+                                        ...a,
+                                        isBlocked: false,
+                                        tabSwitchCount: 1,
+                                        proctorNotes: `${(a.proctorNotes || '').replace(/\[STRIKE_3_BLOKIR\][^|]*/g, '').trim()} | [ADMIN_UNBLOCK] | [ADMIN_UNBLOCK_ACTIVE]`,
+                                      } : a));
                                       alert(res.message);
-                                      window.location.reload();
                                     } else {
                                       alert(res.error || 'Gagal membuka suspend');
                                     }
@@ -2523,6 +2584,12 @@ Poin: 10
                                 <ShieldCheck size={13} className="group-hover:scale-110 transition-transform duration-200" />
                                 <span>Buka Suspend</span>
                               </button>
+                            )}
+
+                            {att.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]') && !att.isBlocked && (
+                              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-300">
+                                ✓ Suspend Telah Dibuka
+                              </span>
                             )}
 
                             {!isProctorOnly ? (

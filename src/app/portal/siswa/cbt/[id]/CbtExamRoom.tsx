@@ -29,7 +29,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
-import { startOrResumeAttempt, saveProgress, submitExam, getExamSessionStatus, checkStudentExamLockStatus } from '../actions';
+import { startOrResumeAttempt, saveProgress, submitExam, getExamSessionStatus, checkStudentExamLockStatus, checkAttemptStatusAction } from '../actions';
 import { formatExamScheduleRange, getExamScheduleState, isExamTokenActive, formatClassTargetDisplay } from '@/lib/cbt-schedule';
 import CbtRichText from '@/components/cbt/CbtRichText';
 import CbtQuestionImageViewer from '@/components/cbt/CbtQuestionImageViewer';
@@ -165,6 +165,10 @@ export default function CbtExamRoom({
   const [isTokenExpired, setIsTokenExpired] = useState<boolean>(initialTokenStatus.isExpired && !initialTokenStatus.isActive);
   const [checkingStatus, setCheckingStatus] = useState(false);
 
+  // Status unblock check for Strike 3
+  const [checkingUnblock, setCheckingUnblock] = useState(false);
+  const [unblockMessage, setUnblockMessage] = useState<string | null>(null);
+
   const refreshSessionStatus = useCallback(async () => {
     setCheckingStatus(true);
     try {
@@ -296,6 +300,10 @@ export default function CbtExamRoom({
         (attempt as any).proctorNotes?.includes('[IZIN_LANJUT_P2]') || 
         (attempt as any).proctorNotes?.includes('[RESET_PENGAWAS]');
 
+      const isUnblockedByAdmin = 
+        !(attempt as any).isBlocked && 
+        ((attempt as any).proctorNotes?.includes('[ADMIN_UNBLOCK]') || dbCount < 3);
+
       let restoredAnswers: Record<string, string> = {};
       let restoredDoubtful: Record<string, boolean> = {};
       let restoredCount = dbCount;
@@ -309,7 +317,12 @@ export default function CbtExamRoom({
           restoredDoubtful = parsed.doubtful;
         }
         const localCount = typeof parsed.tabSwitchCount === 'number' ? parsed.tabSwitchCount : 0;
-        restoredCount = Math.max(dbCount, localCount);
+        if (isUnblockedByAdmin) {
+          // 🛡️ Otoritas penuh Server: Jika admin sudah membuka suspend, jangan biarkan local storage lama mereset kembali ke 3/4
+          restoredCount = dbCount;
+        } else {
+          restoredCount = Math.max(dbCount, localCount);
+        }
       } else if (attempt.answers) {
         try {
           restoredAnswers = JSON.parse(attempt.answers);
@@ -318,10 +331,14 @@ export default function CbtExamRoom({
 
       setAnswers((prev) => Object.keys(prev).length > 0 ? prev : restoredAnswers);
       setDoubtful((prev) => Object.keys(prev).length > 0 ? prev : restoredDoubtful);
-      setTabSwitchCount((prev) => Math.max(prev, restoredCount));
+      setTabSwitchCount(restoredCount);
 
       // Evaluasi kunci Strike 2 & Strike 3 secara deterministik
-      if (restoredCount >= 3) {
+      if (isUnblockedByAdmin) {
+        setIsStrike2Locked(false);
+        setShowCheatWarning(false);
+        setAttempt((prev) => prev ? { ...prev, isBlocked: false, tabSwitchCount: restoredCount } : prev);
+      } else if (restoredCount >= 3) {
         setAttempt((prev) => prev ? { ...prev, isBlocked: true, tabSwitchCount: restoredCount } : prev);
         setIsStrike2Locked(false);
         setShowCheatWarning(false);
@@ -362,6 +379,11 @@ export default function CbtExamRoom({
     if (!attempt || attempt.status !== 'IN_PROGRESS' || finalResult) return;
 
     const executeViolation = () => {
+      // 🛡️ Jangan tambah pelanggaran jika siswa sedang dalam kondisi terkunci (Strike 2) atau tersuspend (Strike 3)
+      if (isStrike2Locked || (attempt as any)?.isBlocked || tabSwitchCount >= 3) {
+        return;
+      }
+
       const now = Date.now();
       // 🛡️ Cooldown 3000ms: Menghindari double-increment akibat browser menembakkan event beruntun
       if (now - lastViolationTimeRef.current < 3000) {
@@ -534,12 +556,12 @@ export default function CbtExamRoom({
   useEffect(() => {
     if (!attempt || attempt.status !== 'IN_PROGRESS' || finalResult) return;
 
-    // Polling interval: 3 detik jika sedang terkunci Strike 2 agar siswa langsung melanjutkan saat di-reset pengawas
-    const intervalMs = isStrike2Locked ? 3000 : 15000;
+    // Polling interval: 3 detik jika sedang terkunci Strike 2 atau suspend Strike 3 agar siswa langsung melanjutkan saat dibuka
+    const intervalMs = (isStrike2Locked || (attempt as any)?.isBlocked || tabSwitchCount >= 3) ? 3000 : 15000;
 
     const interval = setInterval(async () => {
-      // Jangan poll jika tab diminimalkan, KECUALI jika sedang menunggu buka kunci Strike 2
-      if (typeof document !== 'undefined' && document.hidden && !isStrike2Locked) return;
+      // Jangan poll jika tab diminimalkan, KECUALI jika sedang menunggu buka kunci Strike 2 atau Strike 3
+      if (typeof document !== 'undefined' && document.hidden && !isStrike2Locked && !(attempt as any)?.isBlocked && tabSwitchCount < 3) return;
 
       try {
         const res = await saveProgress(attempt.id, answers, tabSwitchCount);
@@ -551,6 +573,25 @@ export default function CbtExamRoom({
             tabSwitchCount: res.tabSwitchCount !== undefined ? res.tabSwitchCount : prev.tabSwitchCount,
             extraTimeMinutes: typeof res.extraTimeMinutes === 'number' ? res.extraTimeMinutes : prev.extraTimeMinutes,
           } : prev);
+
+          // 🛡️ BUKA SUSPEND OLEH ADMIN UTAMA (STRIKE 3 DICABUT):
+          const isStrike3Unblocked = 
+            (!res.isBlocked && res.tabSwitchCount !== undefined && res.tabSwitchCount < 3) ||
+            res.proctorNotes?.includes('[ADMIN_UNBLOCK]');
+
+          if (isStrike3Unblocked && ((attempt as any)?.isBlocked || tabSwitchCount >= 3)) {
+            const serverCount = typeof res.tabSwitchCount === 'number' ? res.tabSwitchCount : 1;
+            setTabSwitchCount(serverCount);
+            setIsStrike2Locked(false);
+            setShowCheatWarning(false);
+            try {
+              const saved = localStorage.getItem(storageKey);
+              if (saved) {
+                const parsed = JSON.parse(saved);
+                localStorage.setItem(storageKey, JSON.stringify({ ...parsed, tabSwitchCount: serverCount }));
+              }
+            } catch {}
+          }
 
           if (res.isStrike2Locked !== undefined) {
             if (isStrike2Locked && !res.isStrike2Locked) {
@@ -791,9 +832,54 @@ export default function CbtExamRoom({
   // ----------------------------------------------------
   // SCREEN 2: BLOCKED / SUSPEND SCREEN (Strike 3 or admin/proctor manual block)
   // ----------------------------------------------------
-  const isStrike3 = tabSwitchCount >= 3 || (attempt as any)?.tabSwitchCount >= 3 || (attempt as any)?.proctorNotes?.includes('[STRIKE_3_BLOKIR]');
+  const isUnblockedByAdmin = 
+    !(attempt as any)?.isBlocked && 
+    ((attempt as any)?.proctorNotes?.includes('[ADMIN_UNBLOCK]') || ((attempt as any)?.tabSwitchCount !== undefined && (attempt as any).tabSwitchCount < 3));
 
-  if ((attempt && (attempt as any).isBlocked) || isStrike3) {
+  const isStrike3 = !isUnblockedByAdmin && (
+    (tabSwitchCount >= 3 && !(attempt as any)?.proctorNotes?.includes('[ADMIN_UNBLOCK]')) || 
+    ((attempt as any)?.tabSwitchCount >= 3 && (attempt as any)?.isBlocked) || 
+    ((attempt as any)?.proctorNotes?.includes('[STRIKE_3_BLOKIR]') && (attempt as any)?.isBlocked)
+  );
+
+  const isActuallyBlocked = ((attempt && (attempt as any).isBlocked) || isStrike3) && !isUnblockedByAdmin;
+
+  // Handle manual unblock check by student
+  const handleManualCheckUnblock = async () => {
+    if (!attempt?.id) return;
+    setCheckingUnblock(true);
+    setUnblockMessage(null);
+    try {
+      const res = await checkAttemptStatusAction(attempt.id);
+      if (res && res.success && res.isUnblocked) {
+        const count = res.tabSwitchCount ?? 1;
+        setTabSwitchCount(count);
+        setIsStrike2Locked(false);
+        setShowCheatWarning(false);
+        setAttempt((prev) => prev ? {
+          ...prev,
+          isBlocked: false,
+          tabSwitchCount: count,
+          proctorNotes: res.proctorNotes || prev.proctorNotes,
+        } : prev);
+        try {
+          const saved = localStorage.getItem(storageKey);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            localStorage.setItem(storageKey, JSON.stringify({ ...parsed, tabSwitchCount: count }));
+          }
+        } catch {}
+        alert('✅ Suspend Anda telah resmi dibuka oleh Admin Utama! Silakan klik OK untuk langsung melanjutkan ujian.');
+      } else {
+        setUnblockMessage('Akun Anda saat ini masih dalam status Suspend di server. Pastikan Admin Utama sudah menekan tombol "Buka Suspend".');
+      }
+    } catch {
+      setUnblockMessage('Gagal memeriksa status ke server. Silakan coba lagi beberapa saat.');
+    }
+    setCheckingUnblock(false);
+  };
+
+  if (isActuallyBlocked) {
     return (
       <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-3 sm:p-6 font-sans relative overflow-hidden">
         {/* Hologram Red Halo */}
@@ -896,7 +982,22 @@ export default function CbtExamRoom({
             )}
           </div>
 
+          {unblockMessage && (
+            <div className="p-3 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-200 text-xs font-sans text-left">
+              {unblockMessage}
+            </div>
+          )}
+
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={handleManualCheckUnblock}
+              disabled={checkingUnblock}
+              className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={checkingUnblock ? 'animate-spin' : ''} />
+              <span>{checkingUnblock ? 'Memeriksa Server...' : 'Cek Status Buka Suspend & Lanjut Ujian'}</span>
+            </button>
             <Link
               href="/portal/siswa/cbt"
               className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-white/10 text-white font-bold text-xs transition flex items-center justify-center gap-1.5"

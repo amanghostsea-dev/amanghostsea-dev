@@ -1507,17 +1507,24 @@ export async function adminUnblockStrike3Action(attemptId: string, adminName?: s
 
     const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     const aName = adminName?.trim() || 'Admin Utama';
-    const noteEntry = `[ADMIN_UNBLOCK] Blokir CBT Pelanggaran ke-3 dicabut oleh Admin Utama (${aName}) pada ${timeStr}. Siswa diberi dispensasi melanjutkan ujian.`;
+    const noteEntry = `[ADMIN_UNBLOCK] Suspend Pelanggaran ke-3 dicabut oleh Admin Utama (${aName}) pada ${timeStr}. Siswa diberi dispensasi resmi melanjutkan ujian.`;
 
-    const existingNotes = attempt.proctorNotes || '';
-    const updatedNotes = `${existingNotes} | ${noteEntry} | [IZIN_LANJUT_P2] Dispensasi Admin Utama`;
+    // 🧹 Bersihkan tag blokir lama agar tidak memicu deteksi blokir berulang
+    let cleanedNotes = (attempt.proctorNotes || '')
+      .replace(/\[STRIKE_3_BLOKIR\][^|]*/g, '')
+      .replace(/\[STRIKE_2_TERKUNCI\][^|]*/g, '')
+      .replace(/\[ADMIN_UNBLOCK_ACTIVE\]/g, '')
+      .trim();
 
-    // Reset tabSwitchCount ke 2 agar siswa tetap membawa riwayat pelanggaran namun tidak langsung terblokir lagi
+    const updatedNotes = `${cleanedNotes ? cleanedNotes + ' | ' : ''}${noteEntry} | [IZIN_LANJUT_P2] Dispensasi Admin Utama | [ADMIN_UNBLOCK_ACTIVE]`;
+
+    // 🔓 Reset tabSwitchCount ke 1 dan isBlocked ke false agar akun siswa benar-benar terbuka
     const updated = await prisma.examAttempt.update({
       where: { id: attemptId },
       data: {
+        status: 'IN_PROGRESS',
         isBlocked: false,
-        tabSwitchCount: 2,
+        tabSwitchCount: 1, // Reset ke 1 sehingga siswa bisa langsung melanjutkan ujian tanpa terblokir lagi
         proctorNotes: updatedNotes,
       },
     });
@@ -1547,11 +1554,96 @@ export async function adminUnblockStrike3Action(attemptId: string, adminName?: s
     revalidatePath(`/portal/pengawas/cbt/${attempt.examId}`);
     revalidatePath('/portal/siswa/cbt');
     revalidatePath(`/portal/siswa/cbt/${attempt.examId}`);
+    revalidatePath('/ujian');
 
     return {
       success: true,
-      message: `Blokir akun siswa "${attempt.studentName}" berhasil dibuka oleh Admin Utama! Siswa dapat melanjutkan ujian kembali.`,
+      message: `Suspend akun siswa "${attempt.studentName}" berhasil dibuka oleh Admin Utama! Siswa dapat langsung melanjutkan ujian.`,
       attempt: updated,
+    };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+/**
+ * 🛡️ Buka Suspend SEMUA Siswa Sekaligus dalam Paket Ujian oleh Admin Utama
+ */
+export async function adminUnblockAllStrike3Action(examId: string, adminName?: string) {
+  try {
+    const suspendedAttempts = await prisma.examAttempt.findMany({
+      where: {
+        examId,
+        OR: [
+          { isBlocked: true },
+          { tabSwitchCount: { gte: 3 } },
+          { proctorNotes: { contains: '[STRIKE_3_BLOKIR]' } },
+        ],
+      },
+      select: { id: true, studentName: true, studentNis: true, proctorNotes: true },
+    });
+
+    if (suspendedAttempts.length === 0) {
+      return { success: true, count: 0, message: 'Tidak ada siswa yang tersuspend dalam ujian ini saat ini.' };
+    }
+
+    const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    const aName = adminName?.trim() || 'Admin Utama';
+
+    await prisma.$transaction(
+      suspendedAttempts.map((att) => {
+        let cleanedNotes = (att.proctorNotes || '')
+          .replace(/\[STRIKE_3_BLOKIR\][^|]*/g, '')
+          .replace(/\[STRIKE_2_TERKUNCI\][^|]*/g, '')
+          .replace(/\[ADMIN_UNBLOCK_ACTIVE\]/g, '')
+          .trim();
+        const updatedNotes = `${cleanedNotes ? cleanedNotes + ' | ' : ''}[ADMIN_UNBLOCK] Suspend dicabut massal oleh Admin Utama (${aName}) pada ${timeStr} | [IZIN_LANJUT_P2] Dispensasi Admin Utama | [ADMIN_UNBLOCK_ACTIVE]`;
+
+        return prisma.examAttempt.update({
+          where: { id: att.id },
+          data: {
+            status: 'IN_PROGRESS',
+            isBlocked: false,
+            tabSwitchCount: 1,
+            proctorNotes: updatedNotes,
+          },
+        });
+      })
+    );
+
+    // Lepaskan kunci sesi perangkat untuk seluruh siswa yang di-unblock
+    for (const att of suspendedAttempts) {
+      if (att.studentNis || att.studentName) {
+        try {
+          const studentUser = await prisma.user.findFirst({
+            where: {
+              role: 'Siswa',
+              OR: [
+                ...(att.studentNis ? [{ username: att.studentNis }, { nisn: att.studentNis }] : []),
+                ...(att.studentName ? [{ name: att.studentName }] : []),
+              ],
+            },
+            select: { id: true },
+          });
+          if (studentUser) {
+            await clearDeviceSession(studentUser.id);
+          }
+        } catch {}
+      }
+    }
+
+    revalidatePath('/admin/cbt');
+    revalidatePath(`/admin/cbt/${examId}`);
+    revalidatePath('/portal/pengawas/cbt');
+    revalidatePath(`/portal/pengawas/cbt/${examId}`);
+    revalidatePath('/portal/siswa/cbt');
+    revalidatePath(`/portal/siswa/cbt/${examId}`);
+    revalidatePath('/ujian');
+
+    return {
+      success: true,
+      count: suspendedAttempts.length,
+      message: `Berhasil membuka suspend ${suspendedAttempts.length} siswa sekaligus! Seluruh siswa dapat langsung melanjutkan ujian.`,
     };
   } catch (error: any) {
     return { error: error.message };

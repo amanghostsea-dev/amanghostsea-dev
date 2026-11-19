@@ -352,7 +352,10 @@ export default function ProctorLiveConsole({
   const unattendedCount = combinedRoster.filter(r => r.status === 'UNATTENDED').length;
   const violationCount = combinedRoster.filter(r => r.tabSwitchCount > 0 || r.isBlocked).length;
   const strike2Pending = combinedRoster.filter(r => r.tabSwitchCount === 2 && !r.attempt?.proctorNotes?.includes('[IZIN_LANJUT_P2]') && !r.isBlocked);
-  const strike3Banned = combinedRoster.filter(r => r.tabSwitchCount >= 3 || r.attempt?.proctorNotes?.includes('[STRIKE_3_BLOKIR]'));
+  const strike3Banned = combinedRoster.filter(r => 
+    (r.isBlocked || r.tabSwitchCount >= 3 || r.attempt?.proctorNotes?.includes('[STRIKE_3_BLOKIR]')) &&
+    !r.attempt?.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]')
+  );
 
   // Filtered rows for proctor table
   const filteredRoster = useMemo(() => {
@@ -961,13 +964,20 @@ export default function ProctorLiveConsole({
                               </button>
                             )}
 
-                            {/* Reset Login Siswa (Hanya jika BUKAN Strike 3) */}
-                            {item.tabSwitchCount >= 3 || att?.proctorNotes?.includes('[STRIKE_3_BLOKIR]') ? (
+                            {/* Reset Login Siswa (Hanya jika BUKAN Strike 3 yang aktif) */}
+                            {(item.tabSwitchCount >= 3 || att?.proctorNotes?.includes('[STRIKE_3_BLOKIR]')) && isBlocked && !att?.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]') ? (
                               <span 
                                 className="px-2 py-1 rounded-lg bg-rose-950 text-rose-300 font-bold text-[10px] border border-rose-800"
                                 title="Siswa telah 3x melanggar tata tertib dan di-suspend total oleh sistem. Hanya Admin Utama yang berwenang membuka akun ini."
                               >
                                 Wajib Admin Utama
+                              </span>
+                            ) : att?.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]') ? (
+                              <span 
+                                className="px-2 py-1 rounded-lg bg-emerald-950 text-emerald-300 font-bold text-[10px] border border-emerald-800"
+                                title="Akun siswa telah resmi dibuka oleh Admin Utama."
+                              >
+                                ✓ Dispensasi Admin
                               </span>
                             ) : (
                               <button
@@ -1013,7 +1023,7 @@ export default function ProctorLiveConsole({
 
                             {/* Toggle Block / Status Blokir */}
                             {isBlocked ? (
-                              item.tabSwitchCount >= 3 || att?.proctorNotes?.includes('[STRIKE_3_BLOKIR]') ? (
+                              (item.tabSwitchCount >= 3 || att?.proctorNotes?.includes('[STRIKE_3_BLOKIR]')) && !att?.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]') ? (
                                 <span 
                                   className="px-2 py-1 rounded-lg bg-rose-950 text-rose-300 font-bold text-[10px] border border-rose-800"
                                   title="Siswa telah 3x melanggar tata tertib. Pembukaan blokir hanya dapat dilakukan oleh Admin Utama sekolah."
@@ -1518,19 +1528,24 @@ export default function ProctorLiveConsole({
                         {combinedRoster
                           .filter((r) => r.tabSwitchCount > 0 || r.isBlocked)
                           .map((r, idx) => {
-                            const isStrike3 = r.tabSwitchCount >= 3 || r.isBlocked || r.attempt?.proctorNotes?.includes('[STRIKE_3_BLOKIR]');
-                            const isStrike2 = !isStrike3 && r.tabSwitchCount === 2;
+                            const isStrike3Active = (r.tabSwitchCount >= 3 || r.isBlocked || r.attempt?.proctorNotes?.includes('[STRIKE_3_BLOKIR]')) && !r.attempt?.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]');
+                            const isStrike3Unblocked = r.attempt?.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]') || r.attempt?.proctorNotes?.includes('[ADMIN_UNBLOCK]');
+                            const isStrike2 = !isStrike3Active && !isStrike3Unblocked && r.tabSwitchCount === 2;
 
                             return (
-                              <tr key={r.studentNis + r.studentName} className={isStrike3 ? 'bg-rose-50/70 font-semibold' : ''}>
+                              <tr key={r.studentNis + r.studentName} className={isStrike3Active ? 'bg-rose-50/70 font-semibold' : ''}>
                                 <td className="border border-black px-1.5 py-1 text-center font-mono">{idx + 1}</td>
                                 <td className="border border-black px-2 py-1 font-bold">{r.studentName}</td>
                                 <td className="border border-black px-1.5 py-1 text-center font-mono">{r.studentNis || '-'}</td>
                                 <td className="border border-black px-1.5 py-1 text-center font-bold font-mono">{r.tabSwitchCount}x</td>
                                 <td className="border border-black px-2 py-1">
-                                  {isStrike3 ? (
+                                  {isStrike3Active ? (
                                     <div className="text-rose-900 leading-snug">
                                       <strong className="text-rose-700">⛔ TINGKAT 3 (BERAT):</strong> Akun di-Suspend Sistem • Wajib Melapor ke Admin Utama
+                                    </div>
+                                  ) : isStrike3Unblocked ? (
+                                    <div className="text-emerald-900 leading-snug">
+                                      <strong className="text-emerald-700">✓ DISPENSASI ADMIN UTAMA:</strong> Suspend dicabut resmi oleh Admin Utama • Siswa diizinkan melanjutkan ujian
                                     </div>
                                   ) : isStrike2 ? (
                                     <div className="text-amber-900 leading-snug">
