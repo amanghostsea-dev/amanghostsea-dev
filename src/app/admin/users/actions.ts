@@ -3,6 +3,7 @@
 import prisma from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { requireSuperAdmin } from '@/lib/auth'
+import { normalizeReligion } from '@/lib/cbt-religion'
 
 export async function getUsers() {
   await requireSuperAdmin();
@@ -490,6 +491,7 @@ export interface BulkStudentItem {
   username?: string;
   password?: string;
   studentClass?: string;
+  religion?: string;
 }
 
 export async function createBulkStudents(
@@ -500,6 +502,7 @@ export async function createBulkStudents(
     generateRandomPassword?: boolean;
     useNisnAsUsername?: boolean;
     studentClass?: string;
+    religion?: string;
   }
 ) {
   await requireSuperAdmin();
@@ -513,6 +516,7 @@ export async function createBulkStudents(
     const generateRandomPassword = !!options?.generateRandomPassword;
     const useNisnAsUsername = options?.useNisnAsUsername ?? true;
     const fallbackClass = options?.studentClass?.trim() || 'XI TJKT 1';
+    const fallbackReligion = options?.religion?.trim() || 'ISLAM';
 
     // Fetch existing users to check duplicates quickly in memory
     const existingUsers = await prisma.user.findMany({
@@ -534,6 +538,10 @@ export async function createBulkStudents(
       const name = s.name?.trim();
       const nisn = s.nisn?.toString().trim();
       const assignedClass = s.studentClass?.trim() || fallbackClass;
+
+      const rawReligion = (s.religion?.trim() || fallbackReligion).toUpperCase();
+      const normRel = normalizeReligion(rawReligion);
+      const assignedReligion = normRel !== 'ALL' ? normRel : 'ISLAM';
 
       if (!name) {
         skipped.push({ name: s.name || `Baris ${i + 1}`, nisn: nisn || '-', reason: 'Nama siswa wajib diisi' });
@@ -583,11 +591,13 @@ export async function createBulkStudents(
             role: 'Siswa',
             status: 'Aktif',
             studentClass: assignedClass,
+            religion: assignedReligion,
           }
         });
         createdUsers.push({
           ...created,
           studentClass: assignedClass,
+          religion: assignedReligion,
         });
         takenUsernames.add(lowerUsername);
         takenNisns.add(lowerNisn);

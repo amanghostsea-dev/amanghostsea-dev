@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import { createUser, updateUser, deleteUser, deleteBulkUsers, createBulkStudents, updateStudentClass, updateBulkStudentsClass, BulkStudentItem } from './actions';
 import ConfirmModal from '@/components/ConfirmModal';
+import { normalizeReligion, RELIGION_OPTIONS } from '@/lib/cbt-religion';
 
 // Helper: Generator password acak bersih & unik (menghindari karakter ambigu 0, O, 1, l, I)
 function generateCleanRandomPassword(key: string, seed: number = 0): string {
@@ -61,6 +62,7 @@ interface ParsedBulkStudent {
   nisn: string;
   studentClass?: string;
   isClassRecognized?: boolean;
+  religion?: string;
   username: string;
   password?: string;
   isValid: boolean;
@@ -286,6 +288,7 @@ export default function UsersCRUD({
   const [copiedCredentials, setCopiedCredentials] = useState(false);
   const [copiedSingleIdx, setCopiedSingleIdx] = useState<number | null>(null);
   const [bulkClass, setBulkClass] = useState(classTargets.find(c => c !== 'Semua Kelas' && !c.includes('Semua Jurusan')) || 'XI TJKT 1');
+  const [bulkReligion, setBulkReligion] = useState<string>('ISLAM');
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkResult, setBulkResult] = useState<{
     success: boolean;
@@ -427,7 +430,7 @@ export default function UsersCRUD({
   const parsedBulkStudents = useMemo<ParsedBulkStudent[]>(() => {
     if (!bulkText.trim()) return [];
 
-    const lines = bulkText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const lines = bulkText.split(/\r?\n/).map(l => l.trim()).filter(Boolean).filter(l => !l.toLowerCase().startsWith('sep='));
     if (lines.length === 0) return [];
 
     const results: ParsedBulkStudent[] = [];
@@ -437,11 +440,12 @@ export default function UsersCRUD({
     let nisnCol = -1;
     let nameCol = -1;
     let classCol = -1;
+    let religionCol = -1;
     let userCol = -1;
     let passCol = -1;
     let startIndex = 0;
 
-    // Deteksi jika baris pertama adalah baris header (NISN, Nama, Kelas, Username, Password)
+    // Deteksi jika baris pertama adalah baris header (NISN, Nama, Kelas, Agama, Username, Password)
     const line0Tokens = parseDelimitedLine(lines[0]);
     const lowerTokens = line0Tokens.map(t => t.toLowerCase());
 
@@ -453,6 +457,7 @@ export default function UsersCRUD({
       nisnCol = lowerTokens.findIndex(t => t.includes('nisn'));
       nameCol = lowerTokens.findIndex(t => t.includes('nama') || t.includes('name'));
       classCol = lowerTokens.findIndex(t => t.includes('kelas') || t.includes('class') || t.includes('rombel'));
+      religionCol = lowerTokens.findIndex(t => t.includes('agama') || t.includes('relig'));
       userCol = lowerTokens.findIndex(t => t.includes('user'));
       passCol = lowerTokens.findIndex(t => t.includes('pass'));
     }
@@ -470,6 +475,7 @@ export default function UsersCRUD({
       let nisn = '';
       let name = '';
       let studentClass = '';
+      let religion = '';
       let username = '';
       let password = '';
 
@@ -478,21 +484,49 @@ export default function UsersCRUD({
         if (nisnCol !== -1 && parts[nisnCol]) nisn = parts[nisnCol];
         if (nameCol !== -1 && parts[nameCol]) name = parts[nameCol];
         if (classCol !== -1 && parts[classCol]) studentClass = parts[classCol];
+        if (religionCol !== -1 && parts[religionCol]) religion = parts[religionCol];
         if (userCol !== -1 && parts[userCol]) username = parts[userCol];
         if (passCol !== -1 && parts[passCol]) password = parts[passCol];
       } else {
         // Pemetaan posisi jika tanpa baris header
-        if (parts.length >= 5) {
+        if (parts.length >= 6) {
           nisn = parts[0];
           name = parts[1];
           studentClass = parts[2];
-          username = parts[3];
-          password = parts[4];
+          religion = parts[3];
+          username = parts[4];
+          password = parts[5];
+        } else if (parts.length === 5) {
+          // Cek apakah kolom 3 adalah agama (Islam, Kristen, dll.) atau username
+          const p3Upper = (parts[3] || '').toUpperCase();
+          const isP3Religion = ['ISLAM', 'KRISTEN', 'KATOLIK', 'HINDU', 'BUDDHA', 'KHONGHUCU', 'PROTESTAN'].some(r => p3Upper.includes(r));
+          if (isP3Religion) {
+            nisn = parts[0];
+            name = parts[1];
+            studentClass = parts[2];
+            religion = parts[3];
+            password = parts[4];
+          } else {
+            nisn = parts[0];
+            name = parts[1];
+            studentClass = parts[2];
+            username = parts[3];
+            password = parts[4];
+          }
         } else if (parts.length === 4) {
-          nisn = parts[0];
-          name = parts[1];
-          studentClass = parts[2];
-          username = parts[3];
+          const p3Upper = (parts[3] || '').toUpperCase();
+          const isP3Religion = ['ISLAM', 'KRISTEN', 'KATOLIK', 'HINDU', 'BUDDHA', 'KHONGHUCU', 'PROTESTAN'].some(r => p3Upper.includes(r));
+          if (isP3Religion) {
+            nisn = parts[0];
+            name = parts[1];
+            studentClass = parts[2];
+            religion = parts[3];
+          } else {
+            nisn = parts[0];
+            name = parts[1];
+            studentClass = parts[2];
+            username = parts[3];
+          }
         } else if (parts.length === 3) {
           nisn = parts[0];
           name = parts[1];
@@ -529,6 +563,11 @@ export default function UsersCRUD({
       } else {
         studentClass = bulkClass;
       }
+
+      // Normalisasi Agama Siswa
+      const rawRel = religion?.trim() || bulkReligion || 'ISLAM';
+      const normRel = normalizeReligion(rawRel);
+      const assignedReligion = normRel !== 'ALL' ? normRel : (bulkReligion || 'ISLAM');
 
       if (!username) username = nisn || name.toLowerCase().replace(/\s+/g, '');
       if (!password) {
@@ -569,6 +608,7 @@ export default function UsersCRUD({
         nisn,
         studentClass,
         isClassRecognized,
+        religion: assignedReligion,
         username,
         password,
         isValid,
@@ -577,7 +617,7 @@ export default function UsersCRUD({
     }
 
     return results;
-  }, [bulkText, bulkClass, bulkPasswordMode, bulkDefaultPassword, randomSeed, classTargets, jurusans]);
+  }, [bulkText, bulkClass, bulkReligion, bulkPasswordMode, bulkDefaultPassword, randomSeed, classTargets, jurusans]);
 
   const validStudentsCount = parsedBulkStudents.filter(s => s.isValid).length;
   const invalidStudentsCount = parsedBulkStudents.length - validStudentsCount;
@@ -610,20 +650,18 @@ export default function UsersCRUD({
       { id: '3', code: 'MPLB', name: 'Manajemen Perkantoran & Layanan Bisnis', kuota: 36, description: '' },
     ];
 
-    const sampleRows: string[][] = [];
-    const sampleNames = [
-      'Ahmad Fauzi Pratama',
-      'Budi Santoso',
-      'Citra Dewi Lestari',
-      'Dwi Kurniawan',
-      'Eka Putri Rahayu',
-      'Fajar Ramadhan Saputra',
-      'Gita Maya Anggraini',
-      'Hendra Saputra Jaya',
-      'Indah Permata Sari',
-      'Joko Wicaksono',
+    const sampleStudents = [
+      { name: 'Ahmad Fauzi Pratama', religion: 'ISLAM' },
+      { name: 'Budi Santoso', religion: 'ISLAM' },
+      { name: 'Citra Dewi Lestari', religion: 'ISLAM' },
+      { name: 'Daniel Christian Situmorang', religion: 'KRISTEN' },
+      { name: 'Maria Fransiska', religion: 'KATOLIK' },
+      { name: 'I Made Dharmawan', religion: 'HINDU' },
+      { name: 'William Tan', religion: 'BUDDHA' },
+      { name: 'Kevin Liem', religion: 'KHONGHUCU' },
     ];
 
+    const sampleRows: string[][] = [];
     let nisnCounter = 81234501;
 
     activeJurusans.forEach((j, jIdx) => {
@@ -633,23 +671,33 @@ export default function UsersCRUD({
       const targetClass1 = matching[0] || `X ${code} 1`;
       const targetClass2 = matching[1] || `XI ${code} 1`;
 
+      const st1 = sampleStudents[(jIdx * 2) % sampleStudents.length];
       const nisn1 = `00${nisnCounter++}`;
-      const name1 = sampleNames[(jIdx * 2) % sampleNames.length];
-      sampleRows.push([nisn1, name1, targetClass1, nisn1, 'siswa123']);
+      sampleRows.push([nisn1, st1.name, targetClass1, st1.religion, nisn1, 'siswa123']);
 
       if (sampleRows.length < 8) {
+        const st2 = sampleStudents[(jIdx * 2 + 1) % sampleStudents.length];
         const nisn2 = `00${nisnCounter++}`;
-        const name2 = sampleNames[(jIdx * 2 + 1) % sampleNames.length];
-        sampleRows.push([nisn2, name2, targetClass2, nisn2, 'siswa123']);
+        sampleRows.push([nisn2, st2.name, targetClass2, st2.religion, nisn2, 'siswa123']);
       }
     });
 
-    const headers = ['NISN', 'Nama Lengkap', 'Kelas', 'Username', 'Password'];
+    const headers = ['NISN', 'Nama Lengkap', 'Kelas', 'Agama', 'Username', 'Password'];
 
     // Panduan & Contoh Format Resmi di bawah file CSV (diawali tanda # sehingga otomatis diabaikan sistem impor)
     const guideLines = [
       '',
       '# =========================================================================================',
+      '# PETUNJUK RESMI TEMPLATE IMPOR DATA SISWA (SMK GARUDA MAHADHIKA):',
+      '# Format Kolom Standar (6 Kolom Sesuai Kebutuhan Dapodik & CBT):',
+      '# 1. NISN          : Wajib (8-12 angka). Berfungsi sebagai ID siswa & username login utama.',
+      '# 2. Nama Lengkap  : Wajib (Nama resmi siswa). Ditampilkan di kartu peserta, CBT, dan buku nilai rapor.',
+      '# 3. Kelas         : Format [Tingkat] [KODE JURUSAN] [Rombel], misal: X TJKT 1, XI DKV 1, XII MPLB 1.',
+      '# 4. Agama         : Wajib untuk CBT! Pilihan: ISLAM, KRISTEN, KATOLIK, HINDU, BUDDHA, KHONGHUCU.',
+      '#                    *Sistem CBT otomatis menyajikan varian paket ujian agama paralel (PAI, PAK, dll.) sesuai kolom ini.',
+      '# 5. Username      : Opsional (jika kosong, otomatis memakai NISN).',
+      '# 6. Password      : Opsional (jika kosong, otomatis memakai password default seperti siswa123).',
+      '#',
       '# PANDUAN PENULISAN FORMAT JURUSAN & KELAS RESMI (MENCEGAH TYPO / SALAH KETIK):',
       '# Format Standar Penulisan: [Tingkat: X / XI / XII] [KODE JURUSAN] [Nomor Rombel]',
       '# Contoh Format Resmi Berdasarkan Jurusan Yang Terdaftar di Sekolah:',
@@ -663,14 +711,17 @@ export default function UsersCRUD({
       '# CATATAN PENTING:',
       '# 1. Baris yang diawali tanda pagar (#) adalah catatan panduan dan otomatis dilewati saat impor.',
       '# 2. Kolom Kelas opsional: jika kosong, siswa otomatis mengikuti "Target Kelas Cadangan".',
-      '# 3. Kolom Username & Password opsional: jika kosong, otomatis memakai NISN / password default.',
+      '# 3. Kolom Agama opsional: jika kosong, siswa otomatis mengikuti "Agama Cadangan" (default: ISLAM).',
+      '# 4. Kolom Username & Password opsional: jika kosong, otomatis memakai NISN / password default.',
       '# =========================================================================================',
     ];
 
-    // Gunakan UTF-8 BOM (\uFEFF) agar Microsoft Excel di Windows langsung membuka CSV dengan kolom terpisah rapi
+    // Gunakan UTF-8 BOM (\uFEFF) dan pemisah titik koma ';' agar Microsoft Excel di Windows langsung membuka CSV dengan kolom terpisah rapi
+    const delimiter = ';';
     const csvContent = '\uFEFF' + [
-      headers.join(','),
-      ...sampleRows.map(r => r.map(val => val.includes(',') ? `"${val}"` : val).join(',')),
+      'sep=;',
+      headers.join(delimiter),
+      ...sampleRows.map(r => r.map(val => val.includes(delimiter) || val.includes('"') ? `"${val.replace(/"/g, '""')}"` : val).join(delimiter)),
       ...guideLines
     ].join('\r\n') + '\r\n';
 
@@ -693,24 +744,23 @@ export default function UsersCRUD({
       { id: '3', code: 'MPLB', name: 'Manajemen Perkantoran & Layanan Bisnis', kuota: 36, description: '' },
     ];
 
-    const lines: string[] = ['NISN\tNama Lengkap\tKelas\tUsername\tPassword'];
-    const sampleNames = [
-      'Aditia Pratama Putra',
-      'Annisa Bella Safitri',
-      'Bagas Arya Yudha',
-      'Cantika Putri Wulandari',
-      'Dimas Wahyu Nugroho',
-      'Fani Rahmawati',
+    const lines: string[] = ['NISN\tNama Lengkap\tKelas\tAgama\tUsername\tPassword'];
+    const sampleStudents = [
+      { name: 'Aditia Pratama Putra', religion: 'ISLAM' },
+      { name: 'Annisa Bella Safitri', religion: 'ISLAM' },
+      { name: 'Daniel Christian Situmorang', religion: 'KRISTEN' },
+      { name: 'Maria Fransiska', religion: 'KATOLIK' },
+      { name: 'I Made Dharmawan', religion: 'HINDU' },
+      { name: 'William Tan', religion: 'BUDDHA' },
     ];
 
     let nisnCounter = 81122331;
-    activeJurusans.forEach((j, idx) => {
-      const code = (j.code || '').trim().toUpperCase();
+    sampleStudents.forEach((s, idx) => {
+      const code = (activeJurusans[idx % activeJurusans.length].code || '').trim().toUpperCase();
       const matching = validSpecificClasses.filter(c => c.toUpperCase().includes(code));
       const targetClass = matching[idx % (matching.length || 1)] || `XI ${code} 1`;
       const nisn = `00${nisnCounter++}`;
-      const name = sampleNames[idx % sampleNames.length];
-      lines.push(`${nisn}\t${name}\t${targetClass}\t${nisn}\tsiswa123`);
+      lines.push(`${nisn}\t${s.name}\t${targetClass}\t${s.religion}\t${nisn}\tsiswa123`);
     });
 
     setBulkText(lines.join('\n'));
@@ -742,12 +792,12 @@ export default function UsersCRUD({
       'DAFTAR KREDENSIAL LOGIN AKUN SISWA - SMK NEGERI 1',
       `Tanggal Dibuat: ${new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}`,
       '---------------------------------------------------------------------------------',
-      'No | Nama Lengkap | Kelas | NISN / Username | Password',
+      'No | Nama Lengkap | Kelas | Agama | NISN / Username | Password',
       '---------------------------------------------------------------------------------',
     ];
 
     bulkResult.createdUsers.forEach((u, i) => {
-      lines.push(`${i + 1}. ${u.name} | ${u.studentClass || '-'} | ${u.nisn || u.username} | ${u.password || '-'}`);
+      lines.push(`${i + 1}. ${u.name} | ${u.studentClass || '-'} | ${(u as any).religion || '-'} | ${u.nisn || u.username} | ${u.password || '-'}`);
     });
 
     lines.push('---------------------------------------------------------------------------------');
@@ -764,12 +814,13 @@ export default function UsersCRUD({
   const handleDownloadCredentialsCsv = () => {
     if (!bulkResult?.createdUsers || bulkResult.createdUsers.length === 0) return;
 
-    const headers = ['No', 'NISN', 'Nama Lengkap', 'Kelas', 'Username', 'Password', 'Peran', 'Status'];
+    const headers = ['No', 'NISN', 'Nama Lengkap', 'Kelas', 'Agama', 'Username', 'Password', 'Peran', 'Status'];
     const rows = bulkResult.createdUsers.map((u, i) => [
       String(i + 1),
       `"${u.nisn || ''}"`,
       `"${u.name.replace(/"/g, '""')}"`,
       `"${(u.studentClass || '').replace(/"/g, '""')}"`,
+      `"${((u as any).religion || '').replace(/"/g, '""')}"`,
       `"${(u.username || '').replace(/"/g, '""')}"`,
       `"${(u.password || '').replace(/"/g, '""')}"`,
       `"${u.role}"`,
@@ -787,7 +838,7 @@ export default function UsersCRUD({
   };
 
   const handleCopySingleCredential = (u: any, idx: number) => {
-    const text = `Akun Siswa: ${u.name} | NISN: ${u.nisn || u.username} | Password: ${u.password || '-'}`;
+    const text = `Akun Siswa: ${u.name} | Kelas: ${u.studentClass || '-'} | Agama: ${(u as any).religion || '-'} | NISN: ${u.nisn || u.username} | Password: ${u.password || '-'}`;
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(text);
       setCopiedSingleIdx(idx);
@@ -819,6 +870,7 @@ export default function UsersCRUD({
               : bulkDefaultPassword
         ),
         studentClass: s.studentClass || bulkClass,
+        religion: s.religion || bulkReligion,
       }));
 
       const res = await createBulkStudents(payload, {
@@ -827,6 +879,7 @@ export default function UsersCRUD({
         generateRandomPassword: bulkPasswordMode === 'random',
         useNisnAsUsername: false,
         studentClass: bulkClass,
+        religion: bulkReligion,
       });
 
       if (res?.success) {
@@ -2099,6 +2152,7 @@ export default function UsersCRUD({
                                 <th className="p-2">Nama Siswa</th>
                                 <th className="p-2 font-mono">NISN / Username</th>
                                 <th className="p-2">Kelas</th>
+                                <th className="p-2">Agama</th>
                                 <th className="p-2 font-mono">Password</th>
                                 <th className="p-2 pr-3 text-right">Aksi</th>
                               </tr>
@@ -2112,6 +2166,11 @@ export default function UsersCRUD({
                                   <td className="p-2">
                                     <span className="px-1.5 py-0.5 rounded font-mono font-bold text-[10.5px] bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
                                       {u.studentClass || '-'}
+                                    </span>
+                                  </td>
+                                  <td className="p-2">
+                                    <span className="px-1.5 py-0.5 rounded font-bold text-[10px] bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                      {(u as any).religion || 'ISLAM'}
                                     </span>
                                   </td>
                                   <td className="p-2 font-mono">
@@ -2232,9 +2291,9 @@ export default function UsersCRUD({
                     <span className="font-bold text-blue-950 dark:text-blue-300 flex items-center gap-1.5">
                       <FileSpreadsheet size={15} className="text-blue-600" /> Kriteria Data Kolom Tambah User Siswa:
                     </span>
-                    <span className="text-[10px] bg-blue-200/70 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded-full font-bold">5 Kolom Standar</span>
+                    <span className="text-[10px] bg-blue-200/70 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded-full font-bold">6 Kolom Standar (Dapodik & CBT)</span>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[11px]">
+                  <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-[11px]">
                     <div className="p-2 rounded-xl bg-white dark:bg-gray-900 border border-blue-100 dark:border-blue-900/40">
                       <span className="block font-bold text-gray-900 dark:text-white">1. NISN</span>
                       <span className="text-gray-500 text-[10px]">Wajib (8-12 angka)</span>
@@ -2247,13 +2306,17 @@ export default function UsersCRUD({
                       <span className="block font-bold text-gray-900 dark:text-white">3. Kelas</span>
                       <span className="text-gray-500 text-[10px]">Misal: XI TJKT 1</span>
                     </div>
+                    <div className="p-2 rounded-xl bg-white dark:bg-gray-900 border border-blue-200 dark:border-blue-800/80 bg-blue-50/50 dark:bg-blue-950/40">
+                      <span className="block font-bold text-blue-700 dark:text-blue-300">4. Agama</span>
+                      <span className="text-blue-600 dark:text-blue-400 text-[10px] font-semibold">CBT (ISLAM/KRISTEN..)</span>
+                    </div>
                     <div className="p-2 rounded-xl bg-white dark:bg-gray-900 border border-blue-100 dark:border-blue-900/40">
-                      <span className="block font-bold text-gray-900 dark:text-white">4. Username</span>
+                      <span className="block font-bold text-gray-900 dark:text-white">5. Username</span>
                       <span className="text-gray-500 text-[10px]">Opsional (Otomatis NISN)</span>
                     </div>
                     <div className="p-2 rounded-xl bg-white dark:bg-gray-900 border border-blue-100 dark:border-blue-900/40">
-                      <span className="block font-bold text-gray-900 dark:text-white">5. Password</span>
-                      <span className="text-gray-500 text-[10px]">Opsional (Default: siswa123)</span>
+                      <span className="block font-bold text-gray-900 dark:text-white">6. Password</span>
+                      <span className="text-gray-500 text-[10px]">Opsional (Default / Acak)</span>
                     </div>
                   </div>
                 </div>
@@ -2325,26 +2388,49 @@ export default function UsersCRUD({
                   </div>
                 </div>
 
-                {/* Pilihan Target Kelas untuk Impor Massal */}
-                <div className="p-3.5 bg-purple-50/70 dark:bg-purple-950/30 rounded-2xl border border-purple-200 dark:border-purple-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <label className="text-xs font-bold text-purple-950 dark:text-purple-300 flex items-center gap-1.5">
-                      <Layers size={14} className="text-purple-600" />
-                      Target Kelas Cadangan (Fallback):
-                    </label>
-                    <p className="text-[11px] text-purple-700/80 dark:text-purple-400">
-                      Digunakan jika kolom Kelas pada file/paste kosong. Siswa yang memiliki kolom Kelas di file akan otomatis terdaftar sesuai kelasnya masing-masing.
-                    </p>
+                {/* Pilihan Target Kelas & Agama Cadangan untuk Impor Massal */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="p-3.5 bg-purple-50/70 dark:bg-purple-950/30 rounded-2xl border border-purple-200 dark:border-purple-900/50 flex flex-col justify-between gap-2.5">
+                    <div>
+                      <label className="text-xs font-bold text-purple-950 dark:text-purple-300 flex items-center gap-1.5">
+                        <Layers size={14} className="text-purple-600" />
+                        Target Kelas Cadangan (Fallback):
+                      </label>
+                      <p className="text-[11px] text-purple-700/80 dark:text-purple-400">
+                        Digunakan jika kolom Kelas pada file/paste kosong. Siswa dengan kelas di baris data akan tetap terdaftar di kelasnya masing-masing.
+                      </p>
+                    </div>
+                    <select
+                      value={bulkClass}
+                      onChange={(e) => setBulkClass(e.target.value)}
+                      className="w-full px-3.5 py-2 bg-white dark:bg-gray-900 border border-purple-300 dark:border-purple-700 rounded-xl text-xs font-bold text-purple-700 dark:text-purple-300 focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
+                    >
+                      {classTargets.filter(c => c !== 'Semua Kelas').map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
                   </div>
-                  <select
-                    value={bulkClass}
-                    onChange={(e) => setBulkClass(e.target.value)}
-                    className="px-3.5 py-2 bg-white dark:bg-gray-900 border border-purple-300 dark:border-purple-700 rounded-xl text-xs font-bold text-purple-700 dark:text-purple-300 focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
-                  >
-                    {classTargets.filter(c => c !== 'Semua Kelas').map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
+
+                  <div className="p-3.5 bg-blue-50/70 dark:bg-blue-950/30 rounded-2xl border border-blue-200 dark:border-blue-900/50 flex flex-col justify-between gap-2.5">
+                    <div>
+                      <label className="text-xs font-bold text-blue-950 dark:text-blue-300 flex items-center gap-1.5">
+                        <Sparkles size={14} className="text-blue-600" />
+                        Agama Cadangan (Fallback CBT):
+                      </label>
+                      <p className="text-[11px] text-blue-700/80 dark:text-blue-400">
+                        Digunakan untuk filter paket ujian agama CBT jika kolom Agama di baris data kosong.
+                      </p>
+                    </div>
+                    <select
+                      value={bulkReligion}
+                      onChange={(e) => setBulkReligion(e.target.value)}
+                      className="w-full px-3.5 py-2 bg-white dark:bg-gray-900 border border-blue-300 dark:border-blue-700 rounded-xl text-xs font-bold text-blue-700 dark:text-blue-300 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
+                    >
+                      {RELIGION_OPTIONS.filter(r => r.code !== 'ALL').map((r) => (
+                        <option key={r.code} value={r.code}>{r.code} - {r.shortLabel}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 {/* Textarea Input */}
@@ -2352,15 +2438,15 @@ export default function UsersCRUD({
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-2">
                     <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
                       <FileText size={16} className="text-indigo-600" />
-                      Data Siswa: NISN, Nama Lengkap, Kelas, Username, Password
+                      Data Siswa: NISN, Nama Lengkap, Kelas, Agama, Username, Password
                     </label>
-                    <span className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold">Bisa copy langsung dari Excel / CSV</span>
+                    <span className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold">Bisa copy langsung dari Excel / CSV (Tab / Titik Koma / Koma)</span>
                   </div>
                   <textarea
                     rows={6}
                     value={bulkText}
                     onChange={e => setBulkText(e.target.value)}
-                    placeholder="Contoh format CSV / Excel:&#10;NISN,Nama Lengkap,Kelas,Username,Password&#10;0081234501,Ahmad Fauzi Pratama,XI TJKT 1,0081234501,siswa123&#10;0081234502,Budi Santoso,XI DKV 1,0081234502,siswa123&#10;0081234503,Citra Dewi Lestari,XI MPLB 1,0081234503,siswa123"
+                    placeholder="Contoh format CSV / Excel (6 Kolom):&#10;NISN,Nama Lengkap,Kelas,Agama,Username,Password&#10;0081234501,Ahmad Fauzi Pratama,XI TJKT 1,ISLAM,0081234501,siswa123&#10;0081234502,Daniel Situmorang,XI DKV 1,KRISTEN,0081234502,siswa123&#10;0081234503,Citra Dewi Lestari,XI MPLB 1,ISLAM,0081234503,siswa123"
                     className="w-full p-4 rounded-2xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 font-mono text-xs text-gray-900 dark:text-white placeholder:text-gray-400 focus:bg-white dark:focus:bg-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none transition-all leading-relaxed"
                   />
                 </div>
@@ -2495,6 +2581,7 @@ export default function UsersCRUD({
                             <th className="p-2.5">Nama Siswa</th>
                             <th className="p-2.5 font-mono">NISN</th>
                             <th className="p-2.5">Kelas</th>
+                            <th className="p-2.5">Agama</th>
                             <th className="p-2.5 font-mono">Username</th>
                             <th className="p-2.5 font-mono">Password</th>
                             <th className="p-2.5 pr-4 text-right">Status</th>
@@ -2521,6 +2608,11 @@ export default function UsersCRUD({
                                     <span className="text-[10px] text-amber-600 font-bold" title="Format kelas tidak terdaftar di jurusan resmi, mohon periksa">⚠️</span>
                                   )}
                                 </div>
+                              </td>
+                              <td className="p-2.5">
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded font-bold text-[10px] bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                  {s.religion || bulkReligion}
+                                </span>
                               </td>
                               <td className="p-2.5 font-mono text-gray-700 dark:text-gray-300">{s.username || '-'}</td>
                               <td className="p-2.5 font-mono">
