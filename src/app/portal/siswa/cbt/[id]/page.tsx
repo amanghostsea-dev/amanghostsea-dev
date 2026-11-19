@@ -27,7 +27,11 @@ export default async function SiswaExamRoomPage({ params }: { params: Promise<{ 
     where: { id },
     include: {
       questions: {
-        orderBy: { order: 'asc' },
+        orderBy: [
+          { order: 'asc' },
+          { createdAt: 'asc' },
+          { id: 'asc' },
+        ],
       },
     },
   });

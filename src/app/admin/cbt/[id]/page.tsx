@@ -19,7 +19,11 @@ export default async function ExamDetailPage({ params }: { params: Promise<{ id:
       where: { id },
       include: {
         questions: {
-          orderBy: { order: 'asc' },
+          orderBy: [
+            { order: 'asc' },
+            { createdAt: 'asc' },
+            { id: 'asc' },
+          ],
         },
         attempts: {
           orderBy: { score: 'desc' },

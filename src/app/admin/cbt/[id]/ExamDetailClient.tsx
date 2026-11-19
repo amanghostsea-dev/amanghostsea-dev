@@ -69,6 +69,8 @@ import {
   updateQuestion, 
   rotateExamToken,
   autoDistributeExamPointsAction,
+  reorderExamQuestions,
+  moveQuestionOrder,
   adminUnblockStrike3Action,
   proctorUnlockStrike2Action
 } from '../actions';
@@ -365,7 +367,20 @@ interface QuestionItem {
   correctAnswer: string;
   points: number;
   order: number;
+  createdAt?: Date | string;
 }
+
+const sortQuestions = (items: QuestionItem[] = []) => {
+  return [...items].sort((a, b) => {
+    const orderA = a.order ?? 0;
+    const orderB = b.order ?? 0;
+    if (orderA !== orderB) return orderA - orderB;
+    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    if (timeA !== timeB) return timeA - timeB;
+    return (a.id || '').localeCompare(b.id || '');
+  });
+};
 
 interface AttemptItem {
   id: string;
@@ -446,8 +461,15 @@ export default function ExamDetailClient({
   const isProctorOnly = propIsProctorMode ?? (!isOwner && isProctor);
 
   const [activeTab, setActiveTab] = useState<'questions' | 'results'>(isProctorOnly ? 'results' : 'questions');
-  const [questions, setQuestions] = useState(exam.questions);
+  const [questions, setQuestions] = useState<QuestionItem[]>(() => sortQuestions(exam.questions || []));
   const [attempts, setAttempts] = useState(exam.attempts);
+
+  // Selalu pastikan susunan soal guru di bank soal tersinkronisasi dan tidak teracak
+  useEffect(() => {
+    if (exam.questions) {
+      setQuestions(sortQuestions(exam.questions));
+    }
+  }, [exam.questions]);
 
   // Session Dual-Key state & 5-minute rolling token
   const [examStatus, setExamStatus] = useState(exam.status || 'PUBLISHED');
@@ -480,7 +502,7 @@ export default function ExamDetailClient({
     setDistributeLoading(true);
     const res = await autoDistributeExamPointsAction(exam.id, targetTotal);
     if (res.success && res.pointsPerQuestion !== undefined) {
-      setQuestions(prev => prev.map(q => ({ ...q, points: res.pointsPerQuestion! })));
+      setQuestions(prev => sortQuestions(prev.map((q, idx) => ({ ...q, points: res.pointsPerQuestion!, order: idx }))));
       setIsAutoDistributeModalOpen(false);
       setDistributeToast(res.message || `Nilai berhasil dibagi rata: ${res.pointsPerQuestion} Poin per butir soal.`);
       setTimeout(() => setDistributeToast(null), 5000);
@@ -488,6 +510,32 @@ export default function ExamDetailClient({
       alert(res.error || 'Gagal membagikan nilai soal secara otomatis.');
     }
     setDistributeLoading(false);
+  };
+
+  // ⬆️⬇️ Pindahkan Urutan Soal Manual oleh Guru (Move Up / Down)
+  const handleMoveQuestion = async (questionId: string, direction: 'up' | 'down') => {
+    const currentIndex = questions.findIndex(q => q.id === questionId);
+    if (currentIndex === -1) return;
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= questions.length) return;
+
+    // Optimistic reorder
+    const updated = [...questions];
+    const [moved] = updated.splice(currentIndex, 1);
+    updated.splice(targetIndex, 0, moved);
+    const reindexed = updated.map((q, idx) => ({ ...q, order: idx }));
+    setQuestions(reindexed);
+
+    try {
+      const res = await moveQuestionOrder(exam.id, questionId, direction);
+      if (res?.error) {
+        alert(res.error);
+        setQuestions(questions); // revert
+      }
+    } catch (e: any) {
+      console.error(e);
+      setQuestions(questions); // revert
+    }
   };
 
   // 🔄 Dynamic 10-minute Rolling Token System (600 seconds)
@@ -916,7 +964,7 @@ export default function ExamDetailClient({
     });
 
     if (res.success && res.data) {
-      setQuestions([...questions, res.data]);
+      setQuestions(sortQuestions([...questions, res.data as any]));
       setIsAddQuestionModal(false);
       setQuestionTextBefore('');
       setQuestionText('');
@@ -1108,7 +1156,7 @@ export default function ExamDetailClient({
     setBatchLoading(true);
     const res = await createBatchQuestions(exam.id, parsedBatch);
     if (res.success && res.data) {
-      setQuestions([...questions, ...res.data]);
+      setQuestions(sortQuestions([...questions, ...res.data as any]));
       setIsBatchModalOpen(false);
       setBatchRawText('');
       setParsedBatch([]);
@@ -1505,7 +1553,8 @@ Poin: 10
     });
 
     if (res.success && res.data) {
-      setQuestions(questions.map(q => q.id === editingQId ? res.data : q));
+      const updated = questions.map(q => q.id === editingQId ? (res.data as any) : q);
+      setQuestions(sortQuestions(updated));
       setIsEditQModal(false);
       setEditingQId(null);
       setEditQuestionTextBefore('');
@@ -2106,6 +2155,24 @@ Poin: 10
                       </div>
                       {!isProctorOnly && (
                         <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleMoveQuestion(q.id, 'up')}
+                            disabled={idx === 0}
+                            className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/40 rounded-xl disabled:opacity-20 disabled:pointer-events-none transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-xs"
+                            title="Pindahkan urutan soal ke atas (Soal nomor sebelumnya)"
+                          >
+                            <ChevronUp size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleMoveQuestion(q.id, 'down')}
+                            disabled={idx === questions.length - 1}
+                            className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/40 rounded-xl disabled:opacity-20 disabled:pointer-events-none transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-xs"
+                            title="Pindahkan urutan soal ke bawah (Soal nomor berikutnya)"
+                          >
+                            <ChevronDown size={16} />
+                          </button>
                           <button
                             type="button"
                             onClick={() => handleOpenEditModal(q)}

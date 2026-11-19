@@ -53,7 +53,11 @@ export async function startOrResumeAttempt(data: {
       where: { id: data.examId },
       include: {
         questions: {
-          orderBy: { order: 'asc' },
+          orderBy: [
+            { order: 'asc' },
+            { createdAt: 'asc' },
+            { id: 'asc' },
+          ],
         },
       },
     });

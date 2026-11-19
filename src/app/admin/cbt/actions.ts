@@ -668,6 +668,19 @@ export async function createQuestion(data: {
       return { error: authCheck.error };
     }
 
+    // Ambil order terakhir & total count agar soal baru berada persis di urutan paling bawah secara berurutan
+    const [lastQuestion, currentCount] = await Promise.all([
+      prisma.examQuestion.findFirst({
+        where: { examId: data.examId },
+        orderBy: [{ order: 'desc' }, { createdAt: 'desc' }],
+        select: { order: true },
+      }),
+      prisma.examQuestion.count({
+        where: { examId: data.examId },
+      }),
+    ]);
+    const nextOrder = Math.max((lastQuestion?.order !== undefined && lastQuestion?.order !== null ? lastQuestion.order + 1 : 0), currentCount);
+
     const question = await prisma.examQuestion.create({
       data: {
         examId: data.examId,
@@ -676,6 +689,7 @@ export async function createQuestion(data: {
         options: JSON.stringify(data.options),
         correctAnswer: data.correctAnswer,
         points: Number(data.points) || 10,
+        order: nextOrder,
       },
     });
 
@@ -706,9 +720,17 @@ export async function createBatchQuestions(
       return { error: 'Daftar butir soal tidak boleh kosong.' };
     }
 
-    const currentCount = await prisma.examQuestion.count({
-      where: { examId },
-    });
+    const [lastQuestion, currentCount] = await Promise.all([
+      prisma.examQuestion.findFirst({
+        where: { examId },
+        orderBy: [{ order: 'desc' }, { createdAt: 'desc' }],
+        select: { order: true },
+      }),
+      prisma.examQuestion.count({
+        where: { examId },
+      }),
+    ]);
+    const baseOrder = Math.max((lastQuestion?.order !== undefined && lastQuestion?.order !== null ? lastQuestion.order + 1 : 0), currentCount);
 
     const created = await prisma.$transaction(
       questions.map((q, idx) =>
@@ -720,7 +742,7 @@ export async function createBatchQuestions(
             options: JSON.stringify(q.options),
             correctAnswer: q.correctAnswer,
             points: Number(q.points) || 10,
-            order: currentCount + idx,
+            order: baseOrder + idx,
           },
         })
       )
@@ -854,7 +876,11 @@ export async function autoDistributeExamPointsAction(
 
     const questions = await prisma.examQuestion.findMany({
       where: { examId },
-      orderBy: { order: 'asc' },
+      orderBy: [
+        { order: 'asc' },
+        { createdAt: 'asc' },
+        { id: 'asc' },
+      ],
     });
 
     if (questions.length === 0) {
@@ -866,10 +892,13 @@ export async function autoDistributeExamPointsAction(
     const pointsPerQuestion = Math.round((targetTotalPoints / count) * 100) / 100;
 
     await prisma.$transaction(
-      questions.map((q) =>
+      questions.map((q, idx) =>
         prisma.examQuestion.update({
           where: { id: q.id },
-          data: { points: pointsPerQuestion },
+          data: {
+            points: pointsPerQuestion,
+            order: idx, // Normalisasi order agar urutan soal konsisten dan tidak acak
+          },
         })
       )
     );
@@ -888,6 +917,93 @@ export async function autoDistributeExamPointsAction(
   } catch (error: any) {
     console.error('Error auto-distributing exam points:', error);
     return { success: false, error: error.message || 'Gagal membagikan nilai soal secara otomatis.' };
+  }
+}
+
+/**
+ * 🔢 Urutkan Ulang Butir Soal Berdasarkan Daftar ID (Batch Reorder Questions)
+ */
+export async function reorderExamQuestions(examId: string, orderedQuestionIds: string[]) {
+  try {
+    const authCheck = await verifyExamAuthorOrAdmin(examId);
+    if (!authCheck.allowed) {
+      return { error: authCheck.error };
+    }
+
+    if (!orderedQuestionIds || orderedQuestionIds.length === 0) {
+      return { error: 'Daftar ID soal tidak valid.' };
+    }
+
+    await prisma.$transaction(
+      orderedQuestionIds.map((id, index) =>
+        prisma.examQuestion.update({
+          where: { id },
+          data: { order: index },
+        })
+      )
+    );
+
+    revalidatePath(`/admin/cbt/${examId}`);
+    return { success: true };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+/**
+ * ⬆️⬇️ Pindahkan Urutan Soal (Move Up / Down)
+ */
+export async function moveQuestionOrder(
+  examId: string,
+  questionId: string,
+  direction: 'up' | 'down'
+) {
+  try {
+    const authCheck = await verifyExamAuthorOrAdmin(examId);
+    if (!authCheck.allowed) {
+      return { error: authCheck.error };
+    }
+
+    const allQuestions = await prisma.examQuestion.findMany({
+      where: { examId },
+      orderBy: [
+        { order: 'asc' },
+        { createdAt: 'asc' },
+        { id: 'asc' },
+      ],
+      select: { id: true, order: true },
+    });
+
+    const currentIndex = allQuestions.findIndex((q) => q.id === questionId);
+    if (currentIndex === -1) {
+      return { error: 'Soal tidak ditemukan.' };
+    }
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= allQuestions.length) {
+      return { success: true }; // Sudah di posisi paling atas / bawah
+    }
+
+    // Tukar posisi di array
+    const targetQuestion = allQuestions[targetIndex];
+    const currentQuestion = allQuestions[currentIndex];
+
+    // Simpan order baru di transaksi
+    await prisma.$transaction([
+      prisma.examQuestion.update({
+        where: { id: currentQuestion.id },
+        data: { order: targetIndex },
+      }),
+      prisma.examQuestion.update({
+        where: { id: targetQuestion.id },
+        data: { order: currentIndex },
+      }),
+    ]);
+
+    revalidatePath(`/admin/cbt/${examId}`);
+    return { success: true };
+  } catch (error: any) {
+    return { error: error.message };
   }
 }
 
