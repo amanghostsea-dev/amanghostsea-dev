@@ -105,265 +105,10 @@ import {
   triggerBrowserDownload,
   splitCsvRows,
   keyToLetter,
+  parseBulkQuestions,
+  ParsedQuestion,
 } from '@/lib/cbt-bank-soal';
-
-interface ParsedQuestion {
-  questionText: string;
-  imageUrl?: string | null;
-  options: string[];
-  correctAnswer: string;
-  points: number;
-}
-
-function splitCsvLine(line: string, delimiter: string = ';'): string[] {
-  const result: string[] = [];
-  let current = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        current += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (char === delimiter && !inQuotes) {
-      result.push(current.trim());
-      current = '';
-    } else {
-      current += char;
-    }
-  }
-  result.push(current.trim());
-  return result;
-}
-
-function parseBulkQuestions(rawText: string, defaultPoints: number = 10): ParsedQuestion[] {
-  const trimmed = rawText.trim();
-  if (!trimmed) return [];
-
-  // Detect if content is Delimited (CSV or Tab-Separated from Excel copy-paste)
-  const isDelimited = trimmed.includes('sep=;') || trimmed.includes(';') || trimmed.includes('\t') || (trimmed.includes(',') && trimmed.includes('"'));
-
-  // Gunakan splitCsvRows agar baris baru di dalam tanda petik ganda tetap utuh
-  const lines = isDelimited
-    ? splitCsvRows(trimmed).filter((l) => !l.toLowerCase().startsWith('sep='))
-    : trimmed.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).filter((l) => !l.toLowerCase().startsWith('sep='));
-
-  if (isDelimited) {
-    const results: ParsedQuestion[] = [];
-    let detectedDelimiter = ';';
-    const sampleLine = lines.find((l) => !l.startsWith('#')) || '';
-    if (sampleLine.split('\t').length >= 5) detectedDelimiter = '\t';
-    else if (sampleLine.split(';').length >= 5) detectedDelimiter = ';';
-    else if (sampleLine.split(',').length >= 5) detectedDelimiter = ',';
-
-    // Header column mapping
-    let colQ = -1;
-    let colA = -1;
-    let colB = -1;
-    let colC = -1;
-    let colD = -1;
-    let colE = -1;
-    let colKey = -1;
-    let colPoints = -1;
-    let colImg = -1;
-    let hasHeader = false;
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (line.startsWith('#')) continue;
-
-      const parts = splitCsvLine(line, detectedDelimiter).map((p) => p.replace(/^["']|["']$/g, '').trim());
-      if (parts.length < 5) continue;
-
-      // Check if this line is header row
-      const lower = parts.map((p) => p.toLowerCase());
-      const looksLikeHeader = lower.some(
-        (p) => p.includes('soal') || p.includes('tanya') || p.includes('kunci') || p.includes('pilihan')
-      );
-
-      if (!hasHeader && looksLikeHeader) {
-        hasHeader = true;
-        parts.forEach((p, idx) => {
-          const s = p.toLowerCase();
-          if (s.includes('soal') || s.includes('tanya') || s.includes('pertanyaan')) colQ = idx;
-          else if (s === 'a' || s.includes('pilihan a') || s.includes('opsi a')) colA = idx;
-          else if (s === 'b' || s.includes('pilihan b') || s.includes('opsi b')) colB = idx;
-          else if (s === 'c' || s.includes('pilihan c') || s.includes('opsi c')) colC = idx;
-          else if (s === 'd' || s.includes('pilihan d') || s.includes('opsi d')) colD = idx;
-          else if (s === 'e' || s.includes('pilihan e') || s.includes('opsi e')) colE = idx;
-          else if (s.includes('kunci') || s.includes('jawaban') || s.includes('ans') || s.includes('key')) colKey = idx;
-          else if (s.includes('poin') || s.includes('nilai') || s.includes('bobot') || s.includes('skor')) colPoints = idx;
-          else if (s.includes('gambar') || s.includes('image') || s.includes('foto') || s.includes('url')) colImg = idx;
-        });
-        continue;
-      }
-
-      let qText = '';
-      let optA = '';
-      let optB = '';
-      let optC = '';
-      let optD = '';
-      let optE = '';
-      let keyRaw = 'A';
-      let pt = defaultPoints;
-      let imgUrl = colImg !== -1 && parts[colImg] ? parts[colImg].trim() : undefined;
-
-      const parsePt = (val: any) => {
-        if (!val) return defaultPoints;
-        const p = parseFloat(String(val).replace(',', '.'));
-        return !isNaN(p) && p > 0 ? p : defaultPoints;
-      };
-
-      if (hasHeader && colQ !== -1 && colA !== -1) {
-        qText = parts[colQ] || '';
-        optA = parts[colA] || '';
-        optB = parts[colB] || '';
-        optC = parts[colC] || '';
-        optD = parts[colD] || '';
-        optE = colE !== -1 ? parts[colE] || '' : '';
-        keyRaw = colKey !== -1 ? parts[colKey] || 'A' : 'A';
-        pt = colPoints !== -1 && parts[colPoints] ? parsePt(parts[colPoints]) : defaultPoints;
-      } else {
-        const isFirstColNumber = /^\d+$/.test(parts[0]);
-        const offset = isFirstColNumber ? 1 : 0;
-        qText = parts[offset] || '';
-        optA = parts[offset + 1] || '';
-        optB = parts[offset + 2] || '';
-        optC = parts[offset + 3] || '';
-        optD = parts[offset + 4] || '';
-
-        if (parts.length >= offset + 7 && !['A', 'B', 'C', 'D', 'E', '0', '1', '2', '3', '4'].includes(parts[offset + 5].toUpperCase())) {
-          optE = parts[offset + 5];
-          keyRaw = parts[offset + 6] || 'A';
-          pt = parts[offset + 7] ? parsePt(parts[offset + 7]) : defaultPoints;
-        } else {
-          keyRaw = parts[offset + 5] || 'A';
-          pt = parts[offset + 6] ? parsePt(parts[offset + 6]) : defaultPoints;
-        }
-      }
-
-      qText = qText.replace(/^(?:Soal\s*)?\d+[\.\:\)]\s*/i, '').trim();
-      if (!qText) continue;
-
-      const opts = [optA, optB, optC, optD].filter(Boolean);
-      if (optE) opts.push(optE);
-      while (opts.length < 4) {
-        opts.push(`Pilihan ${String.fromCharCode(65 + opts.length)}`);
-      }
-
-      const k = keyRaw.toUpperCase().trim();
-      let kIdx = 0;
-      if (k === 'B' || k === '1') kIdx = 1;
-      else if (k === 'C' || k === '2') kIdx = 2;
-      else if (k === 'D' || k === '3') kIdx = 3;
-      else if (k === 'E' || k === '4') kIdx = 4;
-
-      results.push({
-        questionText: qText,
-        imageUrl: imgUrl || null,
-        options: opts,
-        correctAnswer: String(kIdx),
-        points: pt,
-      });
-    }
-
-    if (results.length > 0) return results;
-  }
-
-  // Block-based parsing
-  const normalized = trimmed.replace(/\r\n/g, '\n');
-  const rawBlocks = normalized
-    .split(/\n\s*\n+|(?<=\n)(?=(?:Soal\s*)?\d+[\.\)]\s+)/i)
-    .map((b) => b.trim())
-    .filter(Boolean);
-
-  const parsedResults: ParsedQuestion[] = [];
-
-  for (const block of rawBlocks) {
-    const bLines = block.split('\n').map((l) => l.trim()).filter(Boolean);
-    if (bLines.length === 0) continue;
-
-    let qTextParts: string[] = [];
-    let options: string[] = [];
-    let correctAnswer = '0';
-    let points = defaultPoints;
-    let imageUrl: string | null = null;
-
-    const optionRegex = /^(?:(?:\(?([A-Ea-e])[\.\)]|\(([A-Ea-e])\))|\b([A-Ea-e])\.\s+)\s*(.*)/;
-    const keyRegex = /^(?:Kunci|Jawaban|Ans|Key|Kunci\s*Jawaban|Jawaban\s*Benar)[\s\:\=\-]+([A-Ea-e]|\d)\b/i;
-    const pointsRegex = /^(?:Poin|Nilai|Bobot|Score|Points)[\s\:\=\-]+([\d\.,]+)\b/i;
-    const imageRegex = /^(?:Gambar|Image|Foto|Pic|Picture)[\s\:\=\-]+(.*)/i;
-
-    for (const bLine of bLines) {
-      const kMatch = bLine.match(keyRegex);
-      if (kMatch) {
-        const k = kMatch[1].toUpperCase();
-        let kIdx = 0;
-        if (k === 'B' || k === '1') kIdx = 1;
-        else if (k === 'C' || k === '2') kIdx = 2;
-        else if (k === 'D' || k === '3') kIdx = 3;
-        else if (k === 'E' || k === '4') kIdx = 4;
-        correctAnswer = String(kIdx);
-        continue;
-      }
-
-      const pMatch = bLine.match(pointsRegex);
-      if (pMatch) {
-        const parsedVal = parseFloat(pMatch[1].replace(',', '.'));
-        points = !isNaN(parsedVal) && parsedVal > 0 ? parsedVal : defaultPoints;
-        continue;
-      }
-
-      const imgMatch = bLine.match(imageRegex);
-      if (imgMatch) {
-        imageUrl = imgMatch[1].trim();
-        qTextParts.push('[GAMBAR]');
-        continue;
-      }
-
-      const oMatch = bLine.match(optionRegex);
-      if (oMatch) {
-        const optText = oMatch[4] || '';
-        options.push(optText.trim());
-        continue;
-      }
-
-      if (options.length === 0) {
-        qTextParts.push(bLine);
-      } else {
-        const lastIdx = options.length - 1;
-        options[lastIdx] += ' ' + bLine;
-      }
-    }
-
-    if (qTextParts.length > 0) {
-      let rawQ = qTextParts.join('\n').trim();
-      rawQ = rawQ.replace(/^(?:Soal\s*)?\d+[\.\:\)]\s*/i, '').trim();
-
-      if (options.length < 4) {
-        while (options.length < 4) {
-          options.push(`Pilihan ${String.fromCharCode(65 + options.length)}`);
-        }
-      }
-
-      if (rawQ) {
-        parsedResults.push({
-          questionText: rawQ,
-          imageUrl,
-          options,
-          correctAnswer,
-          points,
-        });
-      }
-    }
-  }
-
-  return parsedResults;
-}
+import CbtDownloadBankSoalModal from '@/components/cbt/CbtDownloadBankSoalModal';
 
 interface QuestionItem {
   id: string;
@@ -1483,47 +1228,7 @@ Poin: 10
   };
 
   const [isDownloadBankSoalModalOpen, setIsDownloadBankSoalModalOpen] = useState(false);
-
-  const handleDownloadExamQuestions = (
-    format: 'csv' | 'txt' | 'json' = 'csv',
-    onlySelected: boolean = false
-  ) => {
-    const targetQuestions = onlySelected && selectedQIds.length > 0
-      ? questions.filter((q) => selectedQIds.includes(q.id))
-      : questions;
-
-    if (targetQuestions.length === 0) {
-      alert('Belum ada butir soal yang dapat diunduh.');
-      return;
-    }
-
-    const cleanExamTitle = (exam.title || 'Ujian').replace(/[^a-zA-Z0-9_\-]/g, '_');
-    const cleanSubject = (exam.subject || 'Mapel').replace(/[^a-zA-Z0-9_\-]/g, '_');
-    const suffix = onlySelected ? `_Terpilih_${targetQuestions.length}Soal` : `_${targetQuestions.length}Soal`;
-
-    if (format === 'csv') {
-      const csv = generateExamQuestionsCsv(exam.title, exam.subject, targetQuestions);
-      triggerBrowserDownload(
-        csv,
-        `Bank_Soal_CBT_${cleanSubject}_${cleanExamTitle}${suffix}.csv`,
-        'text/csv;charset=utf-8;'
-      );
-    } else if (format === 'txt') {
-      const txt = generateExamQuestionsTxt(exam.title, exam.subject, targetQuestions);
-      triggerBrowserDownload(
-        txt,
-        `Bank_Soal_CBT_${cleanSubject}_${cleanExamTitle}${suffix}.txt`,
-        'text/plain;charset=utf-8;'
-      );
-    } else if (format === 'json') {
-      const json = generateExamQuestionsJson(exam.title, exam.subject, targetQuestions);
-      triggerBrowserDownload(
-        json,
-        `Bank_Soal_CBT_${cleanSubject}_${cleanExamTitle}${suffix}.json`,
-        'application/json;charset=utf-8;'
-      );
-    }
-  };
+  const [isDownloadSubset, setIsDownloadSubset] = useState(false);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1538,10 +1243,15 @@ Poin: 10
           setParsedBatch(parsed);
           setBatchStep('preview');
           setBatchError(null);
+        } else {
+          setBatchError(
+            'Tidak dapat membaca butir soal dari file ini. Pastikan format file sesuai dengan panduan (.csv, .txt, atau .json).'
+          );
         }
       }
     };
     reader.readAsText(file);
+    e.target.value = '';
   };
 
   // Edit Question Modal state
@@ -2120,7 +1830,10 @@ Poin: 10
                   {questions.length > 0 ? (
                     <button
                       type="button"
-                      onClick={() => setIsDownloadBankSoalModalOpen(true)}
+                      onClick={() => {
+                        setIsDownloadSubset(false);
+                        setIsDownloadBankSoalModalOpen(true);
+                      }}
                       className="group relative overflow-hidden flex items-center justify-center gap-2 px-4 py-2.5 sm:py-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:via-indigo-500 hover:to-blue-600 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md shadow-blue-500/25 hover:shadow-lg hover:shadow-blue-500/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 cursor-pointer"
                       title="Unduh butir soal yang sudah diunggah dalam format Excel/CSV resmi (format cocok untuk langsung di-upload saat membuat paket baru)"
                     >
@@ -2225,9 +1938,12 @@ Poin: 10
                       <>
                         <button
                           type="button"
-                          onClick={() => handleDownloadExamQuestions('csv', true)}
+                          onClick={() => {
+                            setIsDownloadSubset(true);
+                            setIsDownloadBankSoalModalOpen(true);
+                          }}
                           className="px-3.5 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 text-xs font-bold flex items-center gap-1.5 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-2xs"
-                          title="Unduh hanya butir soal yang dicentang dalam format Excel/CSV siap upload"
+                          title="Unduh hanya butir soal yang dicentang dalam format siap upload"
                         >
                           <Download size={14} className="text-emerald-600 dark:text-emerald-400" />
                           <span>Unduh ({selectedQIds.length}) Soal Terpilih</span>
@@ -3107,184 +2823,27 @@ Poin: 10
         </div>
       )}
 
-      {/* 📥 MODAL UNDUH & EKSPOR BANK SOAL CBT */}
+      {/* 📥 MODAL STUDIO UNDUH BANK SOAL: Format Siap Upload */}
       {isDownloadBankSoalModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in font-sans">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 animate-in zoom-in-95">
-            {/* Header */}
-            <div className="p-5 sm:p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-blue-50/70 via-indigo-50/50 to-slate-50/60 dark:from-blue-950/30 dark:via-indigo-950/20 dark:to-slate-950/40">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/25 shrink-0">
-                  <Download size={22} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base sm:text-lg font-black text-slate-800 dark:text-white">
-                      Unduh Bank Soal CBT
-                    </h3>
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                      100% Siap Upload
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Pilih format unduhan naskah soal yang Anda perlukan
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsDownloadBankSoalModalOpen(false)}
-                className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Content Body */}
-            <div className="p-5 sm:p-6 overflow-y-auto space-y-4">
-              {/* Info Ringkas Paket */}
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 flex flex-wrap items-center justify-between gap-3 text-xs">
-                <div>
-                  <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider">Judul Paket Ujian</span>
-                  <span className="font-bold text-slate-800 dark:text-white text-sm">{exam.title}</span>
-                </div>
-                <div className="flex items-center gap-4 text-slate-600 dark:text-slate-300 font-semibold">
-                  <div>
-                    <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider">Mata Pelajaran</span>
-                    <span>{exam.subject}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider">Jumlah Soal</span>
-                    <span className="text-blue-600 dark:text-blue-400 font-extrabold">{questions.length} Butir</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider">Total Skor</span>
-                    <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">{totalPoints} Poin</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Pilihan Format */}
-              <div className="space-y-3">
-                {/* 1. Format Excel / CSV Siap Upload */}
-                <div className="p-4 rounded-2xl border-2 border-emerald-500/40 dark:border-emerald-500/30 bg-emerald-50/30 dark:bg-emerald-950/20 hover:border-emerald-500 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div className="flex items-start gap-3.5">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
-                      <FileSpreadsheet size={20} />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-bold text-slate-800 dark:text-white text-sm">
-                          Format Tabel Excel / Spreadsheet (.CSV)
-                        </h4>
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
-                          Sangat Direkomendasikan
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                        Format resmi bank soal CBT (pemisah <code className="px-1 py-0.5 bg-white dark:bg-slate-800 rounded font-mono font-bold text-emerald-600">;</code> & UTF-8 BOM). 
-                        Saat Anda membuat paket ujian baru, file ini <strong>bisa langsung di-upload</strong> tanpa harus diedit lagi!
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleDownloadExamQuestions('csv');
-                      setIsDownloadBankSoalModalOpen(false);
-                    }}
-                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer shrink-0"
-                  >
-                    <Download size={14} /> Unduh CSV (Excel)
-                  </button>
-                </div>
-
-                {/* 2. Format Word / Teks */}
-                <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-blue-500/50 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div className="flex items-start gap-3.5">
-                    <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
-                      <FileText size={20} />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-slate-800 dark:text-white text-sm">
-                        Format Naskah Word / Dokumen Teks (.TXT)
-                      </h4>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                        Naskah bernomor rapi (<code className="px-1 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono text-slate-600">1. Soal</code>, <code className="px-1 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono text-slate-600">A. Opsi</code>, <code className="px-1 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono text-slate-600">Kunci: A</code>). Cocok untuk dibuka di Microsoft Word, disunting, dicetak untuk arsip fisik guru, atau di-copy-paste langsung.
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleDownloadExamQuestions('txt');
-                      setIsDownloadBankSoalModalOpen(false);
-                    }}
-                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer shrink-0"
-                  >
-                    <Download size={14} /> Unduh Teks (.TXT)
-                  </button>
-                </div>
-
-                {/* 3. Format Master Cadangan Data (.JSON) */}
-                <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-purple-500/50 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div className="flex items-start gap-3.5">
-                    <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
-                      <Layers size={20} />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-slate-800 dark:text-white text-sm">
-                        Master Cadangan Data Digital (.JSON)
-                      </h4>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                        Salinan digital lengkap struktur bank soal untuk cadangan (backup) data teknis dan pemulihan sistem.
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleDownloadExamQuestions('json');
-                      setIsDownloadBankSoalModalOpen(false);
-                    }}
-                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer shrink-0"
-                  >
-                    <Download size={14} /> Unduh JSON
-                  </button>
-                </div>
-
-                {/* 4. Unduh Template Kosong Baru */}
-                <div className="p-3.5 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between gap-3 text-xs">
-                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 font-medium">
-                    <FileDown size={16} className="text-slate-400" />
-                    <span>Perlu template Excel kosong siap isi untuk membuat soal baru dari nol?</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleDownloadCsvTemplate('csv');
-                      setIsDownloadBankSoalModalOpen(false);
-                    }}
-                    className="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 text-slate-700 dark:text-slate-200 font-bold text-[11px] transition cursor-pointer shrink-0"
-                  >
-                    Unduh Template Kosong
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="p-4 sm:p-5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end bg-slate-50/50 dark:bg-slate-950/40">
-              <button
-                type="button"
-                onClick={() => setIsDownloadBankSoalModalOpen(false)}
-                className="px-5 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all cursor-pointer"
-              >
-                Tutup
-              </button>
-            </div>
-          </div>
-        </div>
+        <CbtDownloadBankSoalModal
+          isOpen={isDownloadBankSoalModalOpen}
+          onClose={() => setIsDownloadBankSoalModalOpen(false)}
+          examTitle={exam.title}
+          examSubject={exam.subject}
+          questions={
+            selectedQIds.length > 0 && isDownloadSubset
+              ? questions.filter((q) => selectedQIds.includes(q.id))
+              : questions
+          }
+          totalPoints={
+            selectedQIds.length > 0 && isDownloadSubset
+              ? questions
+                  .filter((q) => selectedQIds.includes(q.id))
+                  .reduce((sum, q) => sum + (q.points || 10), 0)
+              : totalPoints
+          }
+          isSubset={selectedQIds.length > 0 && isDownloadSubset}
+        />
       )}
 
       {/* 📥 MODAL INPUT SOAL KOLEKTIF (BULK IMPORT) */}
@@ -3414,11 +2973,11 @@ Poin: 10
                         <FileText size={14} className="text-blue-600 dark:text-blue-400" /> Format Word (.TXT)
                       </button>
 
-                      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition shadow-sm cursor-pointer">
-                        <FileUp size={14} className="text-indigo-600 dark:text-indigo-400" /> Unggah File (.csv/.txt)
+                      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer">
+                        <FileUp size={14} className="text-indigo-600 dark:text-indigo-400" /> Unggah File (.csv / .txt / .json)
                         <input
                           type="file"
-                          accept=".txt,.csv"
+                          accept=".txt,.csv,.json"
                           onChange={handleFileUpload}
                           className="hidden"
                         />
@@ -3433,7 +2992,7 @@ Poin: 10
                         Tempelkan Teks Soal / Tabel Excel di Bawah Ini:
                       </label>
                       <span className="text-[11px] text-slate-400">
-                        Mendukung format Microsoft Word / Google Docs & CSV / Tabel Excel
+                        Mendukung format Word (.txt), Excel (.csv), JSON (.json), atau Paste Langsung
                       </span>
                     </div>
 

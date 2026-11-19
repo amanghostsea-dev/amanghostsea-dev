@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import CbtParticipantCardModal from '@/components/cbt/CbtParticipantCardModal';
+import CbtDownloadBankSoalModal from '@/components/cbt/CbtDownloadBankSoalModal';
 import { 
   createExam, 
   updateExam, 
@@ -58,7 +59,8 @@ import {
 } from './actions';
 import { 
   generateExamQuestionsCsv,
-  triggerBrowserDownload
+  triggerBrowserDownload,
+  ExportableQuestionItem
 } from '@/lib/cbt-bank-soal';
 import { 
   formatExamScheduleRange, 
@@ -219,8 +221,15 @@ export default function CbtDashboard({
     return isAuthorMatch(exam.proctorName) || isAuthorMatch(exam.proctor2Name);
   };
 
-  // 📥 Unduh Cepat Butir Soal Bank Soal (Format Siap Upload)
+  // 📥 Studio Unduh & Cadangan Bank Soal (Format Siap Upload & Backup)
   const [downloadingExamId, setDownloadingExamId] = useState<string | null>(null);
+  const [downloadModalData, setDownloadModalData] = useState<{
+    isOpen: boolean;
+    examTitle: string;
+    examSubject: string;
+    questions: ExportableQuestionItem[];
+    totalPoints: number;
+  } | null>(null);
 
   const handleQuickDownloadExamQuestions = async (examItem: ExamItem) => {
     setDownloadingExamId(examItem.id);
@@ -231,14 +240,13 @@ export default function CbtDashboard({
           alert(`Paket ujian "${examItem.title}" belum memiliki butir soal yang diunggah.`);
           return;
         }
-        const csv = generateExamQuestionsCsv(res.exam.title, res.exam.subject, res.questions);
-        const cleanSubject = (res.exam.subject || 'Mapel').replace(/[^a-zA-Z0-9_\-]/g, '_');
-        const cleanTitle = (res.exam.title || 'Ujian').replace(/[^a-zA-Z0-9_\-]/g, '_');
-        triggerBrowserDownload(
-          csv,
-          `Bank_Soal_CBT_${cleanSubject}_${cleanTitle}_${res.questions.length}Soal.csv`,
-          'text/csv;charset=utf-8;'
-        );
+        setDownloadModalData({
+          isOpen: true,
+          examTitle: res.exam.title,
+          examSubject: res.exam.subject,
+          questions: res.questions,
+          totalPoints: res.questions.reduce((sum: number, q: any) => sum + (q.points || 10), 0),
+        });
       } else {
         alert(res.error || 'Gagal mengunduh bank soal.');
       }
@@ -3838,6 +3846,18 @@ export default function CbtDashboard({
         variant="danger"
         isLoading={loading}
       />
+
+      {/* 📥 Modal Studio Unduh & Cadangan Bank Soal (Format Siap Upload Ulang) */}
+      {downloadModalData && (
+        <CbtDownloadBankSoalModal
+          isOpen={downloadModalData.isOpen}
+          onClose={() => setDownloadModalData(null)}
+          examTitle={downloadModalData.examTitle}
+          examSubject={downloadModalData.examSubject}
+          questions={downloadModalData.questions}
+          totalPoints={downloadModalData.totalPoints}
+        />
+      )}
 
       {/* Footer identitas pengembang */}
       <footer className="mt-12 pt-6 pb-2 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400 flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2">
