@@ -29,7 +29,11 @@ import {
   Trash2,
   Save,
   Check,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Download,
+  FileSpreadsheet,
+  FileDown,
+  ChevronDown
 } from 'lucide-react';
 import { KopSuratConfig, DEFAULT_KOP_SURAT_CONFIG } from '@/app/admin/settings/types';
 import { CbtDigitalStamp, HeadmasterSignatureStroke } from './CbtOfficialPrintComponents';
@@ -374,6 +378,157 @@ export default function CbtParticipantCardModal({
     }
   }, [portalUrl, layoutMode]);
 
+  // State Dropdown Unduh
+  const [isDownloadMenuOpen, setIsDownloadMenuOpen] = useState<boolean>(false);
+
+  // Close download menu on click outside
+  useEffect(() => {
+    if (!isDownloadMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('#cbt-download-dropdown-wrapper')) {
+        setIsDownloadMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isDownloadMenuOpen]);
+
+  // 1. 📊 Unduh Data Akun Login Siswa ke Excel (CSV)
+  const handleDownloadExcel = () => {
+    if (filteredStudents.length === 0) {
+      alert('Tidak ada data siswa yang terpilih untuk diunduh.');
+      return;
+    }
+
+    const headers = [
+      'No',
+      'Nama Lengkap Siswa',
+      'NISN / Username CBT',
+      'Kata Sandi / Password',
+      'Kelas / Rombel',
+      'Jurusan',
+      'Tingkat',
+      'Ruang Ujian',
+      'Sesi Ujian',
+      'Judul Ujian',
+      'Tahun Ajaran / Semester',
+      'URL Portal Login CBT'
+    ];
+
+    const rows = filteredStudents.map((s, idx) => {
+      return [
+        idx + 1,
+        `"${s.name.replace(/"/g, '""')}"`,
+        `"${s.username || s.nisn || '-'}"`,
+        `"${s.password || 'siswa123'}"`,
+        `"${s.studentClass || '-'}"`,
+        `"${s.majorName || s.major || '-'}"`,
+        `"${s.gradeLevel || '-'}"`,
+        `"${examRoom.replace(/"/g, '""')}"`,
+        `"${examSession.replace(/"/g, '""')}"`,
+        `"${examTitle.replace(/"/g, '""')}"`,
+        `"${academicYear.replace(/"/g, '""')}"`,
+        `"${portalUrl}"`
+      ].join(',');
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const cleanClass = selectedClass !== 'ALL' ? selectedClass.replace(/\s+/g, '_') : 'Semua_Kelas';
+    link.setAttribute('download', `Data_Kartu_Login_CBT_${cleanClass}_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // 2. 📄 Download Dokumen Kartu (Save as PDF)
+  const handleDownloadPdf = () => {
+    const originalTitle = document.title;
+    const cleanClass = selectedClass !== 'ALL' ? selectedClass.replace(/\s+/g, '_') : 'Semua_Siswa';
+    document.title = `Kartu_Peserta_CBT_${cleanClass}_A4`;
+    window.print();
+    setTimeout(() => {
+      document.title = originalTitle;
+    }, 1000);
+  };
+
+  // 3. 🌐 Unduh Berkas Kartu Mandiri (HTML Siap Cetak Kapan Saja)
+  const handleDownloadHtml = () => {
+    const printElement = document.getElementById('cbt-cards-printable-wrapper');
+    if (!printElement) {
+      alert('Konten kartu belum siap.');
+      return;
+    }
+
+    const cleanClass = selectedClass !== 'ALL' ? selectedClass.replace(/\s+/g, '_') : 'Semua_Siswa';
+    const htmlContent = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Kartu Peserta CBT - ${cleanClass}</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 8mm 6mm;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 10px;
+      background: #f8fafc;
+      color: #000;
+    }
+    .print-button-bar {
+      text-align: center;
+      margin-bottom: 20px;
+      padding: 15px;
+      background: #1e293b;
+      color: #fff;
+      border-radius: 12px;
+    }
+    .print-button-bar button {
+      background: #f59e0b;
+      color: #000;
+      font-weight: bold;
+      border: none;
+      padding: 10px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .print-button-bar { display: none !important; }
+      .a4-sheet-container { page-break-after: always; box-shadow: none !important; border: none !important; margin: 0 !important; padding: 0 !important; }
+      .print-last-sheet { page-break-after: avoid !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="print-button-bar">
+    <button onclick="window.print()">🖨️ Cetak Kartu Sekarang (A4)</button>
+    <div style="font-size: 11px; margin-top: 6px; color: #cbd5e1;">Dokumen resmi Kartu Ujian CBT SMK - Siap dicetak langsung atau disimpan ke PDF.</div>
+  </div>
+  ${printElement.innerHTML}
+</body>
+</html>`;
+
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Cetak_Kartu_CBT_${cleanClass}.html`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   // Print Handler
   const handlePrint = () => {
     window.print();
@@ -408,7 +563,7 @@ export default function CbtParticipantCardModal({
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5 self-end md:self-auto">
+          <div className="flex items-center gap-2.5 self-end md:self-auto flex-wrap sm:flex-nowrap">
             <button
               onClick={() => setIsOptionsOpen(!isOptionsOpen)}
               className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold border transition-all cursor-pointer ${
@@ -419,6 +574,82 @@ export default function CbtParticipantCardModal({
             >
               <Settings2 size={16} /> Kustomisasi Teks, Stempel & TTD
             </button>
+
+            {/* 📊 Tombol Unduh Data Excel / CSV */}
+            <button
+              type="button"
+              onClick={handleDownloadExcel}
+              disabled={loading || filteredStudents.length === 0}
+              className="flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md shadow-emerald-600/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+              title="Unduh seluruh akun peserta (Nama, NISN, Password, Kelas, Ruang) dalam format Excel / CSV"
+            >
+              <FileSpreadsheet size={17} />
+              <span>Unduh Excel</span>
+            </button>
+
+            {/* 📥 Dropdown Opsi Unduh Tambahan */}
+            <div id="cbt-download-dropdown-wrapper" className="relative">
+              <button
+                type="button"
+                onClick={() => setIsDownloadMenuOpen(!isDownloadMenuOpen)}
+                disabled={loading || filteredStudents.length === 0}
+                className="flex items-center gap-1.5 px-3 py-2 sm:py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold text-xs sm:text-sm border border-white/10 transition cursor-pointer disabled:opacity-50"
+                title="Pilihan Format Unduhan Lainnya"
+              >
+                <Download size={15} className="text-teal-400" />
+                <span className="hidden lg:inline">Opsi Unduh</span>
+                <ChevronDown size={14} className={isDownloadMenuOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
+              </button>
+
+              {isDownloadMenuOpen && (
+                <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-2 z-50 text-xs space-y-1 animate-in fade-in zoom-in-95 duration-150">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsDownloadMenuOpen(false);
+                      handleDownloadExcel();
+                    }}
+                    className="w-full text-left p-2.5 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-slate-800 dark:text-slate-200 flex items-center gap-2.5 font-bold cursor-pointer transition"
+                  >
+                    <FileSpreadsheet size={18} className="text-emerald-600 shrink-0" />
+                    <div>
+                      <div>Unduh Data Akun (Excel / CSV)</div>
+                      <div className="text-[10px] text-slate-400 font-normal">Rekap Nama, NISN, Password, Kelas, Ruang &amp; Sesi</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsDownloadMenuOpen(false);
+                      handleDownloadPdf();
+                    }}
+                    className="w-full text-left p-2.5 rounded-xl hover:bg-amber-50 dark:hover:bg-amber-950/40 text-slate-800 dark:text-slate-200 flex items-center gap-2.5 font-bold cursor-pointer transition"
+                  >
+                    <Printer size={18} className="text-amber-600 shrink-0" />
+                    <div>
+                      <div>Simpan Lembar Kartu (PDF A4)</div>
+                      <div className="text-[10px] text-slate-400 font-normal">Format cetak/simpan PDF A4 presisi 6 kartu/lembar</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsDownloadMenuOpen(false);
+                      handleDownloadHtml();
+                    }}
+                    className="w-full text-left p-2.5 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-950/40 text-slate-800 dark:text-slate-200 flex items-center gap-2.5 font-bold cursor-pointer transition"
+                  >
+                    <FileDown size={18} className="text-purple-600 shrink-0" />
+                    <div>
+                      <div>Unduh Berkas Mandiri (HTML Siap Cetak)</div>
+                      <div className="text-[10px] text-slate-400 font-normal">Bisa dibuka offline di komputer/HP mana saja</div>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
 
             <button
               onClick={handlePrint}

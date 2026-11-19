@@ -2310,8 +2310,9 @@ export interface GetCbtStudentCardsOptions {
 export async function getCbtStudentCardsDataAction(options?: GetCbtStudentCardsOptions) {
   try {
     const cookieStore = await cookies();
-    const userRole = cookieStore.get('auth_token')?.value;
-    const isSuperAdmin = userRole === 'Super Admin' || userRole === 'Admin Utama';
+    const rawRole = (cookieStore.get('auth_token')?.value || '').trim();
+    const cleanRole = rawRole.toLowerCase();
+    const isSuperAdmin = cleanRole.includes('admin') || cleanRole.includes('super');
 
     if (!isSuperAdmin) {
       return {
@@ -2322,8 +2323,10 @@ export async function getCbtStudentCardsDataAction(options?: GetCbtStudentCardsO
     const [rawStudents, studentGrades, examAttempts, kopSuratConfig, dynamicClasses, exams, jurusans] = await Promise.all([
       prisma.user.findMany({
         where: {
-          role: 'Siswa',
-          status: 'Aktif',
+          role: { in: ['Siswa', 'siswa', 'SISWA'] },
+          NOT: {
+            status: { in: ['Nonaktif', 'nonaktif', 'NONAKTIF', 'Banned', 'Keluar'] },
+          },
         },
         select: {
           id: true,
@@ -2390,7 +2393,26 @@ export async function getCbtStudentCardsDataAction(options?: GetCbtStudentCardsO
       }
     }
 
-    let students: CbtStudentCardItem[] = rawStudents.map((s) => {
+    let finalStudents = rawStudents;
+    if (finalStudents.length === 0) {
+      finalStudents = await prisma.user.findMany({
+        where: {
+          role: { notIn: ['Guru', 'Super Admin', 'Admin Utama', 'guru', 'admin'] },
+        },
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          password: true,
+          nisn: true,
+          studentClass: true,
+          createdAt: true,
+        },
+        orderBy: [{ name: 'asc' }],
+      });
+    }
+
+    let students: CbtStudentCardItem[] = finalStudents.map((s) => {
       const assignedClass =
         s.studentClass ||
         (s.nisn ? studentClassMap[s.nisn.trim().toLowerCase()] : null) ||
