@@ -302,7 +302,8 @@ export default function CbtExamRoom({
 
       const isUnblockedByAdmin = 
         !(attempt as any).isBlocked && 
-        ((attempt as any).proctorNotes?.includes('[ADMIN_UNBLOCK]') || dbCount < 3);
+        Boolean((attempt as any).proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]') || (attempt as any).proctorNotes?.includes('[ADMIN_UNBLOCK]')) && 
+        dbCount < 3;
 
       let restoredAnswers: Record<string, string> = {};
       let restoredDoubtful: Record<string, boolean> = {};
@@ -379,8 +380,8 @@ export default function CbtExamRoom({
     if (!attempt || attempt.status !== 'IN_PROGRESS' || finalResult) return;
 
     const executeViolation = () => {
-      // 🛡️ Jangan tambah pelanggaran jika siswa sedang dalam kondisi terkunci (Strike 2) atau tersuspend (Strike 3)
-      if (isStrike2Locked || (attempt as any)?.isBlocked || tabSwitchCount >= 3) {
+      // 🛡️ Jangan tambah pelanggaran jika siswa sudah dalam kondisi tersuspend total (Strike 3)
+      if ((attempt as any)?.isBlocked || tabSwitchCount >= 3) {
         return;
       }
 
@@ -576,8 +577,10 @@ export default function CbtExamRoom({
 
           // 🛡️ BUKA SUSPEND OLEH ADMIN UTAMA (STRIKE 3 DICABUT):
           const isStrike3Unblocked = 
-            (!res.isBlocked && res.tabSwitchCount !== undefined && res.tabSwitchCount < 3) ||
-            res.proctorNotes?.includes('[ADMIN_UNBLOCK]');
+            !res.isBlocked && 
+            res.tabSwitchCount !== undefined && 
+            res.tabSwitchCount < 3 && 
+            Boolean(res.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]') || res.proctorNotes?.includes('[ADMIN_UNBLOCK]'));
 
           if (isStrike3Unblocked && ((attempt as any)?.isBlocked || tabSwitchCount >= 3)) {
             const serverCount = typeof res.tabSwitchCount === 'number' ? res.tabSwitchCount : 1;
@@ -832,17 +835,19 @@ export default function CbtExamRoom({
   // ----------------------------------------------------
   // SCREEN 2: BLOCKED / SUSPEND SCREEN (Strike 3 or admin/proctor manual block)
   // ----------------------------------------------------
+  const isStrike3 = 
+    tabSwitchCount >= 3 || 
+    Boolean((attempt as any)?.isBlocked) || 
+    ((attempt as any)?.tabSwitchCount !== undefined && (attempt as any).tabSwitchCount >= 3) || 
+    Boolean((attempt as any)?.proctorNotes?.includes('[STRIKE_3_BLOKIR]') && (attempt as any)?.isBlocked !== false);
+
   const isUnblockedByAdmin = 
     !(attempt as any)?.isBlocked && 
-    ((attempt as any)?.proctorNotes?.includes('[ADMIN_UNBLOCK]') || ((attempt as any)?.tabSwitchCount !== undefined && (attempt as any).tabSwitchCount < 3));
+    tabSwitchCount < 3 && 
+    ((attempt as any)?.tabSwitchCount ?? 0) < 3 && 
+    Boolean((attempt as any)?.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]'));
 
-  const isStrike3 = !isUnblockedByAdmin && (
-    (tabSwitchCount >= 3 && !(attempt as any)?.proctorNotes?.includes('[ADMIN_UNBLOCK]')) || 
-    ((attempt as any)?.tabSwitchCount >= 3 && (attempt as any)?.isBlocked) || 
-    ((attempt as any)?.proctorNotes?.includes('[STRIKE_3_BLOKIR]') && (attempt as any)?.isBlocked)
-  );
-
-  const isActuallyBlocked = ((attempt && (attempt as any).isBlocked) || isStrike3) && !isUnblockedByAdmin;
+  const isActuallyBlocked = isStrike3 && !isUnblockedByAdmin;
 
   // Handle manual unblock check by student
   const handleManualCheckUnblock = async () => {

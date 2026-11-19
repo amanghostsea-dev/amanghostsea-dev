@@ -215,10 +215,15 @@ export async function saveProgress(
       current.proctorNotes?.includes('[IZIN_LANJUT_P2]') || 
       current.proctorNotes?.includes('[RESET_PENGAWAS]');
 
-    // 🛡️ Jika Admin Utama telah membuka suspend (isBlocked === false di DB atau ada admin override dan server tabSwitchCount < 3),
-    // JANGAN biarkan nilai tabSwitchCount lama dari browser siswa memicu suspend/blokir ulang!
+    // 🛡️ Jika Admin Utama telah membuka suspend (isBlocked === false di DB dan ada tag [ADMIN_UNBLOCK_ACTIVE] serta server tabSwitchCount <= 1),
+    // HANYA pada kondisi ini, kita abaikan kiriman tabSwitchCount >= 3 lama dari client browser yang belum sempat ter-reset!
+    const isRecentlyUnblockedByAdmin = 
+      !current.isBlocked &&
+      Boolean(current.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]')) &&
+      (current.tabSwitchCount ?? 0) <= 1;
+
     let effectiveTabCount: number;
-    if ((!current.isBlocked || hasAdminOverride) && (current.tabSwitchCount ?? 0) < 3 && tabSwitchCount >= 3) {
+    if (isRecentlyUnblockedByAdmin && tabSwitchCount >= 3) {
       effectiveTabCount = current.tabSwitchCount ?? 1;
     } else {
       effectiveTabCount = Math.max(current.tabSwitchCount || 0, tabSwitchCount);
@@ -227,11 +232,6 @@ export async function saveProgress(
     let shouldBlock = current.isBlocked;
     let newNotes = current.proctorNotes || '';
 
-    // Jika Admin sudah membuka suspend dan tabCount di bawah 3, pastikan shouldBlock tetap false
-    if (!current.isBlocked && effectiveTabCount < 3) {
-      shouldBlock = false;
-    }
-
     // 🛡️ PROGRESSIVE 3-STRIKE ENFORCEMENT
     // Strike 3: Otomatis Blokir Total Sistem jika mencapai 3x pelanggaran
     if (effectiveTabCount >= 3) {
@@ -239,12 +239,16 @@ export async function saveProgress(
       if (!newNotes.includes('[STRIKE_3_BLOKIR]')) {
         const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
         const strike3Msg = `[STRIKE_3_BLOKIR] DIBLOKIR OTOMATIS SISTEM: 3x Pelanggaran Tata Tertib (Pindah Tab/Layar) pada ${timeStr}. Pengerjaan dihentikan permanen. Wajib Lapor ke Admin Utama!`;
+        // Cabut dispensasi unblock sebelumnya jika siswa melanggar lagi ke-3
+        newNotes = newNotes.replace(/\[ADMIN_UNBLOCK_ACTIVE\]/g, '').trim();
         newNotes = newNotes ? `${newNotes} | ${strike3Msg}` : strike3Msg;
       }
     } else if (effectiveTabCount === 2 && !hasProctorPermission && !newNotes.includes('[STRIKE_2_TERKUNCI]')) {
       const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
       const strike2Msg = `[STRIKE_2_TERKUNCI] Pelanggaran ke-2 pada ${timeStr} (Pengerjaan Soal Terkunci Sementara Menunggu Pengawas)`;
       newNotes = newNotes ? `${newNotes} | ${strike2Msg}` : strike2Msg;
+    } else if (isRecentlyUnblockedByAdmin && effectiveTabCount < 3) {
+      shouldBlock = false;
     }
 
     const updated = await prisma.examAttempt.update({
