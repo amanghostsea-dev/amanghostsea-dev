@@ -30,7 +30,8 @@ import {
   FileSpreadsheet,
   Lock,
   Unlock,
-  Info
+  Info,
+  Radio
 } from 'lucide-react';
 import {
   StudentLoginItem,
@@ -61,6 +62,10 @@ export default function CbtStudentLoginMonitorView({
   kopSuratConfig,
   onActiveLoginCountChange,
 }: CbtStudentLoginMonitorViewProps) {
+  // Mode Tampilan: Default 'ACTIVE_ONLY' (Hanya siswa yang sedang login & ujian aktif)
+  const [viewScope, setViewScope] = useState<'ACTIVE_ONLY' | 'SUBMITTED_TODAY' | 'ALL_TODAY'>('ACTIVE_ONLY');
+  const [scopeCounts, setScopeCounts] = useState({ active: 0, submitted: 0, total: 0 });
+
   const [logins, setLogins] = useState<StudentLoginItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date>(new Date());
@@ -87,17 +92,22 @@ export default function CbtStudentLoginMonitorView({
     return () => clearTimeout(timer);
   }, [toastMessage]);
 
-  // Fetch login data from server
+  // Fetch data dari server sesuai scope yang dipilih
   const fetchLogins = useCallback(async (isSilent = false) => {
     if (!isSilent) setIsLoading(true);
     try {
-      const res = await getGlobalStudentLoginsAction();
+      const res = await getGlobalStudentLoginsAction({ scope: viewScope });
       if (res && res.success && res.data) {
         setLogins(res.data);
+        setScopeCounts({
+          active: res.activeCount,
+          submitted: res.submittedCount,
+          total: res.totalCount,
+        });
         setLastRefreshedAt(new Date());
         onActiveLoginCountChange?.(res.activeCount);
       } else if (!isSilent) {
-        setToastMessage({ type: 'error', text: res.error || 'Gagal memuat data presensi login siswa.' });
+        setToastMessage({ type: 'error', text: res.error || 'Gagal memuat data radar siswa.' });
       }
     } catch (e: any) {
       if (!isSilent) {
@@ -106,7 +116,7 @@ export default function CbtStudentLoginMonitorView({
     } finally {
       if (!isSilent) setIsLoading(false);
     }
-  }, [onActiveLoginCountChange]);
+  }, [viewScope, onActiveLoginCountChange]);
 
   // Initial fetch and auto-refresh polling every 10 seconds
   useEffect(() => {
@@ -145,7 +155,7 @@ export default function CbtStudentLoginMonitorView({
     }
   };
 
-  // Ekstraksi kelas & ujian unik untuk dropdown filter
+  // Opsi Dropdown Kelas & Ujian
   const classOptions = useMemo(() => {
     const set = new Set<string>();
     logins.forEach((s) => {
@@ -207,13 +217,12 @@ export default function CbtStudentLoginMonitorView({
     });
   }, [logins, searchQuery, selectedClass, selectedExam, selectedStatus, filterTodayOnly]);
 
-  // Metrik ringkas realtime
-  const activeCount = useMemo(() => logins.filter((l) => l.status === 'IN_PROGRESS').length, [logins]);
-  const submittedCount = useMemo(() => logins.filter((l) => l.status === 'SUBMITTED').length, [logins]);
+  // Metrik ringkas
   const distinctClassesCount = useMemo(() => {
     const set = new Set(logins.map((l) => l.studentClass).filter(Boolean));
     return set.size;
   }, [logins]);
+
   const distinctExamsCount = useMemo(() => {
     const set = new Set(logins.map((l) => l.examId));
     return set.size;
@@ -256,7 +265,7 @@ export default function CbtStudentLoginMonitorView({
         `"${item.studentClass || '-'}"`,
         `"${item.examTitle.replace(/"/g, '""')}"`,
         `"${item.examSubject.replace(/"/g, '""')}"`,
-        item.status === 'IN_PROGRESS' ? 'Sedang Ujian' : 'Selesai',
+        item.status === 'IN_PROGRESS' ? 'Sedang Ujian Online' : 'Selesai',
         `"${loginTime}"`,
         `"${submitTime}"`,
         item.answeredCount,
@@ -273,14 +282,14 @@ export default function CbtStudentLoginMonitorView({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `Laporan_Siswa_Login_CBT_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `Radar_Siswa_CBT_${viewScope}_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
 
     setToastMessage({
       type: 'success',
-      text: `Berhasil mengekspor ${filteredLogins.length} data login siswa ke CSV!`
+      text: `Berhasil mengekspor ${filteredLogins.length} data siswa ke CSV!`
     });
   };
 
@@ -354,19 +363,26 @@ export default function CbtStudentLoginMonitorView({
         <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20">
-              <Activity className="text-emerald-400 animate-pulse" size={28} />
+              <Radio className="text-emerald-400 animate-pulse" size={28} />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
-                  Pusat Pemantauan Siswa Login CBT
+                  {viewScope === 'ACTIVE_ONLY'
+                    ? 'Live Radar Siswa Ujian CBT'
+                    : viewScope === 'SUBMITTED_TODAY'
+                    ? 'Riwayat Siswa Selesai Ujian'
+                    : 'Semua Aktivitas Sesi CBT'}
                 </h2>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/30 text-emerald-300 border border-emerald-500/50">
-                  Live Presensi Admin Utama
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/30 text-emerald-300 border border-emerald-500/50 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  {viewScope === 'ACTIVE_ONLY' ? 'Realtime Online' : 'Arsip Data'}
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl leading-relaxed">
-                Pantau secara realtime seluruh peserta ujian yang telah login, kelas / rombel asal, paket soal yang dikerjakan, dan progres ujian di seluruh sekolah.
+                {viewScope === 'ACTIVE_ONLY'
+                  ? 'Memantau aktivitas detik ini dari siswa yang sedang login & mengerjakan soal. Siswa yang logout atau selesai ujian akan otomatis hilang dari radar ini.'
+                  : 'Melihat rekap data siswa yang telah menyelesaikan / mengumpulkan ujian pada hari ini.'}
               </p>
             </div>
           </div>
@@ -378,7 +394,7 @@ export default function CbtStudentLoginMonitorView({
               onClick={() => fetchLogins(false)}
               disabled={isLoading}
               className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-white/10 text-white font-bold text-xs transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
-              title="Segarkan data login sekarang"
+              title="Segarkan radar sekarang"
             >
               <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
               <span>{isLoading ? 'Menyegarkan...' : 'Segarkan Data'}</span>
@@ -411,7 +427,7 @@ export default function CbtStudentLoginMonitorView({
         <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400 flex-wrap gap-2">
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-            <span>Pemantauan Live Login Aktif (Auto-refresh tiap 10 detik)</span>
+            <span>Radar Realtime Aktif (Sinkronisasi otomatis tiap 10 detik)</span>
           </div>
           <span>Terakhir diperiksa: {lastRefreshedAt.toLocaleTimeString('id-ID')} WIB</span>
         </div>
@@ -420,35 +436,51 @@ export default function CbtStudentLoginMonitorView({
       {/* 📊 QUICK STAT METRICS CARDS */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         {/* Card 1: Sedang Ujian (Online) */}
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-900/50 shadow-xs flex items-center gap-3.5">
+        <button
+          type="button"
+          onClick={() => setViewScope('ACTIVE_ONLY')}
+          className={`p-4 rounded-2xl text-left transition-all border shadow-xs flex items-center gap-3.5 cursor-pointer ${
+            viewScope === 'ACTIVE_ONLY'
+              ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/20'
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-emerald-300'
+          }`}
+        >
           <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-900 flex items-center justify-center shrink-0">
-            <Activity size={22} className="text-emerald-600 dark:text-emerald-400 animate-pulse" />
+            <Radio size={22} className="text-emerald-600 dark:text-emerald-400 animate-pulse" />
           </div>
           <div>
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Sedang Ujian (Online)</div>
+            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Sedang Ujian Online</div>
             <div className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 mt-0.5">
-              <span>{activeCount} Siswa</span>
-              {activeCount > 0 && (
+              <span>{scopeCounts.active} Siswa</span>
+              {scopeCounts.active > 0 && (
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
               )}
             </div>
           </div>
-        </div>
+        </button>
 
         {/* Card 2: Sudah Selesai */}
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-900/50 shadow-xs flex items-center gap-3.5">
+        <button
+          type="button"
+          onClick={() => setViewScope('SUBMITTED_TODAY')}
+          className={`p-4 rounded-2xl text-left transition-all border shadow-xs flex items-center gap-3.5 cursor-pointer ${
+            viewScope === 'SUBMITTED_TODAY'
+              ? 'bg-blue-50/80 dark:bg-blue-950/40 border-blue-500 ring-2 ring-blue-500/20'
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-blue-300'
+          }`}
+        >
           <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 flex items-center justify-center shrink-0">
             <CheckCircle2 size={22} className="text-blue-600 dark:text-blue-400" />
           </div>
           <div>
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Selesai Ujian</div>
+            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Selesai Ujian Hari Ini</div>
             <div className="text-xl sm:text-2xl font-black text-blue-600 dark:text-blue-400 mt-0.5">
-              {submittedCount} Siswa
+              {scopeCounts.submitted} Siswa
             </div>
           </div>
-        </div>
+        </button>
 
-        {/* Card 3: Rombel / Kelas Aktif */}
+        {/* Card 3: Rombel Terlibat */}
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-900/50 shadow-xs flex items-center gap-3.5">
           <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-900 flex items-center justify-center shrink-0">
             <GraduationCap size={22} className="text-purple-600 dark:text-purple-400" />
@@ -461,7 +493,7 @@ export default function CbtStudentLoginMonitorView({
           </div>
         </div>
 
-        {/* Card 4: Paket Ujian Terdistribusi */}
+        {/* Card 4: Paket Ujian Aktif */}
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-900/50 shadow-xs flex items-center gap-3.5">
           <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-900 flex items-center justify-center shrink-0">
             <BookOpen size={22} className="text-amber-600 dark:text-amber-400" />
@@ -475,22 +507,73 @@ export default function CbtStudentLoginMonitorView({
         </div>
       </div>
 
+      {/* 🌟 RADAR SCOPE MODE SELECTOR TABS */}
+      <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 w-full sm:w-fit">
+        <button
+          type="button"
+          onClick={() => setViewScope('ACTIVE_ONLY')}
+          className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+            viewScope === 'ACTIVE_ONLY'
+              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/20'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <Radio size={14} className={viewScope === 'ACTIVE_ONLY' ? 'animate-pulse' : 'text-emerald-500'} />
+          <span>Radar Siswa Sedang Ujian</span>
+          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${viewScope === 'ACTIVE_ONLY' ? 'bg-white/20 text-white' : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'}`}>
+            {scopeCounts.active} Online
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setViewScope('SUBMITTED_TODAY')}
+          className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+            viewScope === 'SUBMITTED_TODAY'
+              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <CheckCircle2 size={14} className={viewScope === 'SUBMITTED_TODAY' ? '' : 'text-blue-500'} />
+          <span>Riwayat Selesai Hari Ini</span>
+          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${viewScope === 'SUBMITTED_TODAY' ? 'bg-white/20 text-white' : 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300'}`}>
+            {scopeCounts.submitted}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setViewScope('ALL_TODAY')}
+          className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+            viewScope === 'ALL_TODAY'
+              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-500/20'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <Layers size={14} className={viewScope === 'ALL_TODAY' ? '' : 'text-purple-500'} />
+          <span>Semua Aktivitas</span>
+          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${viewScope === 'ALL_TODAY' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}`}>
+            {scopeCounts.total}
+          </span>
+        </button>
+      </div>
+
       {/* 🔍 FILTER & SEARCH COMMAND BAR */}
       <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
         {/* Search Input */}
         <div className="relative w-full md:w-80">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Cari siswa, NISN, atau judul ujian..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
+            placeholder="Cari nama siswa, NISN, atau judul ujian..."
+            className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-slate-600 cursor-pointer"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
             >
               ✕
             </button>
@@ -545,20 +628,6 @@ export default function CbtStudentLoginMonitorView({
             </select>
           </div>
 
-          {/* Filter Status */}
-          <div className="flex items-center gap-1.5 w-full sm:w-auto">
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full sm:w-auto px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-            >
-              <option value="ALL">Semua Status</option>
-              <option value="IN_PROGRESS">🟢 Sedang Ujian</option>
-              <option value="SUBMITTED">🔵 Selesai Ujian</option>
-              <option value="BLOCKED">🔴 Terkunci / Suspend</option>
-            </select>
-          </div>
-
           {/* Reset Button */}
           {(selectedClass !== 'ALL' || selectedExam !== 'ALL' || selectedStatus !== 'ALL' || searchQuery || !filterTodayOnly) && (
             <button
@@ -582,32 +651,55 @@ export default function CbtStudentLoginMonitorView({
         <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <RefreshCw className="animate-spin mx-auto text-emerald-500 mb-3" size={32} />
           <h4 className="font-bold text-slate-700 dark:text-slate-300 text-sm">
-            Memuat Data Presensi Login Siswa...
+            Memuat Radar Presensi Siswa CBT...
           </h4>
         </div>
       ) : filteredLogins.length === 0 ? (
-        <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
-          <Users className="mx-auto text-slate-300 dark:text-slate-600 mb-3" size={44} />
-          <h4 className="font-black text-slate-800 dark:text-slate-200 text-base">
-            Tidak Ada Siswa yang Ditemukan
-          </h4>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-            {filterTodayOnly
-              ? 'Belum ada siswa yang login pada hari ini. Anda dapat mematikan filter "Hari Ini Saja" untuk melihat riwayat sebelumnya.'
-              : 'Tidak ada data siswa yang cocok dengan filter atau kata kunci pencarian yang dipilih.'}
-          </p>
+        <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+          <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
+            <span className="absolute inset-0 rounded-full bg-emerald-500/20 animate-ping" />
+            <div className="relative w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+              <Radio size={28} />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <h4 className="font-black text-slate-800 dark:text-slate-200 text-base">
+              {viewScope === 'ACTIVE_ONLY'
+                ? 'Tidak Ada Siswa yang Sedang Ujian Saat Ini'
+                : 'Tidak Ada Data Siswa yang Sesuai'}
+            </h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+              {viewScope === 'ACTIVE_ONLY'
+                ? 'Radar sedang siaga memantau. Begitu siswa mulai login dan membuka lembar ujian, status dan progres pengerjaannya akan otomatis muncul di sini secara realtime.'
+                : 'Coba ubah kata kunci pencarian atau matikan filter kelas/mapel untuk menampilkan data lainnya.'}
+            </p>
+          </div>
+          {viewScope === 'ACTIVE_ONLY' && scopeCounts.submitted > 0 && (
+            <button
+              type="button"
+              onClick={() => setViewScope('SUBMITTED_TODAY')}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-bold text-xs hover:bg-blue-100 transition cursor-pointer"
+            >
+              <CheckCircle2 size={14} />
+              <span>Lihat {scopeCounts.submitted} Siswa yang Telah Selesai Hari Ini</span>
+            </button>
+          )}
         </div>
       ) : (
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
           <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className={`w-2.5 h-2.5 rounded-full ${viewScope === 'ACTIVE_ONLY' ? 'bg-emerald-500 animate-ping' : 'bg-blue-500'}`} />
               <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white">
-                Daftar Peserta CBT yang Telah Login ({filteredLogins.length} Siswa)
+                {viewScope === 'ACTIVE_ONLY'
+                  ? `Radar Siswa Sedang Ujian Online (${filteredLogins.length} Siswa Aktif)`
+                  : viewScope === 'SUBMITTED_TODAY'
+                  ? `Daftar Siswa Selesai Ujian Hari Ini (${filteredLogins.length} Siswa)`
+                  : `Daftar Seluruh Peserta CBT (${filteredLogins.length} Siswa)`}
               </h3>
             </div>
-            <div className="text-xs text-slate-400">
-              Menampilkan {filteredLogins.length} dari total {logins.length} sesi
+            <div className="text-xs text-slate-400 font-medium">
+              Menampilkan {filteredLogins.length} peserta {viewScope === 'ACTIVE_ONLY' ? 'sedang aktif' : 'terdata'}
             </div>
           </div>
 
@@ -721,9 +813,17 @@ export default function CbtStudentLoginMonitorView({
                               style={{ width: `${progressPct}%` }}
                             />
                           </div>
-                          {item.status === 'SUBMITTED' && (
+                          {item.status === 'SUBMITTED' ? (
                             <div className="text-[10px] font-black text-blue-600 dark:text-blue-400">
                               Nilai: {item.score} ({item.totalCorrect} Benar)
+                            </div>
+                          ) : item.answeredCount === 0 ? (
+                            <div className="text-[9px] text-amber-600 dark:text-amber-400 font-bold">
+                              Baru Masuk Soal
+                            </div>
+                          ) : (
+                            <div className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold">
+                              Sedang Menjawab
                             </div>
                           )}
                         </div>
@@ -758,13 +858,13 @@ export default function CbtStudentLoginMonitorView({
                       <td className="py-4 px-4 text-center">
                         <div className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 dark:text-slate-300">
                           {item.deviceType === 'mobile' ? (
-                            <Smartphone size={13} className="text-emerald-500" />
+                            <Smartphone size={14} className="text-emerald-500" />
                           ) : item.deviceType === 'tablet' ? (
-                            <Tablet size={13} className="text-indigo-500" />
+                            <Tablet size={14} className="text-purple-500" />
                           ) : (
-                            <Laptop size={13} className="text-purple-500" />
+                            <Laptop size={14} className="text-blue-500" />
                           )}
-                          <span className="truncate max-w-[110px]" title={item.deviceInfo || 'Perangkat Siswa'}>
+                          <span className="truncate max-w-[120px]" title={item.deviceInfo || 'Perangkat Terdeteksi'}>
                             {item.deviceInfo || 'Perangkat Siswa'}
                           </span>
                         </div>
@@ -773,24 +873,16 @@ export default function CbtStudentLoginMonitorView({
                       {/* Aksi Cepat Admin */}
                       <td className="py-4 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          {/* Tombol Reset Sesi Login Perangkat */}
+                          {/* Tombol Reset Sesi Login (berguna jika HP mati / ganti PC) */}
                           <button
                             type="button"
                             onClick={() => setResetTarget(item)}
-                            className="p-1.5 rounded-xl bg-slate-100 hover:bg-amber-100 dark:bg-slate-800 dark:hover:bg-amber-950/60 text-slate-600 hover:text-amber-700 dark:text-slate-300 dark:hover:text-amber-300 transition cursor-pointer"
-                            title="Reset Sesi Perangkat (Jika siswa ganti HP atau terputus)"
+                            className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                            title="Reset sesi perangkat jika siswa ganti HP atau komputer cadangan"
                           >
-                            <Unlock size={14} />
+                            <Unlock size={12} className="text-amber-500" />
+                            <span className="hidden sm:inline">Reset Sesi</span>
                           </button>
-
-                          {/* Tombol Link ke Paket Ujian */}
-                          <Link
-                            href={`/admin/cbt/${item.examId}`}
-                            className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition cursor-pointer"
-                            title="Buka Ruang Monitor Paket Ujian ini"
-                          >
-                            <ExternalLink size={14} />
-                          </Link>
                         </div>
                       </td>
                     </tr>
@@ -805,11 +897,11 @@ export default function CbtStudentLoginMonitorView({
             <div className="flex items-center gap-1.5">
               <Info size={14} className="text-emerald-600 shrink-0" />
               <span>
-                <strong>Catatan Admin Utama:</strong> Laporan ini mencatat seluruh peserta yang telah menembus token pengerjaan dan memasuki lembar ujian CBT secara transparan di seluruh rombel sekolah.
+                <strong>Live Active Radar:</strong> Hanya menampilkan siswa yang detik ini aktif di ruang ujian. Siswa yang logout atau selesai akan otomatis hilang dari daftar ini.
               </span>
             </div>
             <div className="font-mono text-[11px]">
-              Total Baris: {filteredLogins.length}
+              Total Aktif Ditampilkan: {filteredLogins.length}
             </div>
           </div>
         </div>
@@ -919,7 +1011,7 @@ export default function CbtStudentLoginMonitorView({
 
               <div className="text-center space-y-1">
                 <h3 className="text-base font-black uppercase tracking-wider underline">
-                  BERITA ACARA &amp; DAFTAR PRESENSI LOGIN CBT SISWA
+                  BERITA ACARA &amp; DAFTAR PRESENSI SISWA UJIAN CBT
                 </h3>
                 <p className="text-xs text-slate-600 font-sans">
                   Tanggal Cetak: {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
@@ -929,11 +1021,11 @@ export default function CbtStudentLoginMonitorView({
               {/* Ringkasan */}
               <div className="grid grid-cols-2 text-xs font-sans gap-2 p-3 bg-slate-50 border rounded-xl">
                 <div>
-                  <div>Total Peserta Login Terdata: <strong>{filteredLogins.length} Siswa</strong></div>
-                  <div>Status Sedang Ujian: <strong>{activeCount} Siswa</strong></div>
+                  <div>Total Peserta Terdata: <strong>{filteredLogins.length} Siswa</strong></div>
+                  <div>Status Sedang Ujian: <strong>{scopeCounts.active} Siswa</strong></div>
                 </div>
                 <div>
-                  <div>Status Selesai Ujian: <strong>{submittedCount} Siswa</strong></div>
+                  <div>Status Selesai Ujian: <strong>{scopeCounts.submitted} Siswa</strong></div>
                   <div>Rombel Terdaftar: <strong>{distinctClassesCount} Rombel</strong></div>
                 </div>
               </div>

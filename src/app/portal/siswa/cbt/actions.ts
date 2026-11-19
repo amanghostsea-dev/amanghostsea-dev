@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { formatScheduleDate, formatScheduleTime, getExamScheduleState, isExamTokenActive, isClassTargetMatch, formatClassTargetDisplay } from '@/lib/cbt-schedule';
 import { getCbtTimezone } from '@/lib/settings';
+import { touchDeviceSession } from '@/lib/device-session';
 
 export async function getExamSessionStatus(examId: string) {
   try {
@@ -199,11 +200,26 @@ export async function saveProgress(
   try {
     const current = await prisma.examAttempt.findUnique({
       where: { id: attemptId },
-      select: { proctorNotes: true, isBlocked: true, tabSwitchCount: true },
+      select: { proctorNotes: true, isBlocked: true, tabSwitchCount: true, studentName: true, studentNis: true },
     });
 
     if (!current) {
       return { error: 'Data pengerjaan tidak ditemukan.' };
+    }
+
+    // 💓 Heartbeat: Perbarui lastActive sesi perangkat siswa secara otomatis di latar belakang
+    if (current.studentNis || current.studentName) {
+      prisma.user.findFirst({
+        where: {
+          OR: [
+            ...(current.studentNis ? [{ nisn: current.studentNis }, { username: current.studentNis }] : []),
+            { name: { equals: current.studentName, mode: 'insensitive' as const } },
+          ],
+        },
+        select: { id: true },
+      }).then((u) => {
+        if (u) touchDeviceSession(u.id).catch(() => {});
+      }).catch(() => {});
     }
 
     const hasAdminOverride = 

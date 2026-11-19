@@ -1979,8 +1979,12 @@ export interface StudentLoginItem {
 /**
  * 🟢 Ambil Seluruh Data Siswa yang Login / Mengerjakan CBT (Live Presensi & Aktivitas)
  * Khusus Wewenang Admin Utama untuk pemantauan seluruh rombel dan paket ujian sekolah.
+ * Secara default (ACTIVE_ONLY), hanya menampilkan siswa yang SEDANG LOGIN & AKTIF MENGERJAKAN UJIAN.
+ * Begitu siswa logout atau submit (selesai ujian), data otomatis hilang dari radar aktif.
  */
-export async function getGlobalStudentLoginsAction(): Promise<{
+export async function getGlobalStudentLoginsAction(options?: {
+  scope?: 'ACTIVE_ONLY' | 'SUBMITTED_TODAY' | 'ALL_TODAY';
+}): Promise<{
   success: boolean;
   data: StudentLoginItem[];
   activeCount: number;
@@ -1989,8 +1993,15 @@ export async function getGlobalStudentLoginsAction(): Promise<{
   error?: string;
 }> {
   try {
+    const scope = options?.scope || 'ACTIVE_ONLY';
+    const nowMs = Date.now();
+    const twentyFourHoursAgo = new Date(nowMs - 24 * 60 * 60 * 1000);
+
     const [attempts, activeSessions] = await Promise.all([
       prisma.examAttempt.findMany({
+        where: {
+          startedAt: { gte: twentyFourHoursAgo },
+        },
         include: {
           exam: {
             select: {
@@ -2013,13 +2024,46 @@ export async function getGlobalStudentLoginsAction(): Promise<{
       }),
     ]);
 
-    const sessionMap = new Map<string, any>();
+    const sessionMapByName = new Map<string, any>();
+    const sessionMapByUserId = new Map<string, any>();
+    const activeUserIds: string[] = [];
+
+    const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 menit toleransi inaktivitas sesi
+
     for (const s of activeSessions) {
       try {
         if (s.value) {
           const parsed = JSON.parse(s.value);
-          if (parsed.userName) {
-            sessionMap.set(parsed.userName.trim().toLowerCase(), parsed);
+          const lastActive = parsed.lastActive || (parsed.loggedInAt ? new Date(parsed.loggedInAt).getTime() : 0);
+          const isNotTimedOut = (nowMs - lastActive) <= SESSION_TIMEOUT_MS;
+
+          if (isNotTimedOut) {
+            if (parsed.userId) {
+              sessionMapByUserId.set(parsed.userId, parsed);
+              activeUserIds.push(parsed.userId);
+            }
+            if (parsed.userName) {
+              sessionMapByName.set(parsed.userName.trim().toLowerCase(), parsed);
+            }
+          }
+        }
+      } catch {}
+    }
+
+    // Ambil identitas User siswa yang sedang memiliki sesi aktif untuk pemetaan via NISN
+    const sessionMapByNis = new Map<string, any>();
+    if (activeUserIds.length > 0) {
+      try {
+        const users = await prisma.user.findMany({
+          where: { id: { in: activeUserIds } },
+          select: { id: true, name: true, nisn: true, username: true },
+        });
+        for (const u of users) {
+          const session = sessionMapByUserId.get(u.id);
+          if (session) {
+            if (u.nisn) sessionMapByNis.set(u.nisn.trim().toLowerCase(), session);
+            if (u.username) sessionMapByNis.set(u.username.trim().toLowerCase(), session);
+            if (u.name) sessionMapByName.set(u.name.trim().toLowerCase(), session);
           }
         }
       } catch {}
@@ -2028,11 +2072,35 @@ export async function getGlobalStudentLoginsAction(): Promise<{
     let activeCount = 0;
     let submittedCount = 0;
 
-    const data: StudentLoginItem[] = attempts.map((att) => {
-      if (att.status === 'IN_PROGRESS') {
+    const allMapped: StudentLoginItem[] = [];
+
+    for (const att of attempts) {
+      const cleanName = (att.studentName || '').trim().toLowerCase();
+      const cleanNis = (att.studentNis || '').trim().toLowerCase();
+      const session = sessionMapByName.get(cleanName) || (cleanNis ? sessionMapByNis.get(cleanNis) : undefined);
+
+      const isAttemptInProgress = att.status === 'IN_PROGRESS';
+      const isAttemptSubmitted = att.status === 'SUBMITTED';
+
+      // 🎯 Penentuan Siswa Sedang Aktif di Ujian:
+      // 1. Status attempt masih 'IN_PROGRESS' (belum submit)
+      // 2. Belum logout: memiliki sesi aktif di database ATAU pengerjaan dimulai < 2 jam lalu
+      const hasValidSession = Boolean(session);
+      const isRecentlyStarted = (nowMs - new Date(att.startedAt).getTime()) < 2 * 60 * 60 * 1000;
+      const isTrulyActive = isAttemptInProgress && (hasValidSession || isRecentlyStarted);
+
+      if (isTrulyActive) {
         activeCount++;
-      } else if (att.status === 'SUBMITTED') {
+      } else if (isAttemptSubmitted) {
         submittedCount++;
+      }
+
+      // Filter berdasarkan scope yang dipilih
+      if (scope === 'ACTIVE_ONLY' && !isTrulyActive) {
+        continue;
+      }
+      if (scope === 'SUBMITTED_TODAY' && !isAttemptSubmitted) {
+        continue;
       }
 
       let answered = 0;
@@ -2041,10 +2109,7 @@ export async function getGlobalStudentLoginsAction(): Promise<{
         answered = Object.keys(parsedAns).length;
       } catch {}
 
-      const cleanName = (att.studentName || '').trim().toLowerCase();
-      const session = sessionMap.get(cleanName);
-
-      return {
+      allMapped.push({
         id: att.id,
         studentName: att.studentName,
         studentNis: att.studentNis,
@@ -2068,12 +2133,12 @@ export async function getGlobalStudentLoginsAction(): Promise<{
         proctorNotes: att.proctorNotes || null,
         deviceInfo: session ? `${session.os || 'OS'} • ${session.browser || 'Browser'}` : null,
         deviceType: session?.deviceType || 'unknown',
-      };
-    });
+      });
+    }
 
     return {
       success: true,
-      data,
+      data: allMapped,
       activeCount,
       submittedCount,
       totalCount: attempts.length,
