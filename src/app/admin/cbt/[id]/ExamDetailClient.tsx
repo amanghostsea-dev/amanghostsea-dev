@@ -2574,7 +2574,11 @@ Poin: 10
                         <td className="py-4 px-6">
                           {att.isBlocked ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-rose-600 text-white shadow-sm animate-pulse">
-                              SUSPEND (STRIKE 3)
+                              {att.tabSwitchCount >= 5 || att.proctorNotes?.includes('[DISKUALIFIKASI_FINAL]')
+                                ? 'DISKUALIFIKASI (5x)'
+                                : att.tabSwitchCount === 4 || att.proctorNotes?.includes('[STRIKE_4_FATAL]')
+                                ? 'SUSPEND FATAL (4x)'
+                                : 'SUSPEND (STRIKE 3)'}
                             </span>
                           ) : (
                             <span className={`px-2 py-0.5 rounded text-xs font-semibold ${

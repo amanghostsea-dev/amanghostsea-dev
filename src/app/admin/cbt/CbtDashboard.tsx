@@ -247,21 +247,33 @@ export default function CbtDashboard({
     }
   };
 
-  // 🛡️ Hitung jumlah siswa tersuspend di seluruh ujian untuk badge tab navigasi
-  const dynamicSuspendedCount = useMemo(() => {
+  // 🛡️ State jumlah siswa tersuspend realtime yang sinkron 100% dengan Pusat Suspend
+  const [liveSuspendedCount, setLiveSuspendedCount] = useState<number>(() => {
+    if (initialSuspendedStudents && initialSuspendedStudents.length > 0) {
+      return initialSuspendedStudents.length;
+    }
     let count = 0;
     for (const e of exams) {
       if (e.attempts) {
         for (const a of e.attempts) {
           const isSuspended = 
-            (a.isBlocked || (a.tabSwitchCount ?? 0) >= 3 || (a as any).proctorNotes?.includes('[STRIKE_3_BLOKIR]')) &&
+            (a.isBlocked || (a.tabSwitchCount ?? 0) >= 3 || (a as any).proctorNotes?.includes('[STRIKE_3_BLOKIR]') || (a as any).proctorNotes?.includes('[STRIKE_4_FATAL]') || (a as any).proctorNotes?.includes('[DISKUALIFIKASI_FINAL]')) &&
             !(a as any).proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]');
           if (isSuspended) count++;
         }
       }
     }
-    return Math.max(count, initialSuspendedStudents?.length || 0);
-  }, [exams, initialSuspendedStudents]);
+    return count;
+  });
+
+  // Sinkronkan kembali jika initialSuspendedStudents dari server berubah
+  useEffect(() => {
+    if (initialSuspendedStudents) {
+      setLiveSuspendedCount(initialSuspendedStudents.length);
+    }
+  }, [initialSuspendedStudents]);
+
+  const dynamicSuspendedCount = liveSuspendedCount;
 
   // Filter States
   const [scheduleFilter, setScheduleFilter] = useState<'ALL' | 'TODAY' | 'UPCOMING' | 'ONGOING' | 'ENDED'>('ALL');
@@ -1330,6 +1342,7 @@ export default function CbtDashboard({
           initialSuspendedStudents={initialSuspendedStudents}
           currentUser={currentUser}
           isSuperAdmin={isSuperAdmin}
+          onSuspendedCountChange={(count) => setLiveSuspendedCount(count)}
         />
       ) : activeMainTab === 'proctors' ? (
         <CbtProctorPlottingView

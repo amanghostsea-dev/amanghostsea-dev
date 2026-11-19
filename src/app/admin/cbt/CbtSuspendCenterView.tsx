@@ -36,14 +36,21 @@ interface CbtSuspendCenterViewProps {
     role?: string | null;
   };
   isSuperAdmin: boolean;
+  onSuspendedCountChange?: (count: number) => void;
 }
 
 export default function CbtSuspendCenterView({
   initialSuspendedStudents = [],
   currentUser,
   isSuperAdmin,
+  onSuspendedCountChange,
 }: CbtSuspendCenterViewProps) {
   const [students, setStudents] = useState<SuspendedStudentItem[]>(initialSuspendedStudents);
+
+  // Sinkronkan jumlah siswa tersuspend ke parent (CbtDashboard) agar badge tab selalu 100% akurat
+  useEffect(() => {
+    onSuspendedCountChange?.(students.length);
+  }, [students.length, onSuspendedCountChange]);
   const [isLoading, setIsLoading] = useState(false);
   const [unblockingId, setUnblockingId] = useState<string | null>(null);
   const [unblockingAll, setUnblockingAll] = useState(false);
@@ -560,7 +567,11 @@ export default function CbtSuspendCenterView({
                     {/* Status Akun */}
                     <td className="py-4 px-4 text-center">
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black bg-rose-600 text-white shadow-xs">
-                        SUSPEND (STRIKE 3)
+                        {item.tabSwitchCount >= 5 || item.proctorNotes?.includes('[DISKUALIFIKASI_FINAL]')
+                          ? 'DISKUALIFIKASI (5x)'
+                          : item.tabSwitchCount === 4 || item.proctorNotes?.includes('[STRIKE_4_FATAL]')
+                          ? 'SUSPEND FATAL (4x)'
+                          : 'SUSPEND (STRIKE 3)'}
                       </span>
                     </td>
 

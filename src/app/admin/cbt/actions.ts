@@ -1563,6 +1563,8 @@ export async function adminUnblockStrike3Action(attemptId: string, adminName?: s
     // 🧹 Bersihkan tag blokir lama agar tidak memicu deteksi blokir berulang
     let cleanedNotes = (attempt.proctorNotes || '')
       .replace(/\[STRIKE_3_BLOKIR\][^|]*/g, '')
+      .replace(/\[STRIKE_4_FATAL\][^|]*/g, '')
+      .replace(/\[DISKUALIFIKASI_FINAL\][^|]*/g, '')
       .replace(/\[STRIKE_2_TERKUNCI\][^|]*/g, '')
       .replace(/\[ADMIN_UNBLOCK_ACTIVE\]/g, '')
       .trim();
@@ -1630,7 +1632,12 @@ export async function adminUnblockAllStrike3Action(examId: string, adminName?: s
           { isBlocked: true },
           { tabSwitchCount: { gte: 3 } },
           { proctorNotes: { contains: '[STRIKE_3_BLOKIR]' } },
+          { proctorNotes: { contains: '[STRIKE_4_FATAL]' } },
+          { proctorNotes: { contains: '[DISKUALIFIKASI_FINAL]' } },
         ],
+        NOT: {
+          proctorNotes: { contains: '[ADMIN_UNBLOCK_ACTIVE]' },
+        },
       },
       select: { id: true, studentName: true, studentNis: true, proctorNotes: true },
     });
@@ -1646,6 +1653,8 @@ export async function adminUnblockAllStrike3Action(examId: string, adminName?: s
       suspendedAttempts.map((att) => {
         let cleanedNotes = (att.proctorNotes || '')
           .replace(/\[STRIKE_3_BLOKIR\][^|]*/g, '')
+          .replace(/\[STRIKE_4_FATAL\][^|]*/g, '')
+          .replace(/\[DISKUALIFIKASI_FINAL\][^|]*/g, '')
           .replace(/\[STRIKE_2_TERKUNCI\][^|]*/g, '')
           .replace(/\[ADMIN_UNBLOCK_ACTIVE\]/g, '')
           .trim();
@@ -1733,11 +1742,12 @@ export async function getGlobalSuspendedStudentsAction(): Promise<{
   try {
     const attempts = await prisma.examAttempt.findMany({
       where: {
-        status: 'IN_PROGRESS',
         OR: [
           { isBlocked: true },
           { tabSwitchCount: { gte: 3 } },
           { proctorNotes: { contains: '[STRIKE_3_BLOKIR]' } },
+          { proctorNotes: { contains: '[STRIKE_4_FATAL]' } },
+          { proctorNotes: { contains: '[DISKUALIFIKASI_FINAL]' } },
         ],
         NOT: {
           proctorNotes: { contains: '[ADMIN_UNBLOCK_ACTIVE]' },
@@ -1794,11 +1804,12 @@ export async function adminUnblockGlobalAllStrike3Action(adminName?: string) {
   try {
     const suspendedAttempts = await prisma.examAttempt.findMany({
       where: {
-        status: 'IN_PROGRESS',
         OR: [
           { isBlocked: true },
           { tabSwitchCount: { gte: 3 } },
           { proctorNotes: { contains: '[STRIKE_3_BLOKIR]' } },
+          { proctorNotes: { contains: '[STRIKE_4_FATAL]' } },
+          { proctorNotes: { contains: '[DISKUALIFIKASI_FINAL]' } },
         ],
         NOT: {
           proctorNotes: { contains: '[ADMIN_UNBLOCK_ACTIVE]' },
@@ -1818,6 +1829,8 @@ export async function adminUnblockGlobalAllStrike3Action(adminName?: string) {
       suspendedAttempts.map((att) => {
         let cleanedNotes = (att.proctorNotes || '')
           .replace(/\[STRIKE_3_BLOKIR\][^|]*/g, '')
+          .replace(/\[STRIKE_4_FATAL\][^|]*/g, '')
+          .replace(/\[DISKUALIFIKASI_FINAL\][^|]*/g, '')
           .replace(/\[STRIKE_2_TERKUNCI\][^|]*/g, '')
           .replace(/\[ADMIN_UNBLOCK_ACTIVE\]/g, '')
           .trim();
