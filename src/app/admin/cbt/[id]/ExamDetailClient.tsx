@@ -1396,15 +1396,26 @@ Poin: 10
 
   const handleOpenEditModal = (q: QuestionItem) => {
     setEditingQId(q.id);
+    const hasImage = Boolean(q.imageUrl && q.imageUrl.trim());
     const parsed = parseQuestionContent(q.questionText, q.imageUrl);
-    if (parsed.hasImageTag) {
-      setEditQuestionTextBefore(parsed.textBefore);
-      setEditQuestionText(parsed.textAfter);
-      setActiveEditField(parsed.textAfter ? 'after' : 'before');
+    if (hasImage) {
+      if (parsed.hasImageTag) {
+        setEditQuestionTextBefore(parsed.textBefore);
+        setEditQuestionText(parsed.textAfter);
+        setActiveEditField(parsed.textAfter ? 'after' : 'before');
+      } else {
+        setEditQuestionTextBefore(parsed.textBefore);
+        setEditQuestionText('');
+        setActiveEditField(parsed.textBefore ? 'before' : 'after');
+      }
     } else {
-      setEditQuestionTextBefore(parsed.textBefore);
-      setEditQuestionText('');
-      setActiveEditField(parsed.textBefore ? 'before' : 'after');
+      // Tidak ada gambar: masukkan seluruh teks soal ke textarea utama (editQuestionText)
+      const fullText = parsed.hasImageTag
+        ? [parsed.textBefore, parsed.textAfter].filter(Boolean).join('\n\n')
+        : (q.questionText || '');
+      setEditQuestionTextBefore('');
+      setEditQuestionText(fullText);
+      setActiveEditField('after');
     }
     setEditImageUrl(q.imageUrl || '');
     try {
@@ -2560,7 +2571,14 @@ Poin: 10
                       <span className="text-slate-300 dark:text-slate-700">•</span>
                       <button
                         type="button"
-                        onClick={() => setQuestionImageUrl('')}
+                        onClick={() => {
+                          setQuestionImageUrl('');
+                          if (questionTextBefore) {
+                            setQuestionText((prev) => questionTextBefore + (prev ? `\n\n${prev}` : ''));
+                            setQuestionTextBefore('');
+                            setActiveCreateField('after');
+                          }
+                        }}
                         className="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer"
                       >
                         Hapus Gambar
@@ -3359,7 +3377,14 @@ Poin: 15`}
                       <span className="text-slate-300 dark:text-slate-700">•</span>
                       <button
                         type="button"
-                        onClick={() => setEditImageUrl('')}
+                        onClick={() => {
+                          setEditImageUrl('');
+                          if (editQuestionTextBefore) {
+                            setEditQuestionText((prev) => editQuestionTextBefore + (prev ? `\n\n${prev}` : ''));
+                            setEditQuestionTextBefore('');
+                            setActiveEditField('after');
+                          }
+                        }}
                         className="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer"
                       >
                         Hapus Gambar
