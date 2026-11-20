@@ -253,4 +253,134 @@ button:active:not(:disabled),
   scrollbar-width: none;
 }
 
+/* =========================================
+   🖨️ CBT & UNIVERSAL HIGH-FIDELITY PRINT ENGINE (A4 PORTRAIT)
+   ========================================= */
+@media print {
+  /* 1. Global Reset: Remove dark backgrounds, radial patterns, and scroll locks */
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    background-image: none !important;
+    color: #000000 !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: auto !important;
+    width: 100% !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 2. Hide all non-printable layout elements (Nav, Sidebar, Header, Floating Elements, Buttons) */
+  nav, aside, [role="navigation"], header:not(.cbt-printable-header), footer:not(.cbt-printable-footer),
+  .no-print, .print-hidden, [data-print-hide="true"], button:not(.allow-print) {
+    display: none !important;
+  }
+
+  /* 3. When a CBT Print Portal or Modal Portal is active, hide everything else in body */
+  body:has(#cbt-print-portal) > *:not(#cbt-print-portal),
+  body:has(#cbt-modal-portal) > *:not(#cbt-modal-portal) {
+    display: none !important;
+  }
+
+  /* 4. Portal Container Full Paper Unlocking */
+  #cbt-print-portal,
+  #cbt-modal-portal {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    overflow: visible !important;
+    z-index: auto !important;
+  }
+
+  /* 5. Strip Modal Boxes & Scroll Limitations */
+  .cbt-print-modal-container,
+  #cbt-print-portal > div,
+  #cbt-modal-portal > div:not(.print-page-sheet) {
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    max-height: none !important;
+    height: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+  }
+
+  .cbt-print-scroll-area,
+  #cbt-print-portal [class*="overflow-y-auto"] {
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+
+  /* 6. Standard A4 Paper Margins */
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm 10mm 12mm;
+  }
+
+  /* 7. Page Break & Pagination Controls */
+  .print-avoid-break {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .print-page-break {
+    break-after: page !important;
+    page-break-after: always !important;
+  }
+
+  /* 8. Table Flow Optimization: Repeating Headers & Non-splitting Rows */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tfoot {
+    display: table-footer-group !important;
+  }
+
+  tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  th, td {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 9. Standalone Printable Area Fallback */
+  .cbt-printable-sheet {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    overflow: visible !important;
+  }
+}
+
+
 

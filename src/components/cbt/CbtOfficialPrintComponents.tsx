@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { KopSuratConfig, DEFAULT_KOP_SURAT_CONFIG } from '@/app/admin/settings/types';
 
 /**
@@ -473,4 +474,105 @@ export function CbtSecurityValidationBox({
     </div>
   );
 }
+
+/**
+ * 🖨️ CBT OFFICIAL PRINT MODAL WRAPPER (PORTAL-BASED MULTI-PAGE A4 HIGH FIDELITY)
+ * Mengisolasi dokumen cetak dari layout halaman, menghapus background gelap saat cetak,
+ * dan memastikan tabel multi-halaman tidak terpotong (overflow unlocked).
+ */
+export function CbtPrintModalWrapper({
+  isOpen,
+  onClose,
+  title,
+  subtitle,
+  children,
+  onPrint,
+  printButtonText = 'Cetak Dokumen Sekarang (PDF / Print)',
+  maxWidth = 'max-w-4xl',
+  footerExtra,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  onPrint?: () => void;
+  printButtonText?: string;
+  maxWidth?: string;
+  footerExtra?: React.ReactNode;
+}) {
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!isOpen) return null;
+
+  const content = (
+    <div
+      id="cbt-print-portal"
+      className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in cbt-print-modal-backdrop"
+    >
+      <div
+        className={`bg-white dark:bg-white rounded-3xl shadow-2xl ${maxWidth} w-full flex flex-col max-h-[92vh] overflow-hidden text-black font-serif cbt-print-modal-container border border-slate-200`}
+      >
+        {/* Top Control Bar (Hidden on Print) */}
+        <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 font-sans print:hidden shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🖨️</span>
+            <div>
+              <h3 className="font-bold text-sm text-slate-900">{title}</h3>
+              {subtitle && <p className="text-[11px] text-slate-500">{subtitle}</p>}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200 cursor-pointer transition-colors"
+            title="Tutup Pratinjau"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Scrollable Printable Paper Area (Unconstrained in Print) */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-4 bg-white text-black cbt-print-scroll-area">
+          {children}
+        </div>
+
+        {/* Bottom Action Bar (Hidden on Print) */}
+        <div className="p-4 border-t border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-3 font-sans print:hidden shrink-0">
+          <div className="flex-1 min-w-[200px]">{footerExtra}</div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 cursor-pointer transition-colors"
+            >
+              Tutup
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (onPrint) onPrint();
+                else window.print();
+              }}
+              className="px-5 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow-md shadow-blue-500/25 cursor-pointer transition-colors"
+            >
+              🖨️ {printButtonText}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (mounted && typeof document !== 'undefined') {
+    return createPortal(content, document.body);
+  }
+
+  return content;
+}
+
 

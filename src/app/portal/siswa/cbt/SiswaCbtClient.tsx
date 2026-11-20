@@ -44,7 +44,8 @@ import {
   CbtOfficialKopSurat,
   CbtOfficialSignatures,
   CbtSecurityValidationBox,
-  CbtDigitalStamp
+  CbtDigitalStamp,
+  CbtPrintModalWrapper
 } from '@/components/cbt/CbtOfficialPrintComponents';
 import { KopSuratConfig } from '@/app/admin/settings/types';
 
@@ -983,27 +984,16 @@ export default function SiswaCbtClient({
       {/* ========================================================================= */}
       {/* MODAL 1: INDIVIDUAL EXAM RESULT CARD MODAL                                 */}
       {/* ========================================================================= */}
-      {selectedExamForModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 flex flex-col max-h-[92vh]">
-            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-[#5fa08d]/15 to-[#caa55d]/15 dark:from-[#5fa08d]/20 dark:to-[#caa55d]/20">
-              <div className="flex items-center gap-2">
-                <Award className="text-[#caa55d]" size={20} />
-                <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
-                  Surat Keterangan Hasil Evaluasi Belajar CBT Siswa
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedExamForModal(null)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-xl"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 sm:p-8 bg-white text-black font-serif">
-              <div id="printable-single-cbt-card" className="space-y-4 bg-white text-black">
+      <CbtPrintModalWrapper
+        isOpen={Boolean(selectedExamForModal)}
+        onClose={() => setSelectedExamForModal(null)}
+        title="Surat Keterangan Hasil Evaluasi Belajar CBT Siswa"
+        subtitle="Format kartu lembar nilai evaluasi belajar siswa mandiri"
+        maxWidth="max-w-2xl"
+        printButtonText="Cetak Kartu Lembar Nilai (PDF / Print)"
+      >
+        {selectedExamForModal && (
+          <div id="printable-single-cbt-card" className="space-y-4 bg-white text-black cbt-printable-sheet">
                 {/* 🏛️ KOP SURAT RESMI */}
                 <CbtOfficialKopSurat
                   config={kopSuratConfig}
@@ -1097,57 +1087,21 @@ export default function SiswaCbtClient({
                   mode="two-column"
                 />
               </div>
-            </div>
-
-            <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setSelectedExamForModal(null)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
-              >
-                Tutup
-              </button>
-              <button
-                type="button"
-                onClick={handlePrint}
-                className="px-5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#5aa08c] hover:to-[#dfba6f] text-white flex items-center gap-1.5 shadow-md shadow-[#5fa08d]/25"
-              >
-                <Printer size={14} /> Cetak Kartu Lembar Nilai (PDF / Print)
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            )}
+      </CbtPrintModalWrapper>
 
       {/* ========================================================================= */}
       {/* MODAL 2: FULL OFFICIAL TRANSCRIPT REPORT MODAL (ALL CBT EXAMS)             */}
       {/* ========================================================================= */}
-      {isPrintTranscriptModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-3xl w-full overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 flex flex-col max-h-[92vh]">
-            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30">
-              <div className="flex items-center gap-2">
-                <FileSpreadsheet className="text-emerald-600" size={20} />
-                <div>
-                  <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
-                    Pratinjau Transkrip Nilai CBT Resmi Siswa
-                  </h3>
-                  <p className="text-[11px] text-slate-500">
-                    Format transkrip resmi akademik SMK TI GAMA 1 BEKASI
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsPrintTranscriptModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-xl"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 sm:p-8 bg-white text-black font-serif">
-              <div id="printable-cbt-student-report" className="space-y-4 bg-white text-black">
+      <CbtPrintModalWrapper
+        isOpen={isPrintTranscriptModalOpen}
+        onClose={() => setIsPrintTranscriptModalOpen(false)}
+        title="Pratinjau Transkrip Nilai CBT Resmi Siswa"
+        subtitle="Format transkrip resmi akademik SMK TI GAMA 1 BEKASI"
+        maxWidth="max-w-4xl"
+        printButtonText="Cetak Transkrip Resmi Sekarang (PDF / Print)"
+      >
+        <div id="printable-cbt-student-report" className="space-y-4 bg-white text-black cbt-printable-sheet">
                 {/* 🏛️ KOP SURAT RESMI */}
                 <CbtOfficialKopSurat
                   config={kopSuratConfig}
@@ -1252,58 +1206,7 @@ export default function SiswaCbtClient({
                   mode="two-column"
                 />
               </div>
-            </div>
-
-            <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setIsPrintTranscriptModalOpen(false)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
-              >
-                Tutup
-              </button>
-              <button
-                type="button"
-                onClick={handlePrint}
-                className="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-md shadow-emerald-500/25"
-              >
-                <Printer size={14} /> Cetak Transkrip Resmi Sekarang (PDF / Print)
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Global Print Styles for Clean Paper Rendering */}
-      <style jsx global>{`
-        @media print {
-          body * {
-            visibility: hidden !important;
-          }
-          #printable-cbt-student-report, #printable-cbt-student-report *,
-          #printable-single-cbt-card, #printable-single-cbt-card * {
-            visibility: visible !important;
-          }
-          #printable-cbt-student-report, #printable-single-cbt-card {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            background: white !important;
-            color: black !important;
-            padding: 10mm 12mm !important;
-            font-size: 10.5pt !important;
-          }
-          @page {
-            size: A4 portrait;
-            margin: 10mm 12mm 12mm 12mm;
-          }
-          .print-avoid-break {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-          }
-        }
-      `}</style>
+      </CbtPrintModalWrapper>
     </div>
   );
 }

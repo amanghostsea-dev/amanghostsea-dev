@@ -43,7 +43,8 @@ import { KopSuratConfig } from '@/app/admin/settings/types';
 import {
   CbtOfficialKopSurat,
   CbtOfficialSignatures,
-  CbtSecurityValidationBox
+  CbtSecurityValidationBox,
+  CbtPrintModalWrapper
 } from '@/components/cbt/CbtOfficialPrintComponents';
 
 interface CbtStudentLoginMonitorViewProps {
@@ -975,106 +976,87 @@ export default function CbtStudentLoginMonitorView({
       )}
 
       {/* 🖨️ MODAL CETAK BERITA ACARA PRESENSI LOGIN CBT */}
-      {isPrintModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative bg-white text-slate-900 rounded-3xl shadow-2xl border w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-            {/* Modal Top Controls (Hidden on Print) */}
-            <div className="p-4 border-b flex items-center justify-between bg-slate-50 shrink-0 print:hidden">
-              <div className="flex items-center gap-2">
-                <Printer size={18} className="text-emerald-600" />
-                <h3 className="font-black text-sm text-slate-900">
-                  Pratinjau Cetak Berita Acara Presensi Siswa CBT
-                </h3>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => window.print()}
-                  className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow cursor-pointer"
-                >
-                  <Printer size={14} /> Cetak Sekarang
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsPrintModalOpen(false)}
-                  className="p-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 cursor-pointer"
-                >
-                  <X size={16} />
-                </button>
-              </div>
+      <CbtPrintModalWrapper
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+        title="Pratinjau Cetak Berita Acara Presensi Siswa CBT"
+        subtitle="Dokumen absensi dan monitoring sesi aktif peserta ujian"
+        maxWidth="max-w-4xl"
+        printButtonText="Cetak Berita Acara Presensi (PDF / Print)"
+      >
+        <div id="cbt-printable-login-attendance" className="space-y-6 bg-white font-serif text-slate-950 cbt-printable-sheet">
+          {/* Kop Surat Resmi */}
+          <CbtOfficialKopSurat config={kopSuratConfig} />
+
+          <div className="text-center space-y-1">
+            <h3 className="text-base font-black uppercase tracking-wider underline">
+              BERITA ACARA &amp; DAFTAR PRESENSI SISWA UJIAN CBT
+            </h3>
+            <p className="text-xs text-slate-600 font-sans">
+              Tanggal Cetak: {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </p>
+          </div>
+
+          {/* Ringkasan */}
+          <div className="grid grid-cols-2 text-xs font-sans gap-2 p-3 bg-slate-50 border border-black/40 rounded-xl print-avoid-break">
+            <div>
+              <div>Total Peserta Terdata: <strong>{filteredLogins.length} Siswa</strong></div>
+              <div>Status Sedang Ujian: <strong>{scopeCounts.active} Siswa</strong></div>
             </div>
-
-            {/* Printable Paper View */}
-            <div className="p-8 overflow-y-auto space-y-6 bg-white font-serif text-slate-950">
-              {/* Kop Surat Resmi */}
-              <CbtOfficialKopSurat config={kopSuratConfig} />
-
-              <div className="text-center space-y-1">
-                <h3 className="text-base font-black uppercase tracking-wider underline">
-                  BERITA ACARA &amp; DAFTAR PRESENSI SISWA UJIAN CBT
-                </h3>
-                <p className="text-xs text-slate-600 font-sans">
-                  Tanggal Cetak: {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                </p>
-              </div>
-
-              {/* Ringkasan */}
-              <div className="grid grid-cols-2 text-xs font-sans gap-2 p-3 bg-slate-50 border rounded-xl">
-                <div>
-                  <div>Total Peserta Terdata: <strong>{filteredLogins.length} Siswa</strong></div>
-                  <div>Status Sedang Ujian: <strong>{scopeCounts.active} Siswa</strong></div>
-                </div>
-                <div>
-                  <div>Status Selesai Ujian: <strong>{scopeCounts.submitted} Siswa</strong></div>
-                  <div>Rombel Terdaftar: <strong>{distinctClassesCount} Rombel</strong></div>
-                </div>
-              </div>
-
-              {/* Tabel Cetak */}
-              <table className="w-full text-left text-xs font-sans border-collapse border border-slate-300">
-                <thead>
-                  <tr className="bg-slate-100 text-slate-800 font-bold">
-                    <th className="border border-slate-300 p-2 text-center w-10">No</th>
-                    <th className="border border-slate-300 p-2">Nama Siswa</th>
-                    <th className="border border-slate-300 p-2">NISN</th>
-                    <th className="border border-slate-300 p-2">Kelas</th>
-                    <th className="border border-slate-300 p-2">Paket Ujian</th>
-                    <th className="border border-slate-300 p-2 text-center">Waktu Login</th>
-                    <th className="border border-slate-300 p-2 text-center">Status</th>
-                    <th className="border border-slate-300 p-2 text-center w-24">Tanda Tangan</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredLogins.map((item, idx) => (
-                    <tr key={item.id} className="border-b border-slate-200">
-                      <td className="border border-slate-300 p-2 text-center">{idx + 1}</td>
-                      <td className="border border-slate-300 p-2 font-bold">{item.studentName}</td>
-                      <td className="border border-slate-300 p-2 font-mono">{item.studentNis || '-'}</td>
-                      <td className="border border-slate-300 p-2">{item.studentClass || '-'}</td>
-                      <td className="border border-slate-300 p-2">{item.examTitle}</td>
-                      <td className="border border-slate-300 p-2 text-center font-mono">
-                        {new Date(item.startedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                      </td>
-                      <td className="border border-slate-300 p-2 text-center font-bold">
-                        {item.status === 'IN_PROGRESS' ? 'Ujian' : 'Selesai'}
-                      </td>
-                      <td className="border border-slate-300 p-2 text-center text-slate-300">
-                        {idx + 1}. .........
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {/* Tanda Tangan Resmi */}
-              <CbtOfficialSignatures
-                config={kopSuratConfig}
-                proctorName={currentUser?.name || 'Admin CBT'}
-              />
+            <div>
+              <div>Status Selesai Ujian: <strong>{scopeCounts.submitted} Siswa</strong></div>
+              <div>Rombel Terdaftar: <strong>{distinctClassesCount} Rombel</strong></div>
             </div>
           </div>
+
+          {/* Tabel Cetak */}
+          <table className="w-full text-left text-xs font-sans border-collapse border border-black">
+            <thead>
+              <tr className="bg-slate-200 text-black font-bold border-b border-black">
+                <th className="border border-black p-2 text-center w-10">No</th>
+                <th className="border border-black p-2">Nama Siswa</th>
+                <th className="border border-black p-2">NISN</th>
+                <th className="border border-black p-2">Kelas</th>
+                <th className="border border-black p-2">Paket Ujian</th>
+                <th className="border border-black p-2 text-center">Waktu Login</th>
+                <th className="border border-black p-2 text-center">Status</th>
+                <th className="border border-black p-2 text-center w-24">Tanda Tangan</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredLogins.map((item, idx) => (
+                <tr key={item.id} className="border-b border-black/50 print-avoid-break">
+                  <td className="border border-black p-2 text-center">{idx + 1}</td>
+                  <td className="border border-black p-2 font-bold">{item.studentName}</td>
+                  <td className="border border-black p-2 font-mono">{item.studentNis || '-'}</td>
+                  <td className="border border-black p-2">{item.studentClass || '-'}</td>
+                  <td className="border border-black p-2">{item.examTitle}</td>
+                  <td className="border border-black p-2 text-center font-mono">
+                    {new Date(item.startedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                  </td>
+                  <td className="border border-black p-2 text-center font-bold">
+                    {item.status === 'IN_PROGRESS' ? 'Ujian' : 'Selesai'}
+                  </td>
+                  <td className="border border-black p-2 text-center text-slate-400">
+                    {idx + 1}. .........
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Keabsahan Sistem */}
+          <CbtSecurityValidationBox
+            examTitle="Presensi & Monitoring Sesi CBT"
+          />
+
+          {/* Tanda Tangan Resmi */}
+          <CbtOfficialSignatures
+            config={kopSuratConfig}
+            proctorName={currentUser?.name || 'Admin CBT'}
+          />
         </div>
-      )}
+      </CbtPrintModalWrapper>
     </div>
   );
 }

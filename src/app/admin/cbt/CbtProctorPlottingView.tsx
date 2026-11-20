@@ -29,7 +29,8 @@ import { KopSuratConfig } from '@/app/admin/settings/types';
 import { 
   CbtOfficialKopSurat, 
   CbtOfficialSignatures, 
-  CbtSecurityValidationBox 
+  CbtSecurityValidationBox,
+  CbtPrintModalWrapper
 } from '@/components/cbt/CbtOfficialPrintComponents';
 
 export interface ProctorExamItem {
@@ -699,124 +700,87 @@ export default function CbtProctorPlottingView({
       )}
 
       {/* 🖨️ MODAL CETAK SK & JADWAL PLOTTING RESMI */}
-      {isPrintModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-4xl w-full flex flex-col max-h-[92vh] overflow-hidden text-slate-900 dark:text-white">
-            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40">
-              <div className="flex items-center gap-2.5">
-                <Printer className="text-blue-600" size={20} />
-                <div>
-                  <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
-                    Pratinjau Surat Tugas & Jadwal Plotting Pengawas Ujian CBT
-                  </h3>
-                  <p className="text-[11px] text-slate-500">
-                    Dokumen resmi penugasan pengawas ruang berbasis komputer
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsPrintModalOpen(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100"
-              >
-                <X size={18} />
-              </button>
-            </div>
+      <CbtPrintModalWrapper
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+        title="Pratinjau Surat Tugas & Jadwal Plotting Pengawas Ujian CBT"
+        subtitle="Dokumen resmi penugasan pengawas ruang berbasis komputer"
+        maxWidth="max-w-5xl"
+        printButtonText="Cetak Dokumen SK (PDF / Print)"
+      >
+        <div id="cbt-printable-proctor-plotting" className="space-y-4 bg-white text-black cbt-printable-sheet">
+          {/* 🏛️ KOP SURAT RESMI */}
+          <CbtOfficialKopSurat
+            config={kopSuratConfig}
+            documentTitle="SURAT KEPUTUSAN & JADWAL PENUGASAN PENGAWAS RUANG UJIAN BERBASIS KOMPUTER (CBT)"
+            documentNumber={`Nomor: 421.5 / SK-PENGAWAS / ${new Date().getFullYear()} / CBT-SMK`}
+            subTitle="Semester Ganjil • Tahun Ajaran 2025/2026"
+          />
 
-            <div className="flex-1 overflow-y-auto p-6 sm:p-8 bg-white text-black font-serif">
-              <div id="cbt-printable-proctor-plotting" className="space-y-4 bg-white text-black">
-                {/* 🏛️ KOP SURAT RESMI */}
-                <CbtOfficialKopSurat
-                  config={kopSuratConfig}
-                  documentTitle="SURAT KEPUTUSAN & JADWAL PENUGASAN PENGAWAS RUANG UJIAN BERBASIS KOMPUTER (CBT)"
-                  documentNumber={`Nomor: 421.5 / SK-PENGAWAS / ${new Date().getFullYear()} / CBT-SMK`}
-                  subTitle="Semester Ganjil • Tahun Ajaran 2025/2026"
-                />
-
-                {/* Ringkasan SK */}
-                <div className="text-xs text-justify leading-relaxed text-slate-800 border-l-2 border-black pl-3 py-1">
-                  Kepala Sekolah menugaskan nama-nama guru terlampir di bawah ini sebagai <strong>Pengawas Ruang Ujian Berbasis Komputer (CBT)</strong> untuk memastikan integritas, ketertiban ruangan, kedisiplinan rilis token, dan verifikasi kehadiran peserta didik sesuai dengan jadwal yang telah ditetapkan.
-                </div>
-
-                {/* Tabel Jadwal Penugasan */}
-                <table className="w-full text-left border-collapse border border-black text-[10px] sm:text-xs">
-                  <thead>
-                    <tr className="bg-slate-200 border-b border-black text-black font-bold uppercase text-center tracking-tight">
-                      <th className="py-2 px-1 border-r border-black w-8">No</th>
-                      <th className="py-2 px-3 border-r border-black text-left">Mata Pelajaran & Paket Ujian</th>
-                      <th className="py-2 px-2 border-r border-black w-24">Kelas / Rombel</th>
-                      <th className="py-2 px-2 border-r border-black w-28">Lokasi Ruang</th>
-                      <th className="py-2 px-2 border-r border-black w-32">Jadwal Ujian</th>
-                      <th className="py-2 px-3 border-r border-black text-left">Pengawas 1 (Utama)</th>
-                      <th className="py-2 px-3 text-left">Pengawas 2</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-black/40">
-                    {exams.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="py-6 text-center text-slate-500 italic">
-                          Belum ada paket ujian yang terdaftar di sistem.
-                        </td>
-                      </tr>
-                    ) : (
-                      exams.map((exam, idx) => {
-                        const sched = formatExamScheduleRange(exam.startTime, exam.endTime);
-                        return (
-                          <tr key={exam.id} className="print-avoid-break">
-                            <td className="py-2 px-1 border-r border-black font-bold text-center">{idx + 1}</td>
-                            <td className="py-2 px-3 border-r border-black font-bold text-left">
-                              <div>{exam.subject}</div>
-                              <div className="text-[9px] font-normal text-slate-600">{exam.title}</div>
-                            </td>
-                            <td className="py-2 px-2 border-r border-black font-bold text-center">{exam.classTarget}</td>
-                            <td className="py-2 px-2 border-r border-black font-semibold text-center">{exam.roomName || 'Lab Komputer 1'}</td>
-                            <td className="py-2 px-2 border-r border-black text-[9.5px] text-center font-medium">{sched}</td>
-                            <td className="py-2 px-3 border-r border-black text-left">
-                              <div className="font-bold">{exam.proctorName || <span className="text-rose-700 italic">Belum Di-plot</span>}</div>
-                              {exam.proctorNip && <div className="text-[9px] text-slate-600 font-mono">NIP: {exam.proctorNip}</div>}
-                            </td>
-                            <td className="py-2 px-3 text-left text-slate-700">
-                              {exam.proctor2Name || '-'}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-
-                {/* Keabsahan Sistem */}
-                <CbtSecurityValidationBox
-                  examTitle="SK & Matriks Plotting Pengawas CBT"
-                />
-
-                {/* Tanda Tangan Resmi Kepala Sekolah & Panitia */}
-                <CbtOfficialSignatures
-                  config={kopSuratConfig}
-                  mode="two-column"
-                />
-              </div>
-            </div>
-
-            <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setIsPrintModalOpen(false)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
-              >
-                Tutup
-              </button>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="px-5 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow-md shadow-blue-500/25"
-              >
-                <Printer size={15} /> Cetak Dokumen SK (PDF / Print)
-              </button>
-            </div>
+          {/* Ringkasan SK */}
+          <div className="text-xs text-justify leading-relaxed text-slate-800 border-l-2 border-black pl-3 py-1">
+            Kepala Sekolah menugaskan nama-nama guru terlampir di bawah ini sebagai <strong>Pengawas Ruang Ujian Berbasis Komputer (CBT)</strong> untuk memastikan integritas, ketertiban ruangan, kedisiplinan rilis token, dan verifikasi kehadiran peserta didik sesuai dengan jadwal yang telah ditetapkan.
           </div>
+
+          {/* Tabel Jadwal Penugasan */}
+          <table className="w-full text-left border-collapse border border-black text-[10px] sm:text-xs">
+            <thead>
+              <tr className="bg-slate-200 border-b border-black text-black font-bold uppercase text-center tracking-tight">
+                <th className="py-2 px-1 border-r border-black w-8">No</th>
+                <th className="py-2 px-3 border-r border-black text-left">Mata Pelajaran & Paket Ujian</th>
+                <th className="py-2 px-2 border-r border-black w-24">Kelas / Rombel</th>
+                <th className="py-2 px-2 border-r border-black w-28">Lokasi Ruang</th>
+                <th className="py-2 px-2 border-r border-black w-32">Jadwal Ujian</th>
+                <th className="py-2 px-3 border-r border-black text-left">Pengawas 1 (Utama)</th>
+                <th className="py-2 px-3 text-left">Pengawas 2</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-black/40">
+              {exams.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-6 text-center text-slate-500 italic">
+                    Belum ada paket ujian yang terdaftar di sistem.
+                  </td>
+                </tr>
+              ) : (
+                exams.map((exam, idx) => {
+                  const sched = formatExamScheduleRange(exam.startTime, exam.endTime);
+                  return (
+                    <tr key={exam.id} className="print-avoid-break">
+                      <td className="py-2 px-1 border-r border-black font-bold text-center">{idx + 1}</td>
+                      <td className="py-2 px-3 border-r border-black font-bold text-left">
+                        <div>{exam.subject}</div>
+                        <div className="text-[9px] font-normal text-slate-600">{exam.title}</div>
+                      </td>
+                      <td className="py-2 px-2 border-r border-black font-bold text-center">{exam.classTarget}</td>
+                      <td className="py-2 px-2 border-r border-black font-semibold text-center">{exam.roomName || 'Lab Komputer 1'}</td>
+                      <td className="py-2 px-2 border-r border-black text-[9.5px] text-center font-medium">{sched}</td>
+                      <td className="py-2 px-3 border-r border-black text-left">
+                        <div className="font-bold">{exam.proctorName || <span className="text-rose-700 italic">Belum Di-plot</span>}</div>
+                        {exam.proctorNip && <div className="text-[9px] text-slate-600 font-mono">NIP: {exam.proctorNip}</div>}
+                      </td>
+                      <td className="py-2 px-3 text-left text-slate-700">
+                        {exam.proctor2Name || '-'}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+
+          {/* Keabsahan Sistem */}
+          <CbtSecurityValidationBox
+            examTitle="SK & Matriks Plotting Pengawas CBT"
+          />
+
+          {/* Tanda Tangan Resmi Kepala Sekolah & Panitia */}
+          <CbtOfficialSignatures
+            config={kopSuratConfig}
+            mode="two-column"
+          />
         </div>
-      )}
+      </CbtPrintModalWrapper>
     </div>
   );
 }

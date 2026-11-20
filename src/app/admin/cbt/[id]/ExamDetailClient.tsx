@@ -88,7 +88,8 @@ import {
   CbtOfficialKopSurat, 
   CbtOfficialSignatures, 
   CbtSecurityValidationBox, 
-  CbtDigitalStamp 
+  CbtDigitalStamp,
+  CbtPrintModalWrapper
 } from '@/components/cbt/CbtOfficialPrintComponents';
 import { KopSuratConfig } from '@/app/admin/settings/types';
 import CbtRichText from '@/components/cbt/CbtRichText';
@@ -4160,32 +4161,15 @@ Poin: 15`}
       )}
 
       {/* 🖨️ MODAL CETAK REKAPITULASI NILAI RESMI UJIAN INI */}
-      {isPrintExamModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-4xl w-full flex flex-col max-h-[92vh] overflow-hidden text-slate-900 dark:text-white">
-            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/40 dark:to-indigo-950/40">
-              <div className="flex items-center gap-2.5">
-                <Printer className="text-purple-600" size={20} />
-                <div>
-                  <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
-                    Pratinjau Lembar Rekap Nilai Resmi Ujian CBT
-                  </h3>
-                  <p className="text-[11px] text-slate-500">
-                    Format cetak resmi standar Dinas Pendidikan & SMK TI GAMA 1 BEKASI
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsPrintExamModalOpen(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 sm:p-8 bg-white text-black font-serif">
-              <div id="cbt-printable-exam-detail-report" className="space-y-4 bg-white text-black">
+      <CbtPrintModalWrapper
+        isOpen={isPrintExamModalOpen}
+        onClose={() => setIsPrintExamModalOpen(false)}
+        title="Pratinjau Lembar Rekap Nilai Resmi Ujian CBT"
+        subtitle="Format cetak resmi standar Dinas Pendidikan & SMK TI GAMA 1 BEKASI"
+        maxWidth="max-w-5xl"
+        printButtonText="Cetak Rekap Nilai Resmi (PDF / Print)"
+      >
+        <div id="cbt-printable-exam-detail-report" className="space-y-4 bg-white text-black cbt-printable-sheet">
                 {/* 🏛️ KOP SURAT RESMI */}
                 <CbtOfficialKopSurat
                   config={kopSuratConfig}
@@ -4319,27 +4303,7 @@ Poin: 15`}
                   mode="three-column"
                 />
               </div>
-            </div>
-
-            <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setIsPrintExamModalOpen(false)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer"
-              >
-                Tutup
-              </button>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="px-5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white flex items-center gap-1.5 shadow-md shadow-purple-500/25 cursor-pointer"
-              >
-                <Printer size={15} /> Cetak Rekap Nilai Resmi (PDF / Print)
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      </CbtPrintModalWrapper>
 
       {/* 📥 MODAL OPSI UNDUH NILAI EXCEL / CSV PER JURUSAN & ROMBEL */}
       {isDownloadModalOpen && (
@@ -4590,36 +4554,6 @@ Poin: 15`}
         onClose={() => setIsTableModalOpen(false)}
         onInsertTable={handleInsertTable}
       />
-
-      {/* Global Print Styles for Exam Detail */}
-      <style jsx global>{`
-        @media print {
-          body * {
-            visibility: hidden !important;
-          }
-          #cbt-printable-exam-detail-report, #cbt-printable-exam-detail-report * {
-            visibility: visible !important;
-          }
-          #cbt-printable-exam-detail-report {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            background: white !important;
-            color: black !important;
-            padding: 10mm 12mm !important;
-            font-size: 10.5pt !important;
-          }
-          @page {
-            size: A4 portrait;
-            margin: 10mm 12mm 12mm 12mm;
-          }
-          .print-avoid-break {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-          }
-        }
-      `}</style>
     </div>
   );
 }

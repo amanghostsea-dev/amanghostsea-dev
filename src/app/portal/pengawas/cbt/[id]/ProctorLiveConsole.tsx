@@ -53,7 +53,8 @@ import { KopSuratConfig } from '@/app/admin/settings/types';
 import { 
   CbtOfficialKopSurat, 
   CbtOfficialSignatures, 
-  CbtSecurityValidationBox 
+  CbtSecurityValidationBox,
+  CbtPrintModalWrapper
 } from '@/components/cbt/CbtOfficialPrintComponents';
 import ConfirmModal from '@/components/ConfirmModal';
 
@@ -1440,20 +1441,15 @@ export default function ProctorLiveConsole({
       )}
 
       {/* 📋 MODAL CETAK DAFTAR HADIR RUANGAN */}
-      {isPrintAttendanceModalOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in print:static print:p-0 print:m-0 print:bg-white print:z-auto print:w-full print:h-auto print:backdrop-blur-none">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full flex flex-col max-h-[92vh] overflow-hidden text-black font-serif print:max-h-none print:h-auto print:overflow-visible print:shadow-none print:rounded-none print:w-full print:p-0 print:border-none">
-            <div className="p-4 border-b flex justify-between items-center bg-slate-50 font-sans print:hidden">
-              <div className="flex items-center gap-2">
-                <Printer size={18} className="text-blue-600" />
-                <span className="font-bold text-sm">Pratinjau Daftar Hadir Peserta Ujian Ruangan</span>
-              </div>
-              <button onClick={() => setIsPrintAttendanceModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer">
-                <X size={18} />
-              </button>
-            </div>
-
-            <div id="cbt-printable-attendance-sheet" className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-4 print:p-0 print:overflow-visible print:w-full">
+      <CbtPrintModalWrapper
+        isOpen={isPrintAttendanceModalOpen}
+        onClose={() => setIsPrintAttendanceModalOpen(false)}
+        title="Pratinjau Daftar Hadir Peserta Ujian Ruangan"
+        subtitle="Dokumen presensi resmi peserta ujian berbasis komputer"
+        maxWidth="max-w-5xl"
+        printButtonText="Cetak Daftar Hadir (PDF)"
+      >
+        <div id="cbt-printable-attendance-sheet" className="space-y-4 bg-white text-black cbt-printable-sheet">
               <CbtOfficialKopSurat
                 config={kopSuratConfig}
                 documentTitle="DAFTAR HADIR PESERTA UJIAN BERBASIS KOMPUTER (CBT)"
@@ -1613,40 +1609,30 @@ export default function ProctorLiveConsole({
                 />
               </div>
             </div>
-
-            <div className="p-4 border-t bg-slate-50 flex items-center justify-end gap-2 font-sans print:hidden">
-              <button
-                onClick={() => setIsPrintAttendanceModalOpen(false)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 cursor-pointer"
-              >
-                Tutup
-              </button>
-              <button
-                onClick={() => window.print()}
-                className="px-5 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow cursor-pointer"
-              >
-                <Printer size={15} /> Cetak Daftar Hadir (PDF)
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      </CbtPrintModalWrapper>
 
       {/* 📜 MODAL CETAK BERITA ACARA UJIAN (BAP) */}
-      {isPrintBapModalOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in print:static print:p-0 print:m-0 print:bg-white print:z-auto print:w-full print:h-auto print:backdrop-blur-none">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full flex flex-col max-h-[92vh] overflow-hidden text-black font-serif print:max-h-none print:h-auto print:overflow-visible print:shadow-none print:rounded-none print:w-full print:p-0 print:border-none">
-            <div className="p-4 border-b flex justify-between items-center bg-slate-50 font-sans print:hidden">
-              <div className="flex items-center gap-2">
-                <FileCheck2 size={18} className="text-blue-600" />
-                <span className="font-bold text-sm">Pratinjau Berita Acara Pelaksanaan Ujian (BAP)</span>
-              </div>
-              <button onClick={() => setIsPrintBapModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer">
-                <X size={18} />
-              </button>
-            </div>
-
-            <div id="cbt-printable-bap-sheet" className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-4 print:p-0 print:overflow-visible print:w-full">
+      <CbtPrintModalWrapper
+        isOpen={isPrintBapModalOpen}
+        onClose={() => setIsPrintBapModalOpen(false)}
+        title="Pratinjau Berita Acara Pelaksanaan Ujian (BAP)"
+        subtitle="Dokumen berita acara resmi pelaksanaan ujian berbasis komputer"
+        maxWidth="max-w-5xl"
+        printButtonText="Cetak Berita Acara (PDF)"
+        footerExtra={
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-600">Catatan Kejadian Khusus:</span>
+            <input
+              type="text"
+              value={bapNotes}
+              onChange={(e) => setBapNotes(e.target.value)}
+              placeholder="Tulis catatan kejadian khusus di ruangan..."
+              className="text-xs px-3 py-1.5 rounded-xl border border-slate-300 w-72 sm:w-80 text-black bg-white"
+            />
+          </div>
+        }
+      >
+        <div id="cbt-printable-bap-sheet" className="space-y-4 bg-white text-black cbt-printable-sheet">
               <CbtOfficialKopSurat
                 config={kopSuratConfig}
                 documentTitle="BERITA ACARA PELAKSANAAN UJIAN BERBASIS KOMPUTER (CBT)"
@@ -1820,33 +1806,7 @@ export default function ProctorLiveConsole({
                 />
               </div>
             </div>
-
-            <div className="p-4 border-t bg-slate-50 flex items-center justify-between font-sans print:hidden">
-              <input
-                type="text"
-                value={bapNotes}
-                onChange={(e) => setBapNotes(e.target.value)}
-                placeholder="Tulis catatan kejadian khusus di ruangan..."
-                className="text-xs px-3 py-1.5 rounded-xl border border-slate-300 w-80 text-black"
-              />
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setIsPrintBapModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 cursor-pointer"
-                >
-                  Tutup
-                </button>
-                <button
-                  onClick={() => window.print()}
-                  className="px-5 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow cursor-pointer"
-                >
-                  <Printer size={15} /> Cetak Berita Acara (PDF)
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      </CbtPrintModalWrapper>
 
       {/* ⚠️ MODAL PERINGATAN / NOTIFIKASI KETIDAKSESUAIAN JADWAL RILIS TOKEN */}
       {scheduleNoticeModal && (
@@ -1940,82 +1900,6 @@ export default function ProctorLiveConsole({
         <span className="hidden sm:inline text-slate-700">•</span>
         <span className="font-semibold text-slate-400">Created By Abdul Rahman</span>
       </footer>
-
-      {/* 🖨️ GLOBAL PRINT CSS UNTUK DAFTAR HADIR & BERITA ACARA RESMI KEDINASAN */}
-      <style jsx global>{`
-        @media print {
-          /* 1. Sembunyikan seluruh interface di luar dokumen cetak */
-          body * {
-            visibility: hidden !important;
-          }
-
-          /* 2. Reset html & body agar bersih dari background gelap, padding, dan scroll */
-          html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #ffffff !important;
-            background-color: #ffffff !important;
-            color: #000000 !important;
-            overflow: visible !important;
-            height: auto !important;
-            width: 100% !important;
-          }
-
-          /* 3. Tampilkan lembar cetak resmi (Daftar Hadir & BAP) */
-          #cbt-printable-attendance-sheet, #cbt-printable-attendance-sheet *,
-          #cbt-printable-bap-sheet, #cbt-printable-bap-sheet * {
-            visibility: visible !important;
-          }
-
-          #cbt-printable-attendance-sheet, #cbt-printable-bap-sheet {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #ffffff !important;
-            color: #000000 !important;
-            display: block !important;
-            overflow: visible !important;
-            max-height: none !important;
-            height: auto !important;
-            z-index: 9999999 !important;
-          }
-
-          /* 4. Standar Ukuran Kertas A4 Portrait Kedinasan */
-          @page {
-            size: A4 portrait;
-            margin: 10mm 12mm 12mm 12mm;
-          }
-
-          /* 5. Pagination & Aturan Baris Tabel */
-          .print-avoid-break {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-          }
-
-          table {
-            page-break-inside: auto;
-            width: 100% !important;
-          }
-          tr {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-          }
-          thead {
-            display: table-header-group !important;
-          }
-          tfoot {
-            display: table-footer-group !important;
-          }
-
-          /* Sembunyikan tombol & input formulir */
-          button, input, select, textarea {
-            display: none !important;
-          }
-        }
-      `}</style>
     </div>
   );
 }

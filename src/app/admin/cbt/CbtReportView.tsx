@@ -31,7 +31,8 @@ import {
   CbtOfficialKopSurat, 
   CbtOfficialSignatures, 
   CbtSecurityValidationBox, 
-  CbtDigitalStamp 
+  CbtDigitalStamp,
+  CbtPrintModalWrapper
 } from '@/components/cbt/CbtOfficialPrintComponents';
 import { extractJurusanCode, getJurusanFullName, CbtTimezone, DEFAULT_CBT_TIMEZONE, formatScheduleTime } from '@/lib/cbt-schedule';
 
@@ -890,32 +891,15 @@ export default function CbtReportView({
       </div>
 
       {/* 🖨️ MODAL 1: CETAK REKAPITULASI RESMI KOLEKTIF (KELAS / MAPEL) */}
-      {isPrintCollectiveModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-4xl w-full flex flex-col max-h-[92vh] overflow-hidden text-slate-900 dark:text-white">
-            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/40 dark:to-indigo-950/40">
-              <div className="flex items-center gap-2.5">
-                <Printer className="text-purple-600" size={20} />
-                <div>
-                  <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
-                    Pratinjau Lembar Rekapitulasi Nilai Resmi CBT
-                  </h3>
-                  <p className="text-[11px] text-slate-500">
-                    Format cetak resmi standar Dinas Pendidikan & SMK TI GAMA 1 BEKASI
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsPrintCollectiveModalOpen(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 sm:p-8 bg-white text-black font-serif">
-              <div id="cbt-printable-collective-report" className="space-y-4 bg-white text-black">
+      <CbtPrintModalWrapper
+        isOpen={isPrintCollectiveModalOpen}
+        onClose={() => setIsPrintCollectiveModalOpen(false)}
+        title="Pratinjau Lembar Rekapitulasi Nilai Resmi CBT"
+        subtitle="Format cetak resmi standar Dinas Pendidikan & SMK TI GAMA 1 BEKASI"
+        maxWidth="max-w-5xl"
+        printButtonText="Cetak Rekap Dokumen Sekarang (PDF / Print)"
+      >
+        <div id="cbt-printable-collective-report" className="space-y-4 bg-white text-black cbt-printable-sheet">
                 {/* 🏛️ KOP SURAT RESMI */}
                 <CbtOfficialKopSurat
                   config={kopSuratConfig}
@@ -1050,162 +1034,112 @@ export default function CbtReportView({
                   mode="three-column"
                 />
               </div>
-            </div>
-
-            <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setIsPrintCollectiveModalOpen(false)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
-              >
-                Tutup
-              </button>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="px-5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white flex items-center gap-1.5 shadow-md shadow-purple-500/25"
-              >
-                <Printer size={15} /> Cetak Rekap Dokumen Sekarang (PDF / Print)
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      </CbtPrintModalWrapper>
 
       {/* 🖨️ MODAL 2: CETAK KARTU / TRANSKRIP RESMI SISWA INDIVIDUAL */}
-      {printStudentCard && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-xl w-full flex flex-col max-h-[92vh] overflow-hidden text-slate-900 dark:text-white">
-            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/40 dark:to-indigo-950/40">
-              <div className="flex items-center gap-2">
-                <Award className="text-purple-600" size={20} />
-                <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
-                  Surat Keterangan Hasil Evaluasi Ujian (CBT) Siswa
-                </h3>
+      <CbtPrintModalWrapper
+        isOpen={Boolean(printStudentCard)}
+        onClose={() => setPrintStudentCard(null)}
+        title="Surat Keterangan Hasil Evaluasi Ujian (CBT) Siswa"
+        subtitle="Sistem Evaluasi Berbasis Komputer & Verifikasi Akademik Resmi"
+        maxWidth="max-w-2xl"
+        printButtonText="Cetak Lembar Nilai Siswa (PDF / Print)"
+      >
+        {printStudentCard && (
+          <div id="cbt-printable-student-card" className="space-y-4 bg-white text-black cbt-printable-sheet">
+            {/* 🏛️ KOP SURAT RESMI */}
+            <CbtOfficialKopSurat
+              config={kopSuratConfig}
+              documentTitle="SURAT KETERANGAN HASIL EVALUASI UJIAN BERBASIS KOMPUTER (CBT)"
+              documentNumber={`Nomor: 421.5 / SKH-CBT / ${new Date().getFullYear()} / ${printStudentCard.studentNis}`}
+              subTitle="Sistem Evaluasi Berbasis Komputer & Verifikasi Akademik Resmi"
+            />
+
+            {/* 👤 IDENTITAS RESMI SISWA */}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs border border-black p-3 bg-slate-50/50 print-avoid-break">
+              <div className="flex">
+                <span className="w-32 font-bold text-slate-700">Nama Lengkap</span>
+                <span className="font-bold text-black">: {printStudentCard.studentName}</span>
               </div>
-              <button
-                type="button"
-                onClick={() => setPrintStudentCard(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 sm:p-8 bg-white text-black font-serif">
-              <div id="cbt-printable-student-card" className="space-y-4 bg-white text-black">
-                {/* 🏛️ KOP SURAT RESMI */}
-                <CbtOfficialKopSurat
-                  config={kopSuratConfig}
-                  documentTitle="SURAT KETERANGAN HASIL EVALUASI UJIAN BERBASIS KOMPUTER (CBT)"
-                  documentNumber={`Nomor: 421.5 / SKH-CBT / ${new Date().getFullYear()} / ${printStudentCard.studentNis}`}
-                  subTitle="Sistem Evaluasi Berbasis Komputer & Verifikasi Akademik Resmi"
-                />
-
-                {/* 👤 IDENTITAS RESMI SISWA */}
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs border border-black p-3 bg-slate-50/50 print-avoid-break">
-                  <div className="flex">
-                    <span className="w-32 font-bold text-slate-700">Nama Lengkap</span>
-                    <span className="font-bold text-black">: {printStudentCard.studentName}</span>
-                  </div>
-                  <div className="flex">
-                    <span className="w-32 font-bold text-slate-700">Kelas / Rombel</span>
-                    <span className="font-bold text-black">: {printStudentCard.studentClass}</span>
-                  </div>
-                  <div className="flex">
-                    <span className="w-32 font-bold text-slate-700">NISN / Nomor Induk</span>
-                    <span className="font-mono font-bold text-black">: {printStudentCard.studentNis}</span>
-                  </div>
-                  <div className="flex">
-                    <span className="w-32 font-bold text-slate-700">Waktu Evaluasi</span>
-                    <span>: {printStudentCard.submittedAt ? new Date(printStudentCard.submittedAt).toLocaleString('id-ID') : '-'}</span>
-                  </div>
-                </div>
-
-                {/* 📚 RINCIAN PAKET UJIAN */}
-                <div className="p-3 border border-black bg-purple-50/30 print-avoid-break space-y-1">
-                  <div className="text-[10px] font-bold text-purple-900 uppercase tracking-wider">
-                    Mata Pelajaran: {printStudentCard.subject}
-                  </div>
-                  <div className="text-base font-black text-black">
-                    {printStudentCard.examTitle}
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-slate-700 pt-0.5">
-                    <span>Target: <strong>{printStudentCard.studentClass}</strong></span>
-                    <span>•</span>
-                    <span>Guru Pengampu: <strong>{printStudentCard.examAuthor || 'Guru Pengampu'}</strong></span>
-                    <span>•</span>
-                    <span>KKM: <strong>75.00</strong></span>
-                    <span>•</span>
-                    <span>Total Soal: <strong>{printStudentCard.totalQuestions} Butir</strong></span>
-                  </div>
-                </div>
-
-                {/* 🎯 KOTAK NILAI RESMI KEDINASAN */}
-                <div className="border-2 border-black p-4 bg-slate-50 flex items-center justify-between print-avoid-break">
-                  <div>
-                    <span className="text-[11px] font-bold text-slate-600 block uppercase">
-                      Nilai Perolehan Ujian CBT:
-                    </span>
-                    <div className="text-4xl font-black text-black">
-                      {Math.round(printStudentCard.score)} <span className="text-xs font-normal text-slate-500">/ 100</span>
-                    </div>
-                    <span className="text-[10px] text-slate-500 italic block mt-0.5">
-                      Terbilang: {printStudentCard.score >= 90 ? 'Sangat Baik' : printStudentCard.score >= 80 ? 'Baik' : printStudentCard.score >= 75 ? 'Cukup (Tuntas KKM)' : 'Perlu Peningkatan'}
-                    </span>
-                  </div>
-
-                  <div className="text-right space-y-1">
-                    <span className="text-[10px] font-bold text-slate-600 uppercase block">Status Kriteria Ketuntasan:</span>
-                    {printStudentCard.score >= kkmScore ? (
-                      <span className="inline-block px-3 py-1 bg-black text-white text-xs font-black border border-black uppercase tracking-wider">
-                        ✓ LULUS / TUNTAS
-                      </span>
-                    ) : (
-                      <span className="inline-block px-3 py-1 bg-white text-black text-xs font-black border-2 border-black uppercase tracking-wider">
-                        WAJIB REMEDIAL
-                      </span>
-                    )}
-                    <div className="text-[10px] text-slate-700">
-                      Benar: <strong>{printStudentCard.totalCorrect}</strong> dari {printStudentCard.totalQuestions} Soal
-                    </div>
-                  </div>
-                </div>
-
-                {/* 🛡️ KEABSAHAN & TANDA TANGAN */}
-                <CbtSecurityValidationBox
-                  examTitle={printStudentCard.examTitle}
-                />
-
-                <CbtOfficialSignatures
-                  config={kopSuratConfig}
-                  teacherName={printStudentCard.examAuthor || (isGuru ? currentUserName : (currentUser?.name || 'Guru Mata Pelajaran'))}
-                  subjectName={printStudentCard.subject}
-                  classNameTarget={printStudentCard.studentClass}
-                  mode="two-column"
-                />
+              <div className="flex">
+                <span className="w-32 font-bold text-slate-700">Kelas / Rombel</span>
+                <span className="font-bold text-black">: {printStudentCard.studentClass}</span>
+              </div>
+              <div className="flex">
+                <span className="w-32 font-bold text-slate-700">NISN / Nomor Induk</span>
+                <span className="font-mono font-bold text-black">: {printStudentCard.studentNis}</span>
+              </div>
+              <div className="flex">
+                <span className="w-32 font-bold text-slate-700">Waktu Evaluasi</span>
+                <span>: {printStudentCard.submittedAt ? new Date(printStudentCard.submittedAt).toLocaleString('id-ID') : '-'}</span>
               </div>
             </div>
 
-            <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setPrintStudentCard(null)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
-              >
-                Tutup
-              </button>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="px-5 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-1.5 shadow-md shadow-purple-500/25"
-              >
-                <Printer size={15} /> Cetak Lembar Nilai Siswa (PDF / Print)
-              </button>
+            {/* 📚 RINCIAN PAKET UJIAN */}
+            <div className="p-3 border border-black bg-purple-50/30 print-avoid-break space-y-1">
+              <div className="text-[10px] font-bold text-purple-900 uppercase tracking-wider">
+                Mata Pelajaran: {printStudentCard.subject}
+              </div>
+              <div className="text-base font-black text-black">
+                {printStudentCard.examTitle}
+              </div>
+              <div className="flex items-center gap-3 text-xs text-slate-700 pt-0.5">
+                <span>Target: <strong>{printStudentCard.studentClass}</strong></span>
+                <span>•</span>
+                <span>Guru Pengampu: <strong>{printStudentCard.examAuthor || 'Guru Pengampu'}</strong></span>
+                <span>•</span>
+                <span>KKM: <strong>75.00</strong></span>
+                <span>•</span>
+                <span>Total Soal: <strong>{printStudentCard.totalQuestions} Butir</strong></span>
+              </div>
             </div>
+
+            {/* 🎯 KOTAK NILAI RESMI KEDINASAN */}
+            <div className="border-2 border-black p-4 bg-slate-50 flex items-center justify-between print-avoid-break">
+              <div>
+                <span className="text-[11px] font-bold text-slate-600 block uppercase">
+                  Nilai Perolehan Ujian CBT:
+                </span>
+                <div className="text-4xl font-black text-black">
+                  {Math.round(printStudentCard.score)} <span className="text-xs font-normal text-slate-500">/ 100</span>
+                </div>
+                <span className="text-[10px] text-slate-500 italic block mt-0.5">
+                  Terbilang: {printStudentCard.score >= 90 ? 'Sangat Baik' : printStudentCard.score >= 80 ? 'Baik' : printStudentCard.score >= 75 ? 'Cukup (Tuntas KKM)' : 'Perlu Peningkatan'}
+                </span>
+              </div>
+
+              <div className="text-right space-y-1">
+                <span className="text-[10px] font-bold text-slate-600 uppercase block">Status Kriteria Ketuntasan:</span>
+                {printStudentCard.score >= kkmScore ? (
+                  <span className="inline-block px-3 py-1 bg-black text-white text-xs font-black border border-black uppercase tracking-wider">
+                    ✓ LULUS / TUNTAS
+                  </span>
+                ) : (
+                  <span className="inline-block px-3 py-1 bg-white text-black text-xs font-black border-2 border-black uppercase tracking-wider">
+                    WAJIB REMEDIAL
+                  </span>
+                )}
+                <div className="text-[10px] text-slate-700">
+                  Benar: <strong>{printStudentCard.totalCorrect}</strong> dari {printStudentCard.totalQuestions} Soal
+                </div>
+              </div>
+            </div>
+
+            {/* 🛡️ KEABSAHAN & TANDA TANGAN */}
+            <CbtSecurityValidationBox
+              examTitle={printStudentCard.examTitle}
+            />
+
+            <CbtOfficialSignatures
+              config={kopSuratConfig}
+              teacherName={printStudentCard.examAuthor || (isGuru ? currentUserName : (currentUser?.name || 'Guru Mata Pelajaran'))}
+              subjectName={printStudentCard.subject}
+              classNameTarget={printStudentCard.studentClass}
+              mode="two-column"
+            />
           </div>
-        </div>
-      )}
+        )}
+      </CbtPrintModalWrapper>
 
       {/* 🔄 MODAL KONFIRMASI RESET UJIAN */}
       <ConfirmModal
@@ -1219,37 +1153,6 @@ export default function CbtReportView({
         isLoading={isResetting}
         variant="danger"
       />
-
-      {/* 🖨️ GLOBAL PRINT CSS FOR HIGH-FIDELITY OFFICIAL DOCUMENTS */}
-      <style jsx global>{`
-        @media print {
-          body * {
-            visibility: hidden !important;
-          }
-          #cbt-printable-collective-report, #cbt-printable-collective-report *,
-          #cbt-printable-student-card, #cbt-printable-student-card * {
-            visibility: visible !important;
-          }
-          #cbt-printable-collective-report, #cbt-printable-student-card {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            background: white !important;
-            color: black !important;
-            padding: 10mm 12mm !important;
-            font-size: 10.5pt !important;
-          }
-          @page {
-            size: A4 portrait;
-            margin: 10mm 12mm 12mm 12mm;
-          }
-          .print-avoid-break {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-          }
-        }
-      `}</style>
     </div>
   );
 }
