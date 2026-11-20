@@ -273,7 +273,20 @@ export async function checkExamScheduleConflict(params: {
       // 2. 🕌 Smart Exemption Varian Agama Paralel:
       // Jika dua ujian memiliki target agama spesifik yang berbeda (misal yang satu Islam dan yang satu Kristen),
       // maka ini BUKAN BENTROK karena memang sengaja dijadwalkan bersamaan untuk siswa yang berbeda agama.
-      if (isReligiousVariantParallel(c.targetReligion, params.targetReligion)) {
+      const candRel = normalizeReligion(c.targetReligion) !== 'ALL'
+        ? normalizeReligion(c.targetReligion)
+        : (() => {
+            const t = `${c.subject || ''} ${c.title || ''}`.toUpperCase();
+            if (t.includes('ISLAM') || t.includes('PAI')) return 'ISLAM';
+            if (t.includes('KRISTEN') || t.includes('PAK') || t.includes('PROTESTAN')) return 'KRISTEN';
+            if (t.includes('KATOLIK')) return 'KATOLIK';
+            if (t.includes('HINDU')) return 'HINDU';
+            if (t.includes('BUDDHA') || t.includes('BUDHA')) return 'BUDDHA';
+            if (t.includes('KHONGHUCU') || t.includes('KONGHUCU')) return 'KHONGHUCU';
+            return 'ALL';
+          })();
+
+      if (isReligiousVariantParallel(candRel, params.targetReligion)) {
         return false;
       }
 

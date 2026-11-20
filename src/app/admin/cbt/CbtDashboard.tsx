@@ -82,7 +82,7 @@ import {
   CbtTimezone,
   DEFAULT_CBT_TIMEZONE
 } from '@/lib/cbt-schedule';
-import { RELIGION_OPTIONS, getReligionConfig } from '@/lib/cbt-religion';
+import { RELIGION_OPTIONS, getReligionConfig, isReligiousVariantParallel, normalizeReligion, ReligionCode } from '@/lib/cbt-religion';
 import CbtReportView from './CbtReportView';
 import CbtProctorPlottingView, { TeacherUserItem } from './CbtProctorPlottingView';
 import CbtSuspendCenterView from './CbtSuspendCenterView';
@@ -1133,6 +1133,20 @@ export default function CbtDashboard({
     return matchesSearch && matchesStatus && matchesSchedule;
   });
 
+  // Helper deteksi target agama efektif ujian untuk evaluasi toleransi jadwal paralel agama
+  const getExamEffectiveReligion = (exam: { targetReligion?: string | null; subject?: string | null; title?: string | null }): ReligionCode => {
+    const norm = normalizeReligion(exam.targetReligion);
+    if (norm !== 'ALL') return norm;
+    const sub = `${exam.subject || ''} ${exam.title || ''}`.toUpperCase();
+    if (sub.includes('ISLAM') || sub.includes('PAI')) return 'ISLAM';
+    if (sub.includes('KRISTEN') || sub.includes('PAK') || sub.includes('PROTESTAN')) return 'KRISTEN';
+    if (sub.includes('KATOLIK')) return 'KATOLIK';
+    if (sub.includes('HINDU')) return 'HINDU';
+    if (sub.includes('BUDDHA') || sub.includes('BUDHA')) return 'BUDDHA';
+    if (sub.includes('KHONGHUCU') || sub.includes('KONGHUCU')) return 'KHONGHUCU';
+    return 'ALL';
+  };
+
   // Calculate system-wide schedule conflicts across all exams
   const systemConflicts: Array<{ exam1: ExamItem; exam2: ExamItem }> = [];
   for (let i = 0; i < exams.length; i++) {
@@ -1150,6 +1164,15 @@ export default function CbtDashboard({
       const timeOverlap = start1 < end2 && end1 > start2;
 
       if (classOverlap && timeOverlap) {
+        // 🕌 Toleransi Cerdas Sesi Paralel Agama:
+        // Jika kedua paket ujian memiliki target agama spesifik yang berbeda (misal yang satu Islam dan yang satu Kristen),
+        // maka ini BUKAN BENTROK karena memang sengaja dijadwalkan bersamaan untuk siswa yang berbeda agama.
+        const rel1 = getExamEffectiveReligion(e1);
+        const rel2 = getExamEffectiveReligion(e2);
+        if (isReligiousVariantParallel(rel1, rel2)) {
+          continue;
+        }
+
         systemConflicts.push({ exam1: e1, exam2: e2 });
       }
     }
