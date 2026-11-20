@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import prisma from '@/lib/prisma';
 import { 
   PPDBFeeItem, 
@@ -12,7 +13,7 @@ import {
 
 import { CbtTimezone, DEFAULT_CBT_TIMEZONE } from '@/lib/cbt-schedule';
 
-export async function getWebSettings() {
+export const getWebSettings = cache(async () => {
   try {
     const setting = await prisma.setting.findUnique({
       where: { key: 'webSettings' },
@@ -24,7 +25,7 @@ export async function getWebSettings() {
     console.warn('Could not fetch webSettings from DB, using defaults.', error);
   }
   return null;
-}
+});
 
 export async function getPPDBPaymentConfig(): Promise<PPDBPaymentConfig> {
   const settings = await getWebSettings();

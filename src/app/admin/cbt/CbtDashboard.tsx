@@ -279,20 +279,48 @@ export default function CbtDashboard({
     }
   }, [searchParams]);
 
+  // ⚡ 0ms Fast Client-Side Navigation: sinkronkan browser history saat tombol Back/Forward ditekan
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam === 'jadwal') {
+        setActiveMainTab('schedule');
+      } else if (tabParam === 'laporan' || tabParam === 'reports') {
+        setActiveMainTab('reports');
+      } else if (tabParam === 'pengawas' || tabParam === 'proctors') {
+        setActiveMainTab('proctors');
+      } else if (tabParam === 'suspend' || tabParam === 'suspensi') {
+        setActiveMainTab('suspend');
+      } else if (tabParam === 'logins' || tabParam === 'login' || tabParam === 'presensi') {
+        setActiveMainTab('logins');
+      } else {
+        setActiveMainTab('exams');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // ⚡ Fast Response Tab Switch (0ms):
+  // Menghindari server component re-fetch (router.replace) yang membuat jeda 2-3 detik.
+  // Tab langsung berpindah instan di UI dan URL address bar tetap terupdate rapi!
   const handleTabSwitch = (tab: 'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend' | 'logins') => {
     setActiveMainTab(tab);
+    let targetUrl = '/admin/cbt';
     if (tab === 'schedule') {
-      router.replace('/admin/cbt?tab=jadwal', { scroll: false });
+      targetUrl = '/admin/cbt?tab=jadwal';
     } else if (tab === 'reports') {
-      router.replace('/admin/cbt?tab=laporan', { scroll: false });
+      targetUrl = '/admin/cbt?tab=laporan';
     } else if (tab === 'proctors') {
-      router.replace('/admin/cbt?tab=pengawas', { scroll: false });
+      targetUrl = '/admin/cbt?tab=pengawas';
     } else if (tab === 'suspend') {
-      router.replace('/admin/cbt?tab=suspend', { scroll: false });
+      targetUrl = '/admin/cbt?tab=suspend';
     } else if (tab === 'logins') {
-      router.replace('/admin/cbt?tab=logins', { scroll: false });
-    } else {
-      router.replace('/admin/cbt', { scroll: false });
+      targetUrl = '/admin/cbt?tab=logins';
+    }
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', targetUrl);
     }
   };
 
@@ -1005,17 +1033,41 @@ export default function CbtDashboard({
       }
     }
 
+    // ⚡ Fast Response / Optimistic UI:
+    // Langsung update status di layar seketika (0ms) agar tombol langsung berubah aktif/nonaktif
+    const previousExams = exams;
+    const optimisticStatus = nextOpen ? 'ACTIVE' : 'PUBLISHED';
+    setExams((prev) =>
+      prev.map((e) =>
+        e.id === exam.id
+          ? {
+              ...e,
+              status: optimisticStatus,
+              updatedAt: new Date().toISOString(),
+            }
+          : e
+      )
+    );
+
     setSessionLoadingId(exam.id);
     const res = await toggleExamSession(exam.id, nextOpen, exam.token || undefined);
 
     if (res.success && res.data) {
-      setExams(exams.map((e) => (e.id === exam.id ? { 
-        ...e, 
-        status: res.data.status, 
-        token: res.data.token,
-        updatedAt: res.data.updatedAt || new Date().toISOString(),
-      } : e)));
+      setExams((prev) =>
+        prev.map((e) =>
+          e.id === exam.id
+            ? {
+                ...e, 
+                status: res.data.status, 
+                token: res.data.token,
+                updatedAt: res.data.updatedAt || new Date().toISOString(),
+              }
+            : e
+        )
+      );
     } else {
+      // Rollback jika request server gagal
+      setExams(previousExams);
       alert(res.error || 'Gagal mengubah status sesi ujian');
     }
     setSessionLoadingId(null);
@@ -1103,36 +1155,6 @@ export default function CbtDashboard({
     setLoading(false);
   };
 
-  const filteredExams = exams.filter((exam) => {
-    // Hak Akses Tampilan Paket Ujian:
-    // - Jika Guru: HANYA tampilkan paket ujian yang diinput / dimiliki oleh dirinya sendiri.
-    // - Jika Super Admin: Tampilkan seluruhnya untuk monitoring, atau filter sesuai pilihan admin.
-    if (!isSuperAdmin && !isAuthorMatch(exam.authorName)) {
-      return false;
-    }
-    if (isSuperAdmin) {
-      if (mineOnlyFilter && !isAuthorMatch(exam.authorName)) return false;
-      if (adminTeacherFilter !== 'ALL' && exam.authorName !== adminTeacherFilter) return false;
-    }
-
-    const matchesSearch =
-      exam.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      exam.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      exam.classTarget.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (exam.authorName && exam.authorName.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesStatus = statusFilter === 'ALL' || exam.status === statusFilter;
-    
-    const schedState = getExamScheduleState(exam.startTime, exam.endTime, exam.status);
-    const matchesSchedule =
-      scheduleFilter === 'ALL' ||
-      (scheduleFilter === 'TODAY' && schedState.isOngoingToday) ||
-      (scheduleFilter === 'ONGOING' && schedState.state === 'ONGOING') ||
-      (scheduleFilter === 'UPCOMING' && schedState.state === 'UPCOMING') ||
-      (scheduleFilter === 'ENDED' && schedState.state === 'ENDED');
-
-    return matchesSearch && matchesStatus && matchesSchedule;
-  });
-
   // Helper deteksi target agama efektif ujian untuk evaluasi toleransi jadwal paralel agama
   const getExamEffectiveReligion = (exam: { targetReligion?: string | null; subject?: string | null; title?: string | null }): ReligionCode => {
     const norm = normalizeReligion(exam.targetReligion);
@@ -1162,82 +1184,127 @@ export default function CbtDashboard({
     return 'ALL';
   };
 
-  // Calculate system-wide schedule conflicts across all exams
-  const systemConflicts: Array<{ exam1: ExamItem; exam2: ExamItem }> = [];
-  for (let i = 0; i < exams.length; i++) {
-    for (let j = i + 1; j < exams.length; j++) {
-      const e1 = exams[i];
-      const e2 = exams[j];
-      if (e1.status === 'ARCHIVED' || e2.status === 'ARCHIVED') continue;
-      if (!e1.startTime || !e1.endTime || !e2.startTime || !e2.endTime) continue;
-      const start1 = new Date(e1.startTime).getTime();
-      const end1 = new Date(e1.endTime).getTime();
-      const start2 = new Date(e2.startTime).getTime();
-      const end2 = new Date(e2.endTime).getTime();
+  // ⚡ Fast Response: Memoized filtered exams list (0ms keystroke search & filter)
+  const filteredExams = useMemo(() => {
+    const q = searchTerm.toLowerCase();
+    return exams.filter((exam) => {
+      // Hak Akses Tampilan Paket Ujian:
+      if (!isSuperAdmin && !isAuthorMatch(exam.authorName)) {
+        return false;
+      }
+      if (isSuperAdmin) {
+        if (mineOnlyFilter && !isAuthorMatch(exam.authorName)) return false;
+        if (adminTeacherFilter !== 'ALL' && exam.authorName !== adminTeacherFilter) return false;
+      }
 
-      const classOverlap = isClassOverlap(e1.classTarget, e2.classTarget);
-      const timeOverlap = start1 < end2 && end1 > start2;
+      const matchesSearch =
+        !q ||
+        exam.title.toLowerCase().includes(q) ||
+        exam.subject.toLowerCase().includes(q) ||
+        exam.classTarget.toLowerCase().includes(q) ||
+        (exam.authorName && exam.authorName.toLowerCase().includes(q));
+      const matchesStatus = statusFilter === 'ALL' || exam.status === statusFilter;
+      
+      const schedState = getExamScheduleState(exam.startTime, exam.endTime, exam.status);
+      const matchesSchedule =
+        scheduleFilter === 'ALL' ||
+        (scheduleFilter === 'TODAY' && schedState.isOngoingToday) ||
+        (scheduleFilter === 'ONGOING' && schedState.state === 'ONGOING') ||
+        (scheduleFilter === 'UPCOMING' && schedState.state === 'UPCOMING') ||
+        (scheduleFilter === 'ENDED' && schedState.state === 'ENDED');
 
-      if (classOverlap && timeOverlap) {
-        // 🕌 Toleransi Cerdas Sesi Paralel Agama:
-        // Jika kedua paket ujian memiliki target agama spesifik yang berbeda (misal yang satu Islam dan yang satu Kristen),
-        // maka ini BUKAN BENTROK karena memang sengaja dijadwalkan bersamaan untuk siswa yang berbeda agama.
-        const rel1 = getExamEffectiveReligion(e1);
-        const rel2 = getExamEffectiveReligion(e2);
-        if (isReligiousVariantParallel(rel1, rel2)) {
-          continue;
+      return matchesSearch && matchesStatus && matchesSchedule;
+    });
+  }, [exams, isSuperAdmin, isAuthorMatch, mineOnlyFilter, adminTeacherFilter, searchTerm, statusFilter, scheduleFilter]);
+
+  // ⚡ Fast Response: Memoized system-wide schedule conflicts across all exams
+  // Mengeliminasi perhitungan kuadratik O(N^2) berulang setiap kali user mengetik/render
+  const systemConflicts = useMemo(() => {
+    const list: Array<{ exam1: ExamItem; exam2: ExamItem }> = [];
+    for (let i = 0; i < exams.length; i++) {
+      for (let j = i + 1; j < exams.length; j++) {
+        const e1 = exams[i];
+        const e2 = exams[j];
+        if (e1.status === 'ARCHIVED' || e2.status === 'ARCHIVED') continue;
+        if (!e1.startTime || !e1.endTime || !e2.startTime || !e2.endTime) continue;
+        const start1 = new Date(e1.startTime).getTime();
+        const end1 = new Date(e1.endTime).getTime();
+        const start2 = new Date(e2.startTime).getTime();
+        const end2 = new Date(e2.endTime).getTime();
+
+        const classOverlap = isClassOverlap(e1.classTarget, e2.classTarget);
+        const timeOverlap = start1 < end2 && end1 > start2;
+
+        if (classOverlap && timeOverlap) {
+          // 🕌 Toleransi Cerdas Sesi Paralel Agama:
+          const rel1 = getExamEffectiveReligion(e1);
+          const rel2 = getExamEffectiveReligion(e2);
+          if (isReligiousVariantParallel(rel1, rel2)) {
+            continue;
+          }
+
+          list.push({ exam1: e1, exam2: e2 });
         }
-
-        systemConflicts.push({ exam1: e1, exam2: e2 });
       }
     }
-  }
+    return list;
+  }, [exams]);
 
-  // Filter exams for schedule matrix table
-  const scheduledExams = exams.filter((exam) => {
-    if (!isSuperAdmin && !isAuthorMatch(exam.authorName)) {
-      return false;
-    }
-    if (isSuperAdmin && adminTeacherFilter !== 'ALL' && exam.authorName !== adminTeacherFilter) {
-      return false;
-    }
+  // ⚡ Fast Response: Filter exams for schedule matrix table (Memoized)
+  const scheduledExams = useMemo(() => {
+    const q = searchTerm.toLowerCase();
+    return exams.filter((exam) => {
+      if (!isSuperAdmin && !isAuthorMatch(exam.authorName)) {
+        return false;
+      }
+      if (isSuperAdmin && adminTeacherFilter !== 'ALL' && exam.authorName !== adminTeacherFilter) {
+        return false;
+      }
 
-    const matchesSearch =
-      exam.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      exam.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      exam.classTarget.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (exam.authorName && exam.authorName.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesClass =
-      selectedClassFilter === 'ALL' ||
-      exam.classTarget === selectedClassFilter ||
-      isClassOverlap(exam.classTarget, selectedClassFilter);
+      const matchesSearch =
+        !q ||
+        exam.title.toLowerCase().includes(q) ||
+        exam.subject.toLowerCase().includes(q) ||
+        exam.classTarget.toLowerCase().includes(q) ||
+        (exam.authorName && exam.authorName.toLowerCase().includes(q));
+      
+      const matchesClass =
+        selectedClassFilter === 'ALL' ||
+        exam.classTarget === selectedClassFilter ||
+        isClassOverlap(exam.classTarget, selectedClassFilter);
 
-    const schedState = getExamScheduleState(exam.startTime, exam.endTime, exam.status);
-    const matchesSchedule =
-      scheduleFilter === 'ALL' ||
-      (scheduleFilter === 'TODAY' && schedState.isOngoingToday) ||
-      (scheduleFilter === 'ONGOING' && schedState.state === 'ONGOING') ||
-      (scheduleFilter === 'UPCOMING' && schedState.state === 'UPCOMING') ||
-      (scheduleFilter === 'ENDED' && schedState.state === 'ENDED');
+      const schedState = getExamScheduleState(exam.startTime, exam.endTime, exam.status);
+      const matchesSchedule =
+        scheduleFilter === 'ALL' ||
+        (scheduleFilter === 'TODAY' && schedState.isOngoingToday) ||
+        (scheduleFilter === 'ONGOING' && schedState.state === 'ONGOING') ||
+        (scheduleFilter === 'UPCOMING' && schedState.state === 'UPCOMING') ||
+        (scheduleFilter === 'ENDED' && schedState.state === 'ENDED');
 
-    return matchesSearch && matchesClass && matchesSchedule;
-  }).sort((a, b) => {
-    if (!a.startTime) return 1;
-    if (!b.startTime) return -1;
-    return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
-  });
+      return matchesSearch && matchesClass && matchesSchedule;
+    }).sort((a, b) => {
+      if (!a.startTime) return 1;
+      if (!b.startTime) return -1;
+      return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
+    });
+  }, [exams, isSuperAdmin, isAuthorMatch, adminTeacherFilter, searchTerm, selectedClassFilter, scheduleFilter]);
 
-  // Calculate stats based on visible exams (guru sees their own stats, admin sees all)
-  const visibleExams = isSuperAdmin ? exams : exams.filter((e) => isAuthorMatch(e.authorName));
-  const totalExams = visibleExams.length;
-  const totalQuestions = visibleExams.reduce((acc, curr) => acc + curr._count.questions, 0);
-  const totalAttempts = visibleExams.reduce((acc, curr) => acc + curr._count.attempts, 0);
-  const totalSubmitted = visibleExams.flatMap((e) => e.attempts).filter((a) => a.status === 'SUBMITTED');
-  const avgScore = totalSubmitted.length > 0
-    ? Math.round(totalSubmitted.reduce((acc, a) => acc + a.score, 0) / totalSubmitted.length)
-    : 0;
-  const unscheduledCount = visibleExams.filter((e) => !e.startTime || !e.endTime).length;
+  // ⚡ Fast Response: Calculate stats based on visible exams (Memoized)
+  const visibleExams = useMemo(() => {
+    return isSuperAdmin ? exams : exams.filter((e) => isAuthorMatch(e.authorName));
+  }, [exams, isSuperAdmin, isAuthorMatch]);
+
+  const { totalExams, totalQuestions, totalAttempts, avgScore, unscheduledCount } = useMemo(() => {
+    const totalExams = visibleExams.length;
+    const totalQuestions = visibleExams.reduce((acc, curr) => acc + curr._count.questions, 0);
+    const totalAttempts = visibleExams.reduce((acc, curr) => acc + curr._count.attempts, 0);
+    const totalSubmitted = visibleExams.flatMap((e) => e.attempts).filter((a) => a.status === 'SUBMITTED');
+    const avgScore = totalSubmitted.length > 0
+      ? Math.round(totalSubmitted.reduce((acc, a) => acc + a.score, 0) / totalSubmitted.length)
+      : 0;
+    const unscheduledCount = visibleExams.filter((e) => !e.startTime || !e.endTime).length;
+    return { totalExams, totalQuestions, totalAttempts, avgScore, unscheduledCount };
+  }, [visibleExams]);
 
   return (
     <div className="px-3.5 py-4 sm:p-6 md:p-10 max-w-7xl mx-auto space-y-6 sm:space-y-8 font-sans w-full max-w-full overflow-x-hidden">
