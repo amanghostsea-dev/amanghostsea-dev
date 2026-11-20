@@ -212,37 +212,52 @@ export function CbtOfficialSignatures({
     return (
       <div className="pt-6 print:pt-4 print-avoid-break text-black font-serif text-[11px]">
         <div className="grid grid-cols-2 gap-8 text-center">
-          <div>
+          <div className="flex flex-col items-center">
             <div>Mengetahui,</div>
             <div className="font-bold">Kepala Sekolah</div>
-            <div className="relative h-20 flex items-center justify-center">
-              {/* Cap Stempel Resmi / Digital */}
-              <div className="absolute -left-2 top-0 pointer-events-none z-10">
-                <CbtDigitalStamp 
-                  schoolName={cfg.schoolName} 
-                  yayasanName={cfg.yayasanName} 
-                  stampUrl={cfg.stampUrl}
-                  size={76} 
+            <div className="relative h-20 w-full max-w-[220px] flex items-center justify-center my-0.5">
+              {/* Cap Stempel Resmi jika diunggah terpisah */}
+              {cfg.stampUrl ? (
+                <div className="absolute left-1 top-0 pointer-events-none z-10">
+                  <CbtDigitalStamp 
+                    schoolName={cfg.schoolName} 
+                    yayasanName={cfg.yayasanName} 
+                    stampUrl={cfg.stampUrl}
+                    size={76} 
+                  />
+                </div>
+              ) : !cfg.signatureUrl ? (
+                <div className="absolute left-2 top-0 pointer-events-none z-10">
+                  <CbtDigitalStamp 
+                    schoolName={cfg.schoolName} 
+                    yayasanName={cfg.yayasanName} 
+                    stampUrl={null}
+                    size={76} 
+                  />
+                </div>
+              ) : null}
+              {/* Tanda Tangan Kepala Sekolah (Adaptif & Proporsional dengan Nama) */}
+              <div className="z-20 w-full h-full flex items-center justify-center">
+                <HeadmasterSignatureStroke 
+                  signatureUrl={cfg.signatureUrl} 
+                  maxWidth={210} 
+                  maxHeight={78} 
                 />
               </div>
-              {/* Tanda Tangan Kepala Sekolah */}
-              <div className="z-20">
-                <HeadmasterSignatureStroke signatureUrl={cfg.signatureUrl} size={{ width: 120, height: 48 }} />
-              </div>
             </div>
-            <div className="font-bold underline">{hName}</div>
+            <div className="font-bold underline text-xs">{hName}</div>
             <div className="text-[10px] text-slate-600">NIP. {hNip}</div>
           </div>
 
-          <div>
+          <div className="flex flex-col items-center">
             <div>{cityName}, {currentDate}</div>
             <div className="font-bold">
               {effectiveRoleTitle}
             </div>
-            <div className="h-20 flex items-center justify-center">
-              <HeadmasterSignatureStroke signatureUrl={null} size={{ width: 110, height: 42 }} />
+            <div className="h-20 w-full max-w-[220px] flex items-center justify-center my-0.5">
+              <HeadmasterSignatureStroke signatureUrl={null} />
             </div>
-            <div className="font-bold underline">{signerName}</div>
+            <div className="font-bold underline text-xs">{signerName}</div>
             <div className="text-[10px] text-slate-600">
               {effectiveSubTitle}
             </div>
@@ -262,22 +277,37 @@ export function CbtOfficialSignatures({
     <div className="pt-6 print:pt-4 print-avoid-break text-black font-serif text-[11px]">
       <div className="grid grid-cols-3 gap-4 text-center">
         {/* Kolom 1: Kepala Sekolah */}
-        <div>
+        <div className="flex flex-col items-center">
           <div>Mengetahui,</div>
           <div className="font-bold">Kepala Sekolah</div>
-          <div className="relative h-20 flex items-center justify-center">
-            {/* Cap Stempel Resmi / Digital */}
-            <div className="absolute -left-2 top-0 pointer-events-none z-10">
-              <CbtDigitalStamp 
-                schoolName={cfg.schoolName} 
-                yayasanName={cfg.yayasanName} 
-                stampUrl={cfg.stampUrl}
-                size={74} 
+          <div className="relative h-20 w-full max-w-[200px] flex items-center justify-center my-0.5">
+            {/* Cap Stempel Resmi jika diunggah terpisah */}
+            {cfg.stampUrl ? (
+              <div className="absolute left-0 top-0 pointer-events-none z-10">
+                <CbtDigitalStamp 
+                  schoolName={cfg.schoolName} 
+                  yayasanName={cfg.yayasanName} 
+                  stampUrl={cfg.stampUrl}
+                  size={74} 
+                />
+              </div>
+            ) : !cfg.signatureUrl ? (
+              <div className="absolute left-1 top-0 pointer-events-none z-10">
+                <CbtDigitalStamp 
+                  schoolName={cfg.schoolName} 
+                  yayasanName={cfg.yayasanName} 
+                  stampUrl={null}
+                  size={74} 
+                />
+              </div>
+            ) : null}
+            {/* Tanda Tangan Kepala Sekolah (Adaptif & Proporsional dengan Nama) */}
+            <div className="z-20 w-full h-full flex items-center justify-center">
+              <HeadmasterSignatureStroke 
+                signatureUrl={cfg.signatureUrl} 
+                maxWidth={190} 
+                maxHeight={76} 
               />
-            </div>
-            {/* Tanda Tangan Kepala Sekolah */}
-            <div className="z-20">
-              <HeadmasterSignatureStroke signatureUrl={cfg.signatureUrl} size={{ width: 115, height: 45 }} />
             </div>
           </div>
           <div className="font-bold underline text-xs">{hName}</div>
@@ -285,22 +315,22 @@ export function CbtOfficialSignatures({
         </div>
 
         {/* Kolom 2: Koordinator CBT */}
-        <div>
+        <div className="flex flex-col items-center">
           <div>Diperiksa & Diverifikasi,</div>
           <div className="font-bold">Koordinator Proktor CBT</div>
-          <div className="h-20 flex items-center justify-center">
-            <HeadmasterSignatureStroke signatureUrl={null} size={{ width: 100, height: 40 }} />
+          <div className="h-20 w-full max-w-[200px] flex items-center justify-center my-0.5">
+            <HeadmasterSignatureStroke signatureUrl={null} />
           </div>
           <div className="font-bold underline text-xs">{pName}</div>
           <div className="text-[10px] text-slate-600">NIP. {pNip}</div>
         </div>
 
         {/* Kolom 3: Guru Mapel */}
-        <div>
+        <div className="flex flex-col items-center">
           <div>{cityName}, {currentDate}</div>
           <div className="font-bold">Guru Mata Pelajaran</div>
-          <div className="h-20 flex items-center justify-center">
-            <HeadmasterSignatureStroke signatureUrl={null} size={{ width: 110, height: 42 }} />
+          <div className="h-20 w-full max-w-[200px] flex items-center justify-center my-0.5">
+            <HeadmasterSignatureStroke signatureUrl={null} />
           </div>
           <div className="font-bold underline text-xs">{teacherName}</div>
           <div className="text-[10px] text-slate-600">
@@ -316,28 +346,36 @@ export function CbtOfficialSignatures({
 
 /**
  * 🖋️ TANDA TANGAN RESMI (HANYA MUNCUL JIKA ADA FILE UPLOAD ASLI DARI ADMIN)
- * Jika tidak ada file yang diupload (atau dihapus oleh admin utama),
- * tanda tangan dikosongkan (blank space) untuk ditandatangani basah secara manual.
+ * Mendukung ukuran adaptif dan proporsional terhadap teks nama di bawahnya.
+ * Dilengkapi efek multiply blend agar latar belakang foto putih menyatu bersih dengan kertas cetak.
  */
 export function HeadmasterSignatureStroke({
   signatureUrl,
   className = '',
-  size = { width: 100, height: 38 },
+  size,
+  maxWidth = 200,
+  maxHeight = 78,
 }: {
   signatureUrl?: string | null;
   className?: string;
-  size?: { width: number; height: number };
+  size?: { width?: number | string; height?: number | string };
+  maxWidth?: number | string;
+  maxHeight?: number | string;
 }) {
   if (signatureUrl && signatureUrl.trim() !== '') {
+    const style: React.CSSProperties = size
+      ? { width: size.width, height: size.height }
+      : { maxWidth, maxHeight, width: '100%', height: '100%' };
+
     return (
       <div 
         className={`pointer-events-none select-none flex items-center justify-center ${className}`}
-        style={{ width: size.width, height: size.height }}
+        style={style}
       >
         <img 
           src={signatureUrl} 
           alt="Tanda Tangan Resmi" 
-          className="w-full h-full object-contain filter contrast-125 drop-shadow-xs"
+          className="w-auto h-auto max-w-full max-h-full object-contain filter contrast-125 drop-shadow-xs mix-blend-multiply"
         />
       </div>
     );
