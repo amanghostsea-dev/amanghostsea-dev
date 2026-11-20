@@ -3,10 +3,24 @@ import { notFound, redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import ProctorLiveConsole from './ProctorLiveConsole';
 import { getKopSuratConfig } from '@/lib/settings';
-import { isAllLevelTarget, parseClassTargets, isClassTargetMatch } from '@/lib/cbt-schedule';
-import { normalizeReligion } from '@/lib/cbt-religion';
+import { isAllLevelTarget, parseClassTargets, isClassTargetMatch, isClassOverlap } from '@/lib/cbt-schedule';
+import { normalizeReligion, ReligionCode } from '@/lib/cbt-religion';
 
 export const dynamic = 'force-dynamic';
+
+// Helper deteksi target agama efektif ujian
+function getExamEffectiveReligion(targetReligion?: string | null, subject?: string | null, title?: string | null): ReligionCode {
+  const norm = normalizeReligion(targetReligion);
+  if (norm !== 'ALL') return norm;
+  const sub = `${subject || ''} ${title || ''}`.toUpperCase();
+  if (sub.includes('ISLAM') || sub.includes('PAI')) return 'ISLAM';
+  if (sub.includes('KRISTEN') || sub.includes('PAK') || sub.includes('PROTESTAN')) return 'KRISTEN';
+  if (sub.includes('KATOLIK')) return 'KATOLIK';
+  if (sub.includes('HINDU')) return 'HINDU';
+  if (sub.includes('BUDDHA') || sub.includes('BUDHA')) return 'BUDDHA';
+  if (sub.includes('KHONGHUCU') || sub.includes('KONGHUCU')) return 'KHONGHUCU';
+  return 'ALL';
+}
 
 export default async function ProctorLiveConsolePage({
   params,
@@ -107,11 +121,64 @@ export default async function ProctorLiveConsolePage({
     );
   }
 
-  // Fetch initial attempts
+  // Deteksi target agama ujian:
+  const effectiveTargetReligion = getExamEffectiveReligion(exam.targetReligion, exam.subject, exam.title);
+
+  // 🕌 Cek apakah ini bagian dari Sesi Paralel Agama Terpadu (cth: Mulok/BTA Islam + Mulok/BTA Kristen di kelas/ruang/jam yang sama)
+  let partnerExams: Array<{
+    id: string;
+    title: string;
+    subject: string;
+    classTarget: string;
+    targetReligion?: string | null;
+    effectiveReligion: ReligionCode;
+    questionsCount: number;
+  }> = [];
+
+  if (effectiveTargetReligion !== 'ALL' && exam.startTime && exam.endTime) {
+    const candidates = await prisma.exam.findMany({
+      where: {
+        id: { not: id },
+        status: { not: 'ARCHIVED' },
+        startTime: exam.startTime,
+        endTime: exam.endTime,
+        roomName: exam.roomName,
+      },
+      include: {
+        _count: {
+          select: { questions: true },
+        },
+      },
+    });
+
+    for (const cand of candidates) {
+      const isOverlap = isClassOverlap(exam.classTarget, cand.classTarget);
+      if (!isOverlap) continue;
+
+      const candRel = getExamEffectiveReligion(cand.targetReligion, cand.subject, cand.title);
+      // HANYA jika kandidat adalah varian agama yang berbeda (bukan ALL dan bukan agama yang sama)
+      if (candRel !== 'ALL' && candRel !== effectiveTargetReligion) {
+        partnerExams.push({
+          id: cand.id,
+          title: cand.title,
+          subject: cand.subject,
+          classTarget: cand.classTarget,
+          targetReligion: cand.targetReligion,
+          effectiveReligion: candRel,
+          questionsCount: cand._count.questions,
+        });
+      }
+    }
+  }
+
+  const allExamIds = [exam.id, ...partnerExams.map((p) => p.id)];
+
+  // Fetch initial attempts (mendukung gabungan ujian paralel agama)
   const initialAttempts = await prisma.examAttempt.findMany({
-    where: { examId: id },
+    where: { examId: { in: allExamIds } },
     select: {
       id: true,
+      examId: true,
       studentName: true,
       studentNis: true,
       studentClass: true,
@@ -131,7 +198,15 @@ export default async function ProctorLiveConsolePage({
   });
 
   // 🎓 Query siswa yang tepat sesuai Jurusan/Kelas Rombel & Mapel Agama yang di-plotting
-  let scheduledStudents: Array<{ studentName: string; studentNis: string; studentClass: string }> = [];
+  let scheduledStudents: Array<{
+    studentName: string;
+    studentNis: string;
+    studentClass: string;
+    religionCode?: string;
+    examId?: string;
+    examTitle?: string;
+  }> = [];
+
   try {
     const [rawStudents, studentGrades, examAttempts] = await Promise.all([
       prisma.user.findMany({
@@ -187,72 +262,109 @@ export default async function ProctorLiveConsolePage({
       }
     }
 
-    // Deteksi target agama ujian:
-    // Prioritas 1: targetReligion resmi yang diset pada paket ujian
-    // Prioritas 2: Deteksi otomatis dari nama mapel / judul ujian (misal PAI / Agama Islam / Kristen / Katolik / dsb.)
-    let effectiveTargetReligion = normalizeReligion(exam.targetReligion);
-    if (effectiveTargetReligion === 'ALL') {
-      const sub = `${exam.subject || ''} ${exam.title || ''}`.toUpperCase();
-      if (sub.includes('ISLAM') || sub.includes('PAI')) {
-        effectiveTargetReligion = 'ISLAM';
-      } else if (sub.includes('KRISTEN') || sub.includes('PAK') || sub.includes('PROTESTAN')) {
-        effectiveTargetReligion = 'KRISTEN';
-      } else if (sub.includes('KATOLIK')) {
-        effectiveTargetReligion = 'KATOLIK';
-      } else if (sub.includes('HINDU')) {
-        effectiveTargetReligion = 'HINDU';
-      } else if (sub.includes('BUDDHA') || sub.includes('BUDHA')) {
-        effectiveTargetReligion = 'BUDDHA';
-      } else if (sub.includes('KHONGHUCU') || sub.includes('KONGHUCU')) {
-        effectiveTargetReligion = 'KHONGHUCU';
-      }
-    }
+    const isParallelSession = partnerExams.length > 0;
+    const allVariants = [
+      { id: exam.id, title: exam.title, rel: effectiveTargetReligion, questionsCount: exam._count.questions },
+      ...partnerExams.map((p) => ({ id: p.id, title: p.title, rel: p.effectiveReligion, questionsCount: p.questionsCount })),
+    ];
 
-    const filteredStudents = rawStudents.filter((student) => {
-      const studentClass =
-        student.studentClass ||
-        (student.nisn ? studentClassMap[student.nisn.trim().toLowerCase()] : null) ||
-        studentClassMap[student.name.trim().toLowerCase()] ||
-        studentClassMap[student.username.trim().toLowerCase()] ||
-        '';
+    if (isParallelSession) {
+      // 🕌 Sesi Paralel Terpadu: Gabungkan seluruh siswa kelas rombel (cth: 28 Islam + 2 Kristen = 30 siswa)
+      const matchingStudents = rawStudents.filter((student) => {
+        const studentClass =
+          student.studentClass ||
+          (student.nisn ? studentClassMap[student.nisn.trim().toLowerCase()] : null) ||
+          studentClassMap[student.name.trim().toLowerCase()] ||
+          studentClassMap[student.username.trim().toLowerCase()] ||
+          '';
 
-      // 1. Validasi Kecocokan Rombel / Jurusan (Class Target)
-      const isClassMatch = isClassTargetMatch(exam.classTarget, studentClass);
-      if (!isClassMatch) return false;
+        return isClassTargetMatch(exam.classTarget, studentClass);
+      });
 
-      // 2. Validasi Kecocokan Mata Pelajaran Agama (jika mapel agama)
-      if (effectiveTargetReligion !== 'ALL') {
-        const studentRel = normalizeReligion(student.religion);
-        if (effectiveTargetReligion === 'ISLAM') {
-          // Untuk ujian Agama Islam: Siswa beragama ISLAM atau yang belum terdata agamanya (default siswa di sekolah)
-          if (studentRel !== 'ISLAM' && studentRel !== 'ALL') {
-            return false;
-          }
-        } else {
-          // Untuk ujian Agama Kristen/Katolik/dll.: HANYA siswa yang beragama sesuai
-          if (studentRel !== effectiveTargetReligion) {
-            return false;
+      scheduledStudents = matchingStudents.map((s) => {
+        const assignedClass =
+          s.studentClass ||
+          (s.nisn ? studentClassMap[s.nisn.trim().toLowerCase()] : null) ||
+          studentClassMap[s.name.trim().toLowerCase()] ||
+          studentClassMap[s.username.trim().toLowerCase()] ||
+          exam.classTarget;
+
+        const studentRel = normalizeReligion(s.religion);
+
+        // Cari apakah sudah ada attempt pada salah satu ujian paralel
+        const existingAttempt = initialAttempts.find(
+          (att) =>
+            att.studentName.trim().toLowerCase() === s.name.trim().toLowerCase() ||
+            (s.nisn && att.studentNis && att.studentNis.trim().toLowerCase() === s.nisn.trim().toLowerCase())
+        );
+
+        let assignedVariant = existingAttempt
+          ? allVariants.find((v) => v.id === existingAttempt.examId)
+          : null;
+
+        if (!assignedVariant) {
+          if (studentRel !== 'ALL') {
+            assignedVariant = allVariants.find((v) => v.rel === studentRel);
           }
         }
-      }
 
-      return true;
-    });
+        // Jika siswa belum ada data agama spesifik di profil user, default ke varian ISLAM (jika ada di sesi)
+        if (!assignedVariant) {
+          assignedVariant = allVariants.find((v) => v.rel === 'ISLAM') || allVariants[0];
+        }
 
-    scheduledStudents = filteredStudents.map((s) => {
-      const assignedClass =
-        s.studentClass ||
-        (s.nisn ? studentClassMap[s.nisn.trim().toLowerCase()] : null) ||
-        studentClassMap[s.name.trim().toLowerCase()] ||
-        studentClassMap[s.username.trim().toLowerCase()] ||
-        exam.classTarget;
+        return {
+          studentName: s.name,
+          studentNis: s.nisn || s.username,
+          studentClass: assignedClass,
+          religionCode: assignedVariant.rel,
+          examId: assignedVariant.id,
+          examTitle: assignedVariant.title,
+        };
+      });
+    } else {
+      // 📚 Sesi Tunggal Normal (Non-Agama atau Ujian Agama Tunggal): 100% seperti semula
+      const filteredStudents = rawStudents.filter((student) => {
+        const studentClass =
+          student.studentClass ||
+          (student.nisn ? studentClassMap[student.nisn.trim().toLowerCase()] : null) ||
+          studentClassMap[student.name.trim().toLowerCase()] ||
+          studentClassMap[student.username.trim().toLowerCase()] ||
+          '';
 
-      return {
-        studentName: s.name,
-        studentNis: s.nisn || s.username,
-        studentClass: assignedClass,
-      };
-    });
+        const isClassMatch = isClassTargetMatch(exam.classTarget, studentClass);
+        if (!isClassMatch) return false;
+
+        if (effectiveTargetReligion !== 'ALL') {
+          const studentRel = normalizeReligion(student.religion);
+          if (effectiveTargetReligion === 'ISLAM') {
+            if (studentRel !== 'ISLAM' && studentRel !== 'ALL') return false;
+          } else {
+            if (studentRel !== effectiveTargetReligion) return false;
+          }
+        }
+
+        return true;
+      });
+
+      scheduledStudents = filteredStudents.map((s) => {
+        const assignedClass =
+          s.studentClass ||
+          (s.nisn ? studentClassMap[s.nisn.trim().toLowerCase()] : null) ||
+          studentClassMap[s.name.trim().toLowerCase()] ||
+          studentClassMap[s.username.trim().toLowerCase()] ||
+          exam.classTarget;
+
+        return {
+          studentName: s.name,
+          studentNis: s.nisn || s.username,
+          studentClass: assignedClass,
+          religionCode: effectiveTargetReligion !== 'ALL' ? effectiveTargetReligion : 'ALL',
+          examId: exam.id,
+          examTitle: exam.title,
+        };
+      });
+    }
   } catch (err) {
     console.error('Error fetching roster students:', err);
   }
@@ -262,11 +374,14 @@ export default async function ProctorLiveConsolePage({
       exam={{
         ...exam,
         questionsCount: exam._count.questions,
+        targetReligion: exam.targetReligion,
       }}
       scheduledStudents={scheduledStudents}
       initialAttempts={initialAttempts as any}
       kopSuratConfig={kopSuratConfig}
       currentUser={currentUser}
+      parallelExams={partnerExams}
+      allExamIds={allExamIds}
     />
   );
 }

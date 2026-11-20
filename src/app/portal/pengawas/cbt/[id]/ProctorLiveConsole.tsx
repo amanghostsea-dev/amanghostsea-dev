@@ -59,6 +59,7 @@ import ConfirmModal from '@/components/ConfirmModal';
 
 export interface ProctorAttemptItem {
   id: string;
+  examId?: string;
   studentName: string;
   studentNis: string | null;
   studentClass: string | null;
@@ -79,6 +80,19 @@ export interface ScheduledStudentItem {
   studentName: string;
   studentNis: string;
   studentClass: string;
+  religionCode?: string;
+  examId?: string;
+  examTitle?: string;
+}
+
+export interface ParallelReligionExamItem {
+  id: string;
+  title: string;
+  subject: string;
+  classTarget: string;
+  targetReligion?: string | null;
+  effectiveReligion: string;
+  questionsCount: number;
 }
 
 interface ProctorLiveConsoleProps {
@@ -90,6 +104,7 @@ interface ProctorLiveConsoleProps {
     duration: number;
     token: string | null;
     status: string;
+    targetReligion?: string | null;
     startTime?: Date | string | null;
     endTime?: Date | string | null;
     proctorName?: string | null;
@@ -107,6 +122,8 @@ interface ProctorLiveConsoleProps {
     name: string;
     role: string;
   };
+  parallelExams?: ParallelReligionExamItem[];
+  allExamIds?: string[];
 }
 
 export default function ProctorLiveConsole({
@@ -115,6 +132,8 @@ export default function ProctorLiveConsole({
   initialAttempts,
   kopSuratConfig,
   currentUser,
+  parallelExams,
+  allExamIds,
 }: ProctorLiveConsoleProps) {
   // Session & Token States
   const [examStatus, setExamStatus] = useState(exam.status || 'PUBLISHED');
@@ -138,6 +157,13 @@ export default function ProctorLiveConsole({
   // Filter & Search
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'IN_PROGRESS' | 'SUBMITTED' | 'UNATTENDED' | 'VIOLATION'>('ALL');
+  const [religionFilter, setReligionFilter] = useState<string>('ALL');
+
+  const isParallelReligionSession = Boolean(parallelExams && parallelExams.length > 0);
+  const allExamIdsList = useMemo(() => {
+    if (allExamIds && allExamIds.length > 0) return allExamIds;
+    return [exam.id];
+  }, [allExamIds, exam.id]);
 
   // Confirmation Modals
   const [actionTargetAttempt, setActionTargetAttempt] = useState<{
@@ -227,7 +253,7 @@ export default function ProctorLiveConsole({
     if (typeof document !== 'undefined' && document.hidden) return;
 
     try {
-      const res = await fetch(`/api/cbt/attempts?examId=${exam.id}`, { cache: 'no-store' });
+      const res = await fetch(`/api/cbt/attempts?examId=${allExamIdsList.join(',')}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         if (data.attempts) {
@@ -246,7 +272,7 @@ export default function ProctorLiveConsole({
         }
       }
     } catch {}
-  }, [exam.id, examToken, examStatus]);
+  }, [allExamIdsList, examToken, examStatus]);
 
   useEffect(() => {
     if (examStatus !== 'ACTIVE') return;
@@ -297,10 +323,24 @@ export default function ProctorLiveConsole({
         } catch {}
       }
 
+      const assignedExamId = att?.examId || std.examId || exam.id;
+      const religionCode = std.religionCode || (
+        assignedExamId === exam.id
+          ? (exam.targetReligion || 'ALL')
+          : parallelExams?.find(p => p.id === assignedExamId)?.effectiveReligion || 'ALL'
+      );
+      const assignedQuestionsCount = (assignedExamId === exam.id)
+        ? exam.questionsCount
+        : (parallelExams?.find(p => p.id === assignedExamId)?.questionsCount || exam.questionsCount);
+
       return {
         studentName: std.studentName,
         studentNis: std.studentNis,
         studentClass: std.studentClass,
+        religionCode,
+        assignedExamId,
+        assignedQuestionsCount,
+        assignedExamTitle: std.examTitle || (assignedExamId === exam.id ? exam.title : parallelExams?.find(p => p.id === assignedExamId)?.title),
         attempt: att || null,
         status: att ? att.status : 'UNATTENDED',
         answersCount,
@@ -322,10 +362,22 @@ export default function ProctorLiveConsole({
             answersCount = Object.keys(JSON.parse(att.answers)).length;
           } catch {}
         }
+        const assignedExamId = att.examId || exam.id;
+        const religionCode = assignedExamId === exam.id
+          ? (exam.targetReligion || 'ALL')
+          : parallelExams?.find(p => p.id === assignedExamId)?.effectiveReligion || 'ALL';
+        const assignedQuestionsCount = (assignedExamId === exam.id)
+          ? exam.questionsCount
+          : (parallelExams?.find(p => p.id === assignedExamId)?.questionsCount || exam.questionsCount);
+
         rows.push({
           studentName: att.studentName,
           studentNis: att.studentNis || '-',
           studentClass: att.studentClass || exam.classTarget,
+          religionCode,
+          assignedExamId,
+          assignedQuestionsCount,
+          assignedExamTitle: assignedExamId === exam.id ? exam.title : parallelExams?.find(p => p.id === assignedExamId)?.title,
           attempt: att,
           status: att.status,
           answersCount,
@@ -344,7 +396,7 @@ export default function ProctorLiveConsole({
     });
 
     return rows;
-  }, [scheduledStudents, attempts, exam.classTarget]);
+  }, [scheduledStudents, attempts, exam.classTarget, exam.id, exam.questionsCount, exam.targetReligion, exam.title, parallelExams]);
 
   // Statistics
   const totalRoster = combinedRoster.length;
@@ -358,6 +410,10 @@ export default function ProctorLiveConsole({
     !r.attempt?.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]')
   );
 
+  const islamCount = combinedRoster.filter(r => r.religionCode === 'ISLAM').length;
+  const kristenCount = combinedRoster.filter(r => r.religionCode === 'KRISTEN').length;
+  const otherRelCount = combinedRoster.filter(r => r.religionCode && r.religionCode !== 'ISLAM' && r.religionCode !== 'KRISTEN' && r.religionCode !== 'ALL').length;
+
   // Filtered rows for proctor table
   const filteredRoster = useMemo(() => {
     return combinedRoster.filter(r => {
@@ -369,6 +425,8 @@ export default function ProctorLiveConsole({
 
       if (!matchSearch) return false;
 
+      if (religionFilter !== 'ALL' && r.religionCode !== religionFilter) return false;
+
       if (statusFilter === 'IN_PROGRESS') return r.status === 'IN_PROGRESS';
       if (statusFilter === 'SUBMITTED') return r.status === 'SUBMITTED';
       if (statusFilter === 'UNATTENDED') return r.status === 'UNATTENDED';
@@ -376,7 +434,7 @@ export default function ProctorLiveConsole({
 
       return true;
     });
-  }, [combinedRoster, searchQuery, statusFilter]);
+  }, [combinedRoster, searchQuery, statusFilter, religionFilter]);
 
   // Execute Proctor Interventions
   const handleConfirmAction = async () => {
@@ -585,6 +643,37 @@ export default function ProctorLiveConsole({
               {exam.proctor2Name && <span>• Pendamping: <strong className="text-slate-300">{exam.proctor2Name}</strong></span>}
             </div>
 
+            {isParallelReligionSession && (
+              <div className="flex flex-wrap items-center gap-2 p-3 rounded-2xl bg-gradient-to-r from-emerald-950/70 via-teal-950/60 to-purple-950/70 border border-emerald-500/40 text-xs shadow-lg mt-2">
+                <div className="flex items-center gap-1.5 font-bold text-amber-300">
+                  <span className="text-base">🕌</span>
+                  <span>Sesi Paralel Agama Terpadu:</span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {islamCount > 0 && (
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-900/80 text-emerald-300 border border-emerald-600/50 font-bold flex items-center gap-1">
+                      ☪️ Islam ({islamCount})
+                    </span>
+                  )}
+                  {kristenCount > 0 && (
+                    <span className="px-2 py-0.5 rounded-md bg-purple-900/80 text-purple-300 border border-purple-600/50 font-bold flex items-center gap-1">
+                      ✝️ Kristen ({kristenCount})
+                    </span>
+                  )}
+                  {otherRelCount > 0 && (
+                    <span className="px-2 py-0.5 rounded-md bg-blue-900/80 text-blue-300 border border-blue-600/50 font-bold flex items-center gap-1">
+                      ☸️ Lainnya ({otherRelCount})
+                    </span>
+                  )}
+                </div>
+                <div className="text-[11px] text-slate-300 sm:ml-auto flex items-center gap-1.5 font-mono">
+                  <span className="text-emerald-400 font-bold">✓ 1 Token Serentak</span>
+                  <span className="text-slate-500">•</span>
+                  <span>Soal otomatis sesuai agama siswa</span>
+                </div>
+              </div>
+            )}
+
             {examStatus === 'ACTIVE' && scheduleState.isOutsideSchedule && (
               <div className="mt-2 p-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2">
                 <AlertTriangle size={14} className="shrink-0 text-amber-400" />
@@ -733,6 +822,46 @@ export default function ProctorLiveConsole({
       {/* 🔍 FILTER & ACTION TOOLBAR */}
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900 border border-slate-800">
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          {isParallelReligionSession && (
+            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-950/80 border border-slate-800 shrink-0 mr-1">
+              <span className="text-[10.5px] font-bold text-slate-400 pl-1.5 pr-0.5">Agama:</span>
+              <button
+                onClick={() => setReligionFilter('ALL')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  religionFilter === 'ALL'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Semua ({totalRoster})
+              </button>
+              {islamCount > 0 && (
+                <button
+                  onClick={() => setReligionFilter('ISLAM')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
+                    religionFilter === 'ISLAM'
+                      ? 'bg-emerald-600 text-white'
+                      : 'text-slate-400 hover:text-emerald-400'
+                  }`}
+                >
+                  <span>☪️ Islam ({islamCount})</span>
+                </button>
+              )}
+              {kristenCount > 0 && (
+                <button
+                  onClick={() => setReligionFilter('KRISTEN')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
+                    religionFilter === 'KRISTEN'
+                      ? 'bg-purple-600 text-white'
+                      : 'text-slate-400 hover:text-purple-400'
+                  }`}
+                >
+                  <span>✝️ Kristen ({kristenCount})</span>
+                </button>
+              )}
+            </div>
+          )}
+
           <button
             onClick={() => setStatusFilter('ALL')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
@@ -859,6 +988,25 @@ export default function ProctorLiveConsole({
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-950/70 text-purple-300 border border-purple-800/60 normal-case tracking-tight font-sans">
                             {item.studentClass}
                           </span>
+                          {isParallelReligionSession && (
+                            item.religionCode === 'KRISTEN' ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-900/80 text-purple-200 border border-purple-500/50 normal-case tracking-tight font-sans flex items-center gap-1">
+                                ✝️ Kristen
+                              </span>
+                            ) : item.religionCode === 'KATOLIK' ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-900/80 text-blue-200 border border-blue-500/50 normal-case tracking-tight font-sans flex items-center gap-1">
+                                ✝️ Katolik
+                              </span>
+                            ) : item.religionCode === 'ISLAM' ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-900/80 text-emerald-200 border border-emerald-500/50 normal-case tracking-tight font-sans flex items-center gap-1">
+                                ☪️ Islam
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700 normal-case tracking-tight font-sans">
+                                ☸️ {item.religionCode || 'Umum'}
+                              </span>
+                            )
+                          )}
                         </div>
                         {att?.proctorNotes && (
                           <div className="text-[10px] text-amber-400 font-normal italic mt-0.5 normal-case font-sans">
@@ -894,7 +1042,7 @@ export default function ProctorLiveConsole({
                         {att ? (
                           <div className="space-y-1">
                             <div className="font-mono font-bold text-white">
-                              {item.answersCount} / {exam.questionsCount}
+                              {item.answersCount} / {item.assignedQuestionsCount || exam.questionsCount}
                             </div>
                             <div className="w-20 mx-auto bg-slate-800 rounded-full h-1.5 overflow-hidden">
                               <div
@@ -902,8 +1050,8 @@ export default function ProctorLiveConsole({
                                 style={{
                                   width: `${Math.min(
                                     100,
-                                    exam.questionsCount > 0
-                                      ? (item.answersCount / exam.questionsCount) * 100
+                                    (item.assignedQuestionsCount || exam.questionsCount) > 0
+                                      ? (item.answersCount / (item.assignedQuestionsCount || exam.questionsCount)) * 100
                                       : 0
                                   )}%`,
                                 }}
@@ -1149,7 +1297,10 @@ export default function ProctorLiveConsole({
           {/* Central Giant Token */}
           <div className="my-auto py-12 flex flex-col items-center justify-center text-center space-y-6">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs sm:text-sm font-bold uppercase tracking-wider">
-              <ShieldCheck size={16} /> Token Resmi Pengawas Ruangan
+              <ShieldCheck size={16} />
+              {isParallelReligionSession
+                ? '🕌 Token Resmi Sesi Paralel Agama Terpadu'
+                : 'Token Resmi Pengawas Ruangan'}
             </div>
 
             <div className="p-8 sm:p-12 rounded-3xl bg-slate-900/90 border-4 border-emerald-500/60 shadow-2xl shadow-emerald-500/20 max-w-xl w-full text-center relative overflow-hidden group">
@@ -1161,10 +1312,16 @@ export default function ProctorLiveConsole({
                 {examToken || 'RPL2026'}
               </div>
 
-              <div className="text-xs text-slate-400 mt-4 flex items-center justify-center gap-4">
+              <div className="text-xs text-slate-400 mt-4 flex items-center justify-center gap-4 flex-wrap">
                 <span>Target Rombel: <strong>{exam.classTarget}</strong></span>
                 <span>•</span>
                 <span>Durasi: <strong>{exam.duration} Menit</strong></span>
+                {isParallelReligionSession && (
+                  <>
+                    <span>•</span>
+                    <span className="text-emerald-400 font-bold">PAI Islam &amp; PAK Kristen</span>
+                  </>
+                )}
               </div>
 
               {/* ⏱️ Dynamic 10-Minute Countdown Display on Whiteboard */}
@@ -1184,7 +1341,13 @@ export default function ProctorLiveConsole({
             </div>
 
             <div className="text-xs text-slate-400 max-w-md space-y-1">
-              <div>Siswa wajib menjaga ketertiban, tidak berpindah jendela layar atau tab browser selama ujian berlangsung.</div>
+              {isParallelReligionSession ? (
+                <div className="text-amber-300 font-medium text-xs">
+                  🕌 1 Token berlaku serentak untuk seluruh siswa. Soal ujian otomatis disesuaikan dengan agama masing-masing siswa.
+                </div>
+              ) : (
+                <div>Siswa wajib menjaga ketertiban, tidak berpindah jendela layar atau tab browser selama ujian berlangsung.</div>
+              )}
               <div className="text-[11px] text-emerald-400/90 font-mono">Token tersinkronisasi otomatis setiap saat dengan akun Guru &amp; Pengawas.</div>
             </div>
           </div>
@@ -1304,7 +1467,9 @@ export default function ProctorLiveConsole({
                   <div className="flex">
                     <span className="w-32 font-semibold text-slate-800 flex-shrink-0">Mata Pelajaran</span>
                     <span className="w-3 text-center">:</span>
-                    <span className="font-bold text-black flex-1 uppercase">{exam.subject}</span>
+                    <span className="font-bold text-black flex-1 uppercase">
+                      {isParallelReligionSession ? `${exam.subject} (SESI PARALEL AGAMA TERPADU)` : exam.subject}
+                    </span>
                   </div>
                   <div className="flex">
                     <span className="w-32 font-semibold text-slate-800 flex-shrink-0">Ruang / Lab</span>
@@ -1386,7 +1551,9 @@ export default function ProctorLiveConsole({
                       <td className="py-2 px-2 border-r border-black font-mono text-[10.5px] text-center">{r.studentNis}</td>
                       <td className="py-2 px-3 border-r border-black font-semibold uppercase">
                         <div>{r.studentName}</div>
-                        <div className="text-[9px] font-normal text-slate-700 tracking-normal capitalize">{r.studentClass}</div>
+                        <div className="text-[9px] font-normal text-slate-700 tracking-normal capitalize">
+                          {r.studentClass} {isParallelReligionSession && r.religionCode ? `(${r.religionCode})` : ''}
+                        </div>
                       </td>
                       <td className="py-2 px-2 border-r border-black text-center font-mono text-[9.5px]">
                         {r.attempt?.startedAt ? new Date(r.attempt.startedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-'}
@@ -1499,7 +1666,9 @@ export default function ProctorLiveConsole({
                   <div className="flex">
                     <span className="w-32 font-semibold text-slate-800 flex-shrink-0">Mata Pelajaran</span>
                     <span className="w-3 text-center">:</span>
-                    <span className="font-bold text-black flex-1 uppercase">{exam.subject}</span>
+                    <span className="font-bold text-black flex-1 uppercase">
+                      {isParallelReligionSession ? `${exam.subject} (SESI PARALEL AGAMA TERPADU)` : exam.subject}
+                    </span>
                   </div>
                   <div className="flex">
                     <span className="w-32 font-semibold text-slate-800 flex-shrink-0">Ruang / Lab</span>

@@ -23,7 +23,8 @@ import {
   ShieldAlert,
   Play
 } from 'lucide-react';
-import { formatExamScheduleRange, getExamScheduleState, formatClassTargetDisplay } from '@/lib/cbt-schedule';
+import { formatExamScheduleRange, getExamScheduleState, formatClassTargetDisplay, isClassOverlap } from '@/lib/cbt-schedule';
+import { normalizeReligion, getReligionConfig, ReligionCode, ReligionOption } from '@/lib/cbt-religion';
 
 export interface AssignedExamItem {
   id: string;
@@ -33,6 +34,7 @@ export interface AssignedExamItem {
   duration: number;
   token: string | null;
   status: string;
+  targetReligion?: string | null;
   authorName?: string | null;
   startTime?: Date | string | null;
   endTime?: Date | string | null;
@@ -55,6 +57,33 @@ interface ProctorScheduleClientProps {
     username: string;
     role: string;
   };
+}
+
+// Helper ekstraksi target agama efektif khusus mapel agama
+function getExamEffectiveReligion(exam: AssignedExamItem): ReligionCode {
+  let rel = normalizeReligion(exam.targetReligion);
+  if (rel === 'ALL') {
+    const text = `${exam.subject || ''} ${exam.title || ''}`.toUpperCase();
+    if (text.includes('ISLAM') || text.includes('PAI')) return 'ISLAM';
+    if (text.includes('KRISTEN') || text.includes('PAK') || text.includes('PROTESTAN')) return 'KRISTEN';
+    if (text.includes('KATOLIK')) return 'KATOLIK';
+    if (text.includes('HINDU')) return 'HINDU';
+    if (text.includes('BUDDHA') || text.includes('BUDHA')) return 'BUDDHA';
+    if (text.includes('KHONGHUCU') || text.includes('KONGHUCU')) return 'KHONGHUCU';
+  }
+  return rel;
+}
+
+export interface UnifiedExamCardItem {
+  id: string;
+  primaryExam: AssignedExamItem & { scheduleState: any };
+  partnerExams: (AssignedExamItem & { scheduleState: any })[];
+  isUnifiedReligion: boolean;
+  unifiedTitle: string;
+  unifiedSubject: string;
+  religionBadges: ReligionOption[];
+  combinedAttempts: number;
+  allExamIds: string[];
 }
 
 export default function ProctorScheduleClient({
@@ -103,6 +132,89 @@ export default function ProctorScheduleClient({
       return true;
     });
   }, [examItemsWithState, searchQuery, filterTab]);
+
+  // 🕌 Grouping Cerdas KHUSUS Sesi Paralel Agama di Ruangan, Kelas & Jam yang Sama
+  // Mapel non-agama (Matematika, Kejuruan, dll) 100% TIDAK DIGABUNG dan tetap berdiri mandiri
+  const groupedExamCards = useMemo<UnifiedExamCardItem[]>(() => {
+    const processedIds = new Set<string>();
+    const cards: UnifiedExamCardItem[] = [];
+
+    for (let i = 0; i < filteredExams.length; i++) {
+      const current = filteredExams[i];
+      if (processedIds.has(current.id)) continue;
+
+      const currentRel = getExamEffectiveReligion(current);
+
+      // 🛡️ SYARAT MUTLAK: Hanya berlaku jika target agama BUKAN mapel umum ('ALL')
+      if (currentRel !== 'ALL' && current.startTime && current.endTime) {
+        const partners = filteredExams.filter((other) => {
+          if (other.id === current.id || processedIds.has(other.id)) return false;
+          const otherRel = getExamEffectiveReligion(other);
+          // Wajib varian agama lain yang berbeda (bukan mapel umum ALL dan bukan agama yang sama)
+          if (otherRel === 'ALL' || otherRel === currentRel) return false;
+
+          // Cek kesamaan kelas rombel
+          const sameClass = isClassOverlap(current.classTarget, other.classTarget);
+          // Cek kesamaan ruangan fisik
+          const sameRoom = (current.roomName || '').trim().toLowerCase() === (other.roomName || '').trim().toLowerCase();
+          // Cek kesamaan waktu (tanggal, start, end)
+          const sameTime =
+            new Date(current.startTime!).getTime() === new Date(other.startTime!).getTime() &&
+            new Date(current.endTime!).getTime() === new Date(other.endTime!).getTime();
+          // Cek kesamaan pengawas
+          const sameProctor = (current.proctorName || '').trim().toLowerCase() === (other.proctorName || '').trim().toLowerCase();
+
+          return sameClass && sameRoom && sameTime && sameProctor;
+        });
+
+        if (partners.length > 0) {
+          processedIds.add(current.id);
+          partners.forEach((p) => processedIds.add(p.id));
+
+          const allGroup = [current, ...partners];
+          const badges = allGroup.map((e) => getReligionConfig(getExamEffectiveReligion(e)));
+          const combinedAttempts = allGroup.reduce((sum, e) => sum + (e._count?.attempts || 0), 0);
+          const allIds = allGroup.map((e) => e.id);
+
+          const religionLabels = badges.map((b) => b.shortLabel).join(' & ');
+          const cleanSubject = current.subject
+            .replace(/KRISTEN|ISLAM|KATOLIK|HINDU|BUDDHA|KHONGHUCU/gi, '')
+            .trim()
+            .replace(/[\/\-\s]+$/, '') || 'Pendidikan Agama';
+
+          cards.push({
+            id: current.id,
+            primaryExam: current,
+            partnerExams: partners,
+            isUnifiedReligion: true,
+            unifiedTitle: `${current.title.replace(/KRISTEN|ISLAM|KATOLIK|HINDU|BUDDHA|KHONGHUCU/gi, '').trim()} (${religionLabels})`,
+            unifiedSubject: `${cleanSubject} (${religionLabels}) • ${current.duration} Menit Pengerjaan`,
+            religionBadges: badges,
+            combinedAttempts,
+            allExamIds: allIds,
+          });
+          continue;
+        }
+      }
+
+      // 📚 MAPEL UMUM NON-AGAMA (Matematika, B. Indo, Kejuruan, dll) atau Ujian Agama Tunggal:
+      // 100% Berdiri Sendiri secara Mandiri tanpa Penggabungan
+      processedIds.add(current.id);
+      cards.push({
+        id: current.id,
+        primaryExam: current,
+        partnerExams: [],
+        isUnifiedReligion: false,
+        unifiedTitle: current.title,
+        unifiedSubject: `${current.subject} • ${current.duration} Menit Pengerjaan`,
+        religionBadges: currentRel !== 'ALL' ? [getReligionConfig(currentRel)] : [],
+        combinedAttempts: current._count?.attempts || 0,
+        allExamIds: [current.id],
+      });
+    }
+
+    return cards;
+  }, [filteredExams]);
 
   const ongoingCount = examItemsWithState.filter(
     (e) => e.scheduleState.state === 'ONGOING' || e.status === 'ACTIVE'
@@ -252,31 +364,34 @@ export default function ProctorScheduleClient({
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {filteredExams.map((exam) => {
+            {groupedExamCards.map((card) => {
+              const exam = card.primaryExam;
               const sched = formatExamScheduleRange(exam.startTime, exam.endTime);
               const isOngoing = exam.scheduleState.state === 'ONGOING' || exam.status === 'ACTIVE';
               const isEnded = exam.scheduleState.state === 'ENDED' || exam.status === 'ARCHIVED';
 
               return (
                 <div
-                  key={exam.id}
+                  key={card.id}
                   className={`rounded-3xl p-6 bg-white dark:bg-slate-900 border transition-all duration-300 flex flex-col justify-between space-y-4 shadow-sm hover:shadow-md ${isOngoing
                       ? 'border-emerald-500 ring-2 ring-emerald-400/20 shadow-emerald-500/10'
                       : isEnded
                         ? 'border-slate-200 dark:border-slate-800 opacity-75'
-                        : 'border-slate-200 dark:border-slate-800'
+                        : card.isUnifiedReligion
+                          ? 'border-emerald-300 dark:border-emerald-800/80 shadow-emerald-500/5'
+                          : 'border-slate-200 dark:border-slate-800'
                     }`}
                 >
                   <div className="space-y-3">
                     {/* Top status line */}
                     <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300">
                           {formatClassTargetDisplay(exam.classTarget)}
                         </span>
                         <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center gap-1">
                           <MapPin size={12} className="text-blue-500" />
-                          <span>{exam.roomName || 'Lab Komputer 1'}</span>
+                          <span>{exam.roomName || 'Ruang Utama'}</span>
                         </span>
                       </div>
 
@@ -298,17 +413,40 @@ export default function ProctorScheduleClient({
 
                     {/* Title & Subject */}
                     <div>
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/80">
                           Plotting Resmi Admin
                         </span>
+                        {card.isUnifiedReligion && (
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-gradient-to-r from-emerald-600 via-teal-600 to-sky-600 text-white shadow-xs flex items-center gap-1">
+                            <span>🕌 Sesi Paralel Agama Terpadu</span>
+                          </span>
+                        )}
                       </div>
                       <h3 className="text-base font-black text-slate-900 dark:text-white line-clamp-1">
-                        {exam.title}
+                        {card.unifiedTitle}
                       </h3>
                       <p className="text-xs font-bold text-purple-600 dark:text-purple-400 mt-0.5">
-                        {exam.subject} • {exam.duration} Menit Pengerjaan
+                        {card.unifiedSubject}
                       </p>
+
+                      {/* Badges Agama Terpadu */}
+                      {card.isUnifiedReligion && (
+                        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                          {card.religionBadges.map((rb) => (
+                            <span
+                              key={rb.code}
+                              className={`px-2 py-0.5 rounded-md text-[10px] font-bold border flex items-center gap-1 ${rb.bgBadge} ${rb.borderBadge} ${rb.textBadge}`}
+                            >
+                              <span>{rb.icon}</span>
+                              <span>{rb.shortLabel}</span>
+                            </span>
+                          ))}
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            (1 Token Bersama)
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Schedule detail */}
@@ -332,28 +470,34 @@ export default function ProctorScheduleClient({
                     </div>
                   </div>
 
-                  {/* CTA BUTTON - HANYA TOMBOL PRATINJAU RUANG UJIAN / AWASI UJIAN */}
+                  {/* CTA BUTTON */}
                   <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
                     <span className="text-[11px] text-slate-400 font-medium">
-                      {exam._count?.attempts ? `${exam._count.attempts} Siswa Mengerjakan` : 'Siap Diawasi'}
+                      {card.combinedAttempts > 0
+                        ? `${card.combinedAttempts} Siswa Mengerjakan`
+                        : card.isUnifiedReligion
+                          ? 'Siap Diawasi (Sesi Terpadu)'
+                          : 'Siap Diawasi'}
                     </span>
 
                     <Link
-                      href={`/portal/pengawas/cbt/${exam.id}`}
+                      href={`/portal/pengawas/cbt/${card.primaryExam.id}`}
                       className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer ${isOngoing
                           ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/25 ring-2 ring-emerald-400/40'
-                          : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25'
+                          : card.isUnifiedReligion
+                            ? 'bg-gradient-to-r from-emerald-600 to-sky-600 hover:from-emerald-500 hover:to-sky-500 text-white shadow-emerald-500/20'
+                            : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25'
                         }`}
                     >
                       {isOngoing ? (
                         <>
                           <Play size={15} />
-                          <span>Mulai Pengawasan (Live)</span>
+                          <span>{card.isUnifiedReligion ? 'Mulai Pengawasan Terpadu (Live)' : 'Mulai Pengawasan (Live)'}</span>
                         </>
                       ) : (
                         <>
                           <Eye size={15} />
-                          <span>Pratinjau Ruang Ujian</span>
+                          <span>{card.isUnifiedReligion ? 'Pratinjau Ruang Terpadu' : 'Pratinjau Ruang Ujian'}</span>
                         </>
                       )}
                       <ArrowRight size={14} />

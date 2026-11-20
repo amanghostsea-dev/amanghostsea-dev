@@ -41,6 +41,8 @@ export async function rotateExamToken(id: string, customToken?: string) {
         roomName: true,
         classTarget: true,
         targetReligion: true,
+        subject: true,
+        title: true,
       },
     });
 
@@ -66,12 +68,24 @@ export async function rotateExamToken(id: string, customToken?: string) {
     // 🕌 Sinkronisasi Token Otomatis untuk Varian Agama Serentak:
     // Jika ujian ini adalah varian agama (targetReligion !== 'ALL'), cari ujian varian agama lain
     // di ruangan dan waktu yang sama, lalu samakan tokennya secara otomatis!
-    if (current.targetReligion && current.targetReligion !== 'ALL' && current.startTime && current.endTime) {
+    const effectiveCurrentRel = normalizeReligion(current.targetReligion) !== 'ALL'
+      ? normalizeReligion(current.targetReligion)
+      : (() => {
+          const t = `${current.subject || ''} ${current.title || ''}`.toUpperCase();
+          if (t.includes('ISLAM') || t.includes('PAI')) return 'ISLAM';
+          if (t.includes('KRISTEN') || t.includes('PAK') || t.includes('PROTESTAN')) return 'KRISTEN';
+          if (t.includes('KATOLIK')) return 'KATOLIK';
+          if (t.includes('HINDU')) return 'HINDU';
+          if (t.includes('BUDDHA') || t.includes('BUDHA')) return 'BUDDHA';
+          if (t.includes('KHONGHUCU') || t.includes('KONGHUCU')) return 'KHONGHUCU';
+          return 'ALL';
+        })();
+
+    if (effectiveCurrentRel !== 'ALL' && current.startTime && current.endTime) {
       await prisma.exam.updateMany({
         where: {
           id: { not: id },
           status: { not: 'ARCHIVED' },
-          targetReligion: { not: 'ALL' },
           startTime: current.startTime,
           endTime: current.endTime,
           roomName: current.roomName,
@@ -86,6 +100,8 @@ export async function rotateExamToken(id: string, customToken?: string) {
     revalidatePath(`/admin/cbt/${id}`);
     revalidatePath('/portal/siswa/cbt');
     revalidatePath(`/portal/siswa/cbt/${id}`);
+    revalidatePath('/portal/pengawas/cbt');
+    revalidatePath(`/portal/pengawas/cbt/${id}`);
     revalidatePath('/ujian');
 
     return {
@@ -111,6 +127,8 @@ export async function toggleExamSession(id: string, openSession: boolean, custom
         roomName: true,
         classTarget: true,
         targetReligion: true,
+        subject: true,
+        title: true,
       },
     });
 
@@ -134,12 +152,24 @@ export async function toggleExamSession(id: string, openSession: boolean, custom
     });
 
     // 🕌 Sinkronisasi Sesi & Token Otomatis untuk Varian Agama Serentak di Ruang yang Sama
-    if (current.targetReligion && current.targetReligion !== 'ALL' && current.startTime && current.endTime) {
+    const effectiveCurrentRel = normalizeReligion(current.targetReligion) !== 'ALL'
+      ? normalizeReligion(current.targetReligion)
+      : (() => {
+          const t = `${current.subject || ''} ${current.title || ''}`.toUpperCase();
+          if (t.includes('ISLAM') || t.includes('PAI')) return 'ISLAM';
+          if (t.includes('KRISTEN') || t.includes('PAK') || t.includes('PROTESTAN')) return 'KRISTEN';
+          if (t.includes('KATOLIK')) return 'KATOLIK';
+          if (t.includes('HINDU')) return 'HINDU';
+          if (t.includes('BUDDHA') || t.includes('BUDHA')) return 'BUDDHA';
+          if (t.includes('KHONGHUCU') || t.includes('KONGHUCU')) return 'KHONGHUCU';
+          return 'ALL';
+        })();
+
+    if (effectiveCurrentRel !== 'ALL' && current.startTime && current.endTime) {
       await prisma.exam.updateMany({
         where: {
           id: { not: id },
           status: { not: 'ARCHIVED' },
-          targetReligion: { not: 'ALL' },
           startTime: current.startTime,
           endTime: current.endTime,
           roomName: current.roomName,
@@ -156,6 +186,8 @@ export async function toggleExamSession(id: string, openSession: boolean, custom
     revalidatePath(`/admin/cbt/${id}`);
     revalidatePath('/portal/siswa/cbt');
     revalidatePath(`/portal/siswa/cbt/${id}`);
+    revalidatePath('/portal/pengawas/cbt');
+    revalidatePath(`/portal/pengawas/cbt/${id}`);
     revalidatePath('/ujian');
     return {
       success: true,
