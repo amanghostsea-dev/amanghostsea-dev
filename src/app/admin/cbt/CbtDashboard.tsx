@@ -407,24 +407,24 @@ export default function CbtDashboard({
   }, [dynamicClassPresets]);
 
   const subjectPresets: string[] = useMemo(() => {
-    const defaults = [
-      'Pemrograman Web',
-      'Basis Data',
-      'Pemrograman Berorientasi Objek',
-      'Administrasi Sistem Jaringan',
-      'Teknologi Layanan Jaringan',
-      'Desain Media Interaktif',
-      'Dasar-dasar Kejuruan',
+    // 1. Ambil mapel riil yang sudah terdaftar di Master Mata Pelajaran (prisma.subject)
+    const fromDb = (dynamicSubjectPresets || []).map((s: string) => s?.trim()).filter(Boolean);
+    // 2. Ambil mapel dari seluruh paket ujian yang aktif di sistem
+    const fromExams = exams.map((e) => e.subject?.trim()).filter(Boolean) as string[];
+    
+    const combined = Array.from(new Set([...fromDb, ...fromExams]));
+    if (combined.length > 0) {
+      return combined.sort((a, b) => a.localeCompare(b, 'id'));
+    }
+    // Fallback bersih jika database kurikulum belum terisi
+    return [
+      'Pendidikan Agama Islam',
+      'Pendidikan Agama Kristen',
+      'Bahasa Indonesia',
       'Matematika',
       'Bahasa Inggris',
-      'Bahasa Indonesia',
-      'Pendidikan Agama',
     ];
-    if (dynamicSubjectPresets && dynamicSubjectPresets.length > 0) {
-      return Array.from(new Set([...dynamicSubjectPresets, ...defaults]));
-    }
-    return defaults;
-  }, [dynamicSubjectPresets]);
+  }, [dynamicSubjectPresets, exams]);
 
   const groupedClassOptions = useMemo(() => {
     const onlyClasses = classPresets.filter(
@@ -444,7 +444,7 @@ export default function CbtDashboard({
   // Form State
   const [formData, setFormData] = useState({
     title: '',
-    subject: 'Pemrograman Web',
+    subject: dynamicSubjectPresets?.[0] || exams?.[0]?.subject || '',
     classTarget: 'Semua Kelas',
     duration: 60,
     token: '',
@@ -925,7 +925,7 @@ export default function CbtDashboard({
 
     setFormData({
       title: '',
-      subject: subjectPresets[0] || 'Pemrograman Web',
+      subject: subjectPresets[0] || dynamicSubjectPresets?.[0] || exams?.[0]?.subject || '',
       classTarget: defaultClass,
       duration: 60,
       token: randomToken,
@@ -1138,8 +1138,23 @@ export default function CbtDashboard({
     const norm = normalizeReligion(exam.targetReligion);
     if (norm !== 'ALL') return norm;
     const sub = `${exam.subject || ''} ${exam.title || ''}`.toUpperCase();
-    if (sub.includes('ISLAM') || sub.includes('PAI')) return 'ISLAM';
-    if (sub.includes('KRISTEN') || sub.includes('PAK') || sub.includes('PROTESTAN')) return 'KRISTEN';
+    if (
+      sub.includes('ISLAM') || 
+      sub.includes('PAI') || 
+      sub.includes('PABP') || 
+      sub.includes('BTA') || 
+      sub.includes('BTQ') || 
+      sub.includes('QURAN') || 
+      sub.includes("QUR'AN") || 
+      sub.includes('TAHFIDZ') || 
+      sub.includes('FIQIH') || 
+      sub.includes('AQIDAH')
+    ) return 'ISLAM';
+    if (
+      sub.includes('KRISTEN') || 
+      sub.includes('PAK') || 
+      sub.includes('PROTESTAN')
+    ) return 'KRISTEN';
     if (sub.includes('KATOLIK')) return 'KATOLIK';
     if (sub.includes('HINDU')) return 'HINDU';
     if (sub.includes('BUDDHA') || sub.includes('BUDHA')) return 'BUDDHA';

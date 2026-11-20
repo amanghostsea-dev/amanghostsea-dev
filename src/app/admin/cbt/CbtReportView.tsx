@@ -166,6 +166,37 @@ export default function CbtReportView({
       .sort((a, b) => a.code.localeCompare(b.code));
   }, [allRows]);
 
+  // List mata pelajaran yang tersedia di ujian / laporan ini (100% data riil tersinkronisasi)
+  const availableSubjects = useMemo(() => {
+    const map = new Map<string, { examCount: number; studentCount: number }>();
+
+    // 1. Kumpulkan seluruh mapel dari ujian riil yang ada
+    exams.forEach((ex) => {
+      const sub = ex.subject?.trim();
+      if (!sub) return;
+      const cur = map.get(sub) || { examCount: 0, studentCount: 0 };
+      cur.examCount += 1;
+      cur.studentCount += (ex.attempts?.length || 0);
+      map.set(sub, cur);
+    });
+
+    // 2. Tambahkan mapel resmi dari Master Mata Pelajaran (subjectPresets) jika ada
+    subjectPresets.forEach((sub) => {
+      const clean = sub.trim();
+      if (clean && !map.has(clean)) {
+        map.set(clean, { examCount: 0, studentCount: 0 });
+      }
+    });
+
+    return Array.from(map.entries())
+      .map(([name, stats]) => ({ name, ...stats }))
+      .sort((a, b) => {
+        // Prioritaskan mapel yang memiliki hasil ujian siswa terlebih dahulu
+        if (b.studentCount !== a.studentCount) return b.studentCount - a.studentCount;
+        return a.name.localeCompare(b.name, 'id');
+      });
+  }, [exams, subjectPresets]);
+
   // Apply All Active Filters
   const filteredRows = useMemo(() => {
     return allRows.filter((r) => {
@@ -651,9 +682,13 @@ export default function CbtReportView({
               onChange={(e) => setSubjectFilter(e.target.value)}
               className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none cursor-pointer"
             >
-              <option value="ALL">Semua Mata Pelajaran</option>
-              {subjectPresets.map((s, idx) => (
-                <option key={idx} value={s}>{s}</option>
+              <option value="ALL">
+                Semua Mata Pelajaran {availableSubjects.length > 0 ? `(${availableSubjects.length} Mapel Terdata)` : ''}
+              </option>
+              {availableSubjects.map((sub) => (
+                <option key={sub.name} value={sub.name}>
+                  {sub.name} {sub.studentCount > 0 ? `(${sub.studentCount} Siswa)` : sub.examCount > 0 ? `(${sub.examCount} Ujian)` : ''}
+                </option>
               ))}
             </select>
           </div>
@@ -677,8 +712,8 @@ export default function CbtReportView({
         </div>
       </div>
 
-      {/* 🚀 QUICK SYNC TO RAPORT BANNER (For Selected Exam Filter) */}
-      {examFilter !== 'ALL' && (
+      {/* 🚀 QUICK SYNC TO RAPORT BANNER */}
+      {examFilter !== 'ALL' ? (
         <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 border border-blue-200 dark:border-blue-900/60 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in">
           <div className="flex items-center gap-3">
             <span className="p-2.5 rounded-xl bg-blue-600 text-white">
@@ -709,6 +744,15 @@ export default function CbtReportView({
               </>
             )}
           </button>
+        </div>
+      ) : (
+        <div className="px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-400">
+          <div className="flex items-center gap-2">
+            <Sparkles size={16} className="text-blue-600 dark:text-blue-400 shrink-0" />
+            <span>
+              <strong>Integrasi Buku Nilai Raport:</strong> Pilih salah satu <em>Paket Ujian</em> pada filter di atas untuk mengaktifkan tombol <strong>Sinkronisasi Otomatis</strong> nilai siswa ke tabel Buku Nilai Raport Guru.
+            </span>
+          </div>
         </div>
       )}
 

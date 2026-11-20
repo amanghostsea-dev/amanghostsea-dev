@@ -277,8 +277,23 @@ export async function checkExamScheduleConflict(params: {
         ? normalizeReligion(c.targetReligion)
         : (() => {
             const t = `${c.subject || ''} ${c.title || ''}`.toUpperCase();
-            if (t.includes('ISLAM') || t.includes('PAI')) return 'ISLAM';
-            if (t.includes('KRISTEN') || t.includes('PAK') || t.includes('PROTESTAN')) return 'KRISTEN';
+            if (
+              t.includes('ISLAM') || 
+              t.includes('PAI') || 
+              t.includes('PABP') || 
+              t.includes('BTA') || 
+              t.includes('BTQ') || 
+              t.includes('QURAN') || 
+              t.includes("QUR'AN") || 
+              t.includes('TAHFIDZ') || 
+              t.includes('FIQIH') || 
+              t.includes('AQIDAH')
+            ) return 'ISLAM';
+            if (
+              t.includes('KRISTEN') || 
+              t.includes('PAK') || 
+              t.includes('PROTESTAN')
+            ) return 'KRISTEN';
             if (t.includes('KATOLIK')) return 'KATOLIK';
             if (t.includes('HINDU')) return 'HINDU';
             if (t.includes('BUDDHA') || t.includes('BUDHA')) return 'BUDDHA';
