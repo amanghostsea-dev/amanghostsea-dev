@@ -7,15 +7,18 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const examId = searchParams.get('examId');
+    const rawExamId = searchParams.get('examId');
 
-    if (!examId) {
+    if (!rawExamId) {
       return NextResponse.json({ error: 'Missing examId' }, { status: 400 });
     }
 
+    const examIds = rawExamId.split(',').map((s) => s.trim()).filter(Boolean);
+    const primaryExamId = examIds[0] || rawExamId;
+
     // 1. Ambil data paket ujian terkini untuk sinkronisasi token Guru & Pengawas
     let exam = await prisma.exam.findUnique({
-      where: { id: examId },
+      where: { id: primaryExamId },
       select: {
         id: true,
         status: true,
@@ -42,11 +45,12 @@ export async function GET(req: Request) {
 
     const remainingSeconds = Math.max(0, 600 - (elapsedSeconds % 600));
 
-    // 3. Ambil data attempts siswa di ruangan
+    // 3. Ambil data attempts siswa di ruangan (mendukung multi-exam untuk sesi paralel agama)
     const attempts = await prisma.examAttempt.findMany({
-      where: { examId },
+      where: examIds.length > 1 ? { examId: { in: examIds } } : { examId: primaryExamId },
       select: {
         id: true,
+        examId: true,
         studentName: true,
         studentNis: true,
         studentClass: true,
