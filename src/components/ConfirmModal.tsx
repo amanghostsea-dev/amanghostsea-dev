@@ -1,18 +1,29 @@
 'use client';
 
-import React from 'react';
-import { AlertTriangle, Trash2, X, Loader2, CheckCircle2, Info, ShieldCheck } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { 
+  AlertTriangle, 
+  Trash2, 
+  X, 
+  Loader2, 
+  CheckCircle2, 
+  Info, 
+  ShieldCheck,
+  Check,
+  Sparkles
+} from 'lucide-react';
 
-interface ConfirmModalProps {
+export interface ConfirmModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void | Promise<void>;
+  onConfirm?: () => void | Promise<void>;
   title?: string;
   message?: React.ReactNode;
   confirmText?: string;
   cancelText?: string;
   variant?: 'danger' | 'warning' | 'info' | 'success';
   isLoading?: boolean;
+  isAlert?: boolean;
 }
 
 export default function ConfirmModal({
@@ -21,101 +32,143 @@ export default function ConfirmModal({
   onConfirm,
   title = 'Konfirmasi Tindakan',
   message = 'Apakah Anda yakin ingin melanjutkan tindakan ini?',
-  confirmText = 'Ya, Hapus',
+  confirmText = 'Lanjutkan',
   cancelText = 'Batal',
   variant = 'danger',
   isLoading = false,
+  isAlert = false,
 }: ConfirmModalProps) {
+  // Tutup modal dengan tombol Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isLoading) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isLoading, onClose]);
+
   if (!isOpen) return null;
+
+  const isAlertMode = isAlert || !onConfirm;
 
   const variantStyles = {
     danger: {
-      accentLine: 'bg-gradient-to-r from-red-500 via-rose-500 to-amber-500',
-      iconBg: 'bg-gradient-to-br from-red-500 to-rose-600 text-white shadow-red-500/30 ring-red-50 dark:ring-red-950/40',
-      icon: <Trash2 size={28} />,
-      confirmBtn: 'bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-700 hover:to-rose-800 shadow-red-500/35 hover:shadow-red-500/50',
+      accentLine: 'bg-gradient-to-r from-rose-500 via-red-500 to-amber-500',
+      iconBg: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 shadow-rose-500/10',
+      halo: 'ring-rose-500/15 dark:ring-rose-500/20',
+      icon: <Trash2 size={24} className="stroke-[2.2]" />,
+      confirmBtn: 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white shadow-md shadow-red-600/25',
     },
     warning: {
-      accentLine: 'bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-500',
-      iconBg: 'bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-amber-500/30 ring-amber-50 dark:ring-amber-950/40',
-      icon: <AlertTriangle size={28} />,
-      confirmBtn: 'bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 hover:from-amber-700 hover:to-orange-800 shadow-amber-500/35 hover:shadow-amber-500/50',
+      accentLine: 'bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-400',
+      iconBg: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-amber-500/10',
+      halo: 'ring-amber-500/15 dark:ring-amber-500/20',
+      icon: <AlertTriangle size={24} className="stroke-[2.2]" />,
+      confirmBtn: 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-md shadow-amber-600/25',
     },
     info: {
-      accentLine: 'bg-gradient-to-r from-blue-500 via-indigo-500 to-cyan-500',
-      iconBg: 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-blue-500/30 ring-blue-50 dark:ring-blue-950/40',
-      icon: <Info size={28} />,
-      confirmBtn: 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 shadow-blue-500/35 hover:shadow-blue-500/50',
+      accentLine: 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500',
+      iconBg: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shadow-indigo-500/10',
+      halo: 'ring-indigo-500/15 dark:ring-indigo-500/20',
+      icon: <Info size={24} className="stroke-[2.2]" />,
+      confirmBtn: 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-md shadow-indigo-600/25',
     },
     success: {
       accentLine: 'bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500',
-      iconBg: 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-emerald-500/30 ring-emerald-50 dark:ring-emerald-950/40',
-      icon: <ShieldCheck size={28} />,
-      confirmBtn: 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-800 shadow-emerald-500/35 hover:shadow-emerald-500/50',
+      iconBg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-emerald-500/10',
+      halo: 'ring-emerald-500/15 dark:ring-emerald-500/20',
+      icon: <CheckCircle2 size={24} className="stroke-[2.2]" />,
+      confirmBtn: 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md shadow-emerald-600/25',
     },
   }[variant];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-md animate-fade-in">
-      {/* 3D Floating Modal Card */}
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200"
+      onClick={() => {
+        if (!isLoading) onClose();
+      }}
+    >
+      {/* 3D Floating Modal Card: Compact, Centered, Rapi & Elegan */}
       <div 
-        className="relative bg-white dark:bg-slate-900 rounded-3xl sm:rounded-[2rem] shadow-[0_25px_70px_-12px_rgba(0,0,0,0.35),0_10px_25px_-5px_rgba(0,0,0,0.15)] border border-slate-100 dark:border-slate-800 ring-1 ring-slate-900/10 w-full max-w-md overflow-hidden animate-zoom-in transition-all"
+        className="relative bg-white dark:bg-slate-900 rounded-[1.75rem] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.08)] border border-slate-200/90 dark:border-slate-800/90 w-full max-w-[390px] overflow-hidden animate-in zoom-in-95 duration-200 transition-all"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top 3D Accent Line */}
-        <div className={`h-2 w-full ${variantStyles.accentLine} shadow-sm`} />
+        {/* Top Slim Accent Gradient Bar */}
+        <div className={`h-1.5 w-full ${variantStyles.accentLine}`} />
 
         {/* Close Button */}
         <button
           type="button"
           onClick={onClose}
           disabled={isLoading}
-          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 flex items-center justify-center transition-colors cursor-pointer"
+          aria-label="Tutup"
+          className="absolute top-3.5 right-3.5 w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-40"
         >
-          <X size={18} />
+          <X size={15} />
         </button>
 
-        <div className="p-6 sm:p-8 text-center">
-          {/* 3D Tactile Icon */}
-          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg ring-8 ${variantStyles.iconBg}`}>
+        <div className="p-6 text-center">
+          {/* Glowing Centered Icon Badge */}
+          <div className={`w-13 h-13 rounded-2xl flex items-center justify-center mx-auto mb-3.5 shadow-sm ring-4 ${variantStyles.iconBg} ${variantStyles.halo}`}>
             {variantStyles.icon}
           </div>
 
-          {/* Title & Message */}
-          <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight mb-2">
+          {/* Title */}
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight mb-2">
             {title}
           </h3>
-          <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-8 max-w-xs mx-auto">
+
+          {/* Message Content */}
+          <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-6 max-w-[310px] mx-auto break-words">
             {message}
           </div>
 
-          {/* 3D Action Buttons */}
-          <div className="flex flex-col-reverse sm:flex-row items-center justify-center gap-3">
+          {/* Action Buttons: Rapi & Ergonomis */}
+          {isAlertMode ? (
             <button
               type="button"
               disabled={isLoading}
               onClick={onClose}
-              className="w-full sm:w-1/2 px-5 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 font-bold text-sm transition-all shadow-sm cursor-pointer disabled:opacity-50"
+              className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 cursor-pointer active:scale-95 disabled:opacity-50 ${variantStyles.confirmBtn}`}
             >
-              {cancelText}
+              {confirmText || 'Mengerti'}
             </button>
+          ) : (
+            <div className="flex items-center justify-center gap-2.5">
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={onClose}
+                className="w-1/2 py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs sm:text-sm transition-all cursor-pointer disabled:opacity-40 active:scale-95"
+              >
+                {cancelText}
+              </button>
 
-            <button
-              type="button"
-              disabled={isLoading}
-              onClick={onConfirm}
-              className={`w-full sm:w-1/2 px-5 py-3 rounded-2xl text-white font-bold text-sm shadow-[0_10px_25px_-5px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.3)] hover:-translate-y-0.5 active:translate-y-0.5 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 ${variantStyles.confirmBtn}`}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" />
-                  <span>Memproses...</span>
-                </>
-              ) : (
-                <span>{confirmText}</span>
-              )}
-            </button>
-          </div>
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={async () => {
+                  if (onConfirm) {
+                    await onConfirm();
+                  }
+                }}
+                className={`w-1/2 py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer active:scale-95 disabled:opacity-50 ${variantStyles.confirmBtn}`}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" />
+                    <span>Memproses...</span>
+                  </>
+                ) : (
+                  <span>{confirmText}</span>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

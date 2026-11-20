@@ -26,6 +26,7 @@ import {
 import { assignExamProctorAction, AssignProctorInput } from './actions';
 import { formatExamScheduleRange } from '@/lib/cbt-schedule';
 import { KopSuratConfig } from '@/app/admin/settings/types';
+import ConfirmModal from '@/components/ConfirmModal';
 import { 
   CbtOfficialKopSurat, 
   CbtOfficialSignatures, 
@@ -99,6 +100,7 @@ export default function CbtProctorPlottingView({
   const [formRoomName, setFormRoomName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Modal Print SK & Jadwal Resmi
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
@@ -250,7 +252,7 @@ export default function CbtProctorPlottingView({
       setSuccessToast(res.message);
       setTimeout(() => setSuccessToast(null), 4000);
     } else {
-      alert(res.error || 'Gagal menyimpan penugasan pengawas.');
+      setErrorMessage(res.error || 'Gagal menyimpan penugasan pengawas.');
     }
   };
 
@@ -781,6 +783,19 @@ export default function CbtProctorPlottingView({
           />
         </div>
       </CbtPrintModalWrapper>
+
+      {/* 🌟 Center Alert Dialog */}
+      {errorMessage && (
+        <ConfirmModal
+          isOpen={Boolean(errorMessage)}
+          onClose={() => setErrorMessage(null)}
+          title="Gagal Menyimpan"
+          message={errorMessage}
+          variant="danger"
+          isAlert={true}
+          confirmText="Mengerti"
+        />
+      )}
     </div>
   );
 }

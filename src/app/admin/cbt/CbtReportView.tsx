@@ -104,6 +104,31 @@ export default function CbtReportView({
   const [printStudentCard, setPrintStudentCard] = useState<any | null>(null);
   const [isPrintCollectiveModalOpen, setIsPrintCollectiveModalOpen] = useState(false);
 
+  // 🌟 Universal Modern Center Dialog (Alert & Confirm)
+  const [feedbackModal, setFeedbackModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: React.ReactNode;
+    variant?: 'danger' | 'warning' | 'info' | 'success';
+    confirmText?: string;
+    onCloseCallback?: () => void;
+  } | null>(null);
+
+  const showAlert = (
+    title: string,
+    message: React.ReactNode,
+    variant: 'danger' | 'warning' | 'info' | 'success' = 'info',
+    onCloseCallback?: () => void
+  ) => {
+    setFeedbackModal({
+      isOpen: true,
+      title,
+      message,
+      variant,
+      onCloseCallback,
+    });
+  };
+
   // Flatten all attempts into uniform report rows
   const allRows = useMemo(() => {
     const list: Array<{
@@ -351,14 +376,15 @@ export default function CbtReportView({
     try {
       const res = await resetStudentAttemptAction(resetTargetAttempt.id);
       if (res?.success) {
-        alert(res.message);
         setResetTargetAttempt(null);
-        window.location.reload();
+        showAlert('Reset Ujian Berhasil', res.message, 'success', () => {
+          window.location.reload();
+        });
       } else {
-        alert(res?.error || 'Gagal mereset ujian siswa.');
+        showAlert('Gagal Mereset', res?.error || 'Gagal mereset ujian siswa.', 'danger');
       }
     } catch (e: any) {
-      alert(e.message || 'Terjadi kesalahan sistem.');
+      showAlert('Kesalahan Sistem', e.message || 'Terjadi kesalahan sistem.', 'danger');
     } finally {
       setIsResetting(false);
     }
@@ -369,12 +395,12 @@ export default function CbtReportView({
     try {
       const res = await syncCbtScoresToStudentGradesAction(examId);
       if (res?.success) {
-        alert(res.message);
+        showAlert('Sinkronisasi Sukses', res.message, 'success');
       } else {
-        alert(res?.error || 'Gagal menyinkronkan nilai.');
+        showAlert('Gagal Sinkronisasi', res?.error || 'Gagal menyinkronkan nilai.', 'danger');
       }
     } catch (e: any) {
-      alert(e.message || 'Gagal menyinkronkan nilai ke buku nilai.');
+      showAlert('Kesalahan Sistem', e.message || 'Gagal menyinkronkan nilai ke buku nilai.', 'danger');
     } finally {
       setSyncingExamId(null);
     }
@@ -383,7 +409,7 @@ export default function CbtReportView({
   // Export to CSV
   const handleExportCsv = () => {
     if (filteredRows.length === 0) {
-      alert('Tidak ada data hasil ujian yang dapat diekspor.');
+      showAlert('Data Kosong', 'Tidak ada data hasil ujian yang dapat diekspor.', 'warning');
       return;
     }
 
@@ -1197,6 +1223,23 @@ export default function CbtReportView({
         isLoading={isResetting}
         variant="danger"
       />
+
+      {/* 🌟 Universal High-Tech Center Alert Dialog */}
+      {feedbackModal && (
+        <ConfirmModal
+          isOpen={feedbackModal.isOpen}
+          onClose={() => {
+            const cb = feedbackModal.onCloseCallback;
+            setFeedbackModal(null);
+            if (cb) cb();
+          }}
+          title={feedbackModal.title}
+          message={feedbackModal.message}
+          variant={feedbackModal.variant || 'info'}
+          isAlert={true}
+          confirmText={feedbackModal.confirmText || 'Mengerti'}
+        />
+      )}
     </div>
   );
 }

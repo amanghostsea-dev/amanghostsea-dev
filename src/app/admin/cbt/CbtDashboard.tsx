@@ -231,13 +231,68 @@ export default function CbtDashboard({
     totalPoints: number;
   } | null>(null);
 
+  // 🌟 Universal Modern Center Dialog (Alert & Confirm Canggih & Elegan)
+  const [feedbackModal, setFeedbackModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: React.ReactNode;
+    variant?: 'danger' | 'warning' | 'info' | 'success';
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm?: () => void | Promise<void>;
+    isAlert?: boolean;
+  } | null>(null);
+
+  const showAlert = (
+    title: string, 
+    message: React.ReactNode, 
+    variant: 'danger' | 'warning' | 'info' | 'success' = 'info',
+    confirmText: string = 'Mengerti'
+  ) => {
+    setFeedbackModal({
+      isOpen: true,
+      title,
+      message,
+      variant,
+      isAlert: true,
+      confirmText,
+    });
+  };
+
+  const showConfirm = ({
+    title,
+    message,
+    variant = 'warning',
+    confirmText = 'Lanjutkan',
+    cancelText = 'Batal',
+    onConfirm,
+  }: {
+    title: string;
+    message: React.ReactNode;
+    variant?: 'danger' | 'warning' | 'info' | 'success';
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm: () => void | Promise<void>;
+  }) => {
+    setFeedbackModal({
+      isOpen: true,
+      title,
+      message,
+      variant,
+      confirmText,
+      cancelText,
+      onConfirm,
+      isAlert: false,
+    });
+  };
+
   const handleQuickDownloadExamQuestions = async (examItem: ExamItem) => {
     setDownloadingExamId(examItem.id);
     try {
       const res = await exportExamQuestionsAction(examItem.id);
       if (res.success && res.exam && res.questions) {
         if (res.questions.length === 0) {
-          alert(`Paket ujian "${examItem.title}" belum memiliki butir soal yang diunggah.`);
+          showAlert('Bank Soal Kosong', `Paket ujian "${examItem.title}" belum memiliki butir soal yang diunggah.`, 'warning');
           return;
         }
         setDownloadModalData({
@@ -248,10 +303,10 @@ export default function CbtDashboard({
           totalPoints: res.questions.reduce((sum: number, q: any) => sum + (q.points || 10), 0),
         });
       } else {
-        alert(res.error || 'Gagal mengunduh bank soal.');
+        showAlert('Gagal Mengunduh', res.error || 'Gagal mengunduh bank soal.', 'danger');
       }
     } catch (err: any) {
-      alert(err?.message || 'Terjadi kesalahan saat mengunduh bank soal.');
+      showAlert('Kesalahan Sistem', err?.message || 'Terjadi kesalahan saat mengunduh bank soal.', 'danger');
     } finally {
       setDownloadingExamId(null);
     }
@@ -648,9 +703,9 @@ export default function CbtDashboard({
       );
       setModifiedInlineIds(new Set());
       setIsInlineEditMode(false);
-      alert(`Berhasil menyimpan perubahan jadwal untuk ${payload.length} paket ujian!`);
+      showAlert('Jadwal Disimpan', `Berhasil menyimpan perubahan jadwal untuk ${payload.length} paket ujian!`, 'success');
     } else {
-      alert(res.error || 'Gagal menyimpan perubahan matriks jadwal.');
+      showAlert('Gagal Menyimpan', res.error || 'Gagal menyimpan perubahan matriks jadwal.', 'danger');
     }
     setInlineSaving(false);
   };
@@ -700,14 +755,14 @@ export default function CbtDashboard({
 
     if (batchMode === 'PARALLEL') {
       if (!batchDate || !batchStartTime || !batchEndTime) {
-        alert('Mohon lengkapi tanggal, jam mulai, dan jam selesai.');
+        showAlert('Lengkapi Data', 'Mohon lengkapi tanggal, jam mulai, dan jam selesai terlebih dahulu.', 'warning');
         setBatchLoading(false);
         return;
       }
       const startIso = parseDateTimeInputToIso(`${batchDate}T${batchStartTime}`, cbtTimezone);
       const endIso = parseDateTimeInputToIso(`${batchDate}T${batchEndTime}`, cbtTimezone);
       if (new Date(startIso) >= new Date(endIso)) {
-        alert('Jam mulai harus lebih awal dari jam selesai.');
+        showAlert('Jam Tidak Sesuai', 'Jam mulai harus lebih awal dari jam selesai.', 'warning');
         setBatchLoading(false);
         return;
       }
@@ -740,41 +795,44 @@ export default function CbtDashboard({
       );
       setIsBatchModalOpen(false);
       setSelectedExamIds([]);
-      alert(`Sukses! ${payload.length} jadwal ujian berhasil diperbarui secara kolektif.`);
+      showAlert('Jadwal Kolektif Berhasil', `Sukses! ${payload.length} jadwal ujian berhasil diperbarui secara kolektif.`, 'success');
     } else {
-      alert(res.error || 'Gagal menerapkan jadwal kolektif.');
+      showAlert('Gagal Terapkan Jadwal', res.error || 'Gagal menerapkan jadwal kolektif.', 'danger');
     }
     setBatchLoading(false);
   };
 
-  const handleClearSelectedSchedules = async () => {
+  const handleClearSelectedSchedules = () => {
     if (selectedExamIds.length === 0) return;
-    if (
-      !confirm(
-        `Kosongkan jadwal untuk ${selectedExamIds.length} ujian terpilih? Ujian akan berstatus tanpa jadwal.`
-      )
-    ) {
-      return;
-    }
-    setLoading(true);
-    const payload = selectedExamIds.map((id) => ({
-      id,
-      startTime: null,
-      endTime: null,
-    }));
-    const res = await batchUpdateExamSchedules(payload, true);
-    if (res.success) {
-      setExams((prev) =>
-        prev.map((e) =>
-          selectedExamIds.includes(e.id) ? { ...e, startTime: null, endTime: null } : e
-        )
-      );
-      setSelectedExamIds([]);
-      alert(`Jadwal untuk ${payload.length} ujian berhasil dikosongkan.`);
-    } else {
-      alert(res.error || 'Gagal mengosongkan jadwal.');
-    }
-    setLoading(false);
+    showConfirm({
+      title: 'Kosongkan Jadwal Terpilih',
+      message: `Kosongkan jadwal untuk ${selectedExamIds.length} ujian terpilih? Semua ujian terpilih akan diubah berstatus tanpa jadwal resmi.`,
+      variant: 'warning',
+      confirmText: 'Ya, Kosongkan',
+      cancelText: 'Batal',
+      onConfirm: async () => {
+        setFeedbackModal(null);
+        setLoading(true);
+        const payload = selectedExamIds.map((id) => ({
+          id,
+          startTime: null,
+          endTime: null,
+        }));
+        const res = await batchUpdateExamSchedules(payload, true);
+        if (res.success) {
+          setExams((prev) =>
+            prev.map((e) =>
+              selectedExamIds.includes(e.id) ? { ...e, startTime: null, endTime: null } : e
+            )
+          );
+          setSelectedExamIds([]);
+          showAlert('Jadwal Dikosongkan', `Jadwal untuk ${payload.length} ujian berhasil dikosongkan.`, 'success');
+        } else {
+          showAlert('Gagal Mengosongkan', res.error || 'Gagal mengosongkan jadwal.', 'danger');
+        }
+        setLoading(false);
+      },
+    });
   };
 
   // 📊 CSV Import & Template Generator
@@ -899,7 +957,7 @@ export default function CbtDashboard({
         setIsCsvModalOpen(true);
       } catch (err: any) {
         setCsvError(err.message || 'Format CSV tidak valid.');
-        alert(err.message || 'Gagal memproses file CSV.');
+        showAlert('Gagal Memproses CSV', err.message || 'Gagal memproses file CSV.', 'danger');
       } finally {
         if (csvFileInputRef.current) csvFileInputRef.current.value = '';
       }
@@ -931,9 +989,9 @@ export default function CbtDashboard({
       );
       setIsCsvModalOpen(false);
       setCsvParsedRows([]);
-      alert(`Berhasil mengimpor dan menerapkan jadwal untuk ${payload.length} ujian dari CSV!`);
+      showAlert('Impor Jadwal Berhasil', `Berhasil mengimpor dan menerapkan jadwal untuk ${payload.length} ujian dari CSV!`, 'success');
     } else {
-      alert(res.error || 'Gagal menerapkan jadwal dari CSV.');
+      showAlert('Gagal Terapkan Jadwal', res.error || 'Gagal menerapkan jadwal dari CSV.', 'danger');
     }
     setCsvSaving(false);
   };
@@ -974,7 +1032,7 @@ export default function CbtDashboard({
 
   const handleOpenEdit = (exam: ExamItem) => {
     if (!isExamOwner(exam)) {
-      alert('Akses ditolak: Anda bertugas sebagai Pengawas dan tidak memiliki izin untuk mengedit paket ujian ini.');
+      showAlert('Akses Dibatasi', 'Akses ditolak: Anda bertugas sebagai Pengawas dan tidak memiliki izin untuk mengedit paket ujian ini.', 'warning');
       return;
     }
     setEditingExam(exam);
@@ -1068,7 +1126,7 @@ export default function CbtDashboard({
     } else {
       // Rollback jika request server gagal
       setExams(previousExams);
-      alert(res.error || 'Gagal mengubah status sesi ujian');
+      showAlert('Gagal Mengubah Sesi', res.error || 'Gagal mengubah status sesi ujian', 'danger');
     }
     setSessionLoadingId(null);
   };
@@ -1086,7 +1144,7 @@ export default function CbtDashboard({
 
     if (startIso && endIso) {
       if (new Date(startIso) >= new Date(endIso)) {
-        alert('Jadwal Mulai harus lebih awal daripada Jadwal Selesai.');
+        showAlert('Jadwal Tidak Sesuai', 'Jadwal Mulai harus lebih awal daripada Jadwal Selesai.', 'warning');
         setLoading(false);
         return;
       }
@@ -1115,9 +1173,9 @@ export default function CbtDashboard({
         setIsModalOpen(false);
       } else if ((res as any).conflict) {
         setConflicts((res as any).conflicts || []);
-        alert(res.error || 'Terdeteksi bentrok jadwal ujian! Silakan sesuaikan jam atau centang bypass.');
+        showAlert('Jadwal Bentrok', res.error || 'Terdeteksi bentrok jadwal ujian! Silakan sesuaikan jam atau centang bypass.', 'warning');
       } else {
-        alert(res.error || 'Gagal mengubah ujian');
+        showAlert('Gagal Mengubah Ujian', res.error || 'Gagal mengubah ujian', 'danger');
       }
     } else {
       const res = await createExam(payload);
@@ -1133,9 +1191,9 @@ export default function CbtDashboard({
         setIsModalOpen(false);
       } else if ((res as any).conflict) {
         setConflicts((res as any).conflicts || []);
-        alert(res.error || 'Terdeteksi bentrok jadwal ujian! Silakan sesuaikan jam atau centang bypass.');
+        showAlert('Jadwal Bentrok', res.error || 'Terdeteksi bentrok jadwal ujian! Silakan sesuaikan jam atau centang bypass.', 'warning');
       } else {
-        alert(res.error || 'Gagal membuat ujian');
+        showAlert('Gagal Membuat Ujian', res.error || 'Gagal membuat ujian', 'danger');
       }
     }
     setLoading(false);
@@ -1150,7 +1208,7 @@ export default function CbtDashboard({
       setIsDeleteModalOpen(false);
       setDeleteTargetId(null);
     } else {
-      alert(res.error || 'Gagal menghapus ujian');
+      showAlert('Gagal Menghapus Ujian', res.error || 'Gagal menghapus ujian', 'danger');
     }
     setLoading(false);
   };
@@ -1737,7 +1795,7 @@ export default function CbtDashboard({
                 type="button"
                 onClick={() => {
                   if (selectedExamIds.length === 0) {
-                    alert('Pilih minimal 1 paket ujian dengan mencentang kotak di tabel terlebih dahulu.');
+                    showAlert('Pilih Paket Ujian', 'Pilih minimal 1 paket ujian dengan mencentang kotak di tabel terlebih dahulu.', 'info');
                     return;
                   }
                   setIsBatchModalOpen(true);
@@ -3835,77 +3893,87 @@ export default function CbtDashboard({
         </div>
       )}
 
-      {/* ⚠️ MODAL PERINGATAN / NOTIFIKASI KETIDAKSESUAIAN JADWAL RILIS TOKEN */}
+      {/* ⚠️ MODAL PERINGATAN / NOTIFIKASI KETIDAKSESUAIAN JADWAL RILIS TOKEN (Compact & Elegan) */}
       {scheduleNoticeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl relative space-y-4">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setScheduleNoticeModal(null)}
+        >
+          <div 
+            className="relative bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800/90 rounded-[1.75rem] max-w-md w-full p-5 sm:p-6 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.4)] overflow-hidden space-y-4 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Amber Accent Line */}
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-400" />
+
             {/* Header */}
-            <div className="flex items-start gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                <AlertTriangle size={24} />
+            <div className="flex items-start gap-3 pt-1">
+              <div className="w-11 h-11 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 ring-4 ring-amber-500/10">
+                <AlertTriangle size={22} className="stroke-[2.2]" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-lg text-slate-900 dark:text-white">
+                <h3 className="font-bold text-base sm:text-lg text-slate-900 dark:text-white tracking-tight">
                   Pemberitahuan Waktu Ujian
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Rilis token / sesi dilakukan di luar jadwal resmi paket ujian
+                <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Rilis token / sesi di luar jadwal resmi paket ujian
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setScheduleNoticeModal(null)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                aria-label="Tutup"
+                className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center transition-colors cursor-pointer"
               >
-                <X size={18} />
+                <X size={15} />
               </button>
             </div>
 
             {/* Content Details Box */}
-            <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/50 space-y-3 text-xs">
-              <div className="flex items-center justify-between pb-2 border-b border-amber-200/60 dark:border-amber-800/40">
+            <div className="p-3.5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/50 space-y-2.5 text-xs">
+              <div className="flex items-center justify-between pb-1.5 border-b border-amber-200/60 dark:border-amber-800/40">
                 <span className="text-slate-500 dark:text-slate-400 font-medium">Paket Ujian:</span>
-                <span className="font-bold text-slate-800 dark:text-slate-100 truncate max-w-[240px]">
+                <span className="font-bold text-slate-800 dark:text-slate-100 truncate max-w-[210px]">
                   {scheduleNoticeModal.exam.title}
                 </span>
               </div>
-              <div className="flex items-center justify-between pb-2 border-b border-amber-200/60 dark:border-amber-800/40">
-                <span className="text-slate-500 dark:text-slate-400 font-medium">Mata Pelajaran / Target:</span>
-                <span className="font-semibold text-slate-700 dark:text-slate-200">
+              <div className="flex items-center justify-between pb-1.5 border-b border-amber-200/60 dark:border-amber-800/40">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Mapel / Target:</span>
+                <span className="font-semibold text-slate-700 dark:text-slate-200 truncate max-w-[200px]">
                   {scheduleNoticeModal.exam.subject} ({formatClassTargetDisplay(scheduleNoticeModal.exam.classTarget, true)})
                 </span>
               </div>
-              <div className="flex items-center justify-between pb-2 border-b border-amber-200/60 dark:border-amber-800/40">
+              <div className="flex items-center justify-between pb-1.5 border-b border-amber-200/60 dark:border-amber-800/40">
                 <span className="text-slate-500 dark:text-slate-400 font-medium">Jadwal Resmi:</span>
-                <span className="font-mono font-bold text-slate-800 dark:text-slate-100">
+                <span className="font-mono font-bold text-slate-800 dark:text-slate-100 text-[11px]">
                   {scheduleNoticeModal.discrepancy.scheduledRangeText}
                 </span>
               </div>
-              <div className="flex items-center justify-between pb-2 border-b border-amber-200/60 dark:border-amber-800/40">
+              <div className="flex items-center justify-between pb-1.5 border-b border-amber-200/60 dark:border-amber-800/40">
                 <span className="text-slate-500 dark:text-slate-400 font-medium">Waktu Sekarang:</span>
-                <span className="font-mono font-bold text-purple-700 dark:text-purple-300">
+                <span className="font-mono font-bold text-purple-700 dark:text-purple-300 text-[11px]">
                   {scheduleNoticeModal.discrepancy.formattedCurrentTime}
                 </span>
               </div>
-              <div className="p-2.5 rounded-xl bg-amber-100/70 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 font-medium text-[11px] leading-relaxed">
+              <div className="p-2 rounded-xl bg-amber-100/70 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 font-medium text-[11px] leading-relaxed">
                 {scheduleNoticeModal.discrepancy.message}
               </div>
             </div>
 
             {/* Informative notice */}
-            <div className="p-3 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-900/50 text-[11px] text-blue-900 dark:text-blue-200 flex items-start gap-2">
-              <Zap size={15} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-              <div>
-                <strong>Ujian Tetap Bisa Dilakukan:</strong> Notifikasi ini bertujuan untuk memastikan pengawas mengetahui kesesuaian waktu ujian. Ujian tetap dapat dikerjakan siswa (misalnya untuk ujian susulan, remedial, atau penyesuaian waktu oleh pengawas).
+            <div className="p-2.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-900/50 text-[11px] text-blue-900 dark:text-blue-200 flex items-start gap-2">
+              <Zap size={14} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+              <div className="leading-tight">
+                <strong>Ujian Tetap Bisa Dilakukan:</strong> Notifikasi ini memastikan pengawas mengetahui waktu ujian. Sesi tetap bisa dibuka untuk susulan atau remedial.
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center justify-end gap-2.5 pt-2">
+            <div className="flex items-center justify-end gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => setScheduleNoticeModal(null)}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="w-1/2 py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs transition-colors cursor-pointer active:scale-95 text-center"
               >
                 Batal / Cek Jadwal
               </button>
@@ -3916,10 +3984,10 @@ export default function CbtDashboard({
                   setScheduleNoticeModal(null);
                   handleQuickToggleSession(examToOpen, true);
                 }}
-                className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold text-xs transition-all shadow-md shadow-amber-600/20 flex items-center gap-1.5 cursor-pointer"
+                className="w-1/2 py-2 px-3 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 active:scale-95 text-white font-bold text-xs transition-all shadow-md shadow-amber-600/20 flex items-center justify-center gap-1.5 cursor-pointer text-center"
               >
-                <Play size={13} className="fill-white" />
-                <span>Tetap Rilis Token & Buka Sesi</span>
+                <Play size={12} className="fill-white" />
+                <span>Tetap Buka Sesi</span>
               </button>
             </div>
           </div>
@@ -3948,9 +4016,26 @@ export default function CbtDashboard({
         title="Hapus Paket Ujian"
         message="Apakah Anda yakin ingin menghapus paket ujian ini? Semua butir soal dan riwayat nilai siswa yang telah mengerjakan akan ikut terhapus permanen."
         confirmText="Ya, Hapus Ujian"
+        cancelText="Batal"
         variant="danger"
         isLoading={loading}
       />
+
+      {/* 🌟 Universal High-Tech Center Feedback & Alert Dialog */}
+      {feedbackModal && (
+        <ConfirmModal
+          isOpen={feedbackModal.isOpen}
+          onClose={() => setFeedbackModal(null)}
+          onConfirm={feedbackModal.onConfirm}
+          title={feedbackModal.title}
+          message={feedbackModal.message}
+          confirmText={feedbackModal.confirmText}
+          cancelText={feedbackModal.cancelText}
+          variant={feedbackModal.variant || 'info'}
+          isAlert={feedbackModal.isAlert}
+          isLoading={loading || batchLoading || inlineSaving}
+        />
+      )}
 
       {/* 📥 Modal Studio Unduh & Cadangan Bank Soal (Format Siap Upload Ulang) */}
       {downloadModalData && (
