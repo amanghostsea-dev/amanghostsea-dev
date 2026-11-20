@@ -216,8 +216,8 @@ export function CbtOfficialSignatures({
             <div>Mengetahui,</div>
             <div className="font-bold">Kepala Sekolah</div>
             <div className="relative h-20 w-full max-w-[220px] flex items-center justify-center my-0.5">
-              {/* Cap Stempel Resmi jika diunggah terpisah */}
-              {cfg.stampUrl ? (
+              {/* Cap Stempel Resmi jika diunggah admin */}
+              {cfg.stampUrl && cfg.stampUrl.trim() !== '' && (
                 <div className="absolute left-1 top-0 pointer-events-none z-10">
                   <CbtDigitalStamp 
                     schoolName={cfg.schoolName} 
@@ -226,16 +226,7 @@ export function CbtOfficialSignatures({
                     size={76} 
                   />
                 </div>
-              ) : !cfg.signatureUrl ? (
-                <div className="absolute left-2 top-0 pointer-events-none z-10">
-                  <CbtDigitalStamp 
-                    schoolName={cfg.schoolName} 
-                    yayasanName={cfg.yayasanName} 
-                    stampUrl={null}
-                    size={76} 
-                  />
-                </div>
-              ) : null}
+              )}
               {/* Tanda Tangan Kepala Sekolah (Adaptif & Proporsional dengan Nama) */}
               <div className="z-20 w-full h-full flex items-center justify-center">
                 <HeadmasterSignatureStroke 
@@ -281,8 +272,8 @@ export function CbtOfficialSignatures({
           <div>Mengetahui,</div>
           <div className="font-bold">Kepala Sekolah</div>
           <div className="relative h-20 w-full max-w-[200px] flex items-center justify-center my-0.5">
-            {/* Cap Stempel Resmi jika diunggah terpisah */}
-            {cfg.stampUrl ? (
+            {/* Cap Stempel Resmi jika diunggah admin */}
+            {cfg.stampUrl && cfg.stampUrl.trim() !== '' && (
               <div className="absolute left-0 top-0 pointer-events-none z-10">
                 <CbtDigitalStamp 
                   schoolName={cfg.schoolName} 
@@ -291,16 +282,7 @@ export function CbtOfficialSignatures({
                   size={74} 
                 />
               </div>
-            ) : !cfg.signatureUrl ? (
-              <div className="absolute left-1 top-0 pointer-events-none z-10">
-                <CbtDigitalStamp 
-                  schoolName={cfg.schoolName} 
-                  yayasanName={cfg.yayasanName} 
-                  stampUrl={null}
-                  size={74} 
-                />
-              </div>
-            ) : null}
+            )}
             {/* Tanda Tangan Kepala Sekolah (Adaptif & Proporsional dengan Nama) */}
             <div className="z-20 w-full h-full flex items-center justify-center">
               <HeadmasterSignatureStroke 
@@ -386,11 +368,11 @@ export function HeadmasterSignatureStroke({
 }
 
 /**
- * 🛡️ STEMPEL CAP RESMI SEKOLAH (MENDUKUNG GAMBAR ASLI UPLOAD & VECTOR DINAMIS)
+ * 🛡️ STEMPEL CAP RESMI SEKOLAH
+ * HANYA MUNCUL JIKA ADA GAMBAR ASLI YANG DIUNGGAH OLEH ADMIN.
+ * Jika tidak ada file (atau dihapus oleh admin), KOSONGKAN TOTAL (tanpa stempel dummy / cap vektor otomatis).
  */
 export function CbtDigitalStamp({
-  schoolName = 'SMK GARUDA MAHADHIKA',
-  yayasanName = 'YAYASAN GARUDA MAHADHIKA',
   stampUrl,
   size = 80,
   className = '',
@@ -401,7 +383,7 @@ export function CbtDigitalStamp({
   size?: number;
   className?: string;
 }) {
-  if (stampUrl) {
+  if (stampUrl && stampUrl.trim() !== '') {
     return (
       <div 
         className={`pointer-events-none select-none flex items-center justify-center rotate-[-6deg] opacity-90 ${className}`}
@@ -410,63 +392,14 @@ export function CbtDigitalStamp({
         <img 
           src={stampUrl} 
           alt="Stempel Resmi Sekolah" 
-          className="w-full h-full object-contain filter contrast-110 drop-shadow-xs" 
+          className="w-full h-full object-contain filter contrast-110 drop-shadow-xs mix-blend-multiply" 
         />
       </div>
     );
   }
 
-  const cleanSchool = (schoolName || 'SMK GARUDA').toUpperCase();
-  const cleanYayasan = (yayasanName || 'YAYASAN PENDIDIKAN').toUpperCase();
-
-  return (
-    <div 
-      className={`pointer-events-none select-none flex items-center justify-center rotate-[-7deg] opacity-85 ${className}`}
-      style={{ width: size, height: size }}
-    >
-      <svg viewBox="0 0 100 100" className="w-full h-full" fill="currentColor">
-        {/* Lingkaran Luar Ganda Standar Cap Dinas */}
-        <circle cx="50" cy="50" r="47" fill="none" stroke="#3730a3" strokeWidth="2.5" />
-        <circle cx="50" cy="50" r="43" fill="none" stroke="#3730a3" strokeWidth="1" strokeDasharray="3 1.5" />
-        <circle cx="50" cy="50" r="28" fill="none" stroke="#3730a3" strokeWidth="1.2" />
-
-        {/* Busur Teks Melingkar Atas & Bawah */}
-        <path id="stamp-arc-top" d="M 12 50 A 38 38 0 0 1 88 50" fill="none" />
-        <path id="stamp-arc-bottom" d="M 88 50 A 38 38 0 0 1 12 50" fill="none" />
-
-        <text fontSize="7.5" fontWeight="900" fill="#3730a3" letterSpacing="0.8">
-          <textPath href="#stamp-arc-top" startOffset="50%" textAnchor="middle">
-            {cleanYayasan.length > 22 ? cleanYayasan.slice(0, 22) : cleanYayasan}
-          </textPath>
-        </text>
-
-        <text fontSize="7" fontWeight="900" fill="#3730a3" letterSpacing="0.8">
-          <textPath href="#stamp-arc-bottom" startOffset="50%" textAnchor="middle">
-            {cleanSchool.length > 20 ? cleanSchool.slice(0, 20) : cleanSchool}
-          </textPath>
-        </text>
-
-        {/* Bintang Ornamen Kiri & Kanan */}
-        <polygon points="12,50 14,46 18,48 16,52 18,56 14,54" fill="#3730a3" />
-        <polygon points="88,50 86,46 82,48 84,52 82,56 86,54" fill="#3730a3" />
-
-        {/* Pusat Segel Cap */}
-        <g transform="translate(50, 50)" textAnchor="middle">
-          <text y="-7" fontSize="5.5" fontWeight="900" fill="#3730a3" letterSpacing="0.5">
-            ★ RESMI ★
-          </text>
-          <line x1="-22" y1="-3" x2="22" y2="-3" stroke="#3730a3" strokeWidth="1" />
-          <text y="5" fontSize="7" fontWeight="950" fill="#312e81" letterSpacing="0.5">
-            TERVALIDASI
-          </text>
-          <line x1="-22" y1="8" x2="22" y2="8" stroke="#3730a3" strokeWidth="1" />
-          <text y="14" fontSize="4.5" fontWeight="800" fill="#3730a3" letterSpacing="0.5">
-            CBT INDONESIA
-          </text>
-        </g>
-      </svg>
-    </div>
-  );
+  // Tanpa stempel dummy: dikosongkan total jika tidak diunggah atau dihapus oleh admin
+  return null;
 }
 
 /**

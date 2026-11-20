@@ -796,15 +796,13 @@ export default function CbtParticipantCardModal({
                     {stampPreview ? (
                       <img src={stampPreview} alt="Stempel Sekolah" className="w-full h-full object-contain" />
                     ) : (
-                      <div className="scale-[0.55] origin-center">
-                        <CbtDigitalStamp schoolName={kopConfig.schoolName} yayasanName={kopConfig.yayasanName} size={80} />
-                      </div>
+                      <span className="text-[10px] font-bold text-slate-400 text-center">Tanpa Stempel</span>
                     )}
                   </div>
 
                   <div className="flex-1 min-w-0 space-y-1">
                     <span className="block text-[11px] font-bold text-slate-800 dark:text-slate-200">
-                      Stempel Sekolah: {stampPreview ? <strong className="text-emerald-600">(Gambar Upload)</strong> : <span className="text-slate-400">(Cap Vektor Otomatis)</span>}
+                      Stempel Sekolah: {stampPreview ? <strong className="text-emerald-600">(Gambar Upload)</strong> : <span className="text-slate-400">(Dikosongkan / Belum Diunggah)</span>}
                     </span>
                     <div className="flex flex-wrap items-center gap-2">
                       <label className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 rounded-md text-[11px] font-bold border border-indigo-200 dark:border-indigo-800 cursor-pointer transition-all disabled:opacity-50">
@@ -823,7 +821,7 @@ export default function CbtParticipantCardModal({
                           type="button"
                           onClick={handleRemoveStamp}
                           className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded text-[11px] font-bold flex items-center gap-0.5 cursor-pointer"
-                          title="Hapus gambar stempel upload (gunakan cap default)"
+                          title="Hapus gambar stempel upload (kosongkan stempel)"
                         >
                           <Trash2 size={12} /> Hapus
                         </button>
@@ -1513,8 +1511,8 @@ function SingleParticipantCard({
 
           {/* Signature & Stamp Overlapping Area */}
           <div className="relative h-6 w-24 flex items-center justify-center my-0.5">
-            {/* Stempel Basah Resmi Sekolah: Diposisikan di sisi KIRI tanda tangan dan sedikit overlap */}
-            {showStamp && (
+            {/* Stempel Basah Resmi Sekolah: HANYA MUNCUL JIKA ADA GAMBAR YANG DIUNGGAH ADMIN */}
+            {showStamp && kopConfig.stampUrl && kopConfig.stampUrl.trim() !== '' && (
               <div className="absolute -left-5 -top-2 pointer-events-none z-10">
                 <CbtDigitalStamp
                   schoolName={kopConfig.schoolName}
@@ -1525,7 +1523,7 @@ function SingleParticipantCard({
               </div>
             )}
 
-            {/* Coretan Tanda Tangan Kepala Sekolah (Gambar Transparan / Vektor Kaligrafi Pen Basah) */}
+            {/* Coretan Tanda Tangan Kepala Sekolah (Hanya jika diunggah admin) */}
             <div className="z-20">
               <HeadmasterSignatureStroke
                 signatureUrl={kopConfig.signatureUrl}

@@ -705,7 +705,7 @@ export default function SettingsClient(props: { initialData: any }) {
                         {kopSurat.stampUrl ? (
                           <img src={kopSurat.stampUrl} alt="Stempel Sekolah" className="w-full h-full object-contain" />
                         ) : (
-                          <span className="text-[9px] font-bold text-gray-400 text-center">Cap Vektor</span>
+                          <span className="text-[9px] font-bold text-gray-400 text-center">Tanpa Stempel</span>
                         )}
                       </div>
                       <div className="space-y-1.5 flex-1">
