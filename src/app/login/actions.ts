@@ -76,10 +76,10 @@ export async function loginAction(formData: FormData) {
     }
   }
 
-  // Set auth cookie
-  cookieStore.set('auth_token', user.role, { maxAge: 60 * 60 * 24 });
-  cookieStore.set('auth_user', user.username, { maxAge: 60 * 60 * 24 });
-  cookieStore.set('auth_name', user.name, { maxAge: 60 * 60 * 24 });
+  // Set auth cookie (Path '/' eksplisit agar berlaku di seluruh rute dan tidak terduplikasi per path)
+  cookieStore.set('auth_token', user.role, { maxAge: 60 * 60 * 24, path: '/' });
+  cookieStore.set('auth_user', user.username, { maxAge: 60 * 60 * 24, path: '/' });
+  cookieStore.set('auth_name', user.name, { maxAge: 60 * 60 * 24, path: '/' });
 
   if (user.role === 'Siswa') {
     // Sinkronkan kelas siswa
@@ -120,7 +120,7 @@ export async function loginAction(formData: FormData) {
     }
 
     if (studentClass) {
-      cookieStore.set('auth_class', studentClass, { maxAge: 60 * 60 * 24 });
+      cookieStore.set('auth_class', studentClass, { maxAge: 60 * 60 * 24, path: '/' });
     }
   }
 
@@ -165,9 +165,9 @@ export async function forceTakeoverLoginAction(formData: FormData) {
   await registerDeviceSession(user.id, user.name, user.role, userAgent, ip);
 
   const cookieStore = await cookies();
-  cookieStore.set('auth_token', user.role, { maxAge: 60 * 60 * 24 });
-  cookieStore.set('auth_user', user.username, { maxAge: 60 * 60 * 24 });
-  cookieStore.set('auth_name', user.name, { maxAge: 60 * 60 * 24 });
+  cookieStore.set('auth_token', user.role, { maxAge: 60 * 60 * 24, path: '/' });
+  cookieStore.set('auth_user', user.username, { maxAge: 60 * 60 * 24, path: '/' });
+  cookieStore.set('auth_name', user.name, { maxAge: 60 * 60 * 24, path: '/' });
 
   let destination = '/';
   if (user.role === 'Super Admin') destination = '/admin';
@@ -203,10 +203,16 @@ export async function logoutAction(formDataOrRedirect?: FormData | string) {
     } catch {}
   }
 
-  cookieStore.delete('auth_token');
-  cookieStore.delete('auth_user');
-  cookieStore.delete('auth_name');
-  cookieStore.delete('auth_class');
-  cookieStore.delete('auth_session_id');
+  // Bersihkan semua cookie sesi dari root path '/' agar tidak meninggalkan zombie cookie
+  cookieStore.set('auth_token', '', { maxAge: 0, path: '/' });
+  cookieStore.set('auth_user', '', { maxAge: 0, path: '/' });
+  cookieStore.set('auth_name', '', { maxAge: 0, path: '/' });
+  cookieStore.set('auth_class', '', { maxAge: 0, path: '/' });
+  cookieStore.set('auth_session_id', '', { maxAge: 0, path: '/' });
+  cookieStore.delete({ name: 'auth_token', path: '/' });
+  cookieStore.delete({ name: 'auth_user', path: '/' });
+  cookieStore.delete({ name: 'auth_name', path: '/' });
+  cookieStore.delete({ name: 'auth_class', path: '/' });
+  cookieStore.delete({ name: 'auth_session_id', path: '/' });
   redirect(redirectTo);
 }

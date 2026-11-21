@@ -341,7 +341,7 @@ export async function verifyAndPrepareExamJoinAction(params: {
     // Sinkronkan cookie auth_class agar selalu konsisten dengan database
     try {
       const cookieStore = await cookies();
-      cookieStore.set('auth_class', studentClass, { maxAge: 60 * 60 * 24 });
+      cookieStore.set('auth_class', studentClass, { maxAge: 60 * 60 * 24, path: '/' });
     } catch { }
 
     // Identifikasi nama jurusan dari kelas

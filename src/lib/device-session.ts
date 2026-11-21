@@ -197,7 +197,8 @@ export async function clearDeviceSession(userId: string): Promise<void> {
 
   try {
     const cookieStore = await cookies();
-    cookieStore.delete('auth_session_id');
+    cookieStore.set('auth_session_id', '', { maxAge: 0, path: '/' });
+    cookieStore.delete({ name: 'auth_session_id', path: '/' });
   } catch {}
 }
 

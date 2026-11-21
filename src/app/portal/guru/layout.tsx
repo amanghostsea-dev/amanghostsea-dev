@@ -16,7 +16,7 @@ export default async function GuruPortalLayout({ children }: { children: React.R
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-slate-900">
-      <AdminSidebar logoUrl={settings?.logoUrl} userRole="Guru" userName={userName} />
+      <AdminSidebar logoUrl={settings?.logoUrl} userRole={userRole} userName={userName} />
 
       {/* Main Content Area */}
       <div className="flex-1 w-full min-w-0">
