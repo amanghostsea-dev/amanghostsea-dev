@@ -399,12 +399,24 @@ export default function CbtDashboard({
 
       const innerContent = printableElement.innerHTML;
 
+      // Ambil stylesheet aktif dari web app untuk styling sempurna
+      const activeStyles = Array.from(document.querySelectorAll('style'))
+        .map((el) => `<style>${el.innerHTML}</style>`)
+        .join('\n');
+
       const htmlContent = `<!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Jadwal Resmi Pelaksanaan CBT - ${kopSuratConfig?.schoolName || 'SMK'}</title>
+  
+  <!-- Mesin Tailwind CSS untuk rendering instan -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Stylesheet internal aplikasi -->
+  ${activeStyles}
+
   <style>
     @page {
       size: A4 portrait;
@@ -416,22 +428,34 @@ export default function CbtDashboard({
     body {
       font-family: 'Times New Roman', Times, serif;
       margin: 0;
-      padding: 20px;
+      padding: 24px 12px;
       background-color: #f1f5f9;
       color: #0f172a;
       -webkit-font-smoothing: antialiased;
     }
     .cbt-container {
-      max-width: 900px;
+      max-width: 920px;
       margin: 0 auto;
       background: #ffffff;
-      padding: 30px;
+      padding: 32px 36px;
       border-radius: 16px;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
     }
+    
+    /* 🛑 ATURAN WAJIB GAMBAR & LOGO (AGAR TIDAK PERNAH MEMBESAR / RUSAK) */
+    img, svg {
+      max-width: 84px !important;
+      max-height: 84px !important;
+      width: auto !important;
+      height: auto !important;
+      object-fit: contain !important;
+      display: inline-block;
+    }
+    
     /* Action Bar (Hanya tampil di layar, otomatis tersembunyi saat dicetak) */
     .cbt-action-bar {
-      max-width: 900px;
+      max-width: 920px;
       margin: 0 auto 16px auto;
       background: #1e293b;
       color: #ffffff;
@@ -443,6 +467,7 @@ export default function CbtDashboard({
       justify-content: space-between;
       gap: 12px;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
     .cbt-action-bar button {
       background: #2563eb;
@@ -450,7 +475,7 @@ export default function CbtDashboard({
       font-weight: 700;
       font-size: 13px;
       border: none;
-      padding: 10px 20px;
+      padding: 10px 22px;
       border-radius: 10px;
       cursor: pointer;
       display: inline-flex;
@@ -463,11 +488,115 @@ export default function CbtDashboard({
       background: #1d4ed8;
       transform: translateY(-1px);
     }
+
+    /* 🛡️ ATURAN CSS FAIL-SAFE (AGAR SELALU RAPI MESKIPUN OFFLINE) */
+    .flex { display: flex !important; }
+    .inline-flex { display: inline-flex !important; }
+    .flex-col { flex-direction: column !important; }
+    .flex-row { flex-direction: row !important; }
+    .items-center { align-items: center !important; }
+    .items-start { align-items: flex-start !important; }
+    .justify-center { justify-content: center !important; }
+    .justify-between { justify-content: space-between !important; }
+    .gap-1 { gap: 4px !important; }
+    .gap-1\.5 { gap: 6px !important; }
+    .gap-2 { gap: 8px !important; }
+    .gap-2\.5 { gap: 10px !important; }
+    .gap-3 { gap: 12px !important; }
+    .gap-4 { gap: 16px !important; }
+    .shrink-0, .flex-shrink-0 { flex-shrink: 0 !important; }
+
+    .grid { display: grid !important; }
+    .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    .grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+    @media (min-width: 640px) {
+      .sm\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+    }
+
+    .text-center { text-align: center !important; }
+    .text-left { text-align: left !important; }
+    .text-right { text-align: right !important; }
+    .font-bold { font-weight: 700 !important; }
+    .font-semibold { font-weight: 600 !important; }
+    .font-medium { font-weight: 500 !important; }
+    .font-serif { font-family: 'Times New Roman', Times, serif !important; }
+    .font-sans { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important; }
+    .uppercase { text-transform: uppercase !important; }
+    .underline { text-decoration: underline !important; }
+
+    .w-full { width: 100% !important; }
+    .w-7 { width: 28px !important; }
+    .w-8 { width: 32px !important; }
+    .w-14 { width: 56px !important; }
+    .w-16 { width: 64px !important; }
+    .w-20 { width: 80px !important; }
+    .w-24 { width: 96px !important; }
+    .w-28 { width: 112px !important; }
+    .w-32 { width: 128px !important; }
+    .w-36 { width: 144px !important; }
+    .w-\[88px\] { width: 88px !important; }
+    .h-\[88px\] { height: 88px !important; }
+    .max-w-\[82px\] { max-width: 82px !important; }
+    .max-h-\[82px\] { max-height: 82px !important; }
+    .max-w-\[200px\] { max-width: 200px !important; }
+    .max-w-\[220px\] { max-width: 220px !important; }
+    .h-20 { height: 80px !important; }
+
+    .space-y-1 > * + * { margin-top: 4px !important; }
+    .space-y-1\.5 > * + * { margin-top: 6px !important; }
+    .space-y-2 > * + * { margin-top: 8px !important; }
+    .space-y-2\.5 > * + * { margin-top: 10px !important; }
+    .space-y-3 > * + * { margin-top: 12px !important; }
+    .space-y-4 > * + * { margin-top: 16px !important; }
+    
+    .p-2 { padding: 8px !important; }
+    .p-2\.5 { padding: 10px !important; }
+    .px-2 { padding-left: 8px !important; padding-right: 8px !important; }
+    .px-2\.5 { padding-left: 10px !important; padding-right: 10px !important; }
+    .px-3 { padding-left: 12px !important; padding-right: 12px !important; }
+    .py-1 { padding-top: 4px !important; padding-bottom: 4px !important; }
+    .py-1\.5 { padding-top: 6px !important; padding-bottom: 6px !important; }
+    .py-2 { padding-top: 8px !important; padding-bottom: 8px !important; }
+    .pb-3 { padding-bottom: 12px !important; }
+    .pt-2 { padding-top: 8px !important; }
+    .pt-6 { padding-top: 24px !important; }
+
+    .border { border: 1px solid #cbd5e1 !important; }
+    .border-b { border-bottom: 1px solid #e2e8f0 !important; }
+    .border-b-2 { border-bottom: 2px solid #000000 !important; }
+    .border-b-4 { border-bottom: 4px double #000000 !important; }
+    .border-l-4 { border-left: 4px solid #0f172a !important; }
+    .border-slate-200 { border-color: #e2e8f0 !important; }
+    .border-slate-300 { border-color: #cbd5e1 !important; }
+    .border-slate-800 { border-color: #1e293b !important; }
+    .rounded-lg { border-radius: 8px !important; }
+    .rounded-xl { border-radius: 12px !important; }
+
+    .bg-white { background-color: #ffffff !important; }
+    .bg-slate-50 { background-color: #f8fafc !important; }
+    .bg-slate-50\/60 { background-color: rgba(248, 250, 252, 0.6) !important; }
+    .bg-slate-100 { background-color: #f1f5f9 !important; }
+    .bg-blue-50\/70 { background-color: rgba(239, 246, 255, 0.7) !important; }
+    .bg-amber-100 { background-color: #fef3c7 !important; }
+    .text-slate-900 { color: #0f172a !important; }
+    .text-slate-800 { color: #1e293b !important; }
+    .text-slate-700 { color: #334155 !important; }
+    .text-slate-600 { color: #475569 !important; }
+    .text-slate-500 { color: #64748b !important; }
+    .text-blue-900 { color: #1e3a8a !important; }
+    .text-amber-600 { color: #d97706 !important; }
+    .text-amber-900 { color: #78350f !important; }
+    .italic { font-style: italic !important; }
+    .block { display: block !important; }
+    .whitespace-nowrap { white-space: nowrap !important; }
+    .relative { position: relative !important; }
+    .absolute { position: absolute !important; }
+
     /* Table & Print Styling */
     table {
       width: 100% !important;
       border-collapse: collapse !important;
-      margin: 6px 0;
+      margin: 8px 0;
     }
     th, td {
       border: 1px solid #cbd5e1;
@@ -488,6 +617,7 @@ export default function CbtDashboard({
       page-break-inside: avoid !important;
       break-inside: avoid !important;
     }
+
     @media print {
       body {
         background-color: #ffffff !important;
@@ -500,6 +630,7 @@ export default function CbtDashboard({
         max-width: 100% !important;
         padding: 0 !important;
         box-shadow: none !important;
+        border: none !important;
         border-radius: 0 !important;
       }
       .print\\:hidden, .cbt-ignore-pdf {
@@ -519,7 +650,7 @@ export default function CbtDashboard({
     </div>
     <button onclick="window.print()">
       <span>🖨️</span>
-      <span>Cetak / Simpan ke PDF</span>
+      <span>Cetak / Simpan ke PDF Sekarang</span>
     </button>
   </div>
 
