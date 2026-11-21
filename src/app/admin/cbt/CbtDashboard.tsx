@@ -41,7 +41,8 @@ import {
   RotateCcw,
   CreditCard,
   Globe,
-  Activity
+  Activity,
+  MapPin
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import CbtParticipantCardModal from '@/components/cbt/CbtParticipantCardModal';
@@ -328,6 +329,8 @@ export default function CbtDashboard({
   // Main View Tab: 'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend' | 'logins'
   const [activeMainTab, setActiveMainTab] = useState<'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend' | 'logins'>(initialTab as any);
   const [selectedClassFilter, setSelectedClassFilter] = useState('ALL');
+  const [selectedDateFilter, setSelectedDateFilter] = useState('ALL');
+  const [selectedRoomFilter, setSelectedRoomFilter] = useState('ALL');
 
   // Reactively sync active tab with URL search parameter
   useEffect(() => {
@@ -537,6 +540,63 @@ export default function CbtDashboard({
 
     return { xClasses, xiClasses, xiiClasses, others };
   }, [classPresets]);
+
+  // 📅 Daftar Hari & Tanggal Pelaksanaan Ujian (Dinamis dari jadwal input guru & sistem)
+  const availableScheduleDates = useMemo(() => {
+    const dateMap = new Map<string, { fullLabel: string; count: number; timestamp: number }>();
+    let unscheduledCount = 0;
+
+    exams.forEach((exam) => {
+      if (!exam.startTime) {
+        unscheduledCount++;
+        return;
+      }
+      const d = new Date(exam.startTime);
+      if (isNaN(d.getTime())) {
+        unscheduledCount++;
+        return;
+      }
+      const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const fullLabel = d.toLocaleDateString('id-ID', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+
+      if (dateMap.has(dateKey)) {
+        dateMap.get(dateKey)!.count += 1;
+      } else {
+        dateMap.set(dateKey, {
+          fullLabel,
+          count: 1,
+          timestamp: new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(),
+        });
+      }
+    });
+
+    const sortedDates = Array.from(dateMap.entries())
+      .sort((a, b) => a[1].timestamp - b[1].timestamp)
+      .map(([dateKey, val]) => ({
+        dateKey,
+        fullLabel: val.fullLabel,
+        count: val.count,
+      }));
+
+    return { sortedDates, unscheduledCount };
+  }, [exams]);
+
+  // 🏫 Daftar Ruangan Ujian (Dinamis dari input exam.roomName)
+  const availableRooms = useMemo(() => {
+    const roomMap = new Map<string, number>();
+    exams.forEach((exam) => {
+      const r = exam.roomName?.trim() || 'Ruang Utama';
+      roomMap.set(r, (roomMap.get(r) || 0) + 1);
+    });
+    return Array.from(roomMap.entries())
+      .sort(([a], [b]) => a[0].localeCompare(b[0], undefined, { numeric: true, sensitivity: 'base' }))
+      .map(([name, count]) => ({ name, count }));
+  }, [exams]);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -1354,13 +1414,35 @@ export default function CbtDashboard({
         (scheduleFilter === 'UPCOMING' && schedState.state === 'UPCOMING') ||
         (scheduleFilter === 'ENDED' && schedState.state === 'ENDED');
 
-      return matchesSearch && matchesClass && matchesSchedule;
+      // 📅 Filter Hari & Tanggal Pelaksanaan (Dinamis dari jadwal guru)
+      let matchesDate = true;
+      if (selectedDateFilter === 'UNSCHEDULED') {
+        matchesDate = !exam.startTime || !exam.endTime;
+      } else if (selectedDateFilter !== 'ALL') {
+        if (!exam.startTime) {
+          matchesDate = false;
+        } else {
+          const d = new Date(exam.startTime);
+          if (isNaN(d.getTime())) {
+            matchesDate = false;
+          } else {
+            const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            matchesDate = dateKey === selectedDateFilter;
+          }
+        }
+      }
+
+      // 🏫 Filter Ruangan Ujian (Dinamis dari exam.roomName)
+      const examRoom = exam.roomName?.trim() || 'Ruang Utama';
+      const matchesRoom = selectedRoomFilter === 'ALL' || examRoom === selectedRoomFilter;
+
+      return matchesSearch && matchesClass && matchesSchedule && matchesDate && matchesRoom;
     }).sort((a, b) => {
       if (!a.startTime) return 1;
       if (!b.startTime) return -1;
       return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
     });
-  }, [exams, isSuperAdmin, isAuthorMatch, adminTeacherFilter, searchTerm, selectedClassFilter, scheduleFilter]);
+  }, [exams, isSuperAdmin, isAuthorMatch, adminTeacherFilter, searchTerm, selectedClassFilter, scheduleFilter, selectedDateFilter, selectedRoomFilter]);
 
   // ⚡ Fast Response: Calculate stats based on visible & subject-filtered exams (Memoized)
   const visibleExams = useMemo(() => {
@@ -1739,18 +1821,20 @@ export default function CbtDashboard({
             className="hidden"
           />
 
-          {/* Schedule Filter & Target Class Selector */}
-          <div className="flex flex-col gap-3 w-full">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 w-full">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <div className="text-xs font-bold text-slate-500 shrink-0 flex items-center gap-1">
-                    <Users size={14} /> Filter Kelas:
-                  </div>
+          {/* Schedule Filter, Target Class, Date & Room Selectors */}
+          <div className="flex flex-col gap-2.5 w-full">
+            <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-2.5 w-full">
+              {/* Dropdown Filters (Kelas, Hari/Tanggal, Ruangan) */}
+              <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto">
+                {/* 1. Filter Kelas */}
+                <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 shadow-sm">
+                  <Users size={14} className="text-purple-600 dark:text-purple-400 shrink-0" />
+                  <span className="text-[11px] font-bold text-slate-500 shrink-0 hidden sm:inline">Kelas:</span>
                   <select
                     value={selectedClassFilter}
                     onChange={(e) => setSelectedClassFilter(e.target.value)}
-                    className="flex-1 sm:flex-initial px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
+                    className="bg-transparent border-none text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[150px] sm:max-w-[170px] truncate"
+                    title="Filter jadwal berdasarkan Target Kelas"
                   >
                     <option value="ALL">Semua Kelas ({exams.length} Ujian)</option>
                     <optgroup label="🌟 Lintas Jurusan (Tingkat)">
@@ -1789,41 +1873,102 @@ export default function CbtDashboard({
                   </select>
                 </div>
 
-                {/* Status pills scrollable on mobile */}
-                <div className="w-full sm:w-auto overflow-x-auto no-scrollbar -mx-1 px-1 sm:mx-0 sm:px-0">
-                  <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl min-w-max">
-                    {[
-                      { id: 'ALL', label: 'Semua Status' },
-                      { id: 'TODAY', label: '📅 Hari Ini' },
-                      { id: 'UPCOMING', label: '⏳ Akan Datang' },
-                      { id: 'ONGOING', label: '🟢 Berlangsung' },
-                      { id: 'ENDED', label: '🏁 Selesai' },
-                    ].map((s) => (
-                      <button
-                        key={s.id}
-                        onClick={() => setScheduleFilter(s.id as any)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                          scheduleFilter === s.id
-                            ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-sm font-bold'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                        }`}
-                      >
-                        {s.label}
-                      </button>
+                {/* 2. Filter Hari & Tanggal Pelaksanaan (Dinamis dari input jadwal guru) */}
+                <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 shadow-sm">
+                  <Calendar size={14} className="text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <span className="text-[11px] font-bold text-slate-500 shrink-0 hidden sm:inline">Hari/Tgl:</span>
+                  <select
+                    value={selectedDateFilter}
+                    onChange={(e) => setSelectedDateFilter(e.target.value)}
+                    className="bg-transparent border-none text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[160px] sm:max-w-[210px] truncate"
+                    title="Filter jadwal berdasarkan Hari & Tanggal Pelaksanaan"
+                  >
+                    <option value="ALL">Semua Tanggal ({exams.length} Ujian)</option>
+                    {availableScheduleDates.sortedDates.map((d) => (
+                      <option key={d.dateKey} value={d.dateKey}>
+                        {d.fullLabel} ({d.count} Ujian)
+                      </option>
                     ))}
-                  </div>
+                    {availableScheduleDates.unscheduledCount > 0 && (
+                      <option value="UNSCHEDULED">⚠️ Belum Diberi Tanggal ({availableScheduleDates.unscheduledCount})</option>
+                    )}
+                  </select>
                 </div>
+
+                {/* 3. Filter Ruangan Ujian (Dinamis dari input ruang) */}
+                <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 shadow-sm">
+                  <MapPin size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span className="text-[11px] font-bold text-slate-500 shrink-0 hidden sm:inline">Ruang:</span>
+                  <select
+                    value={selectedRoomFilter}
+                    onChange={(e) => setSelectedRoomFilter(e.target.value)}
+                    className="bg-transparent border-none text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[130px] sm:max-w-[170px] truncate"
+                    title="Filter jadwal berdasarkan Ruang Ujian"
+                  >
+                    <option value="ALL">Semua Ruangan ({availableRooms.length})</option>
+                    {availableRooms.map((r) => (
+                      <option key={r.name} value={r.name}>
+                        {r.name} ({r.count})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Tombol Reset Filter jika ada filter aktif */}
+                {(selectedClassFilter !== 'ALL' || selectedDateFilter !== 'ALL' || selectedRoomFilter !== 'ALL' || scheduleFilter !== 'ALL' || searchTerm.trim() !== '') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedClassFilter('ALL');
+                      setSelectedDateFilter('ALL');
+                      setSelectedRoomFilter('ALL');
+                      setScheduleFilter('ALL');
+                      setSearchTerm('');
+                    }}
+                    className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-300 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm"
+                    title="Reset semua filter jadwal kembali ke default"
+                  >
+                    <RotateCcw size={12} />
+                    <span>Reset</span>
+                  </button>
+                )}
               </div>
 
-              <div className="relative w-full sm:w-72">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              {/* Search Box */}
+              <div className="relative w-full xl:w-72 shrink-0">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
                 <input
                   type="text"
-                  placeholder="Cari jadwal ujian, mapel..."
+                  placeholder="Cari jadwal, mapel, kelas, pengawas..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-none shadow-sm"
                 />
+              </div>
+            </div>
+
+            {/* Status pills scrollable on mobile */}
+            <div className="w-full overflow-x-auto no-scrollbar -mx-1 px-1 sm:mx-0 sm:px-0">
+              <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl min-w-max border border-slate-200/60 dark:border-slate-800">
+                {[
+                  { id: 'ALL', label: 'Semua Status' },
+                  { id: 'TODAY', label: '📅 Hari Ini' },
+                  { id: 'UPCOMING', label: '⏳ Akan Datang' },
+                  { id: 'ONGOING', label: '🟢 Berlangsung' },
+                  { id: 'ENDED', label: '🏁 Selesai' },
+                ].map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setScheduleFilter(s.id as any)}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                      scheduleFilter === s.id
+                        ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-sm font-bold'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -1933,7 +2078,7 @@ export default function CbtDashboard({
             </div>
           )}
 
-          {/* Quick Select Helper Chips */}
+          {/* Quick Select Helper Chips & Active Filter Indicators */}
           <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 px-1">
             <span className="font-semibold">Pilih Cepat:</span>
             <button
@@ -1958,6 +2103,56 @@ export default function CbtDashboard({
               >
                 Reset Seleksi
               </button>
+            )}
+
+            {/* Active Filter Badges */}
+            {selectedDateFilter !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 font-semibold border border-indigo-200/50 dark:border-indigo-800/50">
+                <Calendar size={11} />
+                <span>
+                  {selectedDateFilter === 'UNSCHEDULED'
+                    ? 'Belum Diberi Tanggal'
+                    : availableScheduleDates.sortedDates.find((d) => d.dateKey === selectedDateFilter)?.fullLabel || selectedDateFilter}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDateFilter('ALL')}
+                  className="hover:text-indigo-900 dark:hover:text-white cursor-pointer ml-0.5"
+                  title="Hapus filter tanggal"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            )}
+
+            {selectedRoomFilter !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 font-semibold border border-emerald-200/50 dark:border-emerald-800/50">
+                <MapPin size={11} />
+                <span>{selectedRoomFilter}</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRoomFilter('ALL')}
+                  className="hover:text-emerald-900 dark:hover:text-white cursor-pointer ml-0.5"
+                  title="Hapus filter ruangan"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            )}
+
+            {selectedClassFilter !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 font-semibold border border-purple-200/50 dark:border-purple-800/50">
+                <Users size={11} />
+                <span className="max-w-[120px] truncate">{selectedClassFilter}</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedClassFilter('ALL')}
+                  className="hover:text-purple-900 dark:hover:text-white cursor-pointer ml-0.5"
+                  title="Hapus filter kelas"
+                >
+                  <X size={11} />
+                </button>
+              </span>
             )}
           </div>
 
