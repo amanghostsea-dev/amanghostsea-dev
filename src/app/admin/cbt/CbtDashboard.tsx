@@ -11,7 +11,8 @@ import {
   Search, 
   Edit3, 
   Trash2, 
-  CheckCircle, 
+  CheckCircle,
+  CheckCircle2, 
   Key, 
   ExternalLink, 
   AlertCircle,
@@ -166,6 +167,7 @@ export default function CbtDashboard({
   const [exams, setExams] = useState(initialExams);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [selectedSubjectFilter, setSelectedSubjectFilter] = useState('ALL');
   const [mineOnlyFilter, setMineOnlyFilter] = useState(false);
   const [adminTeacherFilter, setAdminTeacherFilter] = useState('ALL');
   const [sessionLoadingId, setSessionLoadingId] = useState<string | null>(null);
@@ -175,6 +177,17 @@ export default function CbtDashboard({
 
   // Timezone State (WIB, WITA, WIT)
   const [cbtTimezone, setCbtTimezone] = useState<CbtTimezone>(initialTimezone || DEFAULT_CBT_TIMEZONE);
+
+  // 📚 Daftar Mata Pelajaran unik dari seluruh paket ujian
+  const availableSubjects = useMemo(() => {
+    const set = new Set<string>();
+    exams.forEach((e) => {
+      if (e.subject && e.subject.trim() !== '') {
+        set.add(e.subject.trim());
+      }
+    });
+    return Array.from(set).sort();
+  }, [exams]);
 
   const handleTimezoneChange = async (newTz: CbtTimezone) => {
     if (newTz === cbtTimezone) return;
@@ -1263,6 +1276,7 @@ export default function CbtDashboard({
         exam.classTarget.toLowerCase().includes(q) ||
         (exam.authorName && exam.authorName.toLowerCase().includes(q));
       const matchesStatus = statusFilter === 'ALL' || exam.status === statusFilter;
+      const matchesSubject = selectedSubjectFilter === 'ALL' || exam.subject === selectedSubjectFilter;
       
       const schedState = getExamScheduleState(exam.startTime, exam.endTime, exam.status);
       const matchesSchedule =
@@ -1272,9 +1286,9 @@ export default function CbtDashboard({
         (scheduleFilter === 'UPCOMING' && schedState.state === 'UPCOMING') ||
         (scheduleFilter === 'ENDED' && schedState.state === 'ENDED');
 
-      return matchesSearch && matchesStatus && matchesSchedule;
+      return matchesSearch && matchesStatus && matchesSchedule && matchesSubject;
     });
-  }, [exams, isSuperAdmin, isAuthorMatch, mineOnlyFilter, adminTeacherFilter, searchTerm, statusFilter, scheduleFilter]);
+  }, [exams, isSuperAdmin, isAuthorMatch, mineOnlyFilter, adminTeacherFilter, searchTerm, statusFilter, scheduleFilter, selectedSubjectFilter]);
 
   // ⚡ Fast Response: Memoized system-wide schedule conflicts across all exams
   // Mengeliminasi perhitungan kuadratik O(N^2) berulang setiap kali user mengetik/render
@@ -1348,22 +1362,47 @@ export default function CbtDashboard({
     });
   }, [exams, isSuperAdmin, isAuthorMatch, adminTeacherFilter, searchTerm, selectedClassFilter, scheduleFilter]);
 
-  // ⚡ Fast Response: Calculate stats based on visible exams (Memoized)
+  // ⚡ Fast Response: Calculate stats based on visible & subject-filtered exams (Memoized)
   const visibleExams = useMemo(() => {
     return isSuperAdmin ? exams : exams.filter((e) => isAuthorMatch(e.authorName));
   }, [exams, isSuperAdmin, isAuthorMatch]);
 
-  const { totalExams, totalQuestions, totalAttempts, avgScore, unscheduledCount } = useMemo(() => {
-    const totalExams = visibleExams.length;
-    const totalQuestions = visibleExams.reduce((acc, curr) => acc + curr._count.questions, 0);
-    const totalAttempts = visibleExams.reduce((acc, curr) => acc + curr._count.attempts, 0);
-    const totalSubmitted = visibleExams.flatMap((e) => e.attempts).filter((a) => a.status === 'SUBMITTED');
+  const targetStatsExams = useMemo(() => {
+    if (selectedSubjectFilter === 'ALL') return visibleExams;
+    return visibleExams.filter((e) => e.subject === selectedSubjectFilter);
+  }, [visibleExams, selectedSubjectFilter]);
+
+  const { totalExams, totalQuestions, totalAttempts, totalUniqueStudents, avgScore, unscheduledCount } = useMemo(() => {
+    const totalExams = targetStatsExams.length;
+    const totalQuestions = targetStatsExams.reduce((acc, curr) => acc + curr._count.questions, 0);
+    const totalAttempts = targetStatsExams.reduce((acc, curr) => acc + curr._count.attempts, 0);
+
+    // 🎯 Hitung Siswa Fisik Unik (Distinct Students)
+    // Siswa A mengerjakan MTK dihitung 1, siswa A mengerjakan B. Indo tetap dihitung 1 (tidak berlipat ganda)!
+    const uniqueStudentKeys = new Set<string>();
+    targetStatsExams.forEach((e) => {
+      if (e.attempts && Array.isArray(e.attempts)) {
+        e.attempts.forEach((a) => {
+          const key = (a.studentNis && a.studentNis.trim() !== '')
+            ? `nis:${a.studentNis.trim()}`
+            : (a.studentName && a.studentName.trim() !== '')
+            ? `name:${a.studentName.trim().toLowerCase()}`
+            : (a.id ? `id:${a.id}` : null);
+          if (key) {
+            uniqueStudentKeys.add(key);
+          }
+        });
+      }
+    });
+    const totalUniqueStudents = uniqueStudentKeys.size;
+
+    const totalSubmitted = targetStatsExams.flatMap((e) => e.attempts || []).filter((a) => a.status === 'SUBMITTED');
     const avgScore = totalSubmitted.length > 0
       ? Math.round(totalSubmitted.reduce((acc, a) => acc + a.score, 0) / totalSubmitted.length)
       : 0;
-    const unscheduledCount = visibleExams.filter((e) => !e.startTime || !e.endTime).length;
-    return { totalExams, totalQuestions, totalAttempts, avgScore, unscheduledCount };
-  }, [visibleExams]);
+    const unscheduledCount = targetStatsExams.filter((e) => !e.startTime || !e.endTime).length;
+    return { totalExams, totalQuestions, totalAttempts, totalUniqueStudents, avgScore, unscheduledCount };
+  }, [targetStatsExams]);
 
   return (
     <div className="px-3.5 py-4 sm:p-6 md:p-10 max-w-7xl mx-auto space-y-6 sm:space-y-8 font-sans w-full max-w-full overflow-x-hidden">
@@ -2104,45 +2143,74 @@ export default function CbtDashboard({
         </div>
       ) : (
         <div className="space-y-8">
-      {/* Stats Cards */}
+      {/* Stats Cards (4 KPI Cards Elegan, Modern & Beranimasi) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold">
+        {/* Card 1: Total Paket Ujian */}
+        <div className="group p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
             <BookOpen size={24} />
           </div>
-          <div>
-            <div className="text-2xl font-bold text-slate-900 dark:text-white">{totalExams}</div>
+          <div className="min-w-0">
+            <div className="text-2xl font-bold text-slate-900 dark:text-white flex items-baseline gap-1.5">
+              <span>{totalExams}</span>
+              <span className="text-xs font-semibold text-slate-400">Paket</span>
+            </div>
             <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Total Paket Ujian</div>
+            <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-0.5 truncate">
+              {selectedSubjectFilter !== 'ALL' ? `Mapel: ${selectedSubjectFilter}` : unscheduledCount > 0 ? `${unscheduledCount} belum terjadwal` : 'Semua sudah terjadwal'}
+            </div>
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
+        {/* Card 2: Total Butir Soal */}
+        <div className="group p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
             <FileCheck2 size={24} />
           </div>
-          <div>
-            <div className="text-2xl font-bold text-slate-900 dark:text-white">{totalQuestions}</div>
+          <div className="min-w-0">
+            <div className="text-2xl font-bold text-slate-900 dark:text-white flex items-baseline gap-1.5">
+              <span>{totalQuestions}</span>
+              <span className="text-xs font-semibold text-slate-400">Soal</span>
+            </div>
             <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Total Butir Soal</div>
+            <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-0.5">
+              Bank Soal Terpasang
+            </div>
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+        {/* Card 3: Siswa Mengerjakan (Siswa Unik Nyata) */}
+        <div className="group p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
             <Users size={24} />
           </div>
-          <div>
-            <div className="text-2xl font-bold text-slate-900 dark:text-white">{totalAttempts}</div>
+          <div className="min-w-0">
+            <div className="text-2xl font-bold text-slate-900 dark:text-white flex items-baseline gap-1.5">
+              <span>{totalUniqueStudents}</span>
+              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">Siswa Unik</span>
+            </div>
             <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Siswa Mengerjakan</div>
+            <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-0.5 flex items-center gap-1 truncate" title={`Akumulasi lembar ujian: ${totalAttempts} sesi`}>
+              <CheckCircle2 size={10} className="text-emerald-500 shrink-0" />
+              <span>{totalAttempts} Sesi Lembar{selectedSubjectFilter !== 'ALL' ? ` (${selectedSubjectFilter})` : ' (Seluruh Mapel)'}</span>
+            </div>
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+        {/* Card 4: Rata-Rata Nilai */}
+        <div className="group p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
             <Award size={24} />
           </div>
-          <div>
-            <div className="text-2xl font-bold text-slate-900 dark:text-white">{avgScore} / 100</div>
+          <div className="min-w-0">
+            <div className="text-2xl font-bold text-slate-900 dark:text-white flex items-baseline gap-1.5">
+              <span>{avgScore}</span>
+              <span className="text-xs font-semibold text-slate-400">/ 100</span>
+            </div>
             <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Rata-Rata Nilai</div>
+            <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-0.5">
+              Dari siswa yang submit
+            </div>
           </div>
         </div>
       </div>
@@ -2270,14 +2338,32 @@ export default function CbtDashboard({
               </div>
             )}
 
+            {/* Filter Mata Pelajaran Responsif */}
+            {availableSubjects.length > 0 && (
+              <select
+                value={selectedSubjectFilter}
+                onChange={(e) => setSelectedSubjectFilter(e.target.value)}
+                className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 border-none text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer"
+                title="Filter paket ujian & metrik statistik berdasarkan Mata Pelajaran"
+              >
+                <option value="ALL">Semua Mapel ({availableSubjects.length})</option>
+                {availableSubjects.map((sub) => (
+                  <option key={sub} value={sub}>
+                    {sub}
+                  </option>
+                ))}
+              </select>
+            )}
+
             {/* Reset Filters Button if any filter active */}
-            {(searchTerm || statusFilter !== 'ALL' || scheduleFilter !== 'ALL' || mineOnlyFilter || adminTeacherFilter !== 'ALL') && (
+            {(searchTerm || statusFilter !== 'ALL' || scheduleFilter !== 'ALL' || selectedSubjectFilter !== 'ALL' || mineOnlyFilter || adminTeacherFilter !== 'ALL') && (
               <button
                 type="button"
                 onClick={() => {
                   setSearchTerm('');
                   setStatusFilter('ALL');
                   setScheduleFilter('ALL');
+                  setSelectedSubjectFilter('ALL');
                   setMineOnlyFilter(false);
                   setAdminTeacherFilter('ALL');
                 }}
