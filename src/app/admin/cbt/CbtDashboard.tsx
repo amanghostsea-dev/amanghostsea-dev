@@ -383,8 +383,8 @@ export default function CbtDashboard({
     }
   };
 
-  // 📥 Handler Download File PDF Resmi Jadwal Ujian
-  const handleDownloadSchedulePdf = async () => {
+  // 📥 Handler Download File Dokumen Resmi Jadwal Ujian (Standalone Dokumen Siap Kirim & Cetak)
+  const handleDownloadScheduleDocument = () => {
     setIsDownloadingSchedulePdf(true);
     try {
       const printableElement = document.getElementById('cbt-printable-official-schedule');
@@ -393,59 +393,153 @@ export default function CbtDashboard({
         return;
       }
 
-      // Pastikan html2pdf library ter-load di browser client
-      let html2pdfInstance = (window as any).html2pdf;
-      if (!html2pdfInstance) {
-        await new Promise((resolve, reject) => {
-          const existingScript = document.getElementById('html2pdf-cdn-script') as HTMLScriptElement | null;
-          if (existingScript) {
-            if ((window as any).html2pdf) {
-              resolve((window as any).html2pdf);
-              return;
-            }
-            existingScript.addEventListener('load', () => resolve((window as any).html2pdf));
-            existingScript.addEventListener('error', () => reject(new Error('CDN unreachable')));
-            return;
-          }
-          const script = document.createElement('script');
-          script.id = 'html2pdf-cdn-script';
-          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-          script.async = true;
-          script.onload = () => resolve((window as any).html2pdf);
-          script.onerror = () => reject(new Error('Gagal memuat html2pdf CDN'));
-          document.head.appendChild(script);
-        });
-        html2pdfInstance = (window as any).html2pdf;
+      const cleanSchool = (kopSuratConfig?.schoolName || 'SMK').replace(/[^a-zA-Z0-9]/g, '_');
+      const dateStamp = new Date().toISOString().split('T')[0];
+      const filename = `Jadwal_Resmi_CBT_${cleanSchool}_${dateStamp}.html`;
+
+      const innerContent = printableElement.innerHTML;
+
+      const htmlContent = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jadwal Resmi Pelaksanaan CBT - ${kopSuratConfig?.schoolName || 'SMK'}</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 8mm 10mm 8mm 10mm;
+    }
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Times New Roman', Times, serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f1f5f9;
+      color: #0f172a;
+      -webkit-font-smoothing: antialiased;
+    }
+    .cbt-container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    }
+    /* Action Bar (Hanya tampil di layar, otomatis tersembunyi saat dicetak) */
+    .cbt-action-bar {
+      max-width: 900px;
+      margin: 0 auto 16px auto;
+      background: #1e293b;
+      color: #ffffff;
+      padding: 14px 20px;
+      border-radius: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .cbt-action-bar button {
+      background: #2563eb;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 13px;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 10px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3);
+      transition: all 0.2s;
+    }
+    .cbt-action-bar button:hover {
+      background: #1d4ed8;
+      transform: translateY(-1px);
+    }
+    /* Table & Print Styling */
+    table {
+      width: 100% !important;
+      border-collapse: collapse !important;
+      margin: 6px 0;
+    }
+    th, td {
+      border: 1px solid #cbd5e1;
+      padding: 6px 8px;
+      vertical-align: middle;
+    }
+    th {
+      background-color: #f1f5f9;
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 10px;
+    }
+    tr {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+    .print-avoid-break {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+    @media print {
+      body {
+        background-color: #ffffff !important;
+        padding: 0 !important;
       }
-
-      if (html2pdfInstance) {
-        const cleanSchool = (kopSuratConfig?.schoolName || 'SMK').replace(/[^a-zA-Z0-9]/g, '_');
-        const dateStamp = new Date().toISOString().split('T')[0];
-        const filename = `Jadwal_Resmi_CBT_${cleanSchool}_${dateStamp}.pdf`;
-
-        const opt = {
-          margin: [8, 8, 8, 8],
-          filename: filename,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { 
-            scale: 2, 
-            useCORS: true, 
-            logging: false,
-            ignoreElements: (element: Element) => {
-              return element.classList?.contains('print:hidden') || 
-                     element.classList?.contains('cbt-ignore-pdf') ||
-                     element.id === 'cbt-committee-selector-banner';
-            }
-          },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
-
-        await html2pdfInstance().set(opt).from(printableElement).save();
-      } else {
-        window.print();
+      .cbt-action-bar {
+        display: none !important;
       }
+      .cbt-container {
+        max-width: 100% !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+      }
+      .print\\:hidden, .cbt-ignore-pdf {
+        display: none !important;
+      }
+      th, td {
+        border-color: #94a3b8 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="cbt-action-bar">
+    <div>
+      <div style="font-weight: 800; font-size: 14px;">📄 Dokumen Resmi Jadwal Pelaksanaan CBT</div>
+      <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">${kopSuratConfig?.schoolName || 'SMK'} • Siap dicetak langsung atau disimpan ke PDF</div>
+    </div>
+    <button onclick="window.print()">
+      <span>🖨️</span>
+      <span>Cetak / Simpan ke PDF</span>
+    </button>
+  </div>
+
+  <div class="cbt-container">
+    ${innerContent}
+  </div>
+</body>
+</html>`;
+
+      const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     } catch (err) {
-      console.warn('Direct PDF download fallback to window.print():', err);
+      console.error('Download document error:', err);
       window.print();
     } finally {
       setIsDownloadingSchedulePdf(false);
@@ -4998,14 +5092,14 @@ export default function CbtDashboard({
         title="Pratinjau Cetak Jadwal Resmi Ujian CBT"
         subtitle="Dokumen resmi jadwal pelaksanaan ujian berbasis komputer untuk papan pengumuman & arsip dinas"
         maxWidth="max-w-5xl"
-        printButtonText="Cetak Fisik (Print)"
-        onDownloadPdf={handleDownloadSchedulePdf}
-        downloadPdfButtonText="Unduh Berkas PDF"
+        printButtonText="Cetak / Simpan ke PDF"
+        onDownloadPdf={handleDownloadScheduleDocument}
+        downloadPdfButtonText="Unduh Dokumen (Siap Kirim)"
         isDownloadingPdf={isDownloadingSchedulePdf}
         footerExtra={
           <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
             <span className="text-emerald-600 font-bold">💡 Tips:</span>
-            <span>Gunakan tombol hijau untuk mengunduh file PDF yang siap dibagikan via WhatsApp ke dewan guru.</span>
+            <span>Klik tombol hijau untuk mengunduh dokumen instan (bisa langsung dikirim via WhatsApp), atau klik tombol cetak untuk Simpan ke PDF.</span>
           </div>
         }
       >
