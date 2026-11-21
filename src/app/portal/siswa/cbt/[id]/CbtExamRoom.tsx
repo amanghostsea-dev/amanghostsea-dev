@@ -451,6 +451,18 @@ export default function CbtExamRoom({
         clearTimeout(violationTimerRef.current);
         violationTimerRef.current = null;
       }
+      // 💾 Amankan jawaban in-memory ke LocalStorage seketika sebelum unload
+      try {
+        const saved = JSON.parse(localStorage.getItem(storageKey) || '{}');
+        localStorage.setItem(
+          storageKey,
+          JSON.stringify({
+            ...saved,
+            answers: answersRef.current,
+            tabSwitchCount: tabSwitchCountRef.current,
+          })
+        );
+      } catch {}
     };
 
     const executeViolation = () => {
