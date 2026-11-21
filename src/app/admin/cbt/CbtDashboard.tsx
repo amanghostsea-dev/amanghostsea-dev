@@ -399,11 +399,6 @@ export default function CbtDashboard({
 
       const innerContent = printableElement.innerHTML;
 
-      // Ambil stylesheet aktif dari web app untuk styling sempurna
-      const activeStyles = Array.from(document.querySelectorAll('style'))
-        .map((el) => `<style>${el.innerHTML}</style>`)
-        .join('\n');
-
       const htmlContent = `<!DOCTYPE html>
 <html lang="id">
 <head>
@@ -413,9 +408,6 @@ export default function CbtDashboard({
   
   <!-- Mesin Tailwind CSS untuk rendering instan -->
   <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- Stylesheet internal aplikasi -->
-  ${activeStyles}
 
   <style>
     @page {
@@ -489,7 +481,7 @@ export default function CbtDashboard({
       transform: translateY(-1px);
     }
 
-    /* 🛡️ ATURAN CSS FAIL-SAFE (AGAR SELALU RAPI MESKIPUN OFFLINE) */
+    /* 🛡️ ATURAN CSS STANDAR BEBAS ERROR LINTER */
     .flex { display: flex !important; }
     .inline-flex { display: inline-flex !important; }
     .flex-col { flex-direction: column !important; }
@@ -499,18 +491,18 @@ export default function CbtDashboard({
     .justify-center { justify-content: center !important; }
     .justify-between { justify-content: space-between !important; }
     .gap-1 { gap: 4px !important; }
-    .gap-1\.5 { gap: 6px !important; }
     .gap-2 { gap: 8px !important; }
-    .gap-2\.5 { gap: 10px !important; }
     .gap-3 { gap: 12px !important; }
     .gap-4 { gap: 16px !important; }
+    [class*="gap-1.5"] { gap: 6px !important; }
+    [class*="gap-2.5"] { gap: 10px !important; }
     .shrink-0, .flex-shrink-0 { flex-shrink: 0 !important; }
 
     .grid { display: grid !important; }
     .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
     .grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
     @media (min-width: 640px) {
-      .sm\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+      [class*="grid-cols-4"] { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
     }
 
     .text-center { text-align: center !important; }
@@ -534,32 +526,32 @@ export default function CbtDashboard({
     .w-28 { width: 112px !important; }
     .w-32 { width: 128px !important; }
     .w-36 { width: 144px !important; }
-    .w-\[88px\] { width: 88px !important; }
-    .h-\[88px\] { height: 88px !important; }
-    .max-w-\[82px\] { max-width: 82px !important; }
-    .max-h-\[82px\] { max-height: 82px !important; }
-    .max-w-\[200px\] { max-width: 200px !important; }
-    .max-w-\[220px\] { max-width: 220px !important; }
+    [class*="w-[88px]"] { width: 88px !important; }
+    [class*="h-[88px]"] { height: 88px !important; }
+    [class*="max-w-[82px]"] { max-width: 82px !important; }
+    [class*="max-h-[82px]"] { max-height: 82px !important; }
+    [class*="max-w-[200px]"] { max-width: 200px !important; }
+    [class*="max-w-[220px]"] { max-width: 220px !important; }
     .h-20 { height: 80px !important; }
 
     .space-y-1 > * + * { margin-top: 4px !important; }
-    .space-y-1\.5 > * + * { margin-top: 6px !important; }
     .space-y-2 > * + * { margin-top: 8px !important; }
-    .space-y-2\.5 > * + * { margin-top: 10px !important; }
     .space-y-3 > * + * { margin-top: 12px !important; }
     .space-y-4 > * + * { margin-top: 16px !important; }
+    [class*="space-y-1.5"] > * + * { margin-top: 6px !important; }
+    [class*="space-y-2.5"] > * + * { margin-top: 10px !important; }
     
     .p-2 { padding: 8px !important; }
-    .p-2\.5 { padding: 10px !important; }
     .px-2 { padding-left: 8px !important; padding-right: 8px !important; }
-    .px-2\.5 { padding-left: 10px !important; padding-right: 10px !important; }
     .px-3 { padding-left: 12px !important; padding-right: 12px !important; }
     .py-1 { padding-top: 4px !important; padding-bottom: 4px !important; }
-    .py-1\.5 { padding-top: 6px !important; padding-bottom: 6px !important; }
     .py-2 { padding-top: 8px !important; padding-bottom: 8px !important; }
     .pb-3 { padding-bottom: 12px !important; }
     .pt-2 { padding-top: 8px !important; }
     .pt-6 { padding-top: 24px !important; }
+    [class*="p-2.5"] { padding: 10px !important; }
+    [class*="px-2.5"] { padding-left: 10px !important; padding-right: 10px !important; }
+    [class*="py-1.5"] { padding-top: 6px !important; padding-bottom: 6px !important; }
 
     .border { border: 1px solid #cbd5e1 !important; }
     .border-b { border-bottom: 1px solid #e2e8f0 !important; }
@@ -574,10 +566,10 @@ export default function CbtDashboard({
 
     .bg-white { background-color: #ffffff !important; }
     .bg-slate-50 { background-color: #f8fafc !important; }
-    .bg-slate-50\/60 { background-color: rgba(248, 250, 252, 0.6) !important; }
     .bg-slate-100 { background-color: #f1f5f9 !important; }
-    .bg-blue-50\/70 { background-color: rgba(239, 246, 255, 0.7) !important; }
     .bg-amber-100 { background-color: #fef3c7 !important; }
+    [class*="bg-slate-50"] { background-color: rgba(248, 250, 252, 0.6) !important; }
+    [class*="bg-blue-50"] { background-color: rgba(239, 246, 255, 0.7) !important; }
     .text-slate-900 { color: #0f172a !important; }
     .text-slate-800 { color: #1e293b !important; }
     .text-slate-700 { color: #334155 !important; }
@@ -633,7 +625,7 @@ export default function CbtDashboard({
         border: none !important;
         border-radius: 0 !important;
       }
-      .print\\:hidden, .cbt-ignore-pdf {
+      .cbt-ignore-pdf, [class*="print:hidden"] {
         display: none !important;
       }
       th, td {
