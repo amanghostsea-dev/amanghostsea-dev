@@ -42,8 +42,19 @@ import {
   CreditCard,
   Globe,
   Activity,
-  MapPin
+  MapPin,
+  Printer,
+  LayoutGrid,
+  List,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
+import { 
+  CbtOfficialKopSurat, 
+  CbtOfficialSignatures, 
+  CbtSecurityValidationBox,
+  CbtPrintModalWrapper 
+} from '@/components/cbt/CbtOfficialPrintComponents';
 import ConfirmModal from '@/components/ConfirmModal';
 import CbtParticipantCardModal from '@/components/cbt/CbtParticipantCardModal';
 import CbtDownloadBankSoalModal from '@/components/cbt/CbtDownloadBankSoalModal';
@@ -331,6 +342,26 @@ export default function CbtDashboard({
   const [selectedClassFilter, setSelectedClassFilter] = useState('ALL');
   const [selectedDateFilter, setSelectedDateFilter] = useState('ALL');
   const [selectedRoomFilter, setSelectedRoomFilter] = useState('ALL');
+
+  // 🗂️ Mode Tampilan Matriks Jadwal: 'roster' (Agenda Harian & Sesi) | 'table' (Matriks Tabel Lengkap)
+  const [scheduleViewMode, setScheduleViewMode] = useState<'roster' | 'table'>('roster');
+  const [isSchedulePrintModalOpen, setIsSchedulePrintModalOpen] = useState(false);
+  const [collapsedDays, setCollapsedDays] = useState<Record<string, boolean>>({});
+  const [copiedTokenId, setCopiedTokenId] = useState<string | null>(null);
+
+  const toggleDayCollapse = (dateKey: string) => {
+    setCollapsedDays((prev) => ({ ...prev, [dateKey]: !prev[dateKey] }));
+  };
+
+  const handleCopyExamToken = (examId: string, token: string | null | undefined, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!token) return;
+    navigator.clipboard.writeText(token);
+    setCopiedTokenId(examId);
+    setTimeout(() => {
+      setCopiedTokenId((prev) => (prev === examId ? null : prev));
+    }, 2000);
+  };
 
   // Reactively sync active tab with URL search parameter
   useEffect(() => {
@@ -1444,6 +1475,115 @@ export default function CbtDashboard({
     });
   }, [exams, isSuperAdmin, isAuthorMatch, adminTeacherFilter, searchTerm, selectedClassFilter, scheduleFilter, selectedDateFilter, selectedRoomFilter]);
 
+  // 🎨 Helper styling warna dinamis untuk kartu jadwal berdasarkan rumpun mata pelajaran
+  const getSubjectColorStyles = (subject: string) => {
+    const s = (subject || '').toLowerCase();
+    if (s.includes('matematika') || s.includes('fisika') || s.includes('kimia') || s.includes('ipa') || s.includes('biologi')) {
+      return {
+        badgeBg: 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200/80 dark:border-blue-800/60',
+        iconBg: 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white',
+        borderAccent: 'border-l-4 border-l-blue-500',
+        dotColor: 'bg-blue-500',
+      };
+    }
+    if (s.includes('indonesia') || s.includes('inggris') || s.includes('jepang') || s.includes('bahasa') || s.includes('sunda')) {
+      return {
+        badgeBg: 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200/80 dark:border-emerald-800/60',
+        iconBg: 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white',
+        borderAccent: 'border-l-4 border-l-emerald-500',
+        dotColor: 'bg-emerald-500',
+      };
+    }
+    if (s.includes('agama') || s.includes('islam') || s.includes('kristen') || s.includes('katolik') || s.includes('hindu') || s.includes('buddha') || s.includes('pai')) {
+      return {
+        badgeBg: 'bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200/80 dark:border-amber-800/60',
+        iconBg: 'bg-gradient-to-br from-amber-500 to-orange-600 text-white',
+        borderAccent: 'border-l-4 border-l-amber-500',
+        dotColor: 'bg-amber-500',
+      };
+    }
+    if (s.includes('tkj') || s.includes('rpl') || s.includes('akl') || s.includes('kejuruan') || s.includes('produktif') || s.includes('dkv') || s.includes('otomotif') || s.includes('jaringan') || s.includes('akuntansi') || s.includes('coding')) {
+      return {
+        badgeBg: 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200/80 dark:border-indigo-800/60',
+        iconBg: 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white',
+        borderAccent: 'border-l-4 border-l-indigo-500',
+        dotColor: 'bg-indigo-500',
+      };
+    }
+    return {
+      badgeBg: 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200/80 dark:border-purple-800/60',
+      iconBg: 'bg-gradient-to-br from-purple-500 to-pink-600 text-white',
+      borderAccent: 'border-l-4 border-l-purple-500',
+      dotColor: 'bg-purple-500',
+    };
+  };
+
+  // 🗂️ Pengelompokan Jadwal Berdasarkan Hari & Sesi Waktu Pelaksanaan (Untuk Roster Profesional & Cetak)
+  const groupedScheduleByDay = useMemo(() => {
+    const dayMap = new Map<string, {
+      dateKey: string;
+      fullDateLabel: string;
+      dayName: string;
+      rawDate: Date;
+      exams: ExamItem[];
+      rooms: string[];
+    }>();
+
+    const unscheduledList: ExamItem[] = [];
+
+    scheduledExams.forEach((exam) => {
+      if (!exam.startTime || !exam.endTime) {
+        unscheduledList.push(exam);
+        return;
+      }
+      const d = new Date(exam.startTime);
+      if (isNaN(d.getTime())) {
+        unscheduledList.push(exam);
+        return;
+      }
+
+      const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const fullDateLabel = d.toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+      const dayName = d.toLocaleDateString('id-ID', { weekday: 'long' });
+
+      if (!dayMap.has(dateKey)) {
+        dayMap.set(dateKey, {
+          dateKey,
+          fullDateLabel,
+          dayName,
+          rawDate: d,
+          exams: [],
+          rooms: [],
+        });
+      }
+      const group = dayMap.get(dateKey)!;
+      group.exams.push(exam);
+      const r = exam.roomName?.trim() || 'Ruang Utama';
+      if (!group.rooms.includes(r)) {
+        group.rooms.push(r);
+      }
+    });
+
+    const sortedDays = Array.from(dayMap.values()).sort(
+      (a, b) => a.rawDate.getTime() - b.rawDate.getTime()
+    );
+
+    sortedDays.forEach((day) => {
+      day.exams.sort((a, b) => {
+        const tA = a.startTime ? new Date(a.startTime).getTime() : 0;
+        const tB = b.startTime ? new Date(b.startTime).getTime() : 0;
+        return tA - tB;
+      });
+      day.rooms.sort();
+    });
+
+    return { sortedDays, unscheduledList };
+  }, [scheduledExams]);
+
   // ⚡ Fast Response: Calculate stats based on visible & subject-filtered exams (Memoized)
   const visibleExams = useMemo(() => {
     return isSuperAdmin ? exams : exams.filter((e) => isAuthorMatch(e.authorName));
@@ -2071,8 +2211,17 @@ export default function CbtDashboard({
               )}
             </div>
 
-            {/* Right: Data Export/Import */}
-            <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+            {/* Right: Print & Data Export/Import */}
+            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
+              <button
+                type="button"
+                onClick={() => setIsSchedulePrintModalOpen(true)}
+                className="flex-1 sm:flex-initial px-4 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-purple-500/25 active:scale-95 duration-200"
+                title="Cetak dan Download Jadwal Ujian Resmi Lengkap dengan Kop Surat & Tanda Tangan"
+              >
+                <Printer size={14} className="stroke-[2.5]" />
+                <span className="truncate">Cetak Jadwal Resmi</span>
+              </button>
               <button
                 type="button"
                 onClick={handleDownloadScheduleCsv}
@@ -2131,86 +2280,410 @@ export default function CbtDashboard({
             </div>
           )}
 
-          {/* Quick Select Helper Chips & Active Filter Indicators */}
-          <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 px-1">
-            <span className="font-semibold">Pilih Cepat:</span>
-            <button
-              type="button"
-              onClick={() => selectCurrentFilteredOnly(scheduledExams)}
-              className="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium cursor-pointer"
-            >
-              Semua yang Terlihat ({scheduledExams.length})
-            </button>
-            <button
-              type="button"
-              onClick={selectUnscheduledOnly}
-              className="px-2 py-0.5 rounded-md bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-medium cursor-pointer"
-            >
-              Belum Terjadwal ({unscheduledCount})
-            </button>
-            {selectedExamIds.length > 0 && (
+          {/* Quick Select Helper Chips & View Mode Switcher */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-1">
+            {/* Left: Quick Select Chips & Active Filters */}
+            <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+              <span className="font-semibold">Pilih Cepat:</span>
               <button
                 type="button"
-                onClick={() => setSelectedExamIds([])}
-                className="px-2 py-0.5 rounded-md hover:bg-slate-100 text-rose-500 font-semibold cursor-pointer"
+                onClick={() => selectCurrentFilteredOnly(scheduledExams)}
+                className="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold cursor-pointer transition-colors"
               >
-                Reset Seleksi
+                Semua yang Terlihat ({scheduledExams.length})
               </button>
-            )}
+              <button
+                type="button"
+                onClick={selectUnscheduledOnly}
+                className="px-2.5 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-semibold cursor-pointer transition-colors"
+              >
+                Belum Terjadwal ({unscheduledCount})
+              </button>
+              {selectedExamIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedExamIds([])}
+                  className="px-2.5 py-1 rounded-xl hover:bg-slate-100 text-rose-500 font-bold cursor-pointer"
+                >
+                  Reset Seleksi
+                </button>
+              )}
 
-            {/* Active Filter Badges */}
-            {selectedDateFilter !== 'ALL' && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 font-semibold border border-indigo-200/50 dark:border-indigo-800/50">
-                <Calendar size={11} />
-                <span>
-                  {selectedDateFilter === 'UNSCHEDULED'
-                    ? 'Belum Diberi Tanggal'
-                    : availableScheduleDates.sortedDates.find((d) => d.dateKey === selectedDateFilter)?.fullLabel || selectedDateFilter}
+              {/* Active Filter Badges */}
+              {selectedDateFilter !== 'ALL' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 font-semibold border border-indigo-200/50 dark:border-indigo-800/50">
+                  <Calendar size={11} />
+                  <span>
+                    {selectedDateFilter === 'UNSCHEDULED'
+                      ? 'Belum Diberi Tanggal'
+                      : availableScheduleDates.sortedDates.find((d) => d.dateKey === selectedDateFilter)?.fullLabel || selectedDateFilter}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDateFilter('ALL')}
+                    className="hover:text-indigo-900 dark:hover:text-white cursor-pointer ml-0.5"
+                    title="Hapus filter tanggal"
+                  >
+                    <X size={11} />
+                  </button>
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedDateFilter('ALL')}
-                  className="hover:text-indigo-900 dark:hover:text-white cursor-pointer ml-0.5"
-                  title="Hapus filter tanggal"
-                >
-                  <X size={11} />
-                </button>
-              </span>
-            )}
+              )}
 
-            {selectedRoomFilter !== 'ALL' && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 font-semibold border border-emerald-200/50 dark:border-emerald-800/50">
-                <MapPin size={11} />
-                <span>{selectedRoomFilter}</span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedRoomFilter('ALL')}
-                  className="hover:text-emerald-900 dark:hover:text-white cursor-pointer ml-0.5"
-                  title="Hapus filter ruangan"
-                >
-                  <X size={11} />
-                </button>
-              </span>
-            )}
+              {selectedRoomFilter !== 'ALL' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 font-semibold border border-emerald-200/50 dark:border-emerald-800/50">
+                  <MapPin size={11} />
+                  <span>{selectedRoomFilter}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRoomFilter('ALL')}
+                    className="hover:text-emerald-900 dark:hover:text-white cursor-pointer ml-0.5"
+                    title="Hapus filter ruangan"
+                  >
+                    <X size={11} />
+                  </button>
+                </span>
+              )}
 
-            {selectedClassFilter !== 'ALL' && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 font-semibold border border-purple-200/50 dark:border-purple-800/50">
-                <Users size={11} />
-                <span className="max-w-[120px] truncate">{selectedClassFilter}</span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedClassFilter('ALL')}
-                  className="hover:text-purple-900 dark:hover:text-white cursor-pointer ml-0.5"
-                  title="Hapus filter kelas"
-                >
-                  <X size={11} />
-                </button>
-              </span>
-            )}
+              {selectedClassFilter !== 'ALL' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 font-semibold border border-purple-200/50 dark:border-purple-800/50">
+                  <Users size={11} />
+                  <span className="max-w-[120px] truncate">{selectedClassFilter}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedClassFilter('ALL')}
+                    className="hover:text-purple-900 dark:hover:text-white cursor-pointer ml-0.5"
+                    title="Hapus filter kelas"
+                  >
+                    <X size={11} />
+                  </button>
+                </span>
+              )}
+            </div>
+
+            {/* Right: Mode Switcher (Agenda Roster vs Matriks Tabel) */}
+            <div className="inline-flex items-center p-1 bg-slate-100 dark:bg-slate-800/90 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs shrink-0 self-end sm:self-center">
+              <button
+                type="button"
+                onClick={() => setScheduleViewMode('roster')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
+                  scheduleViewMode === 'roster'
+                    ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-sm font-black'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                }`}
+              >
+                <LayoutGrid size={13} className="stroke-[2.5]" />
+                <span>Agenda & Sesi Roster</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setScheduleViewMode('table')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
+                  scheduleViewMode === 'table'
+                    ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-sm font-black'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                }`}
+              >
+                <List size={13} className="stroke-[2.5]" />
+                <span>Matriks Tabel</span>
+              </button>
+            </div>
           </div>
 
-          {/* Schedule Matrix Table */}
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
+          {/* Main Schedule Content: Roster Mode vs Table Mode */}
+          {scheduleViewMode === 'roster' ? (
+            <div className="space-y-6">
+              {groupedScheduleByDay.sortedDays.length === 0 && groupedScheduleByDay.unscheduledList.length === 0 ? (
+                <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                  <Calendar size={40} className="mx-auto text-slate-300 dark:text-slate-600 mb-3" />
+                  <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300">Tidak ada jadwal yang sesuai filter</h4>
+                  <p className="text-xs text-slate-500 mt-1">Coba ubah filter kelas, tanggal, ruangan, atau kata kunci pencarian.</p>
+                </div>
+              ) : (
+                <>
+                  {/* Daftar Hari Ujian */}
+                  {groupedScheduleByDay.sortedDays.map((day, dayIdx) => {
+                    const isCollapsed = Boolean(collapsedDays[day.dateKey]);
+                    const isToday = (() => {
+                      const todayStr = new Date().toISOString().slice(0, 10);
+                      const dayStr = day.rawDate.toISOString().slice(0, 10);
+                      return todayStr === dayStr;
+                    })();
+
+                    // Kelompokkan ujian per Time Slot / Sesi dalam hari ini
+                    const slotMap = new Map<string, {
+                      timeRangeFormatted: string;
+                      startTime: string;
+                      endTime: string;
+                      exams: ExamItem[];
+                    }>();
+
+                    day.exams.forEach((exam) => {
+                      const key = `${exam.startTime}_${exam.endTime}`;
+                      if (!slotMap.has(key)) {
+                        slotMap.set(key, {
+                          timeRangeFormatted: formatExamScheduleRange(exam.startTime, exam.endTime, cbtTimezone),
+                          startTime: exam.startTime as string,
+                          endTime: exam.endTime as string,
+                          exams: [],
+                        });
+                      }
+                      slotMap.get(key)!.exams.push(exam);
+                    });
+
+                    const timeSlots = Array.from(slotMap.values());
+
+                    return (
+                      <div
+                        key={day.dateKey}
+                        className="rounded-3xl border border-slate-200/90 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 animate-in fade-in slide-in-from-bottom-2"
+                      >
+                        {/* Day Card Header */}
+                        <div
+                          onClick={() => toggleDayCollapse(day.dateKey)}
+                          className={`p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 cursor-pointer select-none transition-colors ${
+                            isToday
+                              ? 'bg-gradient-to-r from-purple-500/15 via-indigo-500/10 to-transparent dark:from-purple-950/40 dark:via-indigo-950/30'
+                              : 'bg-slate-50/80 dark:bg-slate-800/50 hover:bg-slate-100/80 dark:hover:bg-slate-800/80'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-white shadow-md shrink-0 ${
+                              isToday
+                                ? 'bg-gradient-to-br from-purple-600 to-indigo-600 shadow-purple-500/30 ring-4 ring-purple-500/10'
+                                : 'bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-700 dark:to-slate-800 shadow-slate-900/10'
+                            }`}>
+                              <Calendar size={20} className="stroke-[2.2]" />
+                            </div>
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="text-sm sm:text-base font-black tracking-tight text-slate-900 dark:text-white uppercase">
+                                  {day.dayName}, {day.fullDateLabel}
+                                </h3>
+                                {isToday && (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white shadow-xs animate-pulse">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+                                    HARI INI
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                <span className="font-semibold text-purple-700 dark:text-purple-300">
+                                  Hari Ke-{dayIdx + 1}
+                                </span>
+                                <span>•</span>
+                                <span><strong>{day.exams.length}</strong> Ujian Terjadwal</span>
+                                <span>•</span>
+                                <span>{day.rooms.length} Ruangan: <strong className="text-slate-700 dark:text-slate-200">{day.rooms.join(', ')}</strong></span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-end sm:self-center">
+                            <span className="text-[11px] font-bold text-slate-400 hidden sm:inline">
+                              {isCollapsed ? 'Buka Jadwal' : 'Lipat'}
+                            </span>
+                            <div className="w-8 h-8 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300">
+                              {isCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Day Card Body (Sessions) */}
+                        {!isCollapsed && (
+                          <div className="p-4 sm:p-5 space-y-6 divide-y divide-slate-100 dark:divide-slate-800/80">
+                            {timeSlots.map((slot, slotIdx) => (
+                              <div key={slotIdx} className={slotIdx > 0 ? 'pt-6' : ''}>
+                                {/* Sesi Header Banner */}
+                                <div className="flex items-center justify-between gap-3 mb-3.5">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-purple-600 dark:bg-purple-400"></div>
+                                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                      <span>SESI {slotIdx + 1}</span>
+                                      <span className="text-slate-400">•</span>
+                                      <span className="text-purple-700 dark:text-purple-300 font-bold">{slot.timeRangeFormatted}</span>
+                                    </h4>
+                                  </div>
+                                  <span className="text-[11px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-lg">
+                                    {slot.exams.length} Rombel
+                                  </span>
+                                </div>
+
+                                {/* Grid of Exam Cards in this Slot */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                                  {slot.exams.map((exam) => {
+                                    const schedState = getExamScheduleState(exam.startTime, exam.endTime, exam.status);
+                                    const subjectStyles = getSubjectColorStyles(exam.subject);
+                                    const isCopied = copiedTokenId === exam.id;
+
+                                    return (
+                                      <div
+                                        key={exam.id}
+                                        className={`group relative rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-4 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between gap-3 ${subjectStyles.borderAccent}`}
+                                      >
+                                        <div className="space-y-2.5">
+                                          {/* Card Top: Subject & Status */}
+                                          <div className="flex items-start justify-between gap-2">
+                                            <span className={`px-2.5 py-1 rounded-xl text-[11px] font-black border ${subjectStyles.badgeBg} truncate max-w-[170px]`}>
+                                              {exam.subject}
+                                            </span>
+
+                                            {/* Status Badge */}
+                                            {schedState.state === 'ONGOING' ? (
+                                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300/60 shadow-xs shrink-0">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                                                BERLANGSUNG
+                                              </span>
+                                            ) : schedState.state === 'UPCOMING' ? (
+                                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 shrink-0">
+                                                <Clock size={10} /> AKAN DATANG
+                                              </span>
+                                            ) : schedState.state === 'ENDED' ? (
+                                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 shrink-0">
+                                                SELESAI
+                                              </span>
+                                            ) : (
+                                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 shrink-0">
+                                                DRAF
+                                              </span>
+                                            )}
+                                          </div>
+
+                                          {/* Title & Description */}
+                                          <div>
+                                            <h5 className="font-extrabold text-sm text-slate-900 dark:text-white line-clamp-2 leading-snug group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                                              {exam.title}
+                                            </h5>
+                                            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                              <Users size={12} className="text-purple-600 dark:text-purple-400 shrink-0" />
+                                              <strong className="text-slate-700 dark:text-slate-200">{exam.classTarget}</strong>
+                                            </div>
+                                          </div>
+
+                                          {/* Meta Pills: Room & Duration */}
+                                          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/50">
+                                              <MapPin size={11} /> {exam.roomName?.trim() || 'Ruang Utama'}
+                                            </span>
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                              <Clock size={11} /> {exam.duration} Menit
+                                            </span>
+                                            {exam.authorName && (
+                                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[150px]">
+                                                👤 {exam.authorName}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+
+                                        {/* Card Footer: Token & Actions */}
+                                        <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                                          {/* Token Pill */}
+                                          <button
+                                            type="button"
+                                            onClick={(e) => handleCopyExamToken(exam.id, exam.token, e)}
+                                            className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-purple-100 dark:hover:bg-purple-950/60 border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 transition-all cursor-pointer group/tok"
+                                            title="Klik untuk menyalin token ujian"
+                                          >
+                                            <Key size={11} className="text-slate-400 group-hover/tok:text-purple-600" />
+                                            <span className="font-mono text-xs font-black tracking-widest text-slate-800 dark:text-slate-200">
+                                              {exam.token}
+                                            </span>
+                                            {isCopied ? (
+                                              <Check size={11} className="text-emerald-600" />
+                                            ) : (
+                                              <Copy size={11} className="text-slate-400 group-hover/tok:text-purple-600" />
+                                            )}
+                                          </button>
+
+                                          {/* Action Buttons */}
+                                          <div className="flex items-center gap-1">
+                                            <button
+                                              type="button"
+                                              onClick={() => handleOpenEdit(exam)}
+                                              className="p-1.5 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-950/60 text-purple-600 dark:text-purple-400 transition-colors cursor-pointer"
+                                              title="Ubah Jadwal Ujian"
+                                            >
+                                              <Edit3 size={13} />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleQuickDownloadExamQuestions(exam)}
+                                              className="p-1.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-950/60 text-blue-600 dark:text-blue-400 transition-colors cursor-pointer"
+                                              title="Buka Bank Soal"
+                                            >
+                                              <Download size={13} />
+                                            </button>
+                                            <Link
+                                              href={`/admin/cbt/${exam.id}`}
+                                              className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
+                                              title="Masuk Ruang Ujian"
+                                            >
+                                              <ExternalLink size={13} />
+                                            </Link>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* Belum Terjadwal Section */}
+                  {groupedScheduleByDay.unscheduledList.length > 0 && (
+                    <div className="rounded-3xl border border-amber-300/80 dark:border-amber-800/80 bg-amber-50/50 dark:bg-amber-950/20 p-5 space-y-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5">
+                          <AlertTriangle size={18} className="text-amber-600 shrink-0" />
+                          <h4 className="font-extrabold text-sm text-amber-900 dark:text-amber-200">
+                            Paket Ujian Belum Diberi Jadwal ({groupedScheduleByDay.unscheduledList.length})
+                          </h4>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedExamIds(groupedScheduleByDay.unscheduledList.map((e) => e.id));
+                            setIsBatchModalOpen(true);
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Zap size={13} /> Atur Jadwal Sekaligus
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                        {groupedScheduleByDay.unscheduledList.map((exam) => (
+                          <div
+                            key={exam.id}
+                            className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-900/60 shadow-xs flex items-center justify-between gap-2"
+                          >
+                            <div className="truncate">
+                              <span className="font-bold text-xs text-slate-900 dark:text-white block truncate">{exam.title}</span>
+                              <span className="text-[11px] text-slate-500 block truncate">{exam.subject} • {exam.classTarget}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEdit(exam)}
+                              className="px-2.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shrink-0 cursor-pointer"
+                            >
+                              Jadwalkan
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          ) : (
+            /* Table Mode */
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50/80 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[11px] border-b border-slate-200/80 dark:border-slate-800">
@@ -2388,6 +2861,7 @@ export default function CbtDashboard({
               </table>
             </div>
           </div>
+          )}
         </div>
       ) : (
         <div className="space-y-8">
@@ -4383,6 +4857,156 @@ export default function CbtDashboard({
           totalPoints={downloadModalData.totalPoints}
         />
       )}
+
+      {/* 🖨️ MODAL CETAK JADWAL PELAKSANAAN RESMI CBT */}
+      <CbtPrintModalWrapper
+        isOpen={isSchedulePrintModalOpen}
+        onClose={() => setIsSchedulePrintModalOpen(false)}
+        title="Pratinjau Cetak Jadwal Resmi Ujian CBT"
+        subtitle="Dokumen resmi jadwal pelaksanaan ujian berbasis komputer untuk papan pengumuman & arsip dinas"
+        maxWidth="max-w-5xl"
+        printButtonText="Cetak Jadwal (PDF / Print)"
+      >
+        <div id="cbt-printable-official-schedule" className="space-y-6 bg-white font-serif text-slate-950 cbt-printable-sheet">
+          {/* Kop Surat Resmi */}
+          <CbtOfficialKopSurat
+            config={kopSuratConfig}
+            documentTitle="JADWAL PELAKSANAAN RESMI UJIAN BERBASIS KOMPUTER (CBT)"
+            documentNumber={`421.5/PAN-CBT/${new Date().getFullYear()}`}
+            subTitle={`TAHUN AJARAN ${new Date().getFullYear()}/${new Date().getFullYear() + 1}`}
+          />
+
+          {/* Info Metadata */}
+          <div className="border border-slate-300 rounded-lg p-3 bg-slate-50/60 font-sans text-xs space-y-1.5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div>
+                <span className="text-slate-500 font-semibold block text-[10px] uppercase">Zona Waktu:</span>
+                <span className="font-bold text-slate-900">{cbtTimezone} (Standar Server)</span>
+              </div>
+              <div>
+                <span className="text-slate-500 font-semibold block text-[10px] uppercase">Filter Ruangan:</span>
+                <span className="font-bold text-slate-900">{selectedRoomFilter === 'ALL' ? 'Semua Ruangan' : selectedRoomFilter}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 font-semibold block text-[10px] uppercase">Filter Kelas:</span>
+                <span className="font-bold text-slate-900">{selectedClassFilter === 'ALL' ? 'Seluruh Rombel' : selectedClassFilter}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 font-semibold block text-[10px] uppercase">Total Terjadwal:</span>
+                <span className="font-bold text-slate-900">{scheduledExams.length} Paket Ujian</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Tabel Terstruktur per Hari */}
+          <div className="space-y-6">
+            {groupedScheduleByDay.sortedDays.map((day, dayIdx) => (
+              <div key={day.dateKey} className="space-y-2 print-avoid-break">
+                <div className="bg-slate-100 border-l-4 border-slate-800 px-3 py-1.5 flex items-center justify-between font-sans">
+                  <div className="font-bold text-xs uppercase tracking-wider text-slate-900">
+                    📅 HARI KE-{dayIdx + 1} : {day.dayName.toUpperCase()}, {day.fullDateLabel.toUpperCase()}
+                  </div>
+                  <div className="text-[11px] text-slate-600 font-medium">
+                    {day.exams.length} Ujian Terjadwal
+                  </div>
+                </div>
+
+                <table className="w-full text-left text-[11px] font-sans border-collapse border border-slate-300">
+                  <thead className="bg-slate-100 text-slate-800 font-bold uppercase text-[10px]">
+                    <tr>
+                      <th className="border border-slate-300 py-2 px-2 text-center w-8">No</th>
+                      <th className="border border-slate-300 py-2 px-2.5 text-center w-36">Waktu / Sesi ({cbtTimezone})</th>
+                      <th className="border border-slate-300 py-2 px-3">Mata Pelajaran & Judul Ujian</th>
+                      <th className="border border-slate-300 py-2 px-2.5 text-center w-28">Target Kelas</th>
+                      <th className="border border-slate-300 py-2 px-2 text-center w-20">Ruang</th>
+                      <th className="border border-slate-300 py-2 px-2 text-center w-16">Durasi</th>
+                      <th className="border border-slate-300 py-2 px-3">Guru Pengampu</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {day.exams.map((exam, exIdx) => (
+                      <tr key={exam.id} className="border-b border-slate-200">
+                        <td className="border border-slate-300 py-2 px-2 text-center font-bold text-slate-600">
+                          {exIdx + 1}
+                        </td>
+                        <td className="border border-slate-300 py-2 px-2.5 text-center font-semibold text-slate-900 whitespace-nowrap">
+                          {formatExamScheduleRange(exam.startTime, exam.endTime, cbtTimezone)}
+                        </td>
+                        <td className="border border-slate-300 py-2 px-3">
+                          <strong className="block text-slate-900">{exam.subject}</strong>
+                          <span className="text-[10px] text-slate-600">{exam.title}</span>
+                        </td>
+                        <td className="border border-slate-300 py-2 px-2.5 text-center font-bold text-slate-800">
+                          {exam.classTarget}
+                        </td>
+                        <td className="border border-slate-300 py-2 px-2 text-center font-semibold text-slate-800">
+                          {exam.roomName?.trim() || 'Ruang Utama'}
+                        </td>
+                        <td className="border border-slate-300 py-2 px-2 text-center text-slate-700">
+                          {exam.duration} mnt
+                        </td>
+                        <td className="border border-slate-300 py-2 px-3 text-slate-800">
+                          {exam.authorName || 'Guru Pengampu'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+
+            {groupedScheduleByDay.unscheduledList.length > 0 && (
+              <div className="space-y-2 print-avoid-break">
+                <div className="bg-amber-100 border-l-4 border-amber-600 px-3 py-1.5 font-sans font-bold text-xs uppercase tracking-wider text-amber-900">
+                  ⚠️ PAKET UJIAN BELUM DIBERI JADWAL ({groupedScheduleByDay.unscheduledList.length})
+                </div>
+                <table className="w-full text-left text-[11px] font-sans border-collapse border border-slate-300">
+                  <thead className="bg-slate-100 text-slate-800 font-bold uppercase text-[10px]">
+                    <tr>
+                      <th className="border border-slate-300 py-2 px-2 text-center w-8">No</th>
+                      <th className="border border-slate-300 py-2 px-3">Mata Pelajaran & Judul Ujian</th>
+                      <th className="border border-slate-300 py-2 px-2.5 text-center w-28">Target Kelas</th>
+                      <th className="border border-slate-300 py-2 px-2 text-center w-20">Ruang</th>
+                      <th className="border border-slate-300 py-2 px-2 text-center w-16">Durasi</th>
+                      <th className="border border-slate-300 py-2 px-3">Guru Pengampu</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {groupedScheduleByDay.unscheduledList.map((exam, exIdx) => (
+                      <tr key={exam.id} className="border-b border-slate-200">
+                        <td className="border border-slate-300 py-2 px-2 text-center text-slate-600">{exIdx + 1}</td>
+                        <td className="border border-slate-300 py-2 px-3">
+                          <strong className="block text-slate-900">{exam.subject}</strong>
+                          <span className="text-[10px] text-slate-600">{exam.title}</span>
+                        </td>
+                        <td className="border border-slate-300 py-2 px-2.5 text-center">{exam.classTarget}</td>
+                        <td className="border border-slate-300 py-2 px-2 text-center">{exam.roomName?.trim() || 'Ruang Utama'}</td>
+                        <td className="border border-slate-300 py-2 px-2 text-center">{exam.duration} mnt</td>
+                        <td className="border border-slate-300 py-2 px-3">{exam.authorName || 'Guru Pengampu'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* QR Keabsahan Digital */}
+          <CbtSecurityValidationBox
+            verificationCode={`SCH-${new Date().getFullYear()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`}
+            examTitle="Jadwal Resmi Pelaksanaan CBT"
+          />
+
+          {/* Lembar Tanda Tangan Resmi */}
+          <CbtOfficialSignatures
+            config={kopSuratConfig}
+            mode="two-column"
+            teacherName={currentUser?.name || 'Panitia Ujian'}
+            roleTitle="Ketua Panitia Ujian CBT"
+            dateString={new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+          />
+        </div>
+      </CbtPrintModalWrapper>
 
       {/* Footer identitas pengembang */}
       <footer className="mt-12 pt-6 pb-2 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400 flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2">
