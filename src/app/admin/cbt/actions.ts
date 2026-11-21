@@ -43,6 +43,7 @@ export async function rotateExamToken(id: string, customToken?: string) {
         targetReligion: true,
         subject: true,
         title: true,
+        sharedSessionId: true,
       },
     });
 
@@ -65,33 +66,33 @@ export async function rotateExamToken(id: string, customToken?: string) {
       },
     });
 
-    // 🕌 Sinkronisasi Token Otomatis untuk Varian Agama Serentak:
-    // Jika ujian ini adalah varian agama (targetReligion !== 'ALL'), cari ujian varian agama lain
-    // di ruangan dan waktu yang sama, lalu samakan tokennya secara otomatis!
-    const effectiveCurrentRel = normalizeReligion(current.targetReligion) !== 'ALL'
-      ? normalizeReligion(current.targetReligion)
-      : (() => {
-          const t = `${current.subject || ''} ${current.title || ''}`.toUpperCase();
-          if (t.includes('ISLAM') || t.includes('PAI')) return 'ISLAM';
-          if (t.includes('KRISTEN') || t.includes('PAK') || t.includes('PROTESTAN')) return 'KRISTEN';
-          if (t.includes('KATOLIK')) return 'KATOLIK';
-          if (t.includes('HINDU')) return 'HINDU';
-          if (t.includes('BUDDHA') || t.includes('BUDHA')) return 'BUDDHA';
-          if (t.includes('KHONGHUCU') || t.includes('KONGHUCU')) return 'KHONGHUCU';
-          return 'ALL';
-        })();
+    // 🏢 SINKRONISASI LEVEL 3: Sesi Terpadu Ruangan (Multi-Jurusan / Multi-Agama / Multi-Paket Serentak)
+    // Jika ujian ini berada di ruangan fisik & jadwal waktu yang sama (atau sharedSessionId),
+    // sinkronkan token ke SELURUH ujian aktif di ruangan tersebut secara serentak (atomik)!
+    const partnerConditions: any[] = [];
+    if (current.startTime && current.endTime && current.roomName && current.roomName.trim() !== '') {
+      partnerConditions.push({
+        startTime: current.startTime,
+        endTime: current.endTime,
+        roomName: { equals: current.roomName.trim(), mode: 'insensitive' as const },
+      });
+    }
+    if ((current as any).sharedSessionId) {
+      partnerConditions.push({
+        sharedSessionId: (current as any).sharedSessionId,
+      });
+    }
 
-    if (effectiveCurrentRel !== 'ALL' && current.startTime && current.endTime) {
+    if (partnerConditions.length > 0) {
       await prisma.exam.updateMany({
         where: {
           id: { not: id },
           status: { not: 'ARCHIVED' },
-          startTime: current.startTime,
-          endTime: current.endTime,
-          roomName: current.roomName,
+          OR: partnerConditions,
         },
         data: {
           token: combinedToken,
+          updatedAt: new Date(),
         },
       });
     }
@@ -129,6 +130,7 @@ export async function toggleExamSession(id: string, openSession: boolean, custom
         targetReligion: true,
         subject: true,
         title: true,
+        sharedSessionId: true,
       },
     });
 
@@ -151,28 +153,28 @@ export async function toggleExamSession(id: string, openSession: boolean, custom
       },
     });
 
-    // 🕌 Sinkronisasi Sesi & Token Otomatis untuk Varian Agama Serentak di Ruang yang Sama
-    const effectiveCurrentRel = normalizeReligion(current.targetReligion) !== 'ALL'
-      ? normalizeReligion(current.targetReligion)
-      : (() => {
-          const t = `${current.subject || ''} ${current.title || ''}`.toUpperCase();
-          if (t.includes('ISLAM') || t.includes('PAI')) return 'ISLAM';
-          if (t.includes('KRISTEN') || t.includes('PAK') || t.includes('PROTESTAN')) return 'KRISTEN';
-          if (t.includes('KATOLIK')) return 'KATOLIK';
-          if (t.includes('HINDU')) return 'HINDU';
-          if (t.includes('BUDDHA') || t.includes('BUDHA')) return 'BUDDHA';
-          if (t.includes('KHONGHUCU') || t.includes('KONGHUCU')) return 'KHONGHUCU';
-          return 'ALL';
-        })();
+    // 🏢 SINKRONISASI LEVEL 3: Sesi Terpadu Ruangan (Multi-Jurusan / Multi-Agama / Multi-Paket Serentak)
+    // Jika sesi dibuka/ditutup, update status dan token seluruh ujian di ruangan dan jadwal yang sama!
+    const partnerConditions: any[] = [];
+    if (current.startTime && current.endTime && current.roomName && current.roomName.trim() !== '') {
+      partnerConditions.push({
+        startTime: current.startTime,
+        endTime: current.endTime,
+        roomName: { equals: current.roomName.trim(), mode: 'insensitive' as const },
+      });
+    }
+    if ((current as any).sharedSessionId) {
+      partnerConditions.push({
+        sharedSessionId: (current as any).sharedSessionId,
+      });
+    }
 
-    if (effectiveCurrentRel !== 'ALL' && current.startTime && current.endTime) {
+    if (partnerConditions.length > 0) {
       await prisma.exam.updateMany({
         where: {
           id: { not: id },
           status: { not: 'ARCHIVED' },
-          startTime: current.startTime,
-          endTime: current.endTime,
-          roomName: current.roomName,
+          OR: partnerConditions,
         },
         data: {
           status: openSession ? 'ACTIVE' : 'PUBLISHED',

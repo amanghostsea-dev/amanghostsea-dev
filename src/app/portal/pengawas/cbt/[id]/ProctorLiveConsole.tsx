@@ -159,8 +159,14 @@ export default function ProctorLiveConsole({
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'IN_PROGRESS' | 'SUBMITTED' | 'UNATTENDED' | 'VIOLATION'>('ALL');
   const [religionFilter, setReligionFilter] = useState<string>('ALL');
+  const [packetFilter, setPacketFilter] = useState<string>('ALL');
 
-  const isParallelReligionSession = Boolean(parallelExams && parallelExams.length > 0);
+  const hasParallelExams = Boolean(parallelExams && parallelExams.length > 0);
+  const isParallelReligionSession = hasParallelExams && (
+    (exam.targetReligion && exam.targetReligion !== 'ALL') ||
+    parallelExams!.some((p) => p.effectiveReligion !== 'ALL')
+  );
+  const isParallelMajorSession = hasParallelExams && !isParallelReligionSession;
   const allExamIdsList = useMemo(() => {
     if (allExamIds && allExamIds.length > 0) return allExamIds;
     return [exam.id];
@@ -427,6 +433,7 @@ export default function ProctorLiveConsole({
       if (!matchSearch) return false;
 
       if (religionFilter !== 'ALL' && r.religionCode !== religionFilter) return false;
+      if (packetFilter !== 'ALL' && r.assignedExamId !== packetFilter) return false;
 
       if (statusFilter === 'IN_PROGRESS') return r.status === 'IN_PROGRESS';
       if (statusFilter === 'SUBMITTED') return r.status === 'SUBMITTED';
@@ -435,7 +442,7 @@ export default function ProctorLiveConsole({
 
       return true;
     });
-  }, [combinedRoster, searchQuery, statusFilter, religionFilter]);
+  }, [combinedRoster, searchQuery, statusFilter, religionFilter, packetFilter]);
 
   // Execute Proctor Interventions
   const handleConfirmAction = async () => {
@@ -675,6 +682,30 @@ export default function ProctorLiveConsole({
               </div>
             )}
 
+            {isParallelMajorSession && (
+              <div className="flex flex-wrap items-center gap-2 p-3 rounded-2xl bg-gradient-to-r from-blue-950/70 via-indigo-950/60 to-purple-950/70 border border-indigo-500/40 text-xs shadow-lg mt-2">
+                <div className="flex items-center gap-1.5 font-bold text-amber-300">
+                  <span className="text-base">🏢</span>
+                  <span>Sesi Terpadu Ruangan ({parallelExams!.length + 1} Paket Soal):</span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="px-2.5 py-0.5 rounded-md bg-blue-900/80 text-blue-200 border border-blue-600/50 font-bold flex items-center gap-1">
+                    📋 {exam.title} ({formatClassTargetDisplay(exam.classTarget, true)})
+                  </span>
+                  {parallelExams?.map((p) => (
+                    <span key={p.id} className="px-2.5 py-0.5 rounded-md bg-indigo-900/80 text-indigo-200 border border-indigo-600/50 font-bold flex items-center gap-1">
+                      📋 {p.title} ({formatClassTargetDisplay(p.classTarget, true)})
+                    </span>
+                  ))}
+                </div>
+                <div className="text-[11px] text-slate-300 sm:ml-auto flex items-center gap-1.5 font-mono">
+                  <span className="text-emerald-400 font-bold">✓ 1 Token Serentak</span>
+                  <span className="text-slate-500">•</span>
+                  <span>Soal otomatis sesuai jurusan siswa</span>
+                </div>
+              </div>
+            )}
+
             {examStatus === 'ACTIVE' && scheduleState.isOutsideSchedule && (
               <div className="mt-2 p-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2">
                 <AlertTriangle size={14} className="shrink-0 text-amber-400" />
@@ -863,6 +894,45 @@ export default function ProctorLiveConsole({
             </div>
           )}
 
+          {isParallelMajorSession && (
+            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-950/80 border border-slate-800 shrink-0 mr-1">
+              <span className="text-[10.5px] font-bold text-slate-400 pl-1.5 pr-0.5">Paket Soal:</span>
+              <button
+                onClick={() => setPacketFilter('ALL')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  packetFilter === 'ALL'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Semua ({totalRoster})
+              </button>
+              <button
+                onClick={() => setPacketFilter(exam.id)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
+                  packetFilter === exam.id
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-slate-400 hover:text-indigo-400'
+                }`}
+              >
+                <span>📋 {exam.subject || exam.title} ({combinedRoster.filter((r) => r.assignedExamId === exam.id).length})</span>
+              </button>
+              {parallelExams?.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setPacketFilter(p.id)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
+                    packetFilter === p.id
+                      ? 'bg-indigo-600 text-white'
+                      : 'text-slate-400 hover:text-indigo-400'
+                  }`}
+                >
+                  <span>📋 {p.subject || p.title} ({combinedRoster.filter((r) => r.assignedExamId === p.id).length})</span>
+                </button>
+              ))}
+            </div>
+          )}
+
           <button
             onClick={() => setStatusFilter('ALL')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
@@ -989,6 +1059,11 @@ export default function ProctorLiveConsole({
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-950/70 text-purple-300 border border-purple-800/60 normal-case tracking-tight font-sans">
                             {item.studentClass}
                           </span>
+                          {hasParallelExams && !isParallelReligionSession && item.assignedExamTitle && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-900/80 text-blue-200 border border-blue-500/50 normal-case tracking-tight font-sans flex items-center gap-1">
+                              📋 {item.assignedExamTitle}
+                            </span>
+                          )}
                           {isParallelReligionSession && (
                             item.religionCode === 'KRISTEN' ? (
                               <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-900/80 text-purple-200 border border-purple-500/50 normal-case tracking-tight font-sans flex items-center gap-1">
@@ -1301,6 +1376,8 @@ export default function ProctorLiveConsole({
               <ShieldCheck size={16} />
               {isParallelReligionSession
                 ? '🕌 Token Resmi Sesi Paralel Agama Terpadu'
+                : isParallelMajorSession
+                ? `🏢 Token Resmi Sesi Terpadu Ruangan (${parallelExams!.length + 1} Paket)`
                 : 'Token Resmi Pengawas Ruangan'}
             </div>
 
@@ -1321,6 +1398,12 @@ export default function ProctorLiveConsole({
                   <>
                     <span>•</span>
                     <span className="text-emerald-400 font-bold">PAI Islam &amp; PAK Kristen</span>
+                  </>
+                )}
+                {isParallelMajorSession && (
+                  <>
+                    <span>•</span>
+                    <span className="text-emerald-400 font-bold">{parallelExams!.length + 1} Paket Soal Terpadu</span>
                   </>
                 )}
               </div>
@@ -1345,6 +1428,10 @@ export default function ProctorLiveConsole({
               {isParallelReligionSession ? (
                 <div className="text-amber-300 font-medium text-xs">
                   🕌 1 Token berlaku serentak untuk seluruh siswa. Soal ujian otomatis disesuaikan dengan agama masing-masing siswa.
+                </div>
+              ) : isParallelMajorSession ? (
+                <div className="text-amber-300 font-medium text-xs">
+                  🏢 1 Token berlaku serentak untuk seluruh siswa di ruangan ini ({parallelExams!.length + 1} Paket Soal). Sistem otomatis memecah lembar soal sesuai jurusan masing-masing siswa.
                 </div>
               ) : (
                 <div>Siswa wajib menjaga ketertiban, tidak berpindah jendela layar atau tab browser selama ujian berlangsung.</div>

@@ -79,6 +79,7 @@ export interface UnifiedExamCardItem {
   primaryExam: AssignedExamItem & { scheduleState: any };
   partnerExams: (AssignedExamItem & { scheduleState: any })[];
   isUnifiedReligion: boolean;
+  isUnifiedRoom?: boolean;
   unifiedTitle: string;
   unifiedSubject: string;
   religionBadges: ReligionOption[];
@@ -133,8 +134,8 @@ export default function ProctorScheduleClient({
     });
   }, [examItemsWithState, searchQuery, filterTab]);
 
-  // 🕌 Grouping Cerdas KHUSUS Sesi Paralel Agama di Ruangan, Kelas & Jam yang Sama
-  // Mapel non-agama (Matematika, Kejuruan, dll) 100% TIDAK DIGABUNG dan tetap berdiri mandiri
+    // 🏢 SINKRONISASI LEVEL 3: Grouping Sesi Terpadu Ruangan (Multi-Jurusan / Multi-Agama / Multi-Paket)
+  // Menyatukan seluruh ujian yang berada di Ruangan & Jam yang sama ke dalam 1 Konsol Pengawas Terpadu
   const groupedExamCards = useMemo<UnifiedExamCardItem[]>(() => {
     const processedIds = new Set<string>();
     const cards: UnifiedExamCardItem[] = [];
@@ -145,26 +146,24 @@ export default function ProctorScheduleClient({
 
       const currentRel = getExamEffectiveReligion(current);
 
-      // 🛡️ SYARAT MUTLAK: Hanya berlaku jika target agama BUKAN mapel umum ('ALL')
-      if (currentRel !== 'ALL' && current.startTime && current.endTime) {
+      // Cari rekan ujian yang dijadwalkan di ruangan & jadwal waktu yang sama
+      if (current.startTime && current.endTime && current.roomName && current.roomName.trim() !== '') {
         const partners = filteredExams.filter((other) => {
           if (other.id === current.id || processedIds.has(other.id)) return false;
-          const otherRel = getExamEffectiveReligion(other);
-          // Wajib varian agama lain yang berbeda (bukan mapel umum ALL dan bukan agama yang sama)
-          if (otherRel === 'ALL' || otherRel === currentRel) return false;
 
-          // Cek kesamaan kelas rombel
-          const sameClass = isClassOverlap(current.classTarget, other.classTarget);
           // Cek kesamaan ruangan fisik
           const sameRoom = (current.roomName || '').trim().toLowerCase() === (other.roomName || '').trim().toLowerCase();
           // Cek kesamaan waktu (tanggal, start, end)
           const sameTime =
             new Date(current.startTime!).getTime() === new Date(other.startTime!).getTime() &&
             new Date(current.endTime!).getTime() === new Date(other.endTime!).getTime();
-          // Cek kesamaan pengawas
-          const sameProctor = (current.proctorName || '').trim().toLowerCase() === (other.proctorName || '').trim().toLowerCase();
+          // Cek kesamaan pengawas (atau Super Admin yang mengawasi seluruh ruangan)
+          const sameProctor = isSuperAdmin || (
+            (current.proctorName || '').trim().toLowerCase() === (other.proctorName || '').trim().toLowerCase() ||
+            !current.proctorName || !other.proctorName
+          );
 
-          return sameClass && sameRoom && sameTime && sameProctor;
+          return sameRoom && sameTime && sameProctor;
         });
 
         if (partners.length > 0) {
@@ -172,39 +171,61 @@ export default function ProctorScheduleClient({
           partners.forEach((p) => processedIds.add(p.id));
 
           const allGroup = [current, ...partners];
+          const hasReligionVariants = allGroup.some((e) => getExamEffectiveReligion(e) !== 'ALL');
           const badges = allGroup.map((e) => getReligionConfig(getExamEffectiveReligion(e)));
           const combinedAttempts = allGroup.reduce((sum, e) => sum + (e._count?.attempts || 0), 0);
           const allIds = allGroup.map((e) => e.id);
 
-          const religionLabels = badges.map((b) => b.shortLabel).join(' & ');
-          const cleanSubject = current.subject
-            .replace(/KRISTEN|ISLAM|KATOLIK|HINDU|BUDDHA|KHONGHUCU/gi, '')
-            .trim()
-            .replace(/[\/\-\s]+$/, '') || 'Pendidikan Agama';
+          if (hasReligionVariants) {
+            // Skenario A: Varian Agama Terpadu (PAI + PAK, dll)
+            const religionLabels = badges.map((b) => b.shortLabel).join(' & ');
+            const cleanSubject = current.subject
+              .replace(/KRISTEN|ISLAM|KATOLIK|HINDU|BUDDHA|KHONGHUCU/gi, '')
+              .trim()
+              .replace(/[\/\-\s]+$/, '') || 'Pendidikan Agama';
 
-          cards.push({
-            id: current.id,
-            primaryExam: current,
-            partnerExams: partners,
-            isUnifiedReligion: true,
-            unifiedTitle: `${current.title.replace(/KRISTEN|ISLAM|KATOLIK|HINDU|BUDDHA|KHONGHUCU/gi, '').trim()} (${religionLabels})`,
-            unifiedSubject: `${cleanSubject} (${religionLabels}) • ${current.duration} Menit Pengerjaan`,
-            religionBadges: badges,
-            combinedAttempts,
-            allExamIds: allIds,
-          });
+            cards.push({
+              id: current.id,
+              primaryExam: current,
+              partnerExams: partners,
+              isUnifiedReligion: true,
+              isUnifiedRoom: false,
+              unifiedTitle: `${current.title.replace(/KRISTEN|ISLAM|KATOLIK|HINDU|BUDDHA|KHONGHUCU/gi, '').trim()} (${religionLabels})`,
+              unifiedSubject: `${cleanSubject} (${religionLabels}) • ${current.duration} Menit Pengerjaan`,
+              religionBadges: badges,
+              combinedAttempts,
+              allExamIds: allIds,
+            });
+          } else {
+            // Skenario B: Sesi Gabungan Kejuruan / Multi-Prodi (DPK PPLG + DPK TJKT, dll)
+            const packetTitles = allGroup.map((e) => e.title).join(' & ');
+            const targetClasses = allGroup.map((e) => formatClassTargetDisplay(e.classTarget, true)).join(' + ');
+
+            cards.push({
+              id: current.id,
+              primaryExam: current,
+              partnerExams: partners,
+              isUnifiedReligion: false,
+              isUnifiedRoom: true,
+              unifiedTitle: `Sesi Terpadu: ${packetTitles}`,
+              unifiedSubject: `Ruang Gabungan (${targetClasses}) • ${current.duration} Menit Pengerjaan`,
+              religionBadges: [],
+              combinedAttempts,
+              allExamIds: allIds,
+            });
+          }
           continue;
         }
       }
 
-      // 📚 MAPEL UMUM NON-AGAMA (Matematika, B. Indo, Kejuruan, dll) atau Ujian Agama Tunggal:
-      // 100% Berdiri Sendiri secara Mandiri tanpa Penggabungan
+      // Skenario C: Ujian Mandiri / Non-Gabungan
       processedIds.add(current.id);
       cards.push({
         id: current.id,
         primaryExam: current,
         partnerExams: [],
         isUnifiedReligion: false,
+        isUnifiedRoom: false,
         unifiedTitle: current.title,
         unifiedSubject: `${current.subject} • ${current.duration} Menit Pengerjaan`,
         religionBadges: currentRel !== 'ALL' ? [getReligionConfig(currentRel)] : [],
@@ -379,7 +400,9 @@ export default function ProctorScheduleClient({
                         ? 'border-slate-200 dark:border-slate-800 opacity-75'
                         : card.isUnifiedReligion
                           ? 'border-emerald-300 dark:border-emerald-800/80 shadow-emerald-500/5'
-                          : 'border-slate-200 dark:border-slate-800'
+                          : card.isUnifiedRoom
+                            ? 'border-indigo-300 dark:border-indigo-800/80 shadow-indigo-500/5'
+                            : 'border-slate-200 dark:border-slate-800'
                     }`}
                 >
                   <div className="space-y-3">
@@ -387,7 +410,9 @@ export default function ProctorScheduleClient({
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300">
-                          {formatClassTargetDisplay(exam.classTarget)}
+                          {card.isUnifiedRoom
+                            ? [exam, ...card.partnerExams].map((e) => formatClassTargetDisplay(e.classTarget, true)).join(' + ')
+                            : formatClassTargetDisplay(exam.classTarget)}
                         </span>
                         <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center gap-1">
                           <MapPin size={12} className="text-blue-500" />
@@ -417,11 +442,15 @@ export default function ProctorScheduleClient({
                         <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/80">
                           Plotting Resmi Admin
                         </span>
-                        {card.isUnifiedReligion && (
+                        {card.isUnifiedReligion ? (
                           <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-gradient-to-r from-emerald-600 via-teal-600 to-sky-600 text-white shadow-xs flex items-center gap-1">
                             <span>🕌 Sesi Paralel Agama Terpadu</span>
                           </span>
-                        )}
+                        ) : card.isUnifiedRoom ? (
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white shadow-xs flex items-center gap-1">
+                            <span>🏢 Sesi Terpadu Ruangan ({card.partnerExams.length + 1} Paket)</span>
+                          </span>
+                        ) : null}
                       </div>
                       <h3 className="text-base font-black text-slate-900 dark:text-white line-clamp-1">
                         {card.unifiedTitle}
@@ -429,6 +458,24 @@ export default function ProctorScheduleClient({
                       <p className="text-xs font-bold text-purple-600 dark:text-purple-400 mt-0.5">
                         {card.unifiedSubject}
                       </p>
+
+                      {/* Badges Multi-Paket Ruangan */}
+                      {card.isUnifiedRoom && (
+                        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                          {[exam, ...card.partnerExams].map((ex) => (
+                            <span
+                              key={ex.id}
+                              className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/80 flex items-center gap-1"
+                            >
+                              <span>📋</span>
+                              <span>{formatClassTargetDisplay(ex.classTarget, true)}: {ex.subject}</span>
+                            </span>
+                          ))}
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            (1 Token Bersama)
+                          </span>
+                        </div>
+                      )}
 
                       {/* Badges Agama Terpadu */}
                       {card.isUnifiedReligion && (
