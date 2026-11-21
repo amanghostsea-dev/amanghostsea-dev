@@ -285,38 +285,41 @@ export default function CbtProctorPlottingView({
   }
 
   return (
-    <div className="space-y-6 animate-fade-in font-sans">
-      {/* 🚀 HEADER BANNER */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 p-6 sm:p-8 text-white shadow-xl">
-        <div className="absolute right-0 top-0 -mt-10 -mr-10 h-72 w-72 rounded-full bg-blue-500/10 blur-3xl pointer-events-none"></div>
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-blue-200 text-xs font-semibold">
-              <ShieldCheck size={14} className="text-blue-300" />
-              Kontrol Pengawasan CBT • Otoritas Penuh Admin Utama
+    <div className="space-y-3.5 animate-fade-in font-sans">
+      {/* 🚀 HEADER BANNER (Ringkas & Elegan Selaras dengan Laporan) */}
+      <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-blue-950 via-indigo-950 to-slate-900 text-white shadow-md border border-blue-500/20 relative overflow-hidden">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          {/* Sisi Kiri: Judul & Konteks Role */}
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-blue-200 text-[10px] sm:text-[11px] font-semibold">
+              <ShieldCheck size={13} className="text-blue-300" />
+              <span>Kontrol Pengawasan CBT • Otoritas Penuh Admin Utama</span>
             </div>
-            <h2 className="text-2xl md:text-3xl font-black tracking-tight">
-              Plotting & Penugasan Pengawas Ruangan
+            <h2 className="text-lg sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+              Plotting &amp; Penugasan Pengawas Ruangan
             </h2>
-            <p className="text-xs md:text-sm text-blue-200 max-w-2xl leading-relaxed">
-              Atur dan kunci guru pengawas resmi untuk setiap paket ujian dan ruangan. Pengawas tidak dapat memilih jadwal sesukanya agar pelaksanaan ujian di seluruh ruang kelas tetap tertib, disiplin, dan terpantau.
+            <p className="text-[11px] sm:text-xs text-blue-200/90 hidden sm:block">
+              Atur dan kunci guru pengawas resmi untuk setiap paket ujian dan ruangan agar pelaksanaan ujian tertib, disiplin, dan terpantau.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          {/* Sisi Kanan: Tombol Aksi */}
+          <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
             <button
               onClick={() => setIsPrintModalOpen(true)}
-              className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer backdrop-blur-md shadow-sm"
+              className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+              title="Cetak Surat Keputusan &amp; Jadwal Resmi Pengawas Ruangan"
             >
-              <Printer size={16} /> Cetak SK & Jadwal Resmi
+              <Printer size={13} /> Cetak SK &amp; Jadwal
             </button>
             <a
               href="/portal/pengawas/cbt"
               target="_blank"
               rel="noreferrer"
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-bold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-md shadow-blue-500/30 cursor-pointer"
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-blue-600/25 cursor-pointer"
+              title="Masuk ke portal Ruang Pengawas Ujian"
             >
-              <ExternalLink size={16} /> Buka Ruang Pengawas
+              <ExternalLink size={13} /> Buka Ruang Pengawas
             </a>
           </div>
         </div>
@@ -324,70 +327,94 @@ export default function CbtProctorPlottingView({
 
       {/* 🔔 SUCCESS TOAST */}
       {successToast && (
-        <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 text-xs font-bold flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
-          <CheckCircle2 size={18} className="text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+        <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 text-xs font-bold flex items-center gap-2.5 animate-in fade-in slide-in-from-top-1">
+          <CheckCircle2 size={16} className="text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
           <span>{successToast}</span>
         </div>
       )}
 
-      {/* 📊 SUMMARY METRIC CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-1">
-          <div className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5">
-            <BookOpen size={14} className="text-blue-500" /> Total Paket Sesi Ujian
+      {/* 📊 SUMMARY METRICS STRIP (Sama dengan Laporan: Ringkas & Elegan) */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+        {/* Metric 1: Total Sesi */}
+        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+            <BookOpen size={18} />
           </div>
-          <div className="text-2xl font-black text-slate-900 dark:text-white">
-            {totalExams} <span className="text-xs font-normal text-slate-400">Sesi</span>
-          </div>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-1">
-          <div className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5">
-            <UserCheck size={14} className="text-emerald-500" /> Sudah Memiliki Pengawas
-          </div>
-          <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-            {assignedCount} <span className="text-xs font-normal text-slate-400">Ruangan</span>
+          <div className="min-w-0">
+            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">Total Sesi Ujian</div>
+            <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-tight">
+              {totalExams} <span className="text-[10px] font-semibold text-slate-400">Sesi</span>
+            </div>
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-1">
-          <div className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5">
-            <AlertCircle size={14} className="text-amber-500" /> Belum Di-plotting
+        {/* Metric 2: Sudah Ada Pengawas */}
+        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+            <UserCheck size={18} />
           </div>
-          <div className="text-2xl font-black text-amber-600 dark:text-amber-400">
-            {unassignedCount} <span className="text-xs font-normal text-slate-400">Ruangan</span>
+          <div className="min-w-0">
+            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">Sudah Ada Pengawas</div>
+            <div className="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400 leading-tight">
+              {assignedCount} <span className="text-[10px] font-semibold text-emerald-600/80">Ruangan</span>
+            </div>
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-1">
-          <div className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5">
-            <Users size={14} className="text-purple-500" /> Guru Siap Bertugas
+        {/* Metric 3: Belum Di-plotting */}
+        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+            <AlertCircle size={18} />
           </div>
-          <div className="text-2xl font-black text-purple-600 dark:text-purple-400">
-            {teachers.length} <span className="text-xs font-normal text-slate-400">Personel Guru</span>
+          <div className="min-w-0">
+            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">Belum Di-plotting</div>
+            <div className="text-base sm:text-lg font-black text-amber-600 dark:text-amber-400 leading-tight">
+              {unassignedCount} <span className="text-[10px] font-semibold text-slate-400">Ruangan</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Metric 4: Personel Guru */}
+        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+            <Users size={18} />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">Guru Siap Bertugas</div>
+            <div className="text-base sm:text-lg font-black text-purple-600 dark:text-purple-400 leading-tight">
+              {teachers.length} <span className="text-[10px] font-semibold text-slate-400">Personel</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* 🔍 FILTER & SEARCH BAR */}
-      <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between">
-        <div className="relative w-full md:w-80">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+      {/* 🔍 FILTER & SEARCH BAR (Kompak & Rapi) */}
+      <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between">
+        <div className="relative flex-1">
+          <Search size={14} className="absolute left-3 top-2 text-slate-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Cari ujian, pengawas, atau ruang..."
-            className="w-full pl-9 pr-4 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Cari paket ujian, mapel, ruang, atau nama guru pengawas..."
+            className="w-full pl-9 pr-8 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
           />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold"
+            >
+              ✕
+            </button>
+          )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Status Plotting Filter */}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-2.5 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 font-semibold focus:outline-none cursor-pointer"
           >
             <option value="ALL">Semua Status Plotting</option>
             <option value="ASSIGNED">✅ Sudah Ada Pengawas ({assignedCount})</option>
@@ -398,7 +425,7 @@ export default function CbtProctorPlottingView({
           <select
             value={classFilter}
             onChange={(e) => setClassFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-2.5 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 font-semibold focus:outline-none cursor-pointer"
           >
             <option value="ALL">Semua Rombel Kelas</option>
             {availableClasses.map(cls => (
@@ -409,7 +436,7 @@ export default function CbtProctorPlottingView({
       </div>
 
       {/* 📋 TABLE OF PLOTTING ASSIGNMENTS */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
