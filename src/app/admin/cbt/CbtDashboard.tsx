@@ -376,6 +376,7 @@ export default function CbtDashboard({
     }
     if (typeof window !== 'undefined') {
       window.history.replaceState(null, '', targetUrl);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 

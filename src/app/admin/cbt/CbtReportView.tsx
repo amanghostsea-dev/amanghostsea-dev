@@ -475,163 +475,171 @@ export default function CbtReportView({
   };
 
   return (
-    <div className="space-y-6">
-      {/* 🌟 ROLE-BASED CONTEXT BANNER */}
-      <div className="p-6 rounded-3xl bg-gradient-to-r from-purple-900/90 via-indigo-900/90 to-slate-900 text-white shadow-xl border border-purple-500/20 relative overflow-hidden">
-        <div className="absolute right-0 top-0 bottom-0 opacity-10 pointer-events-none flex items-center pr-10">
-          <Award size={220} />
-        </div>
-
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-purple-200 text-xs font-semibold">
-              <FileCheck2 size={14} className="text-purple-300" />
-              Laporan Hasil & Rekapitulasi CBT • {isSuperAdmin ? 'Tingkat Sekolah (SuperAdmin)' : isGuru ? `Mode Guru: ${currentUserName}` : 'Semua Pengguna'}
+    <div className="space-y-3.5 font-sans">
+      {/* 🌟 1. COMPACT TOP HEADER BAR (Ringkas, Elegan & Lengkap) */}
+      <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-white shadow-md border border-purple-500/20 relative overflow-hidden">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          {/* Sisi Kiri: Judul & Konteks Role */}
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-purple-200 text-[10px] sm:text-[11px] font-semibold">
+              <FileCheck2 size={13} className="text-purple-300" />
+              <span>
+                Laporan &amp; Rekapitulasi CBT • {isSuperAdmin ? 'Tingkat Sekolah (SuperAdmin)' : isGuru ? `Mode Guru: ${currentUserName}` : 'Semua Data'}
+              </span>
             </div>
-            <h2 className="text-2xl md:text-3xl font-black tracking-tight">
-              Laporan Evaluasi & Buku Nilai CBT
+            <h2 className="text-lg sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+              Laporan Evaluasi &amp; Buku Nilai CBT
             </h2>
-            <p className="text-xs md:text-sm text-purple-200 max-w-2xl leading-relaxed">
+            <p className="text-[11px] sm:text-xs text-purple-200/90 hidden sm:block">
               {isSuperAdmin
-                ? 'Pantau perolehan nilai seluruh siswa antar-jurusan dan rombel kelas, analisis ketuntasan KKM sekolah, kelola pelanggaran integritas, dan ekspor data resmi.'
-                : 'Kelola nilai siswa untuk mata pelajaran yang Anda ampu, lakukan sinkronisasi otomatis langsung ke Buku Nilai Raport, serta berikan dispensasi ujian ulang.'}
+                ? 'Pantau sebaran nilai siswa, analisis ketuntasan KKM, kelola integritas, dan sinkronisasi ke buku nilai raport.'
+                : 'Pantau nilai siswa kelas yang Anda ampu, sinkronisasi otomatis ke raport, dan cetak lembar evaluasi resmi.'}
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          {/* Sisi Kanan: Pengalih Mode Tampilan & Tombol Aksi */}
+          <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+            {/* 🧭 Pengalih Mode Tampilan (Langsung di Header agar mudah diakses) */}
+            <div className="inline-flex items-center p-1 bg-white/10 rounded-xl border border-white/15 backdrop-blur-md">
+              <button
+                type="button"
+                onClick={() => setViewLayout('BOTH')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  viewLayout === 'BOTH'
+                    ? 'bg-white text-purple-950 shadow-xs'
+                    : 'text-purple-200 hover:text-white'
+                }`}
+                title="Tampilkan grafik visual dan tabel nilai bersamaan"
+              >
+                <Layers size={13} />
+                <span>Grafik &amp; Tabel</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewLayout('CHARTS')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  viewLayout === 'CHARTS'
+                    ? 'bg-white text-purple-950 shadow-xs'
+                    : 'text-purple-200 hover:text-white'
+                }`}
+                title="Fokus tampilkan grafik analitik saja"
+              >
+                <PieChart size={13} />
+                <span>Hanya Grafik</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewLayout('TABLE')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  viewLayout === 'TABLE'
+                    ? 'bg-white text-purple-950 shadow-xs'
+                    : 'text-purple-200 hover:text-white'
+                }`}
+                title="Tampilkan tabel daftar nilai saja"
+              >
+                <FileText size={13} />
+                <span>Hanya Tabel</span>
+              </button>
+            </div>
+
+            {/* Tombol Aksi Dokumen */}
             {isSuperAdmin && (
               <a
                 href="/admin/settings#kop-surat"
-                className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer backdrop-blur-md shadow-sm"
+                className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                title="Atur Kop Surat &amp; Tanda Tangan Resmi"
               >
-                <Settings2 size={16} /> Atur Kop Surat
+                <Settings2 size={13} /> Atur Kop
               </a>
             )}
             <button
               onClick={handleExportCsv}
-              className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer backdrop-blur-md shadow-sm"
+              className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+              title="Unduh format spreadsheet CSV"
             >
-              <Download size={16} /> Ekspor Excel (CSV)
+              <Download size={13} /> Ekspor Excel
             </button>
             <button
               onClick={handlePrintReport}
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-bold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-md shadow-purple-500/30 cursor-pointer"
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-purple-500/25 cursor-pointer"
+              title="Cetak lembar rekapitulasi nilai resmi sekolah"
             >
-              <Printer size={16} /> Cetak Rekap Resmi
+              <Printer size={13} /> Cetak Rekap
             </button>
           </div>
         </div>
       </div>
 
-      {/* 📊 ANALYTICS SUMMARY CARDS */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-1">
-          <div className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5">
-            <Users size={14} className="text-purple-500" /> Total Peserta Ujian
-          </div>
-          <div className="text-2xl font-black text-slate-900 dark:text-white">
-            {totalAttempts} <span className="text-xs font-normal text-slate-400">Siswa</span>
-          </div>
-          <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
-            {submittedCount} Selesai Submit
-          </div>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-1">
-          <div className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5">
-            <Award size={14} className="text-indigo-500" /> Rata-Rata Nilai
-          </div>
-          <div className="text-2xl font-black text-indigo-600 dark:text-indigo-400">
-            {avgScore} <span className="text-xs font-normal text-slate-400">/ 100</span>
-          </div>
-          <div className="text-[11px] text-slate-400 font-medium">
-            Standar KKM: {kkmScore}
-          </div>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-1">
-          <div className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5">
-            <CheckCircle2 size={14} className="text-emerald-500" /> Ketuntasan Belajar
-          </div>
-          <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-            {passRate}%
-          </div>
-          <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
-            {passedCount} Siswa Tuntas
-          </div>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-1">
-          <div className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5">
-            <AlertCircle size={14} className="text-amber-500" /> Perlu Remedial
-          </div>
-          <div className="text-2xl font-black text-amber-600 dark:text-amber-400">
-            {remedialCount} <span className="text-xs font-normal text-slate-400">Siswa</span>
-          </div>
-          <div className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
-            Nilai di bawah {kkmScore}
-          </div>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-1">
-          <div className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5">
-            <ShieldAlert size={14} className="text-rose-500" /> Pelanggaran Integritas
-          </div>
-          <div className="text-2xl font-black text-rose-600 dark:text-rose-400">
-            {totalCheatingWarnings} <span className="text-xs font-normal text-slate-400">Tab Switch</span>
-          </div>
-          <div className="text-[11px] text-slate-400 font-medium">
-            Anti-curang detektor
-          </div>
-        </div>
-      </div>
-
-      {/* 🔍 FILTER TOOLBAR */}
-      <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-        <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
-          <div className="relative w-full lg:w-96">
+      {/* 🔍 2. COMPACT FILTER TOOLBAR (Toolbar 1-2 Baris Sangat Rapi & Hemat Ruang) */}
+      <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-2.5">
+        {/* Baris 1: Pencarian Cepat + Toggle Guru + Tombol Sinkronisasi Raport */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+          <div className="relative flex-1">
             <input
               type="text"
-              placeholder="Cari siswa, NISN, kelas, atau nama ujian..."
+              placeholder="Cari nama siswa, NISN, rombel kelas, atau nama ujian..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-none transition-all"
+              className="w-full pl-9 pr-8 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-none transition-all"
             />
-            <Search className="absolute left-3.5 top-3 text-slate-400" size={16} />
+            <Search className="absolute left-3 top-2 text-slate-400" size={14} />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold"
+              >
+                ✕
+              </button>
+            )}
           </div>
 
-          {/* Quick Guru Toggle */}
-          {isGuru && (
-            <div className="flex items-center gap-2 self-start lg:self-auto">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                Fokus Ujian Saya:
-              </label>
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Quick Guru Toggle */}
+            {isGuru && (
               <button
                 type="button"
                 onClick={() => setOnlyMyExams(!onlyMyExams)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                   onlyMyExams
-                    ? 'bg-purple-600 text-white shadow-sm'
+                    ? 'bg-purple-600 text-white shadow-xs'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                 }`}
               >
-                {onlyMyExams ? '✓ Ujian Saya Saja' : 'Semua Ujian Sekolah'}
+                <Sparkles size={12} />
+                {onlyMyExams ? 'Ujian Saya' : 'Semua Ujian'}
               </button>
-            </div>
-          )}
+            )}
+
+            {/* Quick Sync to Raport Button */}
+            {examFilter !== 'ALL' && (
+              <button
+                onClick={() => handleSyncToGrades(examFilter)}
+                disabled={syncingExamId === examFilter}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
+                title="Sinkronkan nilai paket ujian ini ke Buku Nilai Raport Guru"
+              >
+                {syncingExamId === examFilter ? (
+                  <>
+                    <RefreshCw size={13} className="animate-spin" /> Menyinkronkan...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={13} /> Sinkronkan ke Raport
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Detailed Dropdown Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+        {/* Baris 2: 5 Filter Dropdown Responsif */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 pt-1 border-t border-slate-100 dark:border-slate-800/80">
           {/* Filter Paket Ujian */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">
-              Pilih Paket Ujian:
-            </label>
             <select
               value={examFilter}
               onChange={(e) => setExamFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none cursor-pointer"
+              className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none cursor-pointer truncate"
             >
               <option value="ALL">Semua Paket Ujian ({exams.length})</option>
               {exams.map((ex) => (
@@ -644,32 +652,26 @@ export default function CbtReportView({
 
           {/* Filter Jurusan Keahlian */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">
-              Program / Jurusan:
-            </label>
             <select
               value={jurusanFilter}
               onChange={(e) => setJurusanFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none cursor-pointer"
+              className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none cursor-pointer truncate"
             >
               <option value="ALL">Semua Jurusan ({availableJurusans.length})</option>
               {availableJurusans.map((jur) => (
                 <option key={jur.code} value={jur.code}>
-                  {jur.code} - {jur.name} ({jur.count} Siswa)
+                  {jur.code} - {jur.name}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Filter Kelas & Rombel (Synced with Academic Classes) */}
+          {/* Filter Target Rombel Kelas */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">
-              Target Kelas & Rombel:
-            </label>
             <select
               value={classFilter}
               onChange={(e) => setClassFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none cursor-pointer"
+              className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none cursor-pointer truncate"
             >
               <option value="ALL">Semua Rombel Kelas</option>
               {groupedClasses.x.length > 0 && (
@@ -705,20 +707,17 @@ export default function CbtReportView({
 
           {/* Filter Mata Pelajaran */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">
-              Mata Pelajaran:
-            </label>
             <select
               value={subjectFilter}
               onChange={(e) => setSubjectFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none cursor-pointer"
+              className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none cursor-pointer truncate"
             >
               <option value="ALL">
-                Semua Mata Pelajaran {availableSubjects.length > 0 ? `(${availableSubjects.length} Mapel Terdata)` : ''}
+                Semua Mata Pelajaran ({availableSubjects.length})
               </option>
               {availableSubjects.map((sub) => (
                 <option key={sub.name} value={sub.name}>
-                  {sub.name} {sub.studentCount > 0 ? `(${sub.studentCount} Siswa)` : sub.examCount > 0 ? `(${sub.examCount} Ujian)` : ''}
+                  {sub.name}
                 </option>
               ))}
             </select>
@@ -726,15 +725,12 @@ export default function CbtReportView({
 
           {/* Filter Status Ketuntasan */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">
-              Status Ketuntasan:
-            </label>
             <select
               value={passingFilter}
               onChange={(e) => setPassingFilter(e.target.value as any)}
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none cursor-pointer"
+              className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none cursor-pointer truncate col-span-2 sm:col-span-1"
             >
-              <option value="ALL">Semua Status Hasil</option>
+              <option value="ALL">Semua Status Ketuntasan</option>
               <option value="PASSED">✅ Tuntas (Skor ≥ {kkmScore})</option>
               <option value="REMEDIAL">⚠️ Remedial (Skor &lt; {kkmScore})</option>
               <option value="IN_PROGRESS">⏳ Sedang Mengerjakan</option>
@@ -743,116 +739,84 @@ export default function CbtReportView({
         </div>
       </div>
 
-      {/* 🚀 QUICK SYNC TO RAPORT BANNER */}
-      {examFilter !== 'ALL' ? (
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 border border-blue-200 dark:border-blue-900/60 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in">
-          <div className="flex items-center gap-3">
-            <span className="p-2.5 rounded-xl bg-blue-600 text-white">
-              <Sparkles size={20} />
-            </span>
-            <div>
-              <span className="text-xs font-black text-blue-950 dark:text-blue-100 block">
-                Sinkronisasi Nilai Otomatis ke Buku Nilai Siswa (Raport)
-              </span>
-              <p className="text-[11px] text-blue-700 dark:text-blue-300">
-                Pindahkan nilai ujian paket ini langsung ke tabel Buku Nilai Raport Guru dengan 1 kali klik.
-              </p>
+      {/* 📊 3. COMPACT 5 KPI METRICS STRIP (Hemat Ruang & Sangat Jelas) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
+        {/* Metric 1: Total Siswa */}
+        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+            <Users size={18} />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">Total Peserta</div>
+            <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-tight">
+              {totalAttempts} <span className="text-[10px] font-semibold text-slate-400">({submittedCount} submit)</span>
             </div>
           </div>
-
-          <button
-            onClick={() => handleSyncToGrades(examFilter)}
-            disabled={syncingExamId === examFilter}
-            className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/25 flex items-center justify-center gap-2 cursor-pointer"
-          >
-            {syncingExamId === examFilter ? (
-              <>
-                <RefreshCw size={14} className="animate-spin" /> Menyinkronkan...
-              </>
-            ) : (
-              <>
-                <CheckCircle2 size={14} /> Sinkronkan ke Raport
-              </>
-            )}
-          </button>
         </div>
-      ) : (
-        <div className="px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-400">
-          <div className="flex items-center gap-2">
-            <Sparkles size={16} className="text-blue-600 dark:text-blue-400 shrink-0" />
-            <span>
-              <strong>Integrasi Buku Nilai Raport:</strong> Pilih salah satu <em>Paket Ujian</em> pada filter di atas untuk mengaktifkan tombol <strong>Sinkronisasi Otomatis</strong> nilai siswa ke tabel Buku Nilai Raport Guru.
-            </span>
-          </div>
-        </div>
-      )}
 
-      {/* 🧭 TAMPILAN MODE: GRAFIK & TABEL */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-sm">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400">
-            <BarChart3 size={18} />
+        {/* Metric 2: Rata-Rata Nilai */}
+        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+            <Award size={18} />
           </div>
-          <div>
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
-              Format Tampilan Laporan
-            </span>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400">
-              Pilih mode visualisasi grafik analitik, tabel rekapitulasi, atau keduanya
-            </span>
+          <div className="min-w-0">
+            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">Rata-Rata Nilai</div>
+            <div className="text-base sm:text-lg font-black text-indigo-600 dark:text-indigo-400 leading-tight">
+              {avgScore} <span className="text-[10px] font-semibold text-slate-400">/ 100</span>
+            </div>
           </div>
         </div>
 
-        <div className="inline-flex items-center p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-slate-200/60 dark:border-slate-700/60 self-start sm:self-auto">
-          <button
-            type="button"
-            onClick={() => setViewLayout('BOTH')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-              viewLayout === 'BOTH'
-                ? 'bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <Layers size={13} />
-            <span>Grafik & Tabel</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewLayout('CHARTS')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-              viewLayout === 'CHARTS'
-                ? 'bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <PieChart size={13} />
-            <span>Hanya Grafik</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewLayout('TABLE')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-              viewLayout === 'TABLE'
-                ? 'bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <FileText size={13} />
-            <span>Hanya Tabel</span>
-          </button>
+        {/* Metric 3: Ketuntasan Belajar */}
+        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+            <CheckCircle2 size={18} />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">Ketuntasan KKM</div>
+            <div className="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400 leading-tight">
+              {passRate}% <span className="text-[10px] font-semibold text-emerald-600/80">({passedCount} tuntas)</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Metric 4: Remedial */}
+        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+            <AlertCircle size={18} />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">Perlu Remedial</div>
+            <div className="text-base sm:text-lg font-black text-amber-600 dark:text-amber-400 leading-tight">
+              {remedialCount} <span className="text-[10px] font-semibold text-slate-400">Siswa (&lt; {kkmScore})</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Metric 5: Integritas Anti-Curang */}
+        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3 col-span-2 sm:col-span-1">
+          <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+            <ShieldAlert size={18} />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">Pelanggaran Tab</div>
+            <div className="text-base sm:text-lg font-black text-rose-600 dark:text-rose-400 leading-tight">
+              {totalCheatingWarnings} <span className="text-[10px] font-semibold text-slate-400">Peringatan</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* 📊 GRAFIK & VISUALISASI ANALISIS CBT BERANIMASI */}
+      {/* 📊 4. GRAFIK & ANALITIK CBT (MUNCUL LANGSUNG DI ATAS TANPA SCROLL!) */}
       {(viewLayout === 'BOTH' || viewLayout === 'CHARTS') && (
         <div className="animate-in fade-in duration-300">
           <CbtAnalyticsCharts rows={filteredRows} kkmScore={kkmScore} />
         </div>
       )}
 
-      {/* 📋 MAIN RESULTS TABLE */}
+      {/* 📋 5. MAIN RESULTS TABLE */}
       {(viewLayout === 'BOTH' || viewLayout === 'TABLE') && (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden animate-in fade-in duration-300">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden animate-in fade-in duration-300">
         <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FileText size={18} className="text-purple-600" />
