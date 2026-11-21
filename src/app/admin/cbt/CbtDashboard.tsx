@@ -425,8 +425,15 @@ export default function CbtDashboard({
       color: #0f172a;
       -webkit-font-smoothing: antialiased;
     }
+    .cbt-scroll-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 24px;
+    }
     .cbt-container {
       max-width: 920px;
+      min-width: 780px;
       margin: 0 auto;
       background: #ffffff;
       padding: 32px 36px;
@@ -479,6 +486,46 @@ export default function CbtDashboard({
     .cbt-action-bar button:hover {
       background: #1d4ed8;
       transform: translateY(-1px);
+    }
+
+    .cbt-mobile-tip {
+      display: none;
+      width: 100%;
+      background: rgba(59, 130, 246, 0.18);
+      border: 1px solid rgba(59, 130, 246, 0.38);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 11px;
+      color: #bfdbfe;
+      margin-top: 6px;
+      line-height: 1.4;
+    }
+
+    @media screen and (max-width: 768px) {
+      body {
+        padding: 8px 4px !important;
+      }
+      .cbt-action-bar {
+        padding: 12px 14px !important;
+        border-radius: 12px !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+      }
+      .cbt-action-bar button {
+        width: 100% !important;
+        justify-content: center !important;
+        padding: 12px 16px !important;
+      }
+      .cbt-mobile-tip {
+        display: flex !important;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      .cbt-container {
+        padding: 20px 16px !important;
+        border-radius: 12px !important;
+      }
     }
 
     /* 🛡️ ATURAN CSS STANDAR BEBAS ERROR LINTER */
@@ -587,6 +634,7 @@ export default function CbtDashboard({
     /* Table & Print Styling */
     table {
       width: 100% !important;
+      min-width: 740px !important;
       border-collapse: collapse !important;
       margin: 8px 0;
     }
@@ -614,16 +662,29 @@ export default function CbtDashboard({
       body {
         background-color: #ffffff !important;
         padding: 0 !important;
+        margin: 0 !important;
       }
-      .cbt-action-bar {
+      .cbt-action-bar, .cbt-mobile-tip {
         display: none !important;
       }
-      .cbt-container {
-        max-width: 100% !important;
+      .cbt-scroll-wrapper {
+        overflow: visible !important;
+        width: 100% !important;
         padding: 0 !important;
+      }
+      .cbt-container {
+        min-width: 100% !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
         box-shadow: none !important;
         border: none !important;
         border-radius: 0 !important;
+      }
+      table {
+        min-width: 100% !important;
+        width: 100% !important;
       }
       .cbt-ignore-pdf, [class*="print:hidden"] {
         display: none !important;
@@ -644,10 +705,16 @@ export default function CbtDashboard({
       <span>🖨️</span>
       <span>Cetak / Simpan ke PDF Sekarang</span>
     </button>
+    <div class="cbt-mobile-tip">
+      <span>📱</span>
+      <span><strong>Mode Layar HP:</strong> Dokumen standar A4 dinas. Geser layar ke samping untuk melihat seluruh 8 kolom tabel, atau sentuh tombol <strong>"Cetak / Simpan ke PDF Sekarang"</strong> di atas.</span>
+    </div>
   </div>
 
-  <div class="cbt-container">
-    ${innerContent}
+  <div class="cbt-scroll-wrapper">
+    <div class="cbt-container">
+      ${innerContent}
+    </div>
   </div>
 </body>
 </html>`;
@@ -5287,7 +5354,7 @@ export default function CbtDashboard({
         </div>
 
         {/* 📄 DOKUMEN CETAK RESMI KEDINASAN (MENGALIR SECARA ALAMI TANPA GAP KOSONG) */}
-        <div id="cbt-printable-official-schedule" className="space-y-4 print:space-y-2.5 bg-white font-serif text-slate-950 cbt-printable-sheet">
+        <div id="cbt-printable-official-schedule" className="space-y-4 print:space-y-2.5 bg-white font-serif text-slate-950 cbt-printable-sheet min-w-[760px] print:min-w-0">
           {/* Kop Surat Resmi */}
           <CbtOfficialKopSurat
             config={kopSuratConfig}
@@ -5332,7 +5399,7 @@ export default function CbtDashboard({
                   </div>
                 </div>
 
-                <table className="w-full text-left text-[11px] print:text-[10px] font-sans border-collapse border border-slate-300">
+                <table className="w-full min-w-[740px] print:min-w-0 text-left text-[11px] print:text-[10px] font-sans border-collapse border border-slate-300">
                   <thead className="bg-slate-100 text-slate-800 font-bold uppercase text-[10px] print:text-[9px]">
                     <tr>
                       <th className="border border-slate-300 py-1.5 px-2 text-center w-7">No</th>
@@ -5394,7 +5461,7 @@ export default function CbtDashboard({
                 <div className="bg-amber-100 border-l-4 border-amber-600 px-3 py-1 print-avoid-break font-sans font-bold text-xs uppercase tracking-wider text-amber-900">
                   ⚠️ PAKET UJIAN BELUM DIBERI JADWAL ({groupedScheduleByDay.unscheduledList.length})
                 </div>
-                <table className="w-full text-left text-[11px] print:text-[10px] font-sans border-collapse border border-slate-300">
+                <table className="w-full min-w-[740px] print:min-w-0 text-left text-[11px] print:text-[10px] font-sans border-collapse border border-slate-300">
                   <thead className="bg-slate-100 text-slate-800 font-bold uppercase text-[10px] print:text-[9px]">
                     <tr>
                       <th className="border border-slate-300 py-1.5 px-2 text-center w-7">No</th>

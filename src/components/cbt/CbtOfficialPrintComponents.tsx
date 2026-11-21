@@ -25,7 +25,7 @@ export function CbtOfficialKopSurat({
   };
 
   return (
-    <div className="w-full text-black font-serif print:font-serif">
+    <div className="w-full min-w-[700px] print:min-w-0 text-black font-serif print:font-serif">
       {/* Kop Surat Header */}
       <div className="flex items-center justify-between gap-4 pb-3">
         {/* Logo Lambang Sekolah Kiri */}
@@ -514,7 +514,12 @@ export function CbtPrintModalWrapper({
         </div>
 
         {/* Scrollable Printable Paper Area (Unconstrained in Print) */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-4 bg-white text-black cbt-print-scroll-area">
+        <div className="flex-1 overflow-y-auto overflow-x-auto p-2 sm:p-8 space-y-4 bg-white text-black cbt-print-scroll-area">
+          {/* Mobile swipe hint banner (hidden on print and on large screens) */}
+          <div className="md:hidden flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 text-xs font-sans print:hidden shrink-0">
+            <span className="text-sm">📱</span>
+            <span><strong>Tampilan HP:</strong> Geser tabel ke samping untuk melihat seluruh 8 kolom jadwal dengan rapi.</span>
+          </div>
           {children}
         </div>
 
