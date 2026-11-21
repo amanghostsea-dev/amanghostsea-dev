@@ -205,7 +205,7 @@ export default function CbtSuspendCenterView({
   }, [students]);
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200 relative">
+    <div className="space-y-3.5 animate-in fade-in duration-200 relative font-sans">
       {/* 🚀 FLOATING CYBER TOAST NOTIFICATION */}
       {toastMessage && (
         <div className="fixed top-6 right-6 z-50 w-full max-w-md px-3 animate-in slide-in-from-top-3 fade-in duration-300">
@@ -264,40 +264,33 @@ export default function CbtSuspendCenterView({
         </div>
       )}
 
-      {/* Header Banner */}
-      <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-rose-950/50 to-slate-900 border border-rose-900/50 text-white shadow-xl relative overflow-hidden">
-        {/* Ambient Glow */}
-        <div className="absolute top-0 right-0 w-80 h-80 bg-rose-600/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-rose-600/20 border border-rose-500/40 flex items-center justify-center shrink-0 shadow-lg shadow-rose-600/20">
-              <ShieldAlert className="text-rose-400 animate-pulse" size={28} />
+      {/* 🚀 HEADER BANNER (Ringkas & Elegan Selaras dengan Laporan) */}
+      <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-rose-950 via-slate-950 to-slate-900 border border-rose-500/20 text-white shadow-md relative overflow-hidden">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          {/* Sisi Kiri: Judul & Konteks Role */}
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-rose-200 text-[10px] sm:text-[11px] font-semibold">
+              <ShieldAlert size={13} className="text-rose-400" />
+              <span>Pusat Pemantauan CBT • Wewenang Khusus Admin Utama</span>
             </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
-                  Pusat Pemantauan &amp; Buka Suspend CBT
-                </h2>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/30 text-rose-300 border border-rose-500/50">
-                  Wewenang Khusus Admin Utama
-                </span>
-              </div>
-              <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl leading-relaxed">
-                Pantau seluruh siswa yang ter-suspend total (Strike 3 / Pindah Tab $\ge$ 3x) dari <strong>seluruh paket ujian</strong> di sekolah. Buka suspend secara instan tanpa perlu masuk ke masing-masing paket ujian.
-              </p>
-            </div>
+            <h2 className="text-lg sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+              Pusat Pemantauan &amp; Buka Suspend CBT
+            </h2>
+            <p className="text-[11px] sm:text-xs text-rose-200/90 hidden sm:block">
+              Pantau seluruh siswa yang ter-suspend total (Strike 3 / Pindah Tab &ge; 3x) dari seluruh paket ujian, dan berikan dispensasi langsung.
+            </p>
           </div>
 
-          <div className="flex items-center gap-2 w-full lg:w-auto shrink-0 flex-wrap sm:flex-nowrap">
+          {/* Sisi Kanan: Tombol Aksi */}
+          <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
             <button
               type="button"
               onClick={() => fetchSuspendedStudents(false)}
               disabled={isLoading}
-              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-white/10 text-white font-bold text-xs transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs disabled:opacity-50"
               title="Segarkan data suspend sekarang"
             >
-              <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
+              <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
               <span>{isLoading ? 'Menyegarkan...' : 'Segarkan Data'}</span>
             </button>
 
@@ -306,38 +299,40 @@ export default function CbtSuspendCenterView({
                 type="button"
                 onClick={() => setIsConfirmAllOpen(true)}
                 disabled={unblockingAll}
-                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-emerald-600/25 cursor-pointer disabled:opacity-50"
+                title="Buka suspend semua siswa sekaligus"
               >
-                <ShieldCheck size={16} />
+                <ShieldCheck size={14} />
                 <span>Buka Suspend Semua ({totalSuspended})</span>
               </button>
             )}
           </div>
         </div>
 
-        <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400">
+        {/* Realtime Status Sub-strip */}
+        <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-[10px] text-slate-400">
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-            <span>Pemantauan Realtime Aktif (Auto-refresh tiap 10 detik)</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+            <span>Pemantauan Realtime Aktif (Sinkronisasi otomatis tiap 10 detik)</span>
           </div>
           <span>Terakhir diperiksa: {lastRefreshedAt.toLocaleTimeString('id-ID')} WIB</span>
         </div>
       </div>
 
-      {/* Quick Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+      {/* 📊 SUMMARY METRICS STRIP (Sama dengan Laporan: Ringkas & Elegan) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
         {/* Card 1: Total Suspend */}
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/50 shadow-xs flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 flex items-center justify-center shrink-0">
-            <ShieldAlert size={22} className="text-rose-600 dark:text-rose-400" />
+        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+            <ShieldAlert size={18} />
           </div>
-          <div>
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Siswa Tersuspend Saat Ini</div>
-            <div className="text-xl sm:text-2xl font-black text-rose-600 dark:text-rose-400 flex items-center gap-2 mt-0.5">
+          <div className="min-w-0">
+            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">Siswa Tersuspend</div>
+            <div className="text-base sm:text-lg font-black text-rose-600 dark:text-rose-400 leading-tight flex items-center gap-2">
               <span>{totalSuspended} Siswa</span>
               {totalSuspended > 0 && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
-                  Perlu Dispensasi
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
+                  Perlu Buka
                 </span>
               )}
             </div>
@@ -345,48 +340,48 @@ export default function CbtSuspendCenterView({
         </div>
 
         {/* Card 2: Paket Ujian Terdampak */}
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-900/50 shadow-xs flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-900 flex items-center justify-center shrink-0">
-            <BookOpen size={22} className="text-amber-600 dark:text-amber-400" />
+        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+            <BookOpen size={18} />
           </div>
-          <div>
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Paket Ujian Terimbas</div>
-            <div className="text-xl sm:text-2xl font-black text-amber-700 dark:text-amber-400 mt-0.5">
-              {distinctExamsCount} Paket Soal
+          <div className="min-w-0">
+            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">Paket Ujian Terimbas</div>
+            <div className="text-base sm:text-lg font-black text-amber-700 dark:text-amber-400 leading-tight">
+              {distinctExamsCount} <span className="text-[10px] font-semibold text-slate-400">Paket Soal</span>
             </div>
           </div>
         </div>
 
         {/* Card 3: Total Pelanggaran Tab */}
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-900/50 shadow-xs flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-900 flex items-center justify-center shrink-0">
-            <AlertTriangle size={22} className="text-purple-600 dark:text-purple-400" />
+        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+            <AlertTriangle size={18} />
           </div>
-          <div>
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Pindah Tab Dicatat</div>
-            <div className="text-xl sm:text-2xl font-black text-purple-700 dark:text-purple-400 mt-0.5">
-              {totalViolationsRecorded}x Pelanggaran
+          <div className="min-w-0">
+            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">Total Pindah Tab</div>
+            <div className="text-base sm:text-lg font-black text-purple-700 dark:text-purple-400 leading-tight">
+              {totalViolationsRecorded}x <span className="text-[10px] font-semibold text-slate-400">Pelanggaran</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
+      {/* 🔍 FILTER & SEARCH BAR (Kompak & Rapi) */}
+      <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
         {/* Search Input */}
-        <div className="relative w-full md:w-96">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+        <div className="relative flex-1">
+          <Search size={14} className="absolute left-3 top-2 text-slate-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Cari nama siswa, NISN, atau judul ujian..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500"
+            className="w-full pl-9 pr-8 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/30 font-medium"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-slate-600 cursor-pointer"
+              className="absolute right-2.5 top-1.5 text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
             >
               ✕
             </button>
@@ -394,40 +389,34 @@ export default function CbtSuspendCenterView({
         </div>
 
         {/* Filters */}
-        <div className="flex items-center gap-2 w-full md:w-auto flex-wrap sm:flex-nowrap">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Class Filter */}
-          <div className="flex items-center gap-1.5 w-full sm:w-auto">
-            <GraduationCap size={15} className="text-slate-400 shrink-0 hidden sm:inline" />
-            <select
-              value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value)}
-              className="w-full sm:w-auto px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/30"
-            >
-              <option value="ALL">Semua Kelas ({classOptions.length})</option>
-              {classOptions.map((cls) => (
-                <option key={cls} value={cls}>
-                  Kelas {cls}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={selectedClass}
+            onChange={(e) => setSelectedClass(e.target.value)}
+            className="px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+          >
+            <option value="ALL">Semua Kelas ({classOptions.length})</option>
+            {classOptions.map((cls) => (
+              <option key={cls} value={cls}>
+                Kelas {cls}
+              </option>
+            ))}
+          </select>
 
           {/* Subject Filter */}
-          <div className="flex items-center gap-1.5 w-full sm:w-auto">
-            <BookOpen size={15} className="text-slate-400 shrink-0 hidden sm:inline" />
-            <select
-              value={selectedSubject}
-              onChange={(e) => setSelectedSubject(e.target.value)}
-              className="w-full sm:w-auto px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/30"
-            >
-              <option value="ALL">Semua Mapel ({subjectOptions.length})</option>
-              {subjectOptions.map((sub) => (
-                <option key={sub} value={sub}>
-                  {sub}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={selectedSubject}
+            onChange={(e) => setSelectedSubject(e.target.value)}
+            className="px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+          >
+            <option value="ALL">Semua Mapel ({subjectOptions.length})</option>
+            {subjectOptions.map((sub) => (
+              <option key={sub} value={sub}>
+                {sub}
+              </option>
+            ))}
+          </select>
 
           {(selectedClass !== 'ALL' || selectedSubject !== 'ALL' || searchQuery) && (
             <button
@@ -436,7 +425,7 @@ export default function CbtSuspendCenterView({
                 setSelectedSubject('ALL');
                 setSearchQuery('');
               }}
-              className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold transition cursor-pointer"
+              className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold transition cursor-pointer"
             >
               Reset
             </button>

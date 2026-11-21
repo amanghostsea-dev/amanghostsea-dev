@@ -295,7 +295,7 @@ export default function CbtStudentLoginMonitorView({
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200 relative">
+    <div className="space-y-3.5 animate-in fade-in duration-200 relative font-sans">
       {/* 🚀 FLOATING CYBER TOAST NOTIFICATION */}
       {toastMessage && (
         <div className="fixed top-6 right-6 z-50 w-full max-w-md px-3 animate-in slide-in-from-top-3 fade-in duration-300">
@@ -356,48 +356,40 @@ export default function CbtStudentLoginMonitorView({
         </div>
       )}
 
-      {/* 🧭 HEADER BANNER CYBER MONITOR */}
-      <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-emerald-950/40 to-slate-900 border border-emerald-900/50 text-white shadow-xl relative overflow-hidden">
-        {/* Ambient Glow */}
-        <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20">
-              <Radio className="text-emerald-400 animate-pulse" size={28} />
+      {/* 🧭 HEADER BANNER CYBER MONITOR (Ringkas & Elegan Selaras dengan Laporan) */}
+      <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900 border border-emerald-500/20 text-white shadow-md relative overflow-hidden">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          {/* Sisi Kiri: Judul & Konteks Role */}
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-emerald-200 text-[10px] sm:text-[11px] font-semibold">
+              <Radio size={13} className="text-emerald-400 animate-pulse" />
+              <span>Live Radar CBT • Realtime Monitoring</span>
             </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
-                  {viewScope === 'ACTIVE_ONLY'
-                    ? 'Live Radar Siswa Ujian CBT'
-                    : viewScope === 'SUBMITTED_TODAY'
-                    ? 'Riwayat Siswa Selesai Ujian'
-                    : 'Semua Aktivitas Sesi CBT'}
-                </h2>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/30 text-emerald-300 border border-emerald-500/50 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                  {viewScope === 'ACTIVE_ONLY' ? 'Realtime Online' : 'Arsip Data'}
-                </span>
-              </div>
-              <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl leading-relaxed">
-                {viewScope === 'ACTIVE_ONLY'
-                  ? 'Memantau aktivitas detik ini dari siswa yang sedang login & mengerjakan soal. Siswa yang logout atau selesai ujian akan otomatis hilang dari radar ini.'
-                  : 'Melihat rekap data siswa yang telah menyelesaikan / mengumpulkan ujian pada hari ini.'}
-              </p>
-            </div>
+            <h2 className="text-lg sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+              {viewScope === 'ACTIVE_ONLY'
+                ? 'Live Radar Siswa Ujian CBT'
+                : viewScope === 'SUBMITTED_TODAY'
+                ? 'Riwayat Siswa Selesai Ujian'
+                : 'Semua Aktivitas Sesi CBT'}
+            </h2>
+            <p className="text-[11px] sm:text-xs text-emerald-200/90 hidden sm:block">
+              {viewScope === 'ACTIVE_ONLY'
+                ? 'Memantau aktivitas detik ini dari siswa yang sedang login & mengerjakan soal. Otomatis hilang saat logout/submit.'
+                : 'Melihat rekap data siswa yang telah menyelesaikan / mengumpulkan lembar ujian pada hari ini.'}
+            </p>
           </div>
 
-          <div className="flex items-center gap-2 w-full lg:w-auto shrink-0 flex-wrap sm:flex-nowrap">
+          {/* Sisi Kanan: Tombol Aksi */}
+          <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
             {/* Tombol Segarkan Data */}
             <button
               type="button"
               onClick={() => fetchLogins(false)}
               disabled={isLoading}
-              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-white/10 text-white font-bold text-xs transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs disabled:opacity-50"
               title="Segarkan radar sekarang"
             >
-              <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
+              <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
               <span>{isLoading ? 'Menyegarkan...' : 'Segarkan Data'}</span>
             </button>
 
@@ -405,10 +397,10 @@ export default function CbtStudentLoginMonitorView({
             <button
               type="button"
               onClick={handleExportCsv}
-              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-white/10 text-white font-bold text-xs transition flex items-center gap-2 cursor-pointer"
+              className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
               title="Unduh Laporan Format CSV / Excel"
             >
-              <Download size={14} className="text-teal-400" />
+              <Download size={13} />
               <span>Ekspor CSV</span>
             </button>
 
@@ -416,45 +408,46 @@ export default function CbtStudentLoginMonitorView({
             <button
               type="button"
               onClick={() => setIsPrintModalOpen(true)}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-emerald-600/25 cursor-pointer"
               title="Cetak Berita Acara Presensi Login CBT"
             >
-              <Printer size={15} />
+              <Printer size={13} />
               <span>Cetak Presensi</span>
             </button>
           </div>
         </div>
 
-        <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400 flex-wrap gap-2">
+        {/* Realtime Status Sub-strip */}
+        <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-[10px] text-slate-400">
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
             <span>Radar Realtime Aktif (Sinkronisasi otomatis tiap 10 detik)</span>
           </div>
           <span>Terakhir diperiksa: {lastRefreshedAt.toLocaleTimeString('id-ID')} WIB</span>
         </div>
       </div>
 
-      {/* 📊 QUICK STAT METRICS CARDS */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+      {/* 📊 SUMMARY METRICS STRIP (Sama dengan Laporan: Ringkas & Elegan) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
         {/* Card 1: Sedang Ujian (Online) */}
         <button
           type="button"
           onClick={() => setViewScope('ACTIVE_ONLY')}
-          className={`p-4 rounded-2xl text-left transition-all border shadow-xs flex items-center gap-3.5 cursor-pointer ${
+          className={`p-3 rounded-2xl text-left transition-all border shadow-xs flex items-center gap-3 cursor-pointer ${
             viewScope === 'ACTIVE_ONLY'
               ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/20'
-              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-emerald-300'
+              : 'bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800 hover:border-emerald-300'
           }`}
         >
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-900 flex items-center justify-center shrink-0">
-            <Radio size={22} className="text-emerald-600 dark:text-emerald-400 animate-pulse" />
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+            <Radio size={18} className="animate-pulse" />
           </div>
-          <div>
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Sedang Ujian Online</div>
-            <div className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 mt-0.5">
+          <div className="min-w-0">
+            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">Sedang Ujian Online</div>
+            <div className="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400 leading-tight flex items-center gap-1.5">
               <span>{scopeCounts.active} Siswa</span>
               {scopeCounts.active > 0 && (
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
               )}
             </div>
           </div>
@@ -464,64 +457,64 @@ export default function CbtStudentLoginMonitorView({
         <button
           type="button"
           onClick={() => setViewScope('SUBMITTED_TODAY')}
-          className={`p-4 rounded-2xl text-left transition-all border shadow-xs flex items-center gap-3.5 cursor-pointer ${
+          className={`p-3 rounded-2xl text-left transition-all border shadow-xs flex items-center gap-3 cursor-pointer ${
             viewScope === 'SUBMITTED_TODAY'
               ? 'bg-blue-50/80 dark:bg-blue-950/40 border-blue-500 ring-2 ring-blue-500/20'
-              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-blue-300'
+              : 'bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800 hover:border-blue-300'
           }`}
         >
-          <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 flex items-center justify-center shrink-0">
-            <CheckCircle2 size={22} className="text-blue-600 dark:text-blue-400" />
+          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+            <CheckCircle2 size={18} />
           </div>
-          <div>
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Selesai Ujian Hari Ini</div>
-            <div className="text-xl sm:text-2xl font-black text-blue-600 dark:text-blue-400 mt-0.5">
-              {scopeCounts.submitted} Siswa
+          <div className="min-w-0">
+            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">Selesai Hari Ini</div>
+            <div className="text-base sm:text-lg font-black text-blue-600 dark:text-blue-400 leading-tight">
+              {scopeCounts.submitted} <span className="text-[10px] font-semibold text-slate-400">Siswa</span>
             </div>
           </div>
         </button>
 
         {/* Card 3: Rombel Terlibat */}
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-900/50 shadow-xs flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-900 flex items-center justify-center shrink-0">
-            <GraduationCap size={22} className="text-purple-600 dark:text-purple-400" />
+        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+            <GraduationCap size={18} />
           </div>
-          <div>
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Rombel Terlibat</div>
-            <div className="text-xl sm:text-2xl font-black text-purple-600 dark:text-purple-400 mt-0.5">
-              {distinctClassesCount} Rombel
+          <div className="min-w-0">
+            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">Rombel Terlibat</div>
+            <div className="text-base sm:text-lg font-black text-purple-600 dark:text-purple-400 leading-tight">
+              {distinctClassesCount} <span className="text-[10px] font-semibold text-slate-400">Rombel</span>
             </div>
           </div>
         </div>
 
         {/* Card 4: Paket Ujian Aktif */}
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-900/50 shadow-xs flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-900 flex items-center justify-center shrink-0">
-            <BookOpen size={22} className="text-amber-600 dark:text-amber-400" />
+        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+            <BookOpen size={18} />
           </div>
-          <div>
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Paket Ujian Aktif</div>
-            <div className="text-xl sm:text-2xl font-black text-amber-700 dark:text-amber-400 mt-0.5">
-              {distinctExamsCount} Paket
+          <div className="min-w-0">
+            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">Paket Ujian Aktif</div>
+            <div className="text-base sm:text-lg font-black text-amber-700 dark:text-amber-400 leading-tight">
+              {distinctExamsCount} <span className="text-[10px] font-semibold text-slate-400">Paket</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 🌟 RADAR SCOPE MODE SELECTOR TABS */}
-      <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 w-full sm:w-fit">
+      {/* 🌟 RADAR SCOPE MODE SELECTOR TABS (Ringkas & Elegan) */}
+      <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full sm:w-fit">
         <button
           type="button"
           onClick={() => setViewScope('ACTIVE_ONLY')}
-          className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+          className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
             viewScope === 'ACTIVE_ONLY'
-              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/20'
+              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Radio size={14} className={viewScope === 'ACTIVE_ONLY' ? 'animate-pulse' : 'text-emerald-500'} />
-          <span>Radar Siswa Sedang Ujian</span>
-          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${viewScope === 'ACTIVE_ONLY' ? 'bg-white/20 text-white' : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'}`}>
+          <Radio size={13} className={viewScope === 'ACTIVE_ONLY' ? 'animate-pulse' : 'text-emerald-500'} />
+          <span>Radar Siswa Ujian</span>
+          <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${viewScope === 'ACTIVE_ONLY' ? 'bg-white/20 text-white' : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'}`}>
             {scopeCounts.active} Online
           </span>
         </button>
@@ -529,15 +522,15 @@ export default function CbtStudentLoginMonitorView({
         <button
           type="button"
           onClick={() => setViewScope('SUBMITTED_TODAY')}
-          className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+          className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
             viewScope === 'SUBMITTED_TODAY'
-              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20'
+              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <CheckCircle2 size={14} className={viewScope === 'SUBMITTED_TODAY' ? '' : 'text-blue-500'} />
-          <span>Riwayat Selesai Hari Ini</span>
-          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${viewScope === 'SUBMITTED_TODAY' ? 'bg-white/20 text-white' : 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300'}`}>
+          <CheckCircle2 size={13} className={viewScope === 'SUBMITTED_TODAY' ? '' : 'text-blue-500'} />
+          <span>Selesai Hari Ini</span>
+          <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${viewScope === 'SUBMITTED_TODAY' ? 'bg-white/20 text-white' : 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300'}`}>
             {scopeCounts.submitted}
           </span>
         </button>
@@ -545,36 +538,36 @@ export default function CbtStudentLoginMonitorView({
         <button
           type="button"
           onClick={() => setViewScope('ALL_TODAY')}
-          className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+          className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
             viewScope === 'ALL_TODAY'
-              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-500/20'
+              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Layers size={14} className={viewScope === 'ALL_TODAY' ? '' : 'text-purple-500'} />
+          <Layers size={13} className={viewScope === 'ALL_TODAY' ? '' : 'text-purple-500'} />
           <span>Semua Aktivitas</span>
-          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${viewScope === 'ALL_TODAY' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}`}>
+          <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${viewScope === 'ALL_TODAY' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}`}>
             {scopeCounts.total}
           </span>
         </button>
       </div>
 
-      {/* 🔍 FILTER & SEARCH COMMAND BAR */}
-      <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
+      {/* 🔍 FILTER & SEARCH COMMAND BAR (Kompak & Rapi) */}
+      <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
         {/* Search Input */}
-        <div className="relative w-full md:w-80">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-2 text-slate-400" size={14} />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Cari nama siswa, NISN, atau judul ujian..."
-            className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+            className="w-full pl-9 pr-8 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 font-medium"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+              className="absolute right-2.5 top-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold"
             >
               ✕
             </button>
@@ -582,52 +575,48 @@ export default function CbtStudentLoginMonitorView({
         </div>
 
         {/* Filter Controls */}
-        <div className="flex items-center gap-2 w-full md:w-auto flex-wrap sm:flex-nowrap">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
           {/* Toggle Hari Ini vs Semua */}
           <button
             type="button"
             onClick={() => setFilterTodayOnly(!filterTodayOnly)}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
+            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
               filterTodayOnly
                 ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
             }`}
           >
-            <Calendar size={13} />
+            <Calendar size={12} />
             <span>{filterTodayOnly ? 'Hari Ini Saja' : 'Semua Tanggal'}</span>
           </button>
 
           {/* Filter Kelas */}
-          <div className="flex items-center gap-1.5 w-full sm:w-auto">
-            <select
-              value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value)}
-              className="w-full sm:w-auto px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-            >
-              <option value="ALL">Semua Kelas ({classOptions.length})</option>
-              {classOptions.map((cls) => (
-                <option key={cls} value={cls}>
-                  Kelas {cls}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={selectedClass}
+            onChange={(e) => setSelectedClass(e.target.value)}
+            className="px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+          >
+            <option value="ALL">Semua Kelas ({classOptions.length})</option>
+            {classOptions.map((cls) => (
+              <option key={cls} value={cls}>
+                Kelas {cls}
+              </option>
+            ))}
+          </select>
 
           {/* Filter Paket Ujian */}
-          <div className="flex items-center gap-1.5 w-full sm:w-auto">
-            <select
-              value={selectedExam}
-              onChange={(e) => setSelectedExam(e.target.value)}
-              className="w-full sm:w-auto px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 max-w-[180px] truncate"
-            >
-              <option value="ALL">Semua Paket Ujian ({examOptions.length})</option>
-              {examOptions.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.title}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={selectedExam}
+            onChange={(e) => setSelectedExam(e.target.value)}
+            className="px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[170px] truncate"
+          >
+            <option value="ALL">Semua Paket Ujian ({examOptions.length})</option>
+            {examOptions.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.title}
+              </option>
+            ))}
+          </select>
 
           {/* Reset Button */}
           {(selectedClass !== 'ALL' || selectedExam !== 'ALL' || selectedStatus !== 'ALL' || searchQuery || !filterTodayOnly) && (
@@ -639,7 +628,7 @@ export default function CbtStudentLoginMonitorView({
                 setSearchQuery('');
                 setFilterTodayOnly(true);
               }}
-              className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold transition cursor-pointer"
+              className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold transition cursor-pointer"
             >
               Reset
             </button>
