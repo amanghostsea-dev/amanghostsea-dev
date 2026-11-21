@@ -430,16 +430,26 @@ export default function CbtDashboard({
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
       padding-bottom: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    @media screen and (min-width: 960px) {
+      .cbt-scroll-wrapper {
+        align-items: center;
+      }
     }
     .cbt-container {
-      max-width: 920px;
-      min-width: 780px;
+      flex-shrink: 0;
+      width: fit-content;
+      min-width: 860px;
       margin: 0 auto;
       background: #ffffff;
       padding: 32px 36px;
       border-radius: 16px;
       border: 1px solid #e2e8f0;
       box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+      box-sizing: border-box;
     }
     
     /* 🛑 ATURAN WAJIB GAMBAR & LOGO (AGAR TIDAK PERNAH MEMBESAR / RUSAK) */
@@ -511,6 +521,8 @@ export default function CbtDashboard({
         flex-direction: column !important;
         align-items: stretch !important;
         gap: 10px !important;
+        width: 100% !important;
+        max-width: 100% !important;
       }
       .cbt-action-bar button {
         width: 100% !important;
@@ -523,8 +535,9 @@ export default function CbtDashboard({
         gap: 6px;
       }
       .cbt-container {
-        padding: 20px 16px !important;
+        padding: 24px 20px !important;
         border-radius: 12px !important;
+        min-width: 840px !important;
       }
     }
 
@@ -634,7 +647,7 @@ export default function CbtDashboard({
     /* Table & Print Styling */
     table {
       width: 100% !important;
-      min-width: 740px !important;
+      min-width: 800px !important;
       border-collapse: collapse !important;
       margin: 8px 0;
     }
@@ -670,6 +683,7 @@ export default function CbtDashboard({
       .cbt-scroll-wrapper {
         overflow: visible !important;
         width: 100% !important;
+        display: block !important;
         padding: 0 !important;
       }
       .cbt-container {
@@ -681,6 +695,7 @@ export default function CbtDashboard({
         box-shadow: none !important;
         border: none !important;
         border-radius: 0 !important;
+        display: block !important;
       }
       table {
         min-width: 100% !important;
@@ -5354,7 +5369,7 @@ export default function CbtDashboard({
         </div>
 
         {/* 📄 DOKUMEN CETAK RESMI KEDINASAN (MENGALIR SECARA ALAMI TANPA GAP KOSONG) */}
-        <div id="cbt-printable-official-schedule" className="space-y-4 print:space-y-2.5 bg-white font-serif text-slate-950 cbt-printable-sheet min-w-[760px] print:min-w-0">
+        <div id="cbt-printable-official-schedule" className="space-y-4 print:space-y-2.5 bg-white font-serif text-slate-950 cbt-printable-sheet min-w-[840px] print:min-w-0 w-full">
           {/* Kop Surat Resmi */}
           <CbtOfficialKopSurat
             config={kopSuratConfig}
@@ -5399,7 +5414,7 @@ export default function CbtDashboard({
                   </div>
                 </div>
 
-                <table className="w-full min-w-[740px] print:min-w-0 text-left text-[11px] print:text-[10px] font-sans border-collapse border border-slate-300">
+                <table className="w-full min-w-[800px] print:min-w-0 text-left text-[11px] print:text-[10px] font-sans border-collapse border border-slate-300">
                   <thead className="bg-slate-100 text-slate-800 font-bold uppercase text-[10px] print:text-[9px]">
                     <tr>
                       <th className="border border-slate-300 py-1.5 px-2 text-center w-7">No</th>
@@ -5408,8 +5423,8 @@ export default function CbtDashboard({
                       <th className="border border-slate-300 py-1.5 px-2 text-center w-24">Target Kelas</th>
                       <th className="border border-slate-300 py-1.5 px-2 text-center w-20">Ruang</th>
                       <th className="border border-slate-300 py-1.5 px-1.5 text-center w-14">Durasi</th>
-                      <th className="border border-slate-300 py-1.5 px-2.5">Guru Pengampu</th>
-                      <th className="border border-slate-300 py-1.5 px-2.5 bg-blue-50/70 text-blue-900">Pengawas Ruang</th>
+                      <th className="border border-slate-300 py-1.5 px-2.5 w-32 print:w-28">Guru Pengampu</th>
+                      <th className="border border-slate-300 py-1.5 px-2.5 bg-blue-50/70 text-blue-900 w-36 print:w-32">Pengawas Ruang</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -5461,7 +5476,7 @@ export default function CbtDashboard({
                 <div className="bg-amber-100 border-l-4 border-amber-600 px-3 py-1 print-avoid-break font-sans font-bold text-xs uppercase tracking-wider text-amber-900">
                   ⚠️ PAKET UJIAN BELUM DIBERI JADWAL ({groupedScheduleByDay.unscheduledList.length})
                 </div>
-                <table className="w-full min-w-[740px] print:min-w-0 text-left text-[11px] print:text-[10px] font-sans border-collapse border border-slate-300">
+                <table className="w-full min-w-[800px] print:min-w-0 text-left text-[11px] print:text-[10px] font-sans border-collapse border border-slate-300">
                   <thead className="bg-slate-100 text-slate-800 font-bold uppercase text-[10px] print:text-[9px]">
                     <tr>
                       <th className="border border-slate-300 py-1.5 px-2 text-center w-7">No</th>
@@ -5469,8 +5484,8 @@ export default function CbtDashboard({
                       <th className="border border-slate-300 py-1.5 px-2 text-center w-24">Target Kelas</th>
                       <th className="border border-slate-300 py-1.5 px-2 text-center w-20">Ruang</th>
                       <th className="border border-slate-300 py-1.5 px-1.5 text-center w-14">Durasi</th>
-                      <th className="border border-slate-300 py-1.5 px-2.5">Guru Pengampu</th>
-                      <th className="border border-slate-300 py-1.5 px-2.5 bg-blue-50/70 text-blue-900">Pengawas Ruang</th>
+                      <th className="border border-slate-300 py-1.5 px-2.5 w-32 print:w-28">Guru Pengampu</th>
+                      <th className="border border-slate-300 py-1.5 px-2.5 bg-blue-50/70 text-blue-900 w-36 print:w-32">Pengawas Ruang</th>
                     </tr>
                   </thead>
                   <tbody>
