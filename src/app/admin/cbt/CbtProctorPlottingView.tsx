@@ -288,38 +288,42 @@ export default function CbtProctorPlottingView({
     <div className="space-y-3.5 animate-fade-in font-sans">
       {/* 🚀 HEADER BANNER (Ringkas & Elegan Selaras dengan Laporan) */}
       <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-blue-950 via-indigo-950 to-slate-900 text-white shadow-md border border-blue-500/20 relative overflow-hidden">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
           {/* Sisi Kiri: Judul & Konteks Role */}
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-blue-200 text-[10px] sm:text-[11px] font-semibold">
+          <div className="space-y-1 min-w-0 flex-1">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-blue-200 text-[10px] sm:text-[11px] font-semibold border border-white/10 backdrop-blur-xs">
               <ShieldCheck size={13} className="text-blue-300" />
               <span>Kontrol Pengawasan CBT • Otoritas Penuh Admin Utama</span>
             </div>
             <h2 className="text-lg sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
               Plotting &amp; Penugasan Pengawas Ruangan
             </h2>
-            <p className="text-[11px] sm:text-xs text-blue-200/90 hidden sm:block">
+            <p className="text-[11px] sm:text-xs text-blue-200/90 hidden sm:block max-w-2xl leading-relaxed">
               Atur dan kunci guru pengawas resmi untuk setiap paket ujian dan ruangan agar pelaksanaan ujian tertib, disiplin, dan terpantau.
             </p>
           </div>
 
-          {/* Sisi Kanan: Tombol Aksi */}
-          <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+          {/* Sisi Kanan: Tombol Aksi (Rapi, Sejajar, Animasi Modern & Micro-Interactions) */}
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 self-start md:self-center">
             <button
+              type="button"
               onClick={() => setIsPrintModalOpen(true)}
-              className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+              className="group relative px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white border border-white/25 font-bold text-xs flex items-center gap-2 transition-all duration-300 shadow-xs hover:shadow-md hover:-translate-y-0.5 cursor-pointer backdrop-blur-md"
               title="Cetak Surat Keputusan &amp; Jadwal Resmi Pengawas Ruangan"
             >
-              <Printer size={13} /> Cetak SK &amp; Jadwal
+              <Printer size={14} className="text-blue-300 group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300" />
+              <span>Cetak SK &amp; Jadwal</span>
             </button>
             <a
               href="/portal/pengawas/cbt"
               target="_blank"
               rel="noreferrer"
-              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-blue-600/25 cursor-pointer"
+              className="group relative overflow-hidden px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 bg-[length:200%_auto] hover:bg-right hover:shadow-lg hover:shadow-blue-500/40 active:scale-95 text-white font-bold text-xs flex items-center gap-2 border border-blue-400/30 transition-all duration-300 cursor-pointer hover:-translate-y-0.5"
               title="Masuk ke portal Ruang Pengawas Ujian"
             >
-              <ExternalLink size={13} /> Buka Ruang Pengawas
+              <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/25 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+              <ExternalLink size={14} className="text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-300" />
+              <span>Buka Ruang Pengawas</span>
             </a>
           </div>
         </div>
@@ -336,8 +340,8 @@ export default function CbtProctorPlottingView({
       {/* 📊 SUMMARY METRICS STRIP (Sama dengan Laporan: Ringkas & Elegan) */}
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
         {/* Metric 1: Total Sesi */}
-        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+        <div className="group p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
             <BookOpen size={18} />
           </div>
           <div className="min-w-0">
@@ -349,8 +353,8 @@ export default function CbtProctorPlottingView({
         </div>
 
         {/* Metric 2: Sudah Ada Pengawas */}
-        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+        <div className="group p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
             <UserCheck size={18} />
           </div>
           <div className="min-w-0">
@@ -362,8 +366,8 @@ export default function CbtProctorPlottingView({
         </div>
 
         {/* Metric 3: Belum Di-plotting */}
-        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+        <div className="group p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
             <AlertCircle size={18} />
           </div>
           <div className="min-w-0">
@@ -375,8 +379,8 @@ export default function CbtProctorPlottingView({
         </div>
 
         {/* Metric 4: Personel Guru */}
-        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+        <div className="group p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
             <Users size={18} />
           </div>
           <div className="min-w-0">
@@ -391,18 +395,18 @@ export default function CbtProctorPlottingView({
       {/* 🔍 FILTER & SEARCH BAR (Kompak & Rapi) */}
       <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between">
         <div className="relative flex-1">
-          <Search size={14} className="absolute left-3 top-2 text-slate-400" />
+          <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Cari paket ujian, mapel, ruang, atau nama guru pengawas..."
-            className="w-full pl-9 pr-8 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+            className="w-full pl-9 pr-8 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 font-medium transition-all duration-200"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold"
+              className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold hover:scale-110 active:scale-95 transition-all"
             >
               ✕
             </button>
@@ -414,7 +418,7 @@ export default function CbtProctorPlottingView({
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="px-2.5 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 font-semibold focus:outline-none cursor-pointer"
+            className="px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/30 hover:border-slate-300 dark:hover:border-slate-700 cursor-pointer transition-all"
           >
             <option value="ALL">Semua Status Plotting</option>
             <option value="ASSIGNED">✅ Sudah Ada Pengawas ({assignedCount})</option>
@@ -425,7 +429,7 @@ export default function CbtProctorPlottingView({
           <select
             value={classFilter}
             onChange={(e) => setClassFilter(e.target.value)}
-            className="px-2.5 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 font-semibold focus:outline-none cursor-pointer"
+            className="px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/30 hover:border-slate-300 dark:hover:border-slate-700 cursor-pointer transition-all"
           >
             <option value="ALL">Semua Rombel Kelas</option>
             {availableClasses.map(cls => (
@@ -465,7 +469,7 @@ export default function CbtProctorPlottingView({
                   return (
                     <tr 
                       key={exam.id}
-                      className="hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors"
+                      className="hover:bg-blue-50/40 dark:hover:bg-blue-950/20 transition-colors duration-150 group"
                     >
                       <td className="py-3.5 px-4 text-center font-bold text-slate-400">
                         {idx + 1}
@@ -473,7 +477,7 @@ export default function CbtProctorPlottingView({
 
                       {/* Title & Subject */}
                       <td className="py-3.5 px-4">
-                        <div className="font-bold text-slate-900 dark:text-white line-clamp-1">
+                        <div className="font-bold text-slate-900 dark:text-white line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                           {exam.title}
                         </div>
                         <div className="text-[11px] text-purple-600 dark:text-purple-400 font-medium">
@@ -510,7 +514,7 @@ export default function CbtProctorPlottingView({
                         {hasProctor ? (
                           <div className="space-y-0.5">
                             <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                               <span>{exam.proctorName}</span>
                             </div>
                             <div className="text-[10px] text-slate-400 font-mono pl-3.5">
@@ -518,7 +522,7 @@ export default function CbtProctorPlottingView({
                             </div>
                           </div>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-300/40 animate-pulse">
                             <AlertCircle size={12} /> Belum Di-plot
                           </span>
                         )}
@@ -541,16 +545,16 @@ export default function CbtProctorPlottingView({
                           <button
                             type="button"
                             onClick={() => handleOpenAssignModal(exam)}
-                            className="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/50 font-bold text-xs flex items-center gap-1 transition-all cursor-pointer"
+                            className="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-600 dark:hover:text-white font-bold text-xs flex items-center gap-1.5 transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-sm active:scale-95"
                             title="Tugaskan / Ganti Pengawas"
                           >
-                            <Edit3 size={13} /> Plotting
+                            <Edit3 size={13} className="group-hover:rotate-6 transition-transform" /> Plotting
                           </button>
                           <a
                             href={`/portal/pengawas/cbt/${exam.id}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+                            className="p-1.5 rounded-xl text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 transition-all cursor-pointer hover:scale-110 active:scale-95"
                             title="Pratinjau Ruang Pengawas"
                           >
                             <ExternalLink size={14} />

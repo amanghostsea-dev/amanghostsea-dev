@@ -266,31 +266,31 @@ export default function CbtSuspendCenterView({
 
       {/* 🚀 HEADER BANNER (Ringkas & Elegan Selaras dengan Laporan) */}
       <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-rose-950 via-slate-950 to-slate-900 border border-rose-500/20 text-white shadow-md relative overflow-hidden">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
           {/* Sisi Kiri: Judul & Konteks Role */}
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-rose-200 text-[10px] sm:text-[11px] font-semibold">
+          <div className="space-y-1 min-w-0 flex-1">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-rose-200 text-[10px] sm:text-[11px] font-semibold border border-white/10 backdrop-blur-xs">
               <ShieldAlert size={13} className="text-rose-400" />
               <span>Pusat Pemantauan CBT • Wewenang Khusus Admin Utama</span>
             </div>
             <h2 className="text-lg sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
               Pusat Pemantauan &amp; Buka Suspend CBT
             </h2>
-            <p className="text-[11px] sm:text-xs text-rose-200/90 hidden sm:block">
+            <p className="text-[11px] sm:text-xs text-rose-200/90 hidden sm:block max-w-2xl leading-relaxed">
               Pantau seluruh siswa yang ter-suspend total (Strike 3 / Pindah Tab &ge; 3x) dari seluruh paket ujian, dan berikan dispensasi langsung.
             </p>
           </div>
 
-          {/* Sisi Kanan: Tombol Aksi */}
-          <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+          {/* Sisi Kanan: Tombol Aksi (Rapi, Sejajar, Animasi Modern & Micro-Interactions) */}
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 self-start md:self-center">
             <button
               type="button"
               onClick={() => fetchSuspendedStudents(false)}
               disabled={isLoading}
-              className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+              className="group relative px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white border border-white/25 font-bold text-xs flex items-center gap-2 transition-all duration-300 shadow-xs hover:shadow-md hover:-translate-y-0.5 cursor-pointer backdrop-blur-md disabled:opacity-50"
               title="Segarkan data suspend sekarang"
             >
-              <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
+              <RefreshCw size={13} className={`${isLoading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500 text-rose-300'}`} />
               <span>{isLoading ? 'Menyegarkan...' : 'Segarkan Data'}</span>
             </button>
 
@@ -299,10 +299,11 @@ export default function CbtSuspendCenterView({
                 type="button"
                 onClick={() => setIsConfirmAllOpen(true)}
                 disabled={unblockingAll}
-                className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-emerald-600/25 cursor-pointer disabled:opacity-50"
+                className="group relative overflow-hidden px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 bg-[length:200%_auto] hover:bg-right hover:shadow-lg hover:shadow-emerald-500/40 active:scale-95 text-white font-bold text-xs flex items-center gap-2 border border-emerald-400/30 transition-all duration-300 cursor-pointer hover:-translate-y-0.5 disabled:opacity-50"
                 title="Buka suspend semua siswa sekaligus"
               >
-                <ShieldCheck size={14} />
+                <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/25 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                <ShieldCheck size={14} className="text-white group-hover:scale-110 transition-transform duration-300" />
                 <span>Buka Suspend Semua ({totalSuspended})</span>
               </button>
             )}
@@ -322,8 +323,8 @@ export default function CbtSuspendCenterView({
       {/* 📊 SUMMARY METRICS STRIP (Sama dengan Laporan: Ringkas & Elegan) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
         {/* Card 1: Total Suspend */}
-        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+        <div className="group p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
             <ShieldAlert size={18} />
           </div>
           <div className="min-w-0">
@@ -340,8 +341,8 @@ export default function CbtSuspendCenterView({
         </div>
 
         {/* Card 2: Paket Ujian Terdampak */}
-        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+        <div className="group p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
             <BookOpen size={18} />
           </div>
           <div className="min-w-0">
@@ -353,8 +354,8 @@ export default function CbtSuspendCenterView({
         </div>
 
         {/* Card 3: Total Pelanggaran Tab */}
-        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+        <div className="group p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
             <AlertTriangle size={18} />
           </div>
           <div className="min-w-0">

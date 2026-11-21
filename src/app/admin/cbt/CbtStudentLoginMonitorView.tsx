@@ -358,10 +358,10 @@ export default function CbtStudentLoginMonitorView({
 
       {/* 🧭 HEADER BANNER CYBER MONITOR (Ringkas & Elegan Selaras dengan Laporan) */}
       <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900 border border-emerald-500/20 text-white shadow-md relative overflow-hidden">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
           {/* Sisi Kiri: Judul & Konteks Role */}
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-emerald-200 text-[10px] sm:text-[11px] font-semibold">
+          <div className="space-y-1 min-w-0 flex-1">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-emerald-200 text-[10px] sm:text-[11px] font-semibold border border-white/10 backdrop-blur-xs">
               <Radio size={13} className="text-emerald-400 animate-pulse" />
               <span>Live Radar CBT • Realtime Monitoring</span>
             </div>
@@ -372,24 +372,24 @@ export default function CbtStudentLoginMonitorView({
                 ? 'Riwayat Siswa Selesai Ujian'
                 : 'Semua Aktivitas Sesi CBT'}
             </h2>
-            <p className="text-[11px] sm:text-xs text-emerald-200/90 hidden sm:block">
+            <p className="text-[11px] sm:text-xs text-emerald-200/90 hidden sm:block max-w-2xl leading-relaxed">
               {viewScope === 'ACTIVE_ONLY'
                 ? 'Memantau aktivitas detik ini dari siswa yang sedang login & mengerjakan soal. Otomatis hilang saat logout/submit.'
                 : 'Melihat rekap data siswa yang telah menyelesaikan / mengumpulkan lembar ujian pada hari ini.'}
             </p>
           </div>
 
-          {/* Sisi Kanan: Tombol Aksi */}
-          <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+          {/* Sisi Kanan: Tombol Aksi (Rapi, Sejajar, Animasi Modern & Micro-Interactions) */}
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 self-start md:self-center">
             {/* Tombol Segarkan Data */}
             <button
               type="button"
               onClick={() => fetchLogins(false)}
               disabled={isLoading}
-              className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+              className="group relative px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white border border-white/25 font-bold text-xs flex items-center gap-2 transition-all duration-300 shadow-xs hover:shadow-md hover:-translate-y-0.5 cursor-pointer backdrop-blur-md disabled:opacity-50"
               title="Segarkan radar sekarang"
             >
-              <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
+              <RefreshCw size={13} className={`${isLoading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500 text-emerald-300'}`} />
               <span>{isLoading ? 'Menyegarkan...' : 'Segarkan Data'}</span>
             </button>
 
@@ -397,10 +397,10 @@ export default function CbtStudentLoginMonitorView({
             <button
               type="button"
               onClick={handleExportCsv}
-              className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+              className="group relative px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white border border-white/25 font-bold text-xs flex items-center gap-2 transition-all duration-300 shadow-xs hover:shadow-md hover:-translate-y-0.5 cursor-pointer backdrop-blur-md"
               title="Unduh Laporan Format CSV / Excel"
             >
-              <Download size={13} />
+              <Download size={13} className="text-emerald-300 group-hover:translate-y-0.5 transition-transform duration-200" />
               <span>Ekspor CSV</span>
             </button>
 
@@ -408,10 +408,11 @@ export default function CbtStudentLoginMonitorView({
             <button
               type="button"
               onClick={() => setIsPrintModalOpen(true)}
-              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-emerald-600/25 cursor-pointer"
+              className="group relative overflow-hidden px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 bg-[length:200%_auto] hover:bg-right hover:shadow-lg hover:shadow-emerald-500/40 active:scale-95 text-white font-bold text-xs flex items-center gap-2 border border-emerald-400/30 transition-all duration-300 cursor-pointer hover:-translate-y-0.5"
               title="Cetak Berita Acara Presensi Login CBT"
             >
-              <Printer size={13} />
+              <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/25 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+              <Printer size={13} className="text-white group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300" />
               <span>Cetak Presensi</span>
             </button>
           </div>
@@ -433,13 +434,13 @@ export default function CbtStudentLoginMonitorView({
         <button
           type="button"
           onClick={() => setViewScope('ACTIVE_ONLY')}
-          className={`p-3 rounded-2xl text-left transition-all border shadow-xs flex items-center gap-3 cursor-pointer ${
+          className={`group p-3 rounded-2xl text-left transition-all duration-300 border shadow-xs hover:shadow-md hover:-translate-y-0.5 flex items-center gap-3 cursor-pointer ${
             viewScope === 'ACTIVE_ONLY'
               ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/20'
               : 'bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800 hover:border-emerald-300'
           }`}
         >
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
             <Radio size={18} className="animate-pulse" />
           </div>
           <div className="min-w-0">
@@ -457,13 +458,13 @@ export default function CbtStudentLoginMonitorView({
         <button
           type="button"
           onClick={() => setViewScope('SUBMITTED_TODAY')}
-          className={`p-3 rounded-2xl text-left transition-all border shadow-xs flex items-center gap-3 cursor-pointer ${
+          className={`group p-3 rounded-2xl text-left transition-all duration-300 border shadow-xs hover:shadow-md hover:-translate-y-0.5 flex items-center gap-3 cursor-pointer ${
             viewScope === 'SUBMITTED_TODAY'
               ? 'bg-blue-50/80 dark:bg-blue-950/40 border-blue-500 ring-2 ring-blue-500/20'
               : 'bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800 hover:border-blue-300'
           }`}
         >
-          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
             <CheckCircle2 size={18} />
           </div>
           <div className="min-w-0">
@@ -475,8 +476,8 @@ export default function CbtStudentLoginMonitorView({
         </button>
 
         {/* Card 3: Rombel Terlibat */}
-        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+        <div className="group p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
             <GraduationCap size={18} />
           </div>
           <div className="min-w-0">
@@ -488,8 +489,8 @@ export default function CbtStudentLoginMonitorView({
         </div>
 
         {/* Card 4: Paket Ujian Aktif */}
-        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+        <div className="group p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
             <BookOpen size={18} />
           </div>
           <div className="min-w-0">

@@ -498,16 +498,16 @@ export default function CbtReportView({
           </div>
 
           {/* Sisi Kanan: Pengalih Mode Tampilan & Tombol Aksi */}
-          <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 self-start md:self-center shrink-0">
             {/* 🧭 Pengalih Mode Tampilan (Langsung di Header agar mudah diakses) */}
             <div className="inline-flex items-center p-1 bg-white/10 rounded-xl border border-white/15 backdrop-blur-md">
               <button
                 type="button"
                 onClick={() => setViewLayout('BOTH')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                   viewLayout === 'BOTH'
                     ? 'bg-white text-purple-950 shadow-xs'
-                    : 'text-purple-200 hover:text-white'
+                    : 'text-purple-200 hover:text-white hover:bg-white/10'
                 }`}
                 title="Tampilkan grafik visual dan tabel nilai bersamaan"
               >
@@ -517,10 +517,10 @@ export default function CbtReportView({
               <button
                 type="button"
                 onClick={() => setViewLayout('CHARTS')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                   viewLayout === 'CHARTS'
                     ? 'bg-white text-purple-950 shadow-xs'
-                    : 'text-purple-200 hover:text-white'
+                    : 'text-purple-200 hover:text-white hover:bg-white/10'
                 }`}
                 title="Fokus tampilkan grafik analitik saja"
               >
@@ -530,10 +530,10 @@ export default function CbtReportView({
               <button
                 type="button"
                 onClick={() => setViewLayout('TABLE')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                   viewLayout === 'TABLE'
                     ? 'bg-white text-purple-950 shadow-xs'
-                    : 'text-purple-200 hover:text-white'
+                    : 'text-purple-200 hover:text-white hover:bg-white/10'
                 }`}
                 title="Tampilkan tabel daftar nilai saja"
               >
@@ -542,29 +542,35 @@ export default function CbtReportView({
               </button>
             </div>
 
-            {/* Tombol Aksi Dokumen */}
+            {/* Tombol Aksi Dokumen (Animasi & Micro-Interactions) */}
             {isSuperAdmin && (
               <a
                 href="/admin/settings#kop-surat"
-                className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                className="group relative px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white border border-white/25 font-bold text-xs flex items-center gap-2 transition-all duration-300 shadow-xs hover:shadow-md hover:-translate-y-0.5 cursor-pointer backdrop-blur-md"
                 title="Atur Kop Surat &amp; Tanda Tangan Resmi"
               >
-                <Settings2 size={13} /> Atur Kop
+                <Settings2 size={13} className="text-purple-300 group-hover:rotate-90 transition-transform duration-300" />
+                <span>Atur Kop</span>
               </a>
             )}
             <button
+              type="button"
               onClick={handleExportCsv}
-              className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+              className="group relative px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white border border-white/25 font-bold text-xs flex items-center gap-2 transition-all duration-300 shadow-xs hover:shadow-md hover:-translate-y-0.5 cursor-pointer backdrop-blur-md"
               title="Unduh format spreadsheet CSV"
             >
-              <Download size={13} /> Ekspor Excel
+              <Download size={13} className="text-purple-300 group-hover:translate-y-0.5 transition-transform duration-200" />
+              <span>Ekspor Excel</span>
             </button>
             <button
+              type="button"
               onClick={handlePrintReport}
-              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-purple-500/25 cursor-pointer"
+              className="group relative overflow-hidden px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 bg-[length:200%_auto] hover:bg-right hover:shadow-lg hover:shadow-purple-500/40 active:scale-95 text-white font-bold text-xs flex items-center gap-2 border border-purple-400/30 transition-all duration-300 cursor-pointer hover:-translate-y-0.5"
               title="Cetak lembar rekapitulasi nilai resmi sekolah"
             >
-              <Printer size={13} /> Cetak Rekap
+              <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/25 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+              <Printer size={13} className="text-white group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300" />
+              <span>Cetak Rekap</span>
             </button>
           </div>
         </div>
