@@ -22,11 +22,15 @@ import {
   X,
   FileText,
   RotateCcw,
-  Settings2
+  Settings2,
+  BarChart3,
+  Layers,
+  PieChart
 } from 'lucide-react';
 import { KopSuratConfig } from '@/app/admin/settings/types';
 import { resetStudentAttemptAction, syncCbtScoresToStudentGradesAction } from './actions';
 import ConfirmModal from '@/components/ConfirmModal';
+import CbtAnalyticsCharts from './CbtAnalyticsCharts';
 import { 
   CbtOfficialKopSurat, 
   CbtOfficialSignatures, 
@@ -103,6 +107,7 @@ export default function CbtReportView({
   const [isResetting, setIsResetting] = useState(false);
   const [printStudentCard, setPrintStudentCard] = useState<any | null>(null);
   const [isPrintCollectiveModalOpen, setIsPrintCollectiveModalOpen] = useState(false);
+  const [viewLayout, setViewLayout] = useState<'BOTH' | 'CHARTS' | 'TABLE'>('BOTH');
 
   // 🌟 Universal Modern Center Dialog (Alert & Confirm)
   const [feedbackModal, setFeedbackModal] = useState<{
@@ -782,8 +787,72 @@ export default function CbtReportView({
         </div>
       )}
 
+      {/* 🧭 TAMPILAN MODE: GRAFIK & TABEL */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-sm">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400">
+            <BarChart3 size={18} />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
+              Format Tampilan Laporan
+            </span>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">
+              Pilih mode visualisasi grafik analitik, tabel rekapitulasi, atau keduanya
+            </span>
+          </div>
+        </div>
+
+        <div className="inline-flex items-center p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-slate-200/60 dark:border-slate-700/60 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => setViewLayout('BOTH')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              viewLayout === 'BOTH'
+                ? 'bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Layers size={13} />
+            <span>Grafik & Tabel</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewLayout('CHARTS')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              viewLayout === 'CHARTS'
+                ? 'bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <PieChart size={13} />
+            <span>Hanya Grafik</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewLayout('TABLE')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              viewLayout === 'TABLE'
+                ? 'bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <FileText size={13} />
+            <span>Hanya Tabel</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 📊 GRAFIK & VISUALISASI ANALISIS CBT BERANIMASI */}
+      {(viewLayout === 'BOTH' || viewLayout === 'CHARTS') && (
+        <div className="animate-in fade-in duration-300">
+          <CbtAnalyticsCharts rows={filteredRows} kkmScore={kkmScore} />
+        </div>
+      )}
+
       {/* 📋 MAIN RESULTS TABLE */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+      {(viewLayout === 'BOTH' || viewLayout === 'TABLE') && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden animate-in fade-in duration-300">
         <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FileText size={18} className="text-purple-600" />
@@ -959,6 +1028,7 @@ export default function CbtReportView({
           </table>
         </div>
       </div>
+      )}
 
       {/* 🖨️ MODAL 1: CETAK REKAPITULASI RESMI KOLEKTIF (KELAS / MAPEL) */}
       <CbtPrintModalWrapper

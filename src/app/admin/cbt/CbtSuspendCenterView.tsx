@@ -210,18 +210,16 @@ export default function CbtSuspendCenterView({
       {toastMessage && (
         <div className="fixed top-6 right-6 z-50 w-full max-w-md px-3 animate-in slide-in-from-top-3 fade-in duration-300">
           <div
-            className={`p-4 rounded-3xl border shadow-2xl backdrop-blur-xl flex items-start gap-3.5 transition-all relative overflow-hidden ${
-              toastMessage.type === 'success'
+            className={`p-4 rounded-3xl border shadow-2xl backdrop-blur-xl flex items-start gap-3.5 transition-all relative overflow-hidden ${toastMessage.type === 'success'
                 ? 'bg-slate-900/95 border-emerald-500/50 text-white shadow-emerald-500/25'
                 : 'bg-slate-900/95 border-rose-500/50 text-white shadow-rose-500/25'
-            }`}
+              }`}
           >
             <div
-              className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${
-                toastMessage.type === 'success'
+              className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${toastMessage.type === 'success'
                   ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white ring-4 ring-emerald-500/20'
                   : 'bg-gradient-to-br from-rose-500 to-red-600 text-white ring-4 ring-rose-500/20'
-              }`}
+                }`}
             >
               {toastMessage.type === 'success' ? (
                 <ShieldCheck size={22} className="animate-pulse" />
@@ -235,11 +233,10 @@ export default function CbtSuspendCenterView({
                   {toastMessage.type === 'success' ? 'Dispensasi Berhasil Diberikan! 🎉' : 'Pemberitahuan Sistem'}
                 </h4>
                 <span
-                  className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
-                    toastMessage.type === 'success'
+                  className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${toastMessage.type === 'success'
                       ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/40'
                       : 'bg-rose-500/30 text-rose-300 border border-rose-500/40'
-                  }`}
+                    }`}
                 >
                   {toastMessage.type === 'success' ? 'SUKSES' : 'PERHATIAN'}
                 </span>
@@ -258,11 +255,10 @@ export default function CbtSuspendCenterView({
 
             {/* Glowing progress bar */}
             <div
-              className={`absolute bottom-0 left-0 h-1 w-full ${
-                toastMessage.type === 'success'
+              className={`absolute bottom-0 left-0 h-1 w-full ${toastMessage.type === 'success'
                   ? 'bg-gradient-to-r from-emerald-500 to-teal-300'
                   : 'bg-gradient-to-r from-rose-500 to-amber-300'
-              }`}
+                }`}
             />
           </div>
         </div>
@@ -570,8 +566,8 @@ export default function CbtSuspendCenterView({
                         {item.tabSwitchCount >= 5 || item.proctorNotes?.includes('[DISKUALIFIKASI_FINAL]')
                           ? 'DISKUALIFIKASI (5x)'
                           : item.tabSwitchCount === 4 || item.proctorNotes?.includes('[STRIKE_4_FATAL]')
-                          ? 'SUSPEND FATAL (4x)'
-                          : 'SUSPEND (STRIKE 3)'}
+                            ? 'SUSPEND FATAL (4x)'
+                            : 'SUSPEND (STRIKE 3)'}
                       </span>
                     </td>
 
