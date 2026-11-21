@@ -2682,7 +2682,7 @@ export default function CbtDashboard({
                                             </div>
                                           </div>
 
-                                          {/* Meta Pills: Room & Duration */}
+                                          {/* Meta Pills: Room, Duration, Author & Proctor */}
                                           <div className="flex flex-wrap items-center gap-1.5 pt-1">
                                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/50">
                                               <MapPin size={11} /> {exam.roomName?.trim() || 'Ruang Utama'}
@@ -2695,6 +2695,16 @@ export default function CbtDashboard({
                                                 👤 {exam.authorName}
                                               </span>
                                             )}
+                                            <span 
+                                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold truncate max-w-[170px] ${
+                                                exam.proctorName 
+                                                  ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/50' 
+                                                  : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-dashed border-amber-300 dark:border-amber-700'
+                                              }`}
+                                              title={exam.proctorName ? `Pengawas: ${exam.proctorName}${exam.proctor2Name ? ` & ${exam.proctor2Name}` : ''}` : 'Belum ada pengawas yang di-plot'}
+                                            >
+                                              🛡️ {exam.proctorName ? exam.proctorName : 'Pengawas: Belum Di-plot'}
+                                            </span>
                                           </div>
                                         </div>
 
@@ -4999,67 +5009,68 @@ export default function CbtDashboard({
           </div>
         }
       >
-        <div id="cbt-printable-official-schedule" className="space-y-6 bg-white font-serif text-slate-950 cbt-printable-sheet">
-          {/* 🎛️ PANEL PENETAPAN KETUA PANITIA UJIAN (HANYA BISA DIUBAH ADMIN UTAMA) */}
-          <div 
-            id="cbt-committee-selector-banner"
-            className="print:hidden cbt-ignore-pdf p-3.5 bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 border border-purple-200 dark:border-purple-800/40 rounded-2xl shadow-xs font-sans text-xs"
-          >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-sm shrink-0">
-                  <UserCheck size={16} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-slate-900 text-xs">
-                      Penetapan Ketua Panitia Ujian CBT
-                    </span>
-                    <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 font-extrabold text-[10px] uppercase tracking-wider">
-                      User Guru
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">
-                    {isSuperAdmin
-                      ? 'Khusus Admin Utama: Tunjuk akun Guru yang menandatangani jadwal resmi sebagai Ketua Panitia.'
-                      : 'Ketua Panitia Ujian resmi ditetapkan oleh Admin Utama.'}
-                  </p>
-                </div>
+        {/* 🎛️ PANEL PENETAPAN KETUA PANITIA UJIAN (HANYA BISA DIUBAH ADMIN UTAMA) - DILUAR DOKUMEN CETAK */}
+        <div 
+          id="cbt-committee-selector-banner"
+          className="print:hidden cbt-ignore-pdf mb-4 p-3.5 bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 border border-purple-200 dark:border-purple-800/40 rounded-2xl shadow-xs font-sans text-xs"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-sm shrink-0">
+                <UserCheck size={16} />
               </div>
-
-              {/* Dropdown Selector (Active for Admin Utama, Read-only badge for non-admin) */}
-              <div className="flex items-center gap-2">
-                {isSuperAdmin ? (
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <label className="text-[11px] font-bold text-slate-700 whitespace-nowrap hidden sm:inline">
-                      Pilih Guru:
-                    </label>
-                    <select
-                      value={selectedCommitteeTeacherId}
-                      onChange={(e) => handleSelectCommitteeTeacher(e.target.value)}
-                      className="w-full sm:w-64 px-3 py-1.5 rounded-xl border border-purple-300 bg-white font-semibold text-slate-900 text-xs shadow-xs focus:outline-hidden focus:ring-2 focus:ring-purple-500 cursor-pointer"
-                    >
-                      {teacherCandidates.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          👨‍🏫 {t.name} {t.nisn ? `(NIP: ${t.nisn})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
-                  <div className="px-3 py-1.5 rounded-xl bg-purple-100/80 border border-purple-200 text-purple-900 font-bold text-xs flex items-center gap-1.5">
-                    <span>👨‍🏫 {effectiveCommitteeHead.name}</span>
-                    {effectiveCommitteeHead.nip && (
-                      <span className="text-[10px] text-purple-700 font-normal">
-                        (NIP: {effectiveCommitteeHead.nip})
-                      </span>
-                    )}
-                  </div>
-                )}
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-slate-900 text-xs">
+                    Penetapan Ketua Panitia Ujian CBT
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 font-extrabold text-[10px] uppercase tracking-wider">
+                    User Guru
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  {isSuperAdmin
+                    ? 'Khusus Admin Utama: Tunjuk akun Guru yang menandatangani jadwal resmi sebagai Ketua Panitia.'
+                    : 'Ketua Panitia Ujian resmi ditetapkan oleh Admin Utama.'}
+                </p>
               </div>
             </div>
-          </div>
 
+            {/* Dropdown Selector (Active for Admin Utama, Read-only badge for non-admin) */}
+            <div className="flex items-center gap-2">
+              {isSuperAdmin ? (
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <label className="text-[11px] font-bold text-slate-700 whitespace-nowrap hidden sm:inline">
+                    Pilih Guru:
+                  </label>
+                  <select
+                    value={selectedCommitteeTeacherId}
+                    onChange={(e) => handleSelectCommitteeTeacher(e.target.value)}
+                    className="w-full sm:w-64 px-3 py-1.5 rounded-xl border border-purple-300 bg-white font-semibold text-slate-900 text-xs shadow-xs focus:outline-hidden focus:ring-2 focus:ring-purple-500 cursor-pointer"
+                  >
+                    {teacherCandidates.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        👨‍🏫 {t.name} {t.nisn ? `(NIP: ${t.nisn})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="px-3 py-1.5 rounded-xl bg-purple-100/80 border border-purple-200 text-purple-900 font-bold text-xs flex items-center gap-1.5">
+                  <span>👨‍🏫 {effectiveCommitteeHead.name}</span>
+                  {effectiveCommitteeHead.nip && (
+                    <span className="text-[10px] text-purple-700 font-normal">
+                      (NIP: {effectiveCommitteeHead.nip})
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 📄 DOKUMEN CETAK RESMI KEDINASAN (MENGALIR SECARA ALAMI TANPA GAP KOSONG) */}
+        <div id="cbt-printable-official-schedule" className="space-y-4 print:space-y-2.5 bg-white font-serif text-slate-950 cbt-printable-sheet">
           {/* Kop Surat Resmi */}
           <CbtOfficialKopSurat
             config={kopSuratConfig}
@@ -5069,76 +5080,90 @@ export default function CbtDashboard({
           />
 
           {/* Info Metadata */}
-          <div className="border border-slate-300 rounded-lg p-3 bg-slate-50/60 font-sans text-xs space-y-1.5">
+          <div className="border border-slate-300 rounded-lg p-2.5 print:p-2 bg-slate-50/60 font-sans text-xs print:text-[10px] space-y-1">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <div>
-                <span className="text-slate-500 font-semibold block text-[10px] uppercase">Zona Waktu:</span>
+                <span className="text-slate-500 font-semibold block text-[10px] print:text-[9px] uppercase">Zona Waktu:</span>
                 <span className="font-bold text-slate-900">{cbtTimezone} (Standar Server)</span>
               </div>
               <div>
-                <span className="text-slate-500 font-semibold block text-[10px] uppercase">Filter Ruangan:</span>
+                <span className="text-slate-500 font-semibold block text-[10px] print:text-[9px] uppercase">Filter Ruangan:</span>
                 <span className="font-bold text-slate-900">{selectedRoomFilter === 'ALL' ? 'Semua Ruangan' : selectedRoomFilter}</span>
               </div>
               <div>
-                <span className="text-slate-500 font-semibold block text-[10px] uppercase">Filter Kelas:</span>
+                <span className="text-slate-500 font-semibold block text-[10px] print:text-[9px] uppercase">Filter Kelas:</span>
                 <span className="font-bold text-slate-900">{selectedClassFilter === 'ALL' ? 'Seluruh Rombel' : selectedClassFilter}</span>
               </div>
               <div>
-                <span className="text-slate-500 font-semibold block text-[10px] uppercase">Total Terjadwal:</span>
+                <span className="text-slate-500 font-semibold block text-[10px] print:text-[9px] uppercase">Total Terjadwal:</span>
                 <span className="font-bold text-slate-900">{scheduledExams.length} Paket Ujian</span>
               </div>
             </div>
           </div>
 
-          {/* Tabel Terstruktur per Hari */}
-          <div className="space-y-6">
+          {/* Tabel Terstruktur per Hari (Alami & Mengalir, Tidak Memaksa Lompat Halaman) */}
+          <div className="space-y-4 print:space-y-3">
             {groupedScheduleByDay.sortedDays.map((day, dayIdx) => (
-              <div key={day.dateKey} className="space-y-2 print-avoid-break">
-                <div className="bg-slate-100 border-l-4 border-slate-800 px-3 py-1.5 flex items-center justify-between font-sans">
-                  <div className="font-bold text-xs uppercase tracking-wider text-slate-900">
+              <div key={day.dateKey} className="space-y-1.5 print:space-y-1">
+                {/* Header Hari (Anti-Break agar nempel dengan tabel) */}
+                <div className="bg-slate-100 border-l-4 border-slate-800 px-3 py-1 print:py-0.5 flex items-center justify-between font-sans print-avoid-break">
+                  <div className="font-bold text-xs print:text-[10.5px] uppercase tracking-wider text-slate-900">
                     📅 HARI KE-{dayIdx + 1} : {day.dayName.toUpperCase()}, {day.fullDateLabel.toUpperCase()}
                   </div>
-                  <div className="text-[11px] text-slate-600 font-medium">
+                  <div className="text-[11px] print:text-[10px] text-slate-600 font-medium">
                     {day.exams.length} Ujian Terjadwal
                   </div>
                 </div>
 
-                <table className="w-full text-left text-[11px] font-sans border-collapse border border-slate-300">
-                  <thead className="bg-slate-100 text-slate-800 font-bold uppercase text-[10px]">
+                <table className="w-full text-left text-[11px] print:text-[10px] font-sans border-collapse border border-slate-300">
+                  <thead className="bg-slate-100 text-slate-800 font-bold uppercase text-[10px] print:text-[9px]">
                     <tr>
-                      <th className="border border-slate-300 py-2 px-2 text-center w-8">No</th>
-                      <th className="border border-slate-300 py-2 px-2.5 text-center w-36">Waktu / Sesi ({cbtTimezone})</th>
-                      <th className="border border-slate-300 py-2 px-3">Mata Pelajaran & Judul Ujian</th>
-                      <th className="border border-slate-300 py-2 px-2.5 text-center w-28">Target Kelas</th>
-                      <th className="border border-slate-300 py-2 px-2 text-center w-20">Ruang</th>
-                      <th className="border border-slate-300 py-2 px-2 text-center w-16">Durasi</th>
-                      <th className="border border-slate-300 py-2 px-3">Guru Pengampu</th>
+                      <th className="border border-slate-300 py-1.5 px-2 text-center w-7">No</th>
+                      <th className="border border-slate-300 py-1.5 px-2 text-center w-32 print:w-28">Waktu / Sesi ({cbtTimezone})</th>
+                      <th className="border border-slate-300 py-1.5 px-2.5">Mata Pelajaran & Judul Ujian</th>
+                      <th className="border border-slate-300 py-1.5 px-2 text-center w-24">Target Kelas</th>
+                      <th className="border border-slate-300 py-1.5 px-2 text-center w-20">Ruang</th>
+                      <th className="border border-slate-300 py-1.5 px-1.5 text-center w-14">Durasi</th>
+                      <th className="border border-slate-300 py-1.5 px-2.5">Guru Pengampu</th>
+                      <th className="border border-slate-300 py-1.5 px-2.5 bg-blue-50/70 text-blue-900">Pengawas Ruang</th>
                     </tr>
                   </thead>
                   <tbody>
                     {day.exams.map((exam, exIdx) => (
                       <tr key={exam.id} className="border-b border-slate-200">
-                        <td className="border border-slate-300 py-2 px-2 text-center font-bold text-slate-600">
+                        <td className="border border-slate-300 py-1.5 px-2 text-center font-bold text-slate-600">
                           {exIdx + 1}
                         </td>
-                        <td className="border border-slate-300 py-2 px-2.5 text-center font-semibold text-slate-900 whitespace-nowrap">
+                        <td className="border border-slate-300 py-1.5 px-2 text-center font-semibold text-slate-900 whitespace-nowrap text-[10px]">
                           {formatExamScheduleRange(exam.startTime, exam.endTime, cbtTimezone)}
                         </td>
-                        <td className="border border-slate-300 py-2 px-3">
-                          <strong className="block text-slate-900">{exam.subject}</strong>
-                          <span className="text-[10px] text-slate-600">{exam.title}</span>
+                        <td className="border border-slate-300 py-1.5 px-2.5">
+                          <strong className="block text-slate-900 font-bold">{exam.subject}</strong>
+                          <span className="text-[10px] print:text-[9px] text-slate-500 block leading-tight">{exam.title}</span>
                         </td>
-                        <td className="border border-slate-300 py-2 px-2.5 text-center font-bold text-slate-800">
+                        <td className="border border-slate-300 py-1.5 px-2 text-center font-bold text-slate-800">
                           {exam.classTarget}
                         </td>
-                        <td className="border border-slate-300 py-2 px-2 text-center font-semibold text-slate-800">
+                        <td className="border border-slate-300 py-1.5 px-2 text-center font-semibold text-slate-800">
                           {exam.roomName?.trim() || 'Ruang Utama'}
                         </td>
-                        <td className="border border-slate-300 py-2 px-2 text-center text-slate-700">
-                          {exam.duration} mnt
+                        <td className="border border-slate-300 py-1.5 px-1.5 text-center text-slate-700">
+                          {exam.duration} m
                         </td>
-                        <td className="border border-slate-300 py-2 px-3 text-slate-800">
+                        <td className="border border-slate-300 py-1.5 px-2.5 text-slate-800 text-[10px]">
                           {exam.authorName || 'Guru Pengampu'}
+                        </td>
+                        <td className="border border-slate-300 py-1.5 px-2.5 text-[10px]">
+                          {exam.proctorName ? (
+                            <div>
+                              <span className="font-bold text-slate-900 block">{exam.proctorName}</span>
+                              {exam.proctor2Name && (
+                                <span className="text-[9px] text-slate-500 block">P2: {exam.proctor2Name}</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-amber-600 font-semibold italic text-[10px]">Belum Di-plot</span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -5148,33 +5173,41 @@ export default function CbtDashboard({
             ))}
 
             {groupedScheduleByDay.unscheduledList.length > 0 && (
-              <div className="space-y-2 print-avoid-break">
-                <div className="bg-amber-100 border-l-4 border-amber-600 px-3 py-1.5 font-sans font-bold text-xs uppercase tracking-wider text-amber-900">
+              <div className="space-y-1.5 print:space-y-1">
+                <div className="bg-amber-100 border-l-4 border-amber-600 px-3 py-1 print-avoid-break font-sans font-bold text-xs uppercase tracking-wider text-amber-900">
                   ⚠️ PAKET UJIAN BELUM DIBERI JADWAL ({groupedScheduleByDay.unscheduledList.length})
                 </div>
-                <table className="w-full text-left text-[11px] font-sans border-collapse border border-slate-300">
-                  <thead className="bg-slate-100 text-slate-800 font-bold uppercase text-[10px]">
+                <table className="w-full text-left text-[11px] print:text-[10px] font-sans border-collapse border border-slate-300">
+                  <thead className="bg-slate-100 text-slate-800 font-bold uppercase text-[10px] print:text-[9px]">
                     <tr>
-                      <th className="border border-slate-300 py-2 px-2 text-center w-8">No</th>
-                      <th className="border border-slate-300 py-2 px-3">Mata Pelajaran & Judul Ujian</th>
-                      <th className="border border-slate-300 py-2 px-2.5 text-center w-28">Target Kelas</th>
-                      <th className="border border-slate-300 py-2 px-2 text-center w-20">Ruang</th>
-                      <th className="border border-slate-300 py-2 px-2 text-center w-16">Durasi</th>
-                      <th className="border border-slate-300 py-2 px-3">Guru Pengampu</th>
+                      <th className="border border-slate-300 py-1.5 px-2 text-center w-7">No</th>
+                      <th className="border border-slate-300 py-1.5 px-2.5">Mata Pelajaran & Judul Ujian</th>
+                      <th className="border border-slate-300 py-1.5 px-2 text-center w-24">Target Kelas</th>
+                      <th className="border border-slate-300 py-1.5 px-2 text-center w-20">Ruang</th>
+                      <th className="border border-slate-300 py-1.5 px-1.5 text-center w-14">Durasi</th>
+                      <th className="border border-slate-300 py-1.5 px-2.5">Guru Pengampu</th>
+                      <th className="border border-slate-300 py-1.5 px-2.5 bg-blue-50/70 text-blue-900">Pengawas Ruang</th>
                     </tr>
                   </thead>
                   <tbody>
                     {groupedScheduleByDay.unscheduledList.map((exam, exIdx) => (
                       <tr key={exam.id} className="border-b border-slate-200">
-                        <td className="border border-slate-300 py-2 px-2 text-center text-slate-600">{exIdx + 1}</td>
-                        <td className="border border-slate-300 py-2 px-3">
-                          <strong className="block text-slate-900">{exam.subject}</strong>
-                          <span className="text-[10px] text-slate-600">{exam.title}</span>
+                        <td className="border border-slate-300 py-1.5 px-2 text-center text-slate-600 font-bold">{exIdx + 1}</td>
+                        <td className="border border-slate-300 py-1.5 px-2.5">
+                          <strong className="block text-slate-900 font-bold">{exam.subject}</strong>
+                          <span className="text-[10px] print:text-[9px] text-slate-500 block leading-tight">{exam.title}</span>
                         </td>
-                        <td className="border border-slate-300 py-2 px-2.5 text-center">{exam.classTarget}</td>
-                        <td className="border border-slate-300 py-2 px-2 text-center">{exam.roomName?.trim() || 'Ruang Utama'}</td>
-                        <td className="border border-slate-300 py-2 px-2 text-center">{exam.duration} mnt</td>
-                        <td className="border border-slate-300 py-2 px-3">{exam.authorName || 'Guru Pengampu'}</td>
+                        <td className="border border-slate-300 py-1.5 px-2 text-center font-bold">{exam.classTarget}</td>
+                        <td className="border border-slate-300 py-1.5 px-2 text-center">{exam.roomName?.trim() || 'Ruang Utama'}</td>
+                        <td className="border border-slate-300 py-1.5 px-1.5 text-center">{exam.duration} m</td>
+                        <td className="border border-slate-300 py-1.5 px-2.5 text-slate-800 text-[10px]">{exam.authorName || 'Guru Pengampu'}</td>
+                        <td className="border border-slate-300 py-1.5 px-2.5 text-[10px]">
+                          {exam.proctorName ? (
+                            <span className="font-bold text-slate-900">{exam.proctorName}</span>
+                          ) : (
+                            <span className="text-amber-600 font-semibold italic text-[10px]">Belum Di-plot</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -5183,22 +5216,25 @@ export default function CbtDashboard({
             )}
           </div>
 
-          {/* QR Keabsahan Digital */}
-          <CbtSecurityValidationBox
-            verificationCode={`SCH-${new Date().getFullYear()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`}
-            examTitle="Jadwal Resmi Pelaksanaan CBT"
-          />
+          {/* Kotak Validasi & Lembar Tanda Tangan Resmi (Anti-Break agar menyatu) */}
+          <div className="print-avoid-break space-y-4 print:space-y-3 pt-2">
+            {/* QR Keabsahan Digital */}
+            <CbtSecurityValidationBox
+              verificationCode={`SCH-${new Date().getFullYear()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`}
+              examTitle="Jadwal Resmi Pelaksanaan CBT"
+            />
 
-          {/* Lembar Tanda Tangan Resmi */}
-          <CbtOfficialSignatures
-            config={kopSuratConfig}
-            mode="two-column"
-            teacherName={effectiveCommitteeHead.name}
-            teacherNip={effectiveCommitteeHead.nip || undefined}
-            subTitle={effectiveCommitteeHead.nip ? `NIP. ${effectiveCommitteeHead.nip}` : (kopSuratConfig?.schoolName || 'SMK GARUDA MAHADHIKA')}
-            roleTitle="Ketua Panitia Ujian CBT"
-            dateString={new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-          />
+            {/* Lembar Tanda Tangan Resmi */}
+            <CbtOfficialSignatures
+              config={kopSuratConfig}
+              mode="two-column"
+              teacherName={effectiveCommitteeHead.name}
+              teacherNip={effectiveCommitteeHead.nip || undefined}
+              subTitle={effectiveCommitteeHead.nip ? `NIP. ${effectiveCommitteeHead.nip}` : (kopSuratConfig?.schoolName || 'SMK GARUDA MAHADHIKA')}
+              roleTitle="Ketua Panitia Ujian CBT"
+              dateString={new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+            />
+          </div>
         </div>
       </CbtPrintModalWrapper>
 
