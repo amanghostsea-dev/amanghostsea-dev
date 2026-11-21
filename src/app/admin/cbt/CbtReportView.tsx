@@ -476,12 +476,12 @@ export default function CbtReportView({
 
   return (
     <div className="space-y-3.5 font-sans">
-      {/* 🌟 1. COMPACT TOP HEADER BAR (Ringkas, Elegan & Lengkap) */}
+      {/* 🌟 1. COMPACT TOP HEADER BAR (Ringkas, Elegan, Seimbang & Selaras) */}
       <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-white shadow-md border border-purple-500/20 relative overflow-hidden">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
-          {/* Sisi Kiri: Judul & Konteks Role */}
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-purple-200 text-[10px] sm:text-[11px] font-semibold">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
+          {/* Sisi Kiri: Judul & Konteks Role (Cukup Ruang, Tidak Terjepit) */}
+          <div className="space-y-1 min-w-0 flex-1">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-purple-200 text-[10px] sm:text-[11px] font-semibold border border-white/10 backdrop-blur-xs whitespace-nowrap">
               <FileCheck2 size={13} className="text-purple-300" />
               <span>
                 Laporan &amp; Rekapitulasi CBT • {isSuperAdmin ? 'Tingkat Sekolah (SuperAdmin)' : isGuru ? `Mode Guru: ${currentUserName}` : 'Semua Data'}
@@ -490,59 +490,15 @@ export default function CbtReportView({
             <h2 className="text-lg sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
               Laporan Evaluasi &amp; Buku Nilai CBT
             </h2>
-            <p className="text-[11px] sm:text-xs text-purple-200/90 hidden sm:block">
+            <p className="text-[11px] sm:text-xs text-purple-200/90 hidden sm:block max-w-2xl leading-relaxed">
               {isSuperAdmin
                 ? 'Pantau sebaran nilai siswa, analisis ketuntasan KKM, kelola integritas, dan sinkronisasi ke buku nilai raport.'
                 : 'Pantau nilai siswa kelas yang Anda ampu, sinkronisasi otomatis ke raport, dan cetak lembar evaluasi resmi.'}
             </p>
           </div>
 
-          {/* Sisi Kanan: Pengalih Mode Tampilan & Tombol Aksi */}
-          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 self-start md:self-center shrink-0">
-            {/* 🧭 Pengalih Mode Tampilan (Langsung di Header agar mudah diakses) */}
-            <div className="inline-flex items-center p-1 bg-white/10 rounded-xl border border-white/15 backdrop-blur-md">
-              <button
-                type="button"
-                onClick={() => setViewLayout('BOTH')}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  viewLayout === 'BOTH'
-                    ? 'bg-white text-purple-950 shadow-xs'
-                    : 'text-purple-200 hover:text-white hover:bg-white/10'
-                }`}
-                title="Tampilkan grafik visual dan tabel nilai bersamaan"
-              >
-                <Layers size={13} />
-                <span>Grafik &amp; Tabel</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewLayout('CHARTS')}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  viewLayout === 'CHARTS'
-                    ? 'bg-white text-purple-950 shadow-xs'
-                    : 'text-purple-200 hover:text-white hover:bg-white/10'
-                }`}
-                title="Fokus tampilkan grafik analitik saja"
-              >
-                <PieChart size={13} />
-                <span>Hanya Grafik</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewLayout('TABLE')}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  viewLayout === 'TABLE'
-                    ? 'bg-white text-purple-950 shadow-xs'
-                    : 'text-purple-200 hover:text-white hover:bg-white/10'
-                }`}
-                title="Tampilkan tabel daftar nilai saja"
-              >
-                <FileText size={13} />
-                <span>Hanya Tabel</span>
-              </button>
-            </div>
-
-            {/* Tombol Aksi Dokumen (Animasi & Micro-Interactions) */}
+          {/* Sisi Kanan: Tombol Aksi Dokumen (Rapi, Sejajar & Beranimasi) */}
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 self-start md:self-center">
             {isSuperAdmin && (
               <a
                 href="/admin/settings#kop-surat"
@@ -557,7 +513,7 @@ export default function CbtReportView({
               type="button"
               onClick={handleExportCsv}
               className="group relative px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white border border-white/25 font-bold text-xs flex items-center gap-2 transition-all duration-300 shadow-xs hover:shadow-md hover:-translate-y-0.5 cursor-pointer backdrop-blur-md"
-              title="Unduh format spreadsheet CSV"
+              title="Unduh format spreadsheet CSV / Excel"
             >
               <Download size={13} className="text-purple-300 group-hover:translate-y-0.5 transition-transform duration-200" />
               <span>Ekspor Excel</span>
@@ -571,6 +527,56 @@ export default function CbtReportView({
               <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/25 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
               <Printer size={13} className="text-white group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300" />
               <span>Cetak Rekap</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 🧭 Sub-strip: Pengalih Mode Tampilan (Segmented Switcher Selaras & Rapi) */}
+        <div className="mt-3 pt-2.5 border-t border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2 text-xs text-purple-200/90 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-ping" />
+            <span>Format Tampilan Laporan CBT:</span>
+          </div>
+
+          <div className="inline-flex items-center p-1 bg-white/10 rounded-xl border border-white/15 backdrop-blur-md self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setViewLayout('BOTH')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                viewLayout === 'BOTH'
+                  ? 'bg-white text-purple-950 shadow-xs'
+                  : 'text-purple-200 hover:text-white hover:bg-white/10'
+              }`}
+              title="Tampilkan grafik visual dan tabel nilai bersamaan"
+            >
+              <Layers size={13} />
+              <span>Grafik &amp; Tabel</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewLayout('CHARTS')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                viewLayout === 'CHARTS'
+                  ? 'bg-white text-purple-950 shadow-xs'
+                  : 'text-purple-200 hover:text-white hover:bg-white/10'
+              }`}
+              title="Fokus tampilkan grafik analitik saja"
+            >
+              <PieChart size={13} />
+              <span>Hanya Grafik</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewLayout('TABLE')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                viewLayout === 'TABLE'
+                  ? 'bg-white text-purple-950 shadow-xs'
+                  : 'text-purple-200 hover:text-white hover:bg-white/10'
+              }`}
+              title="Tampilkan tabel daftar nilai saja"
+            >
+              <FileText size={13} />
+              <span>Hanya Tabel</span>
             </button>
           </div>
         </div>
@@ -748,8 +754,8 @@ export default function CbtReportView({
       {/* 📊 3. COMPACT 5 KPI METRICS STRIP (Hemat Ruang & Sangat Jelas) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
         {/* Metric 1: Total Siswa */}
-        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+        <div className="group p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
             <Users size={18} />
           </div>
           <div className="min-w-0">
@@ -761,8 +767,8 @@ export default function CbtReportView({
         </div>
 
         {/* Metric 2: Rata-Rata Nilai */}
-        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+        <div className="group p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
             <Award size={18} />
           </div>
           <div className="min-w-0">
@@ -774,8 +780,8 @@ export default function CbtReportView({
         </div>
 
         {/* Metric 3: Ketuntasan Belajar */}
-        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+        <div className="group p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
             <CheckCircle2 size={18} />
           </div>
           <div className="min-w-0">
@@ -787,8 +793,8 @@ export default function CbtReportView({
         </div>
 
         {/* Metric 4: Remedial */}
-        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+        <div className="group p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
             <AlertCircle size={18} />
           </div>
           <div className="min-w-0">
@@ -800,8 +806,8 @@ export default function CbtReportView({
         </div>
 
         {/* Metric 5: Integritas Anti-Curang */}
-        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex items-center gap-3 col-span-2 sm:col-span-1">
-          <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+        <div className="group p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-3 col-span-2 sm:col-span-1">
+          <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
             <ShieldAlert size={18} />
           </div>
           <div className="min-w-0">
