@@ -349,6 +349,59 @@ export default function CbtDashboard({
   const [collapsedDays, setCollapsedDays] = useState<Record<string, boolean>>({});
   const [copiedTokenId, setCopiedTokenId] = useState<string | null>(null);
 
+  // 👨‍🏫 Filter daftar user Guru khusus untuk kandidat Ketua Panitia Ujian CBT
+  const teacherCandidates = useMemo(() => {
+    const onlyGuru = teachers.filter((t) => t.role?.toLowerCase() === 'guru');
+    if (onlyGuru.length > 0) return onlyGuru;
+    const nonAdmin = teachers.filter((t) => t.role !== 'Super Admin' && t.role !== 'Admin Utama');
+    return nonAdmin.length > 0 ? nonAdmin : teachers;
+  }, [teachers]);
+
+  const [selectedCommitteeTeacherId, setSelectedCommitteeTeacherId] = useState<string>('');
+
+  useEffect(() => {
+    try {
+      const savedTeacherId = localStorage.getItem('cbt_committee_head_teacher_id');
+      if (savedTeacherId && teachers.some((t) => t.id === savedTeacherId)) {
+        setSelectedCommitteeTeacherId(savedTeacherId);
+      } else if (teacherCandidates.length > 0) {
+        setSelectedCommitteeTeacherId(teacherCandidates[0].id);
+      }
+    } catch {
+      // ignore local storage errors
+    }
+  }, [teachers, teacherCandidates]);
+
+  const handleSelectCommitteeTeacher = (teacherId: string) => {
+    if (!isSuperAdmin) return;
+    setSelectedCommitteeTeacherId(teacherId);
+    try {
+      localStorage.setItem('cbt_committee_head_teacher_id', teacherId);
+    } catch {
+      // ignore local storage errors
+    }
+  };
+
+  const effectiveCommitteeHead = useMemo(() => {
+    const found = teachers.find((t) => t.id === selectedCommitteeTeacherId);
+    if (found) {
+      return {
+        name: found.name,
+        nip: found.nisn || '',
+      };
+    }
+    if (teacherCandidates.length > 0) {
+      return {
+        name: teacherCandidates[0].name,
+        nip: teacherCandidates[0].nisn || '',
+      };
+    }
+    return {
+      name: currentUser?.name || 'Panitia Ujian',
+      nip: '',
+    };
+  }, [teachers, selectedCommitteeTeacherId, teacherCandidates, currentUser?.name]);
+
   const toggleDayCollapse = (dateKey: string) => {
     setCollapsedDays((prev) => ({ ...prev, [dateKey]: !prev[dateKey] }));
   };
@@ -4868,6 +4921,63 @@ export default function CbtDashboard({
         printButtonText="Cetak Jadwal (PDF / Print)"
       >
         <div id="cbt-printable-official-schedule" className="space-y-6 bg-white font-serif text-slate-950 cbt-printable-sheet">
+          {/* 🎛️ PANEL PENETAPAN KETUA PANITIA UJIAN (HANYA BISA DIUBAH ADMIN UTAMA) */}
+          <div className="print:hidden p-3.5 bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 border border-purple-200 dark:border-purple-800/40 rounded-2xl shadow-xs font-sans text-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-sm shrink-0">
+                  <UserCheck size={16} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-slate-900 text-xs">
+                      Penetapan Ketua Panitia Ujian CBT
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 font-extrabold text-[10px] uppercase tracking-wider">
+                      User Guru
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    {isSuperAdmin
+                      ? 'Khusus Admin Utama: Tunjuk akun Guru yang menandatangani jadwal resmi sebagai Ketua Panitia.'
+                      : 'Ketua Panitia Ujian resmi ditetapkan oleh Admin Utama.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Dropdown Selector (Active for Admin Utama, Read-only badge for non-admin) */}
+              <div className="flex items-center gap-2">
+                {isSuperAdmin ? (
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <label className="text-[11px] font-bold text-slate-700 whitespace-nowrap hidden sm:inline">
+                      Pilih Guru:
+                    </label>
+                    <select
+                      value={selectedCommitteeTeacherId}
+                      onChange={(e) => handleSelectCommitteeTeacher(e.target.value)}
+                      className="w-full sm:w-64 px-3 py-1.5 rounded-xl border border-purple-300 bg-white font-semibold text-slate-900 text-xs shadow-xs focus:outline-hidden focus:ring-2 focus:ring-purple-500 cursor-pointer"
+                    >
+                      {teacherCandidates.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          👨‍🏫 {t.name} {t.nisn ? `(NIP: ${t.nisn})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="px-3 py-1.5 rounded-xl bg-purple-100/80 border border-purple-200 text-purple-900 font-bold text-xs flex items-center gap-1.5">
+                    <span>👨‍🏫 {effectiveCommitteeHead.name}</span>
+                    {effectiveCommitteeHead.nip && (
+                      <span className="text-[10px] text-purple-700 font-normal">
+                        (NIP: {effectiveCommitteeHead.nip})
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Kop Surat Resmi */}
           <CbtOfficialKopSurat
             config={kopSuratConfig}
@@ -5001,7 +5111,9 @@ export default function CbtDashboard({
           <CbtOfficialSignatures
             config={kopSuratConfig}
             mode="two-column"
-            teacherName={currentUser?.name || 'Panitia Ujian'}
+            teacherName={effectiveCommitteeHead.name}
+            teacherNip={effectiveCommitteeHead.nip || undefined}
+            subTitle={effectiveCommitteeHead.nip ? `NIP. ${effectiveCommitteeHead.nip}` : (kopSuratConfig?.schoolName || 'SMK GARUDA MAHADHIKA')}
             roleTitle="Ketua Panitia Ujian CBT"
             dateString={new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
           />
