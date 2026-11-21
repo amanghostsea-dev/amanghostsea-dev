@@ -200,12 +200,36 @@ export async function saveProgress(
   try {
     const current = await prisma.examAttempt.findUnique({
       where: { id: attemptId },
-      select: { proctorNotes: true, isBlocked: true, tabSwitchCount: true, studentName: true, studentNis: true },
+      select: {
+        answers: true,
+        proctorNotes: true,
+        isBlocked: true,
+        tabSwitchCount: true,
+        studentName: true,
+        studentNis: true,
+      },
     });
 
     if (!current) {
       return { error: 'Data pengerjaan tidak ditemukan.' };
     }
+
+    // 🛡️ ANTI-DATA-LOSS HYBRID MERGE:
+    // Pastikan jawaban yang sudah tersimpan di database tidak pernah terhapus atau tertimpa kosong.
+    // Jawaban incoming digabungkan dengan jawaban yang sudah ada di database.
+    let mergedAnswers: Record<string, string> = {};
+    if (current.answers) {
+      try {
+        const parsedCurrent = JSON.parse(current.answers);
+        if (parsedCurrent && typeof parsedCurrent === 'object') {
+          mergedAnswers = parsedCurrent;
+        }
+      } catch {}
+    }
+    if (answers && typeof answers === 'object') {
+      mergedAnswers = { ...mergedAnswers, ...answers };
+    }
+    const safeAnswersJson = JSON.stringify(mergedAnswers);
 
     // 💓 Heartbeat: Perbarui lastActive sesi perangkat siswa secara otomatis di latar belakang
     if (current.studentNis || current.studentName) {
@@ -293,7 +317,7 @@ export async function saveProgress(
     const updated = await prisma.examAttempt.update({
       where: { id: attemptId },
       data: {
-        answers: JSON.stringify(answers),
+        answers: safeAnswersJson,
         tabSwitchCount: effectiveTabCount,
         isBlocked: shouldBlock,
         proctorNotes: newNotes,
@@ -309,6 +333,7 @@ export async function saveProgress(
         score: true,
         totalCorrect: true,
         totalQuestions: true,
+        answers: true,
       },
     });
 
@@ -329,6 +354,7 @@ export async function saveProgress(
       score: updated.score,
       totalCorrect: updated.totalCorrect,
       totalQuestions: updated.totalQuestions,
+      answers: updated.answers,
     };
   } catch (error: any) {
     return { error: error.message };
@@ -346,6 +372,7 @@ export async function checkStudentExamLockStatus(attemptId: string) {
         tabSwitchCount: true,
         proctorNotes: true,
         extraTimeMinutes: true,
+        answers: true,
       },
     });
 
@@ -371,6 +398,7 @@ export async function checkStudentExamLockStatus(attemptId: string) {
       proctorNotes: attempt.proctorNotes,
       extraTimeMinutes: attempt.extraTimeMinutes,
       status: attempt.status,
+      answers: attempt.answers,
     };
   } catch (error: any) {
     return { error: error.message };
@@ -398,6 +426,22 @@ export async function submitExam(
       return { error: 'Data pengerjaan tidak ditemukan.' };
     }
 
+    // 🛡️ ANTI-DATA-LOSS HYBRID MERGE:
+    // Pastikan seluruh jawaban yang sudah tersimpan di database digabungkan dengan jawaban submit
+    let mergedAnswers: Record<string, string> = {};
+    if (attempt.answers) {
+      try {
+        const parsedCurrent = JSON.parse(attempt.answers);
+        if (parsedCurrent && typeof parsedCurrent === 'object') {
+          mergedAnswers = parsedCurrent;
+        }
+      } catch {}
+    }
+    if (answers && typeof answers === 'object') {
+      mergedAnswers = { ...mergedAnswers, ...answers };
+    }
+    const finalAnswersJson = JSON.stringify(mergedAnswers);
+
     // Calculate score
     const questions = attempt.exam.questions;
     let totalScore = 0;
@@ -405,7 +449,7 @@ export async function submitExam(
     const totalMaxPoints = questions.reduce((sum, q) => sum + q.points, 0) || 100;
 
     questions.forEach((q) => {
-      const studentAns = answers[q.id];
+      const studentAns = mergedAnswers[q.id];
       if (studentAns !== undefined && studentAns === q.correctAnswer) {
         totalScore += q.points;
         totalCorrect += 1;
@@ -418,7 +462,7 @@ export async function submitExam(
     const updated = await prisma.examAttempt.update({
       where: { id: attemptId },
       data: {
-        answers: JSON.stringify(answers),
+        answers: finalAnswersJson,
         score: finalScaledScore,
         totalQuestions: questions.length,
         totalCorrect,
@@ -544,6 +588,7 @@ export async function checkAttemptStatusAction(attemptId: string) {
         tabSwitchCount: true,
         proctorNotes: true,
         extraTimeMinutes: true,
+        answers: true,
       },
     });
 
@@ -573,6 +618,7 @@ export async function checkAttemptStatusAction(attemptId: string) {
       proctorNotes: attempt.proctorNotes,
       hasAdminOverride,
       hasProctorFatalPermission,
+      answers: attempt.answers,
     };
   } catch (error: any) {
     return { error: error.message };

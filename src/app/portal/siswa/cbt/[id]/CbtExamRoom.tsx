@@ -213,6 +213,16 @@ export default function CbtExamRoom({
         setIsStrike2Locked(isS2Locked);
         setTabSwitchCount(res.attempt.tabSwitchCount || 0);
 
+        // 🛡️ SINKRONISASI JAWABAN REALTIME PASCA RESUME:
+        if (res.attempt.answers) {
+          try {
+            const serverAnswers = JSON.parse(res.attempt.answers);
+            if (serverAnswers && typeof serverAnswers === 'object') {
+              setAnswers((prev) => ({ ...serverAnswers, ...prev }));
+            }
+          } catch {}
+        }
+
         if (res.questions) {
           const processedQ =
             exam.shuffleQuestions && res.questions.length > 1
@@ -244,8 +254,39 @@ export default function CbtExamRoom({
     return exam.questions;
   });
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [doubtful, setDoubtful] = useState<Record<string, boolean>>({});
+  const [answers, setAnswers] = useState<Record<string, string>>(() => {
+    // 🛡️ ZERO-FLICKER HYDRATION:
+    // 1. Ambil dari database server jika existingAttempt tersedia
+    if (existingAttempt?.answers) {
+      try {
+        const parsed = JSON.parse(existingAttempt.answers);
+        if (parsed && typeof parsed === 'object') return parsed;
+      } catch {}
+    }
+    // 2. Ambil dari localStorage client jika tersedia
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(`cbt_exam_${exam.id}_${studentName}`);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.answers && typeof parsed.answers === 'object') return parsed.answers;
+        }
+      } catch {}
+    }
+    return {};
+  });
+  const [doubtful, setDoubtful] = useState<Record<string, boolean>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(`cbt_exam_${exam.id}_${studentName}`);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.doubtful && typeof parsed.doubtful === 'object') return parsed.doubtful;
+        }
+      } catch {}
+    }
+    return {};
+  });
   const [tabSwitchCount, setTabSwitchCount] = useState<number>(existingAttempt?.tabSwitchCount || 0);
   const [showCheatWarning, setShowCheatWarning] = useState(false);
   const [lastViolationTimeStr, setLastViolationTimeStr] = useState<string>('');
@@ -305,33 +346,45 @@ export default function CbtExamRoom({
         Boolean((attempt as any).proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]') || (attempt as any).proctorNotes?.includes('[ADMIN_UNBLOCK]')) && 
         dbCount < 3;
 
-      let restoredAnswers: Record<string, string> = {};
+      let dbAnswers: Record<string, string> = {};
+      if (attempt.answers) {
+        try {
+          const parsed = JSON.parse(attempt.answers);
+          if (parsed && typeof parsed === 'object') {
+            dbAnswers = parsed;
+          }
+        } catch {}
+      }
+
+      let localAnswers: Record<string, string> = {};
       let restoredDoubtful: Record<string, boolean> = {};
       let restoredCount = dbCount;
 
       if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.answers && typeof parsed.answers === 'object') {
-          restoredAnswers = parsed.answers;
-        }
-        if (parsed.doubtful && typeof parsed.doubtful === 'object') {
-          restoredDoubtful = parsed.doubtful;
-        }
-        const localCount = typeof parsed.tabSwitchCount === 'number' ? parsed.tabSwitchCount : 0;
-        if (isUnblockedByAdmin) {
-          // 🛡️ Otoritas penuh Server: Jika admin sudah membuka suspend, jangan biarkan local storage lama mereset kembali ke 3/4
-          restoredCount = dbCount;
-        } else {
-          restoredCount = Math.max(dbCount, localCount);
-        }
-      } else if (attempt.answers) {
         try {
-          restoredAnswers = JSON.parse(attempt.answers);
+          const parsed = JSON.parse(saved);
+          if (parsed.answers && typeof parsed.answers === 'object') {
+            localAnswers = parsed.answers;
+          }
+          if (parsed.doubtful && typeof parsed.doubtful === 'object') {
+            restoredDoubtful = parsed.doubtful;
+          }
+          const localCount = typeof parsed.tabSwitchCount === 'number' ? parsed.tabSwitchCount : 0;
+          if (isUnblockedByAdmin) {
+            // 🛡️ Otoritas penuh Server: Jika admin sudah membuka suspend, jangan biarkan local storage lama mereset kembali ke 3/4
+            restoredCount = dbCount;
+          } else {
+            restoredCount = Math.max(dbCount, localCount);
+          }
         } catch {}
       }
 
-      setAnswers((prev) => Object.keys(prev).length > 0 ? prev : restoredAnswers);
-      setDoubtful((prev) => Object.keys(prev).length > 0 ? prev : restoredDoubtful);
+      // 🛡️ HYBRID STATE MERGE (DB Server + LocalStorage):
+      // Jawaban dari database server digabungkan dengan cache lokal, keduanya saling mengamankan.
+      const restoredAnswers: Record<string, string> = { ...dbAnswers, ...localAnswers };
+
+      setAnswers((prev) => ({ ...restoredAnswers, ...prev }));
+      setDoubtful((prev) => ({ ...restoredDoubtful, ...prev }));
       setTabSwitchCount(restoredCount);
 
       // Evaluasi kunci Strike 2 & Strike 3 secara deterministik
@@ -627,8 +680,18 @@ export default function CbtExamRoom({
       if (typeof document !== 'undefined' && document.hidden && !isStrike2Locked && !(attempt as any)?.isBlocked && tabSwitchCount < 3) return;
 
       try {
-        const res = await saveProgress(attempt.id, answers, tabSwitchCount);
+        const res = await saveProgress(attempt.id, answersRef.current, tabSwitchCountRef.current);
         if (res && res.success) {
+          // 🛡️ SINKRONISASI JAWABAN TERKINI DARI DATABASE:
+          if (res.answers) {
+            try {
+              const serverAns = JSON.parse(res.answers);
+              if (serverAns && typeof serverAns === 'object') {
+                setAnswers((prev) => ({ ...serverAns, ...prev }));
+              }
+            } catch {}
+          }
+
           setAttempt((prev) => prev ? {
             ...prev,
             isBlocked: res.isBlocked !== undefined ? res.isBlocked : prev.isBlocked,
@@ -719,6 +782,16 @@ export default function CbtExamRoom({
       const isS2Locked = res.attempt.tabSwitchCount === 2 && !hasPermission && !res.attempt.isBlocked;
       setIsStrike2Locked(isS2Locked);
       setTabSwitchCount(res.attempt.tabSwitchCount || 0);
+
+      // 🛡️ SINKRONISASI JAWABAN REALTIME PASCA MEMULAI / RESUME:
+      if (res.attempt.answers) {
+        try {
+          const serverAnswers = JSON.parse(res.attempt.answers);
+          if (serverAnswers && typeof serverAnswers === 'object') {
+            setAnswers((prev) => ({ ...serverAnswers, ...prev }));
+          }
+        } catch {}
+      }
 
       if (res.questions) {
         const processedQ =
@@ -932,6 +1005,17 @@ export default function CbtExamRoom({
           tabSwitchCount: count,
           proctorNotes: res.proctorNotes || prev.proctorNotes,
         } : prev);
+
+        // 🛡️ SINKRONISASI JAWABAN REALTIME PASCA BUKA SUSPEND:
+        const incomingAnswers = res.answers || res.attempt?.answers;
+        if (incomingAnswers) {
+          try {
+            const dbAns = JSON.parse(incomingAnswers);
+            if (dbAns && typeof dbAns === 'object') {
+              setAnswers((prev) => ({ ...dbAns, ...prev }));
+            }
+          } catch {}
+        }
         try {
           const saved = localStorage.getItem(storageKey);
           if (saved) {
