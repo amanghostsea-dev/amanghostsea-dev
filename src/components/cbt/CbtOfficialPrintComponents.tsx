@@ -461,6 +461,9 @@ export function CbtPrintModalWrapper({
   printButtonText = 'Cetak Dokumen Sekarang (PDF / Print)',
   maxWidth = 'max-w-4xl',
   footerExtra,
+  onDownloadPdf,
+  downloadPdfButtonText = 'Unduh File PDF',
+  isDownloadingPdf = false,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -471,6 +474,9 @@ export function CbtPrintModalWrapper({
   printButtonText?: string;
   maxWidth?: string;
   footerExtra?: React.ReactNode;
+  onDownloadPdf?: () => void;
+  downloadPdfButtonText?: string;
+  isDownloadingPdf?: boolean;
 }) {
   const [mounted, setMounted] = React.useState(false);
 
@@ -529,10 +535,32 @@ export function CbtPrintModalWrapper({
                 if (onPrint) onPrint();
                 else window.print();
               }}
-              className="px-5 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow-md shadow-blue-500/25 cursor-pointer transition-colors"
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-200 hover:bg-slate-300 text-slate-800 flex items-center gap-1.5 cursor-pointer transition-colors"
+              title="Cetak langsung ke mesin printer kertas"
             >
               🖨️ {printButtonText}
             </button>
+            {onDownloadPdf && (
+              <button
+                type="button"
+                onClick={onDownloadPdf}
+                disabled={isDownloadingPdf}
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white flex items-center gap-1.5 shadow-md shadow-emerald-500/25 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+                title="Unduh berkas PDF resmi untuk dikirim atau dibagikan ke rekan guru"
+              >
+                {isDownloadingPdf ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    <span>Memproses PDF...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>📥</span>
+                    <span>{downloadPdfButtonText}</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>

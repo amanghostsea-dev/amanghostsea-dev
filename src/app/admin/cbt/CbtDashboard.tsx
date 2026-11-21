@@ -358,6 +358,7 @@ export default function CbtDashboard({
   }, [teachers]);
 
   const [selectedCommitteeTeacherId, setSelectedCommitteeTeacherId] = useState<string>('');
+  const [isDownloadingSchedulePdf, setIsDownloadingSchedulePdf] = useState(false);
 
   useEffect(() => {
     try {
@@ -379,6 +380,75 @@ export default function CbtDashboard({
       localStorage.setItem('cbt_committee_head_teacher_id', teacherId);
     } catch {
       // ignore local storage errors
+    }
+  };
+
+  // 📥 Handler Download File PDF Resmi Jadwal Ujian
+  const handleDownloadSchedulePdf = async () => {
+    setIsDownloadingSchedulePdf(true);
+    try {
+      const printableElement = document.getElementById('cbt-printable-official-schedule');
+      if (!printableElement) {
+        window.print();
+        return;
+      }
+
+      // Pastikan html2pdf library ter-load di browser client
+      let html2pdfInstance = (window as any).html2pdf;
+      if (!html2pdfInstance) {
+        await new Promise((resolve, reject) => {
+          const existingScript = document.getElementById('html2pdf-cdn-script') as HTMLScriptElement | null;
+          if (existingScript) {
+            if ((window as any).html2pdf) {
+              resolve((window as any).html2pdf);
+              return;
+            }
+            existingScript.addEventListener('load', () => resolve((window as any).html2pdf));
+            existingScript.addEventListener('error', () => reject(new Error('CDN unreachable')));
+            return;
+          }
+          const script = document.createElement('script');
+          script.id = 'html2pdf-cdn-script';
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+          script.async = true;
+          script.onload = () => resolve((window as any).html2pdf);
+          script.onerror = () => reject(new Error('Gagal memuat html2pdf CDN'));
+          document.head.appendChild(script);
+        });
+        html2pdfInstance = (window as any).html2pdf;
+      }
+
+      if (html2pdfInstance) {
+        const cleanSchool = (kopSuratConfig?.schoolName || 'SMK').replace(/[^a-zA-Z0-9]/g, '_');
+        const dateStamp = new Date().toISOString().split('T')[0];
+        const filename = `Jadwal_Resmi_CBT_${cleanSchool}_${dateStamp}.pdf`;
+
+        const opt = {
+          margin: [8, 8, 8, 8],
+          filename: filename,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { 
+            scale: 2, 
+            useCORS: true, 
+            logging: false,
+            ignoreElements: (element: Element) => {
+              return element.classList?.contains('print:hidden') || 
+                     element.classList?.contains('cbt-ignore-pdf') ||
+                     element.id === 'cbt-committee-selector-banner';
+            }
+          },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        await html2pdfInstance().set(opt).from(printableElement).save();
+      } else {
+        window.print();
+      }
+    } catch (err) {
+      console.warn('Direct PDF download fallback to window.print():', err);
+      window.print();
+    } finally {
+      setIsDownloadingSchedulePdf(false);
     }
   };
 
@@ -4918,11 +4988,23 @@ export default function CbtDashboard({
         title="Pratinjau Cetak Jadwal Resmi Ujian CBT"
         subtitle="Dokumen resmi jadwal pelaksanaan ujian berbasis komputer untuk papan pengumuman & arsip dinas"
         maxWidth="max-w-5xl"
-        printButtonText="Cetak Jadwal (PDF / Print)"
+        printButtonText="Cetak Fisik (Print)"
+        onDownloadPdf={handleDownloadSchedulePdf}
+        downloadPdfButtonText="Unduh Berkas PDF"
+        isDownloadingPdf={isDownloadingSchedulePdf}
+        footerExtra={
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
+            <span className="text-emerald-600 font-bold">💡 Tips:</span>
+            <span>Gunakan tombol hijau untuk mengunduh file PDF yang siap dibagikan via WhatsApp ke dewan guru.</span>
+          </div>
+        }
       >
         <div id="cbt-printable-official-schedule" className="space-y-6 bg-white font-serif text-slate-950 cbt-printable-sheet">
           {/* 🎛️ PANEL PENETAPAN KETUA PANITIA UJIAN (HANYA BISA DIUBAH ADMIN UTAMA) */}
-          <div className="print:hidden p-3.5 bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 border border-purple-200 dark:border-purple-800/40 rounded-2xl shadow-xs font-sans text-xs">
+          <div 
+            id="cbt-committee-selector-banner"
+            className="print:hidden cbt-ignore-pdf p-3.5 bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 border border-purple-200 dark:border-purple-800/40 rounded-2xl shadow-xs font-sans text-xs"
+          >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-sm shrink-0">
