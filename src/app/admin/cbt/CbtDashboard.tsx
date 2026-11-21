@@ -1748,42 +1748,55 @@ export default function CbtDashboard({
         <div className="space-y-6">
           {/* Conflict Alert Banner */}
           {systemConflicts.length > 0 ? (
-            <div className="p-5 rounded-3xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200 space-y-3">
-              <div className="flex items-center gap-2.5 font-bold text-sm text-rose-700 dark:text-rose-300">
-                <AlertTriangle size={20} className="text-rose-600 dark:text-rose-400 flex-shrink-0" />
-                <span>Peringatan Sistem: Terdeteksi {systemConflicts.length} Pasang Jadwal Ujian yang Bertabrakan!</span>
+            <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-rose-500/10 via-amber-500/5 to-slate-50/50 dark:from-rose-950/40 dark:via-amber-950/20 dark:to-slate-900/40 border border-rose-500/30 dark:border-rose-500/30 text-rose-900 dark:text-rose-200 space-y-3.5 shadow-sm shadow-rose-500/5 backdrop-blur-md">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-rose-500 to-red-600 text-white flex items-center justify-center font-bold flex-shrink-0 shadow-md shadow-rose-500/25 ring-4 ring-rose-500/10">
+                    <AlertTriangle size={20} className="stroke-[2.5]" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-extrabold text-sm sm:text-base text-rose-950 dark:text-rose-100">
+                        Peringatan Sistem: Terdeteksi {systemConflicts.length} Pasang Jadwal Bertabrakan!
+                      </h4>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-200 dark:bg-rose-900/80 text-rose-900 dark:text-rose-200">
+                        Perlu Penyesuaian
+                      </span>
+                    </div>
+                    <p className="text-xs text-rose-800/90 dark:text-rose-300 mt-0.5">
+                      Ujian di bawah ini memiliki waktu pengerjaan yang saling bertumpukan untuk rombel kelas yang sama.
+                    </p>
+                  </div>
+                </div>
               </div>
-              <p className="text-xs text-rose-800 dark:text-rose-300 leading-relaxed">
-                Ujian di bawah ini memiliki waktu pengerjaan yang saling tumpang tindih untuk kelas yang sama. Klik tombol <strong>Ubah Jadwal</strong> untuk menyesuaikan jam ujian:
-              </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                 {systemConflicts.map((conf, idx) => (
-                  <div key={idx} className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 shadow-sm space-y-2">
+                  <div key={idx} className="p-3.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 border border-rose-200 dark:border-rose-900/60 shadow-xs space-y-2.5">
                     <div className="flex items-start justify-between gap-2">
                       <div className="text-xs">
                         <span className="font-bold text-slate-900 dark:text-white block">{conf.exam1.title}</span>
-                        <span className="text-[11px] text-slate-500">{conf.exam1.subject} • Kelas: <strong className="text-rose-600">{conf.exam1.classTarget}</strong></span>
-                        <span className="text-[11px] text-purple-600 block mt-0.5">{formatExamScheduleRange(conf.exam1.startTime, conf.exam1.endTime, cbtTimezone)}</span>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">{conf.exam1.subject} • Kelas: <strong className="text-rose-600 font-bold">{conf.exam1.classTarget}</strong></span>
+                        <span className="text-[11px] text-purple-600 dark:text-purple-400 block mt-0.5 font-medium">{formatExamScheduleRange(conf.exam1.startTime, conf.exam1.endTime, cbtTimezone)}</span>
                       </div>
                       <button
                         onClick={() => handleOpenEdit(conf.exam1)}
-                        className="px-2.5 py-1 rounded-lg bg-rose-100 hover:bg-rose-200 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 text-[11px] font-bold cursor-pointer"
+                        className="px-2.5 py-1.5 rounded-xl bg-rose-100 hover:bg-rose-200 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 text-xs font-bold cursor-pointer transition-all active:scale-95"
                       >
                         Ubah Jadwal
                       </button>
                     </div>
-                    <div className="text-[10px] text-center font-bold text-rose-500 uppercase tracking-widest border-t border-b border-rose-100 dark:border-rose-900/40 py-0.5">
+                    <div className="text-[10px] text-center font-bold text-rose-500 uppercase tracking-widest border-t border-b border-rose-100 dark:border-rose-900/40 py-1 bg-rose-50/50 dark:bg-rose-950/20 rounded-md">
                       ⚔️ BENTROK WAKTU DENGAN:
                     </div>
                     <div className="flex items-start justify-between gap-2">
                       <div className="text-xs">
                         <span className="font-bold text-slate-900 dark:text-white block">{conf.exam2.title}</span>
-                        <span className="text-[11px] text-slate-500">{conf.exam2.subject} • Kelas: <strong className="text-rose-600">{conf.exam2.classTarget}</strong></span>
-                        <span className="text-[11px] text-purple-600 block mt-0.5">{formatExamScheduleRange(conf.exam2.startTime, conf.exam2.endTime, cbtTimezone)}</span>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">{conf.exam2.subject} • Kelas: <strong className="text-rose-600 font-bold">{conf.exam2.classTarget}</strong></span>
+                        <span className="text-[11px] text-purple-600 dark:text-purple-400 block mt-0.5 font-medium">{formatExamScheduleRange(conf.exam2.startTime, conf.exam2.endTime, cbtTimezone)}</span>
                       </div>
                       <button
                         onClick={() => handleOpenEdit(conf.exam2)}
-                        className="px-2.5 py-1 rounded-lg bg-rose-100 hover:bg-rose-200 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 text-[11px] font-bold cursor-pointer"
+                        className="px-2.5 py-1.5 rounded-xl bg-rose-100 hover:bg-rose-200 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 text-xs font-bold cursor-pointer transition-all active:scale-95"
                       >
                         Ubah Jadwal
                       </button>
@@ -1793,21 +1806,35 @@ export default function CbtDashboard({
               </div>
             </div>
           ) : (
-            <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-bold flex-shrink-0">
-                  <CheckCircle size={22} />
+            <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-slate-50/50 dark:from-emerald-950/40 dark:via-teal-950/20 dark:to-slate-900/40 border border-emerald-500/20 dark:border-emerald-500/30 text-emerald-900 dark:text-emerald-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm shadow-emerald-500/5 backdrop-blur-md">
+              <div className="flex items-center gap-3.5">
+                <div className="relative flex items-center justify-center w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/25 shrink-0 ring-4 ring-emerald-500/10 dark:ring-emerald-400/10">
+                  <CheckCircle2 size={22} className="stroke-[2.5]" />
+                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                  </span>
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm text-emerald-900 dark:text-emerald-200">Seluruh Jadwal Ujian Telah Selaras & Bebas Bentrok</h4>
-                  <p className="text-xs text-emerald-700 dark:text-emerald-300">Sistem otomatis mendeteksi 0 bentrok jadwal antar mata pelajaran untuk setiap kelas.</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h4 className="font-extrabold text-sm sm:text-base text-slate-900 dark:text-emerald-100 tracking-tight">
+                      Seluruh Jadwal Ujian Telah Selaras & Bebas Bentrok
+                    </h4>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300/50 dark:border-emerald-700/50">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      0 Bentrok
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-emerald-300/80 mt-0.5 leading-relaxed">
+                    Sistem otomatis mendeteksi 0 bentrok jadwal antar mata pelajaran untuk setiap kelas & ruangan.
+                  </p>
                 </div>
               </div>
               <button
                 onClick={handleOpenCreate}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                className="w-full sm:w-auto px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold transition-all duration-200 shadow-md shadow-emerald-600/20 hover:shadow-emerald-600/30 active:scale-95 flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer shrink-0"
               >
-                <Plus size={14} /> Tambah Jadwal Ujian
+                <Plus size={15} className="stroke-[2.5]" /> Tambah Jadwal Ujian
               </button>
             </div>
           )}
@@ -1821,19 +1848,20 @@ export default function CbtDashboard({
             className="hidden"
           />
 
-          {/* Schedule Filter, Target Class, Date & Room Selectors */}
-          <div className="flex flex-col gap-2.5 w-full">
+          {/* Schedule Filter, Target Class, Date & Room Selectors (Executive Control Center) */}
+          <div className="p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-sm space-y-3">
+            {/* Row 1: Dropdown Filters & Search Box */}
             <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-2.5 w-full">
               {/* Dropdown Filters (Kelas, Hari/Tanggal, Ruangan) */}
               <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto">
                 {/* 1. Filter Kelas */}
-                <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 shadow-sm">
+                <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200/90 dark:border-slate-700/80 rounded-2xl px-3 py-2 shadow-xs hover:border-purple-300 dark:hover:border-purple-600 transition-colors">
                   <Users size={14} className="text-purple-600 dark:text-purple-400 shrink-0" />
-                  <span className="text-[11px] font-bold text-slate-500 shrink-0 hidden sm:inline">Kelas:</span>
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0 hidden sm:inline">Kelas:</span>
                   <select
                     value={selectedClassFilter}
                     onChange={(e) => setSelectedClassFilter(e.target.value)}
-                    className="bg-transparent border-none text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[150px] sm:max-w-[170px] truncate"
+                    className="bg-transparent border-none text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[150px] sm:max-w-[170px] truncate"
                     title="Filter jadwal berdasarkan Target Kelas"
                   >
                     <option value="ALL">Semua Kelas ({exams.length} Ujian)</option>
@@ -1874,13 +1902,13 @@ export default function CbtDashboard({
                 </div>
 
                 {/* 2. Filter Hari & Tanggal Pelaksanaan (Dinamis dari input jadwal guru) */}
-                <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 shadow-sm">
+                <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200/90 dark:border-slate-700/80 rounded-2xl px-3 py-2 shadow-xs hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors">
                   <Calendar size={14} className="text-indigo-600 dark:text-indigo-400 shrink-0" />
-                  <span className="text-[11px] font-bold text-slate-500 shrink-0 hidden sm:inline">Hari/Tgl:</span>
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0 hidden sm:inline">Hari/Tgl:</span>
                   <select
                     value={selectedDateFilter}
                     onChange={(e) => setSelectedDateFilter(e.target.value)}
-                    className="bg-transparent border-none text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[160px] sm:max-w-[210px] truncate"
+                    className="bg-transparent border-none text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[160px] sm:max-w-[210px] truncate"
                     title="Filter jadwal berdasarkan Hari & Tanggal Pelaksanaan"
                   >
                     <option value="ALL">Semua Tanggal ({exams.length} Ujian)</option>
@@ -1896,13 +1924,13 @@ export default function CbtDashboard({
                 </div>
 
                 {/* 3. Filter Ruangan Ujian (Dinamis dari input ruang) */}
-                <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 shadow-sm">
+                <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200/90 dark:border-slate-700/80 rounded-2xl px-3 py-2 shadow-xs hover:border-emerald-300 dark:hover:border-emerald-600 transition-colors">
                   <MapPin size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <span className="text-[11px] font-bold text-slate-500 shrink-0 hidden sm:inline">Ruang:</span>
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0 hidden sm:inline">Ruang:</span>
                   <select
                     value={selectedRoomFilter}
                     onChange={(e) => setSelectedRoomFilter(e.target.value)}
-                    className="bg-transparent border-none text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[130px] sm:max-w-[170px] truncate"
+                    className="bg-transparent border-none text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[130px] sm:max-w-[170px] truncate"
                     title="Filter jadwal berdasarkan Ruang Ujian"
                   >
                     <option value="ALL">Semua Ruangan ({availableRooms.length})</option>
@@ -1925,10 +1953,10 @@ export default function CbtDashboard({
                       setScheduleFilter('ALL');
                       setSearchTerm('');
                     }}
-                    className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-300 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm"
+                    className="px-3 py-2 rounded-2xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-300 text-xs font-extrabold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-xs border border-rose-200/60 dark:border-rose-900/50"
                     title="Reset semua filter jadwal kembali ke default"
                   >
-                    <RotateCcw size={12} />
+                    <RotateCcw size={12} className="stroke-[2.5]" />
                     <span>Reset</span>
                   </button>
                 )}
@@ -1936,46 +1964,62 @@ export default function CbtDashboard({
 
               {/* Search Box */}
               <div className="relative w-full xl:w-72 shrink-0">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={15} />
                 <input
                   type="text"
                   placeholder="Cari jadwal, mapel, kelas, pengawas..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-none shadow-sm"
+                  className="w-full pl-9 pr-8 py-2 bg-slate-50/90 dark:bg-slate-800/80 border border-slate-200/90 dark:border-slate-700/80 rounded-2xl text-xs font-medium focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none shadow-xs transition-all placeholder:text-slate-400"
                 />
+                {searchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5"
+                    title="Hapus pencarian"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Status pills scrollable on mobile */}
-            <div className="w-full overflow-x-auto no-scrollbar -mx-1 px-1 sm:mx-0 sm:px-0">
-              <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl min-w-max border border-slate-200/60 dark:border-slate-800">
-                {[
-                  { id: 'ALL', label: 'Semua Status' },
-                  { id: 'TODAY', label: '📅 Hari Ini' },
-                  { id: 'UPCOMING', label: '⏳ Akan Datang' },
-                  { id: 'ONGOING', label: '🟢 Berlangsung' },
-                  { id: 'ENDED', label: '🏁 Selesai' },
-                ].map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => setScheduleFilter(s.id as any)}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                      scheduleFilter === s.id
-                        ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-sm font-bold'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
-                    }`}
-                  >
-                    {s.label}
-                  </button>
-                ))}
+            {/* Row 2: Status Waktu Pills Bar */}
+            <div className="flex items-center gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+              <span className="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest shrink-0 hidden sm:inline">
+                Status Waktu:
+              </span>
+              <div className="w-full sm:w-auto overflow-x-auto no-scrollbar -mx-1 px-1 sm:mx-0 sm:px-0">
+                <div className="inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/80 p-1 rounded-2xl min-w-max border border-slate-200/60 dark:border-slate-800">
+                  {[
+                    { id: 'ALL', label: 'Semua Status' },
+                    { id: 'TODAY', label: '📅 Hari Ini' },
+                    { id: 'UPCOMING', label: '⏳ Akan Datang' },
+                    { id: 'ONGOING', label: '🟢 Berlangsung' },
+                    { id: 'ENDED', label: '🏁 Selesai' },
+                  ].map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => setScheduleFilter(s.id as any)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer whitespace-nowrap active:scale-95 ${
+                        scheduleFilter === s.id
+                          ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-sm font-extrabold'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
 
-          {/* ⚡ TOOLBAR PENJADWALAN KOLEKTIF & CSV */}
-          <div className="p-3 sm:p-4 rounded-2xl bg-gradient-to-r from-purple-50/70 via-indigo-50/50 to-slate-50 dark:from-purple-950/20 dark:via-indigo-950/20 dark:to-slate-900 border border-purple-100 dark:border-purple-900/40 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 w-full">
-            <div className="grid grid-cols-1 sm:flex sm:flex-wrap items-center gap-2">
+          {/* ⚡ COMMAND BAR: AKSI PENJADWALAN & DATA CSV */}
+          <div className="p-3 sm:p-3.5 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-purple-500/10 via-indigo-500/5 to-slate-100/70 dark:from-purple-950/30 dark:via-indigo-950/20 dark:to-slate-900 border border-purple-200/80 dark:border-purple-800/50 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+            {/* Left: Scheduling Commands */}
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -1985,25 +2029,32 @@ export default function CbtDashboard({
                   }
                   setIsBatchModalOpen(true);
                 }}
-                className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-sm shadow-purple-500/20 flex items-center justify-center gap-1.5 transition-all cursor-pointer text-center"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-purple-500/25 hover:shadow-purple-500/35 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
               >
-                <Zap size={14} className="shrink-0" /> Atur Jadwal Kolektif
+                <Zap size={14} className="stroke-[2.5]" />
+                <span>Atur Jadwal Kolektif</span>
+                {selectedExamIds.length > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-md bg-white/25 text-[10px] font-black">
+                    {selectedExamIds.length}
+                  </span>
+                )}
               </button>
 
               {isInlineEditMode ? (
-                <div className="grid grid-cols-2 sm:flex sm:items-center gap-1.5 w-full sm:w-auto">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                   <button
                     type="button"
                     onClick={handleSaveInlineSchedules}
                     disabled={inlineSaving}
-                    className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-50 text-center"
+                    className="flex-1 sm:flex-initial px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/25 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
                   >
-                    <Save size={14} className="shrink-0" /> {inlineSaving ? 'Menyimpan...' : 'Simpan Semua'}
+                    <Save size={14} className="stroke-[2.5]" />
+                    <span>{inlineSaving ? 'Menyimpan...' : 'Simpan Semua'}</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsInlineEditMode(false)}
-                    className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer text-center justify-center"
+                    className="px-3.5 py-2.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs transition-all active:scale-95 cursor-pointer shadow-xs"
                   >
                     Batal
                   </button>
@@ -2012,30 +2063,32 @@ export default function CbtDashboard({
                 <button
                   type="button"
                   onClick={handleToggleInlineEdit}
-                  className="w-full sm:w-auto px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer text-center"
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-2xl bg-white dark:bg-slate-800 border border-purple-200/90 dark:border-purple-800/80 hover:bg-purple-50/80 dark:hover:bg-purple-950/50 text-purple-700 dark:text-purple-300 font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-xs cursor-pointer"
                 >
-                  <Edit3 size={14} className="text-purple-600 shrink-0" /> Mode Edit Cepat di Tabel
+                  <Edit3 size={14} className="stroke-[2]" />
+                  <span>Mode Edit Cepat di Tabel</span>
                 </button>
               )}
             </div>
 
-            <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto">
+            {/* Right: Data Export/Import */}
+            <div className="flex items-center gap-2 w-full md:w-auto justify-end">
               <button
                 type="button"
                 onClick={handleDownloadScheduleCsv}
-                className="flex-1 sm:flex-initial px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer text-center"
+                className="flex-1 sm:flex-initial px-3.5 py-2.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-indigo-50/70 dark:hover:bg-indigo-950/40 hover:border-indigo-300 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs active:scale-95"
                 title="Download template CSV untuk edit jadwal secara massal di Excel"
               >
-                <Download size={14} className="text-blue-600 shrink-0" />
+                <Download size={14} className="text-indigo-600 dark:text-indigo-400 stroke-[2.2]" />
                 <span className="truncate">Unduh CSV</span>
               </button>
               <button
                 type="button"
                 onClick={() => csvFileInputRef.current?.click()}
-                className="flex-1 sm:flex-initial px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer text-center"
+                className="flex-1 sm:flex-initial px-3.5 py-2.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-emerald-50/70 dark:hover:bg-emerald-950/40 hover:border-emerald-300 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs active:scale-95"
                 title="Upload file CSV hasil edit jadwal untuk diterapkan sekaligus"
               >
-                <Upload size={14} className="text-emerald-600 shrink-0" />
+                <Upload size={14} className="text-emerald-600 dark:text-emerald-400 stroke-[2.2]" />
                 <span className="truncate">Import CSV</span>
               </button>
             </div>
