@@ -1769,6 +1769,26 @@ export default function CbtDashboard({
     return 'ALL';
   };
 
+  // ⚡ Hitung Jumlah Paket per Status Ruangan (Semua, Aktif, Ruang Tunggu, Draft)
+  const statusCounts = useMemo(() => {
+    let all = 0;
+    let active = 0;
+    let published = 0;
+    let draft = 0;
+    exams.forEach((exam) => {
+      if (!isSuperAdmin && !isAuthorMatch(exam.authorName)) return;
+      if (isSuperAdmin) {
+        if (mineOnlyFilter && !isAuthorMatch(exam.authorName)) return;
+        if (adminTeacherFilter !== 'ALL' && exam.authorName !== adminTeacherFilter) return;
+      }
+      all++;
+      if (exam.status === 'ACTIVE') active++;
+      else if (exam.status === 'PUBLISHED') published++;
+      else if (exam.status === 'DRAFT') draft++;
+    });
+    return { all, active, published, draft };
+  }, [exams, isSuperAdmin, isAuthorMatch, mineOnlyFilter, adminTeacherFilter]);
+
   // ⚡ Fast Response: Memoized filtered exams list (0ms keystroke search & filter)
   const filteredExams = useMemo(() => {
     const q = searchTerm.toLowerCase();
@@ -1790,6 +1810,8 @@ export default function CbtDashboard({
         (exam.authorName && exam.authorName.toLowerCase().includes(q));
       const matchesStatus = statusFilter === 'ALL' || exam.status === statusFilter;
       const matchesSubject = selectedSubjectFilter === 'ALL' || exam.subject === selectedSubjectFilter;
+      const examRoom = exam.roomName?.trim() || 'Ruang Utama';
+      const matchesRoom = selectedRoomFilter === 'ALL' || examRoom === selectedRoomFilter;
       
       const schedState = getExamScheduleState(exam.startTime, exam.endTime, exam.status);
       const matchesSchedule =
@@ -1799,9 +1821,9 @@ export default function CbtDashboard({
         (scheduleFilter === 'UPCOMING' && schedState.state === 'UPCOMING') ||
         (scheduleFilter === 'ENDED' && schedState.state === 'ENDED');
 
-      return matchesSearch && matchesStatus && matchesSchedule && matchesSubject;
+      return matchesSearch && matchesStatus && matchesSchedule && matchesSubject && matchesRoom;
     });
-  }, [exams, isSuperAdmin, isAuthorMatch, mineOnlyFilter, adminTeacherFilter, searchTerm, statusFilter, scheduleFilter, selectedSubjectFilter]);
+  }, [exams, isSuperAdmin, isAuthorMatch, mineOnlyFilter, adminTeacherFilter, searchTerm, statusFilter, scheduleFilter, selectedSubjectFilter, selectedRoomFilter]);
 
   // ⚡ Fast Response: Memoized system-wide schedule conflicts across all exams
   // Mengeliminasi perhitungan kuadratik O(N^2) berulang setiap kali user mengetik/render
@@ -3409,96 +3431,123 @@ export default function CbtDashboard({
           </div>
         </div>
 
-        {/* Bottom Row: Filter Controls */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-          {/* Status Ruang Tabs */}
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
-            {[
-              { id: 'ALL', label: 'Semua Status' },
-              { id: 'ACTIVE', label: '🟢 Sesi Aktif' },
-              { id: 'PUBLISHED', label: '⏳ Ruang Tunggu' },
-              { id: 'DRAFT', label: '📝 Draft' },
-            ].map((st) => (
+        {/* Middle Row: Status Ruang Ujian Segmented Tabs (Dedicated Row - Anti-Overlap & Anti-Truncate) */}
+        <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:pb-0 w-full sm:w-auto">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 shrink-0 mr-1 hidden md:inline">
+                Status Ruang:
+              </span>
+              <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-950/80 p-1.5 rounded-2xl border border-slate-200/70 dark:border-slate-800/80 shrink-0">
+                {[
+                  { id: 'ALL', label: 'Semua Status', count: statusCounts.all },
+                  { id: 'ACTIVE', label: '🟢 Sesi Aktif', count: statusCounts.active },
+                  { id: 'PUBLISHED', label: '⏳ Ruang Tunggu', count: statusCounts.published },
+                  { id: 'DRAFT', label: '📝 Draft', count: statusCounts.draft },
+                ].map((st) => (
+                  <button
+                    key={st.id}
+                    type="button"
+                    onClick={() => setStatusFilter(st.id)}
+                    className={`shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                      statusFilter === st.id
+                        ? 'bg-purple-600 text-white shadow-sm shadow-purple-600/30 ring-1 ring-purple-500'
+                        : 'bg-white/90 dark:bg-slate-900/90 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white border border-slate-200/60 dark:border-slate-800'
+                    }`}
+                  >
+                    <span>{st.label}</span>
+                    <span
+                      className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                        statusFilter === st.id
+                          ? 'bg-white/25 text-white'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                      }`}
+                    >
+                      {st.count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Quick Filter Reset Button (if any filter is active) */}
+            {(searchTerm || statusFilter !== 'ALL' || scheduleFilter !== 'ALL' || selectedSubjectFilter !== 'ALL' || selectedRoomFilter !== 'ALL' || mineOnlyFilter || adminTeacherFilter !== 'ALL') && (
               <button
-                key={st.id}
                 type="button"
-                onClick={() => setStatusFilter(st.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                  statusFilter === st.id
-                    ? 'bg-purple-600 text-white shadow-sm'
-                    : 'bg-slate-100/90 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200/90 hover:text-slate-900'
+                onClick={() => {
+                  setSearchTerm('');
+                  setStatusFilter('ALL');
+                  setScheduleFilter('ALL');
+                  setSelectedSubjectFilter('ALL');
+                  setSelectedRoomFilter('ALL');
+                  setMineOnlyFilter(false);
+                  setAdminTeacherFilter('ALL');
+                }}
+                className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-200/60 dark:border-rose-900/50 transition-colors flex items-center gap-1.5 cursor-pointer ml-auto sm:ml-0"
+                title="Reset seluruh filter pencarian kembali ke default"
+              >
+                <RotateCcw size={12} />
+                <span>Reset Filter</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Bottom Row: Granular Filters (Jadwal, Ruangan Fisik, Mapel, Guru, Ujian Saya) */}
+        <div className="flex flex-wrap items-center gap-2.5 pt-3 border-t border-slate-100/90 dark:border-slate-800/90">
+          {/* Filter Jadwal Pelaksanaan */}
+          <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/60 dark:border-slate-700/60 overflow-x-auto no-scrollbar shrink-0">
+            {[
+              { id: 'ALL', label: 'Semua Jadwal' },
+              { id: 'TODAY', label: 'Hari Ini' },
+              { id: 'UPCOMING', label: 'Akan Datang' },
+              { id: 'ONGOING', label: 'Berlangsung' },
+              { id: 'ENDED', label: 'Selesai' },
+            ].map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setScheduleFilter(s.id as any)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                  scheduleFilter === s.id
+                    ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-xs font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                {st.label}
+                {s.label}
               </button>
             ))}
           </div>
 
-          {/* Secondary Filters: Schedule & Teacher */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Schedule Status Filter */}
-            <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl overflow-x-auto no-scrollbar">
-              {[
-                { id: 'ALL', label: 'Semua Jadwal' },
-                { id: 'TODAY', label: 'Hari Ini' },
-                { id: 'UPCOMING', label: 'Akan Datang' },
-                { id: 'ONGOING', label: 'Berlangsung' },
-                { id: 'ENDED', label: 'Selesai' },
-              ].map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setScheduleFilter(s.id as any)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
-                    scheduleFilter === s.id
-                      ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-xs font-bold'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                  }`}
-                >
-                  {s.label}
-                </button>
-              ))}
+          {/* Filter Ruang Ujian Fisik (Dinamis dari exam.roomName) */}
+          {availableRooms.length > 0 && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 text-xs font-semibold text-slate-700 dark:text-slate-200 shrink-0">
+              <MapPin size={13} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <select
+                value={selectedRoomFilter}
+                onChange={(e) => setSelectedRoomFilter(e.target.value)}
+                className="bg-transparent border-none text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[140px] truncate"
+                title="Filter paket ujian berdasarkan Ruang Ujian fisik"
+              >
+                <option value="ALL">Semua Ruang ({availableRooms.length})</option>
+                {availableRooms.map((r) => (
+                  <option key={r.name} value={r.name}>
+                    {r.name} ({r.count})
+                  </option>
+                ))}
+              </select>
             </div>
+          )}
 
-            {isSuperAdmin && (
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setMineOnlyFilter(!mineOnlyFilter)}
-                  className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    mineOnlyFilter
-                      ? 'bg-indigo-600 text-white shadow-xs'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
-                  }`}
-                  title="Tampilkan hanya paket ujian yang dibuat akun Admin ini"
-                >
-                  <UserCheck size={13} />
-                  <span>Ujian Saya</span>
-                </button>
-                {teachers.length > 0 && (
-                  <select
-                    value={adminTeacherFilter}
-                    onChange={(e) => setAdminTeacherFilter(e.target.value)}
-                    className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 border-none text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer"
-                  >
-                    <option value="ALL">Semua Guru ({teachers.length})</option>
-                    {teachers.map((t) => (
-                      <option key={t.id} value={t.name}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            )}
-
-            {/* Filter Mata Pelajaran Responsif */}
-            {availableSubjects.length > 0 && (
+          {/* Filter Mata Pelajaran */}
+          {availableSubjects.length > 0 && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 text-xs font-semibold text-slate-700 dark:text-slate-200 shrink-0">
+              <BookOpen size={13} className="text-purple-600 dark:text-purple-400 shrink-0" />
               <select
                 value={selectedSubjectFilter}
                 onChange={(e) => setSelectedSubjectFilter(e.target.value)}
-                className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 border-none text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer"
-                title="Filter paket ujian & metrik statistik berdasarkan Mata Pelajaran"
+                className="bg-transparent border-none text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[150px] truncate"
+                title="Filter paket ujian berdasarkan Mata Pelajaran"
               >
                 <option value="ALL">Semua Mapel ({availableSubjects.length})</option>
                 {availableSubjects.map((sub) => (
@@ -3507,28 +3556,42 @@ export default function CbtDashboard({
                   </option>
                 ))}
               </select>
-            )}
+            </div>
+          )}
 
-            {/* Reset Filters Button if any filter active */}
-            {(searchTerm || statusFilter !== 'ALL' || scheduleFilter !== 'ALL' || selectedSubjectFilter !== 'ALL' || mineOnlyFilter || adminTeacherFilter !== 'ALL') && (
+          {/* Filter Guru Pengampu (Khusus Super Admin) */}
+          {isSuperAdmin && (
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 type="button"
-                onClick={() => {
-                  setSearchTerm('');
-                  setStatusFilter('ALL');
-                  setScheduleFilter('ALL');
-                  setSelectedSubjectFilter('ALL');
-                  setMineOnlyFilter(false);
-                  setAdminTeacherFilter('ALL');
-                }}
-                className="px-2.5 py-1.5 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 transition-colors flex items-center gap-1 cursor-pointer"
-                title="Reset semua filter"
+                onClick={() => setMineOnlyFilter(!mineOnlyFilter)}
+                className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                  mineOnlyFilter
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-200'
+                }`}
+                title="Tampilkan hanya paket ujian yang dibuat akun Admin ini"
               >
-                <RotateCcw size={12} />
-                <span>Reset</span>
+                <UserCheck size={13} />
+                <span>Ujian Saya</span>
               </button>
-            )}
-          </div>
+              {teachers.length > 0 && (
+                <select
+                  value={adminTeacherFilter}
+                  onChange={(e) => setAdminTeacherFilter(e.target.value)}
+                  className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer max-w-[140px] truncate"
+                  title="Filter paket ujian berdasarkan Guru Pengampu"
+                >
+                  <option value="ALL">Semua Guru ({teachers.length})</option>
+                  {teachers.map((t) => (
+                    <option key={t.id} value={t.name}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
