@@ -1359,13 +1359,32 @@ export async function proctorResetStudentLoginAction(attemptId: string) {
       updatedNotes = `${updatedNotes} | ${resetTag}`;
     }
 
+    // 🛡️ REFRESH STARTED_AT JIKA WAKTU SUDAH HABIS:
+    // Jika siswa mati lampu / perangkat rusak dan waktu pengerjaan sudah habis atau status SUBMITTED:
+    // Pengawas yang mengklik "Reset Login Siswa" menandakan siswa diberikan kesempatan melanjutkan.
+    // Refresh startedAt ke waktu sekarang agar timer tidak langsung 0 detik saat siswa login kembali!
+    const examDurationMs = (attempt.exam?.duration || 60) * 60 * 1000;
+    const extraMs = (attempt.extraTimeMinutes || 0) * 60 * 1000;
+    const totalDurationMs = examDurationMs + extraMs;
+    const elapsedMs = Date.now() - new Date(attempt.startedAt).getTime();
+    const shouldRefreshStartedAt = elapsedMs >= totalDurationMs || attempt.status === 'SUBMITTED';
+
+    const updateData: any = {
+      status: 'IN_PROGRESS',
+      isBlocked: false,
+      proctorNotes: updatedNotes,
+    };
+
+    if (shouldRefreshStartedAt) {
+      updateData.startedAt = new Date();
+      updateData.submittedAt = null;
+      updateData.score = null;
+      updateData.totalCorrect = null;
+    }
+
     const updated = await prisma.examAttempt.update({
       where: { id: attemptId },
-      data: {
-        status: 'IN_PROGRESS',
-        isBlocked: false,
-        proctorNotes: updatedNotes,
-      },
+      data: updateData,
     });
 
     // 🛡️ Lepaskan kunci sesi perangkat siswa agar siswa dapat login ulang jika berganti perangkat/browser
@@ -1410,6 +1429,7 @@ export async function proctorAddExtraTimeAction(attemptId: string, additionalMin
   try {
     const attempt = await prisma.examAttempt.findUnique({
       where: { id: attemptId },
+      include: { exam: true },
     });
 
     if (!attempt) {
@@ -1447,6 +1467,7 @@ export async function proctorToggleBlockAction(attemptId: string, shouldBlock: b
   try {
     const attempt = await prisma.examAttempt.findUnique({
       where: { id: attemptId },
+      include: { exam: true },
     });
 
     if (!attempt) {
@@ -1508,6 +1529,7 @@ export async function proctorUnlockStrike2Action(attemptId: string, proctorName?
   try {
     const attempt = await prisma.examAttempt.findUnique({
       where: { id: attemptId },
+      include: { exam: true },
     });
 
     if (!attempt) {
@@ -1530,13 +1552,32 @@ export async function proctorUnlockStrike2Action(attemptId: string, proctorName?
       updatedNotes = updatedNotes ? `${updatedNotes} | ${noteEntry}` : noteEntry;
     }
 
+    // 🛡️ REFRESH STARTED_AT JIKA WAKTU SUDAH HABIS:
+    // Jika siswa mati lampu / perangkat rusak dan waktu pengerjaan sudah habis atau status SUBMITTED:
+    // Pengawas yang mengklik "Reset Login Siswa" menandakan siswa diberikan kesempatan melanjutkan.
+    // Refresh startedAt ke waktu sekarang agar timer tidak langsung 0 detik saat siswa login kembali!
+    const examDurationMs = (attempt.exam?.duration || 60) * 60 * 1000;
+    const extraMs = (attempt.extraTimeMinutes || 0) * 60 * 1000;
+    const totalDurationMs = examDurationMs + extraMs;
+    const elapsedMs = Date.now() - new Date(attempt.startedAt).getTime();
+    const shouldRefreshStartedAt = elapsedMs >= totalDurationMs || attempt.status === 'SUBMITTED';
+
+    const updateData: any = {
+      status: 'IN_PROGRESS',
+      isBlocked: false,
+      proctorNotes: updatedNotes,
+    };
+
+    if (shouldRefreshStartedAt) {
+      updateData.startedAt = new Date();
+      updateData.submittedAt = null;
+      updateData.score = null;
+      updateData.totalCorrect = null;
+    }
+
     const updated = await prisma.examAttempt.update({
       where: { id: attemptId },
-      data: {
-        status: 'IN_PROGRESS',
-        isBlocked: false,
-        proctorNotes: updatedNotes,
-      },
+      data: updateData,
     });
 
     // 🛡️ Lepaskan kunci sesi perangkat agar siswa bisa melanjutkan ujian tanpa kendala sesi
@@ -1580,6 +1621,7 @@ export async function proctorUnlockFatalStrike4Action(attemptId: string, proctor
   try {
     const attempt = await prisma.examAttempt.findUnique({
       where: { id: attemptId },
+      include: { exam: true },
     });
 
     if (!attempt) {
@@ -1601,13 +1643,32 @@ export async function proctorUnlockFatalStrike4Action(attemptId: string, proctor
       updatedNotes = updatedNotes ? `${updatedNotes} | ${noteEntry}` : noteEntry;
     }
 
+    // 🛡️ REFRESH STARTED_AT JIKA WAKTU SUDAH HABIS:
+    // Jika siswa mati lampu / perangkat rusak dan waktu pengerjaan sudah habis atau status SUBMITTED:
+    // Pengawas yang mengklik "Reset Login Siswa" menandakan siswa diberikan kesempatan melanjutkan.
+    // Refresh startedAt ke waktu sekarang agar timer tidak langsung 0 detik saat siswa login kembali!
+    const examDurationMs = (attempt.exam?.duration || 60) * 60 * 1000;
+    const extraMs = (attempt.extraTimeMinutes || 0) * 60 * 1000;
+    const totalDurationMs = examDurationMs + extraMs;
+    const elapsedMs = Date.now() - new Date(attempt.startedAt).getTime();
+    const shouldRefreshStartedAt = elapsedMs >= totalDurationMs || attempt.status === 'SUBMITTED';
+
+    const updateData: any = {
+      status: 'IN_PROGRESS',
+      isBlocked: false,
+      proctorNotes: updatedNotes,
+    };
+
+    if (shouldRefreshStartedAt) {
+      updateData.startedAt = new Date();
+      updateData.submittedAt = null;
+      updateData.score = null;
+      updateData.totalCorrect = null;
+    }
+
     const updated = await prisma.examAttempt.update({
       where: { id: attemptId },
-      data: {
-        status: 'IN_PROGRESS',
-        isBlocked: false,
-        proctorNotes: updatedNotes,
-      },
+      data: updateData,
     });
 
     // 🛡️ Lepaskan kunci sesi perangkat agar siswa bisa melanjutkan ujian tanpa kendala sesi
@@ -1652,6 +1713,7 @@ export async function adminUnblockStrike3Action(attemptId: string, adminName?: s
   try {
     const attempt = await prisma.examAttempt.findUnique({
       where: { id: attemptId },
+      include: { exam: true },
     });
 
     if (!attempt) {
@@ -1675,14 +1737,30 @@ export async function adminUnblockStrike3Action(attemptId: string, adminName?: s
 
     // 🔓 Buka suspend Admin Utama: Pertahankan tabSwitchCount di 3 dengan tag [ADMIN_UNBLOCK_ACTIVE]
     // agar riwayat 3x pelanggaran tetap tercatat di BAP dan pelanggaran berikutnya menjadi Pelanggaran ke-4!
+    const exam = await prisma.exam.findUnique({ where: { id: attempt.examId }, select: { duration: true } });
+    const examDurationMs = (exam?.duration || 60) * 60 * 1000;
+    const extraMs = (attempt.extraTimeMinutes || 0) * 60 * 1000;
+    const totalDurationMs = examDurationMs + extraMs;
+    const elapsedMs = Date.now() - new Date(attempt.startedAt).getTime();
+    const shouldRefreshStartedAt = elapsedMs >= totalDurationMs || attempt.status === 'SUBMITTED';
+
+    const updateData: any = {
+      status: 'IN_PROGRESS',
+      isBlocked: false,
+      tabSwitchCount: 3, // Tetap di angka 3 dengan tag dispensasi aktif [ADMIN_UNBLOCK_ACTIVE]
+      proctorNotes: updatedNotes,
+    };
+
+    if (shouldRefreshStartedAt) {
+      updateData.startedAt = new Date();
+      updateData.submittedAt = null;
+      updateData.score = null;
+      updateData.totalCorrect = null;
+    }
+
     const updated = await prisma.examAttempt.update({
       where: { id: attemptId },
-      data: {
-        status: 'IN_PROGRESS',
-        isBlocked: false,
-        tabSwitchCount: 3, // Tetap di angka 3 dengan tag dispensasi aktif [ADMIN_UNBLOCK_ACTIVE]
-        proctorNotes: updatedNotes,
-      },
+      data: updateData,
     });
 
     // 🛡️ Lepaskan kunci sesi perangkat agar siswa bisa login di perangkat baru
@@ -2229,6 +2307,7 @@ export async function adminResetStudentSessionAction(attemptId: string, adminNam
   try {
     const attempt = await prisma.examAttempt.findUnique({
       where: { id: attemptId },
+      include: { exam: true },
     });
 
     if (!attempt) {

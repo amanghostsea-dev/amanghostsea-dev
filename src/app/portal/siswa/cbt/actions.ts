@@ -36,6 +36,7 @@ export async function getExamSessionStatus(examId: string) {
       scheduleState: schedule,
       isTokenActive: tokenStatus.isActive,
       tokenStatus,
+      serverTime: new Date().toISOString(),
     };
   } catch (error) {
     return { status: 'ERROR', isSessionOpen: false, hasToken: false, scheduleState: null, isTokenActive: false };
@@ -92,7 +93,32 @@ export async function startOrResumeAttempt(data: {
     });
 
     if (existing) {
-      return { success: true, attempt: existing, questions: exam.questions, isResumed: true };
+      let activeAttempt = existing;
+      const examDurationMs = (exam.duration + ((existing as any).extraTimeMinutes || 0)) * 60 * 1000;
+      const elapsedMs = Date.now() - new Date(existing.startedAt).getTime();
+      const hasEmptyAnswers = !existing.answers || existing.answers === '{}' || existing.answers.trim() === '';
+      const isSessionActive = isExamTokenActive(exam).isActive;
+
+      // 🛡️ ANTI-PREMATURE AUTO-SUBMIT:
+      // Jika siswa pernah membuka halaman ujian sebelumnya (misal saat gladi/persiapan berjam-jam lalu),
+      // namun belum pernah mengisi jawaban sama sekali (0 jawaban) dan durasi terhitung kadaluwarsa saat sesi resmi sedang aktif:
+      // Segarkan startedAt ke waktu sekarang agar siswa tidak langsung terkena auto-submit dalam 0 detik!
+      if (existing.status === 'IN_PROGRESS' && elapsedMs >= examDurationMs && hasEmptyAnswers && isSessionActive) {
+        activeAttempt = await prisma.examAttempt.update({
+          where: { id: existing.id },
+          data: {
+            startedAt: new Date(),
+          },
+        });
+      }
+
+      return {
+        success: true,
+        attempt: activeAttempt,
+        questions: exam.questions,
+        isResumed: true,
+        serverTime: new Date().toISOString(),
+      };
     }
 
     // 📅 2. JIKA ATTEMPT BARU: Verify Schedule Window & Token Activation
@@ -186,7 +212,7 @@ export async function startOrResumeAttempt(data: {
       },
     });
 
-    return { success: true, attempt: newAttempt, questions: exam.questions };
+    return { success: true, attempt: newAttempt, questions: exam.questions, serverTime: new Date().toISOString() };
   } catch (error: any) {
     return { error: error.message };
   }
@@ -355,6 +381,7 @@ export async function saveProgress(
       totalCorrect: updated.totalCorrect,
       totalQuestions: updated.totalQuestions,
       answers: updated.answers,
+      serverTime: new Date().toISOString(),
     };
   } catch (error: any) {
     return { error: error.message };
@@ -399,6 +426,7 @@ export async function checkStudentExamLockStatus(attemptId: string) {
       extraTimeMinutes: attempt.extraTimeMinutes,
       status: attempt.status,
       answers: attempt.answers,
+      serverTime: new Date().toISOString(),
     };
   } catch (error: any) {
     return { error: error.message };
@@ -619,6 +647,7 @@ export async function checkAttemptStatusAction(attemptId: string) {
       hasAdminOverride,
       hasProctorFatalPermission,
       answers: attempt.answers,
+      serverTime: new Date().toISOString(),
     };
   } catch (error: any) {
     return { error: error.message };

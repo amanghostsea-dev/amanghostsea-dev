@@ -206,6 +206,12 @@ export default function CbtExamRoom({
       studentClass: studentClass || exam.classTarget || undefined,
     }).then((res) => {
       if (isMounted && res && res.success && res.attempt) {
+        if ((res as any).serverTime) {
+          const sMs = new Date((res as any).serverTime).getTime();
+          if (!isNaN(sMs)) {
+            setServerTimeSkewMs(sMs - Date.now());
+          }
+        }
         setAttempt(res.attempt);
         const hasPermission =
           res.attempt.proctorNotes?.includes('[IZIN_LANJUT_P2]') ||
@@ -302,8 +308,9 @@ export default function CbtExamRoom({
   const [isCheckingLock, setIsCheckingLock] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Timer state
+  // Timer & Server Time Sync state
   const [timeLeft, setTimeLeft] = useState<number>(exam.duration * 60);
+  const [serverTimeSkewMs, setServerTimeSkewMs] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
 
@@ -655,15 +662,16 @@ export default function CbtExamRoom({
     setIsSubmitting(false);
   }, [attempt, answers, tabSwitchCount, storageKey]);
 
-  // Timer countdown
+  // Timer countdown (Tersinkronisasi Waktu Server & Terlindungi dari Kesalahan Jam Lokal HP)
   useEffect(() => {
     if (!attempt || attempt.status !== 'IN_PROGRESS' || finalResult) return;
 
-    // Calculate remaining time based on attempt startedAt + proctor extra time
+    // Hitung sisa waktu berdasarkan attempt startedAt + waktu tambahan pengawas + sinkronisasi jam server
+    const syncedNow = Date.now() + serverTimeSkewMs;
     const startTime = new Date(attempt.startedAt).getTime();
     const extraMinutes = (attempt as any)?.extraTimeMinutes || 0;
     const totalDurationMs = (exam.duration + extraMinutes) * 60 * 1000;
-    const elapsedMs = Date.now() - startTime;
+    const elapsedMs = Math.max(0, syncedNow - startTime);
     const remainingSeconds = Math.max(0, Math.floor((totalDurationMs - elapsedMs) / 1000));
     setTimeLeft(remainingSeconds);
 
@@ -671,7 +679,7 @@ export default function CbtExamRoom({
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          handleFinalSubmit(); // Auto-submit when time is up!
+          handleFinalSubmit(); // Auto-submit saat waktu resmi telah habis!
           return 0;
         }
         return prev - 1;
@@ -679,7 +687,7 @@ export default function CbtExamRoom({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [attempt, finalResult, exam.duration, handleFinalSubmit]);
+  }, [attempt, finalResult, exam.duration, serverTimeSkewMs, handleFinalSubmit]);
 
   // Periodic background heartbeat to sync answers & check proctor directives (extra time, block, strike 2 unlock, force submit)
   useEffect(() => {
@@ -695,6 +703,12 @@ export default function CbtExamRoom({
       try {
         const res = await saveProgress(attempt.id, answersRef.current, tabSwitchCountRef.current);
         if (res && res.success) {
+          if ((res as any).serverTime) {
+            const sMs = new Date((res as any).serverTime).getTime();
+            if (!isNaN(sMs)) {
+              setServerTimeSkewMs(sMs - Date.now());
+            }
+          }
           // 🛡️ SINKRONISASI JAWABAN TERKINI DARI DATABASE:
           if (res.answers) {
             try {
@@ -788,6 +802,12 @@ export default function CbtExamRoom({
     });
 
     if (res.success && res.attempt) {
+      if ((res as any).serverTime) {
+        const sMs = new Date((res as any).serverTime).getTime();
+        if (!isNaN(sMs)) {
+          setServerTimeSkewMs(sMs - Date.now());
+        }
+      }
       setAttempt(res.attempt);
       const hasPermission = 
         res.attempt.proctorNotes?.includes('[IZIN_LANJUT_P2]') || 

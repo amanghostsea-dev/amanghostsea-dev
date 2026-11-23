@@ -75,6 +75,14 @@ export default function CbtQuestionContent({
 
   return (
     <div className={`space-y-3.5 ${className}`}>
+      {/* 📌 Stimulus Soal Gambar Murni (seperti rumus matematika/grafik/diagram tanpa teks pendamping) */}
+      {hasImage && !textBefore && !textAfter && (
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 text-purple-700 dark:text-purple-300 text-xs font-semibold shadow-2xs">
+          <span>📐</span>
+          <span>Perhatikan lembar soal gambar di bawah ini untuk menentukan pilihan jawaban:</span>
+        </div>
+      )}
+
       {/* 📝 Bagian 1: Teks Pengantar / Stimulus Sebelum Gambar */}
       {textBefore && (
         <div className="text-slate-900 dark:text-white leading-relaxed">
