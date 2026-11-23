@@ -33,8 +33,12 @@ export default async function PortalGuru() {
 
   // Fetch Live Database Stats
   let totalExams = 0;
+  let schoolExamsCount = 0;
+  let myExamsCount = 0;
   let activeExams: any[] = [];
   let totalAttempts = 0;
+  let schoolAttemptsCount = 0;
+  let myAttemptsCount = 0;
   let unreviewedSubmissions = 0;
   let teacherSubjects: any[] = [];
   let assignedProctorCount = 0;
@@ -57,14 +61,29 @@ export default async function PortalGuru() {
       ]
     };
 
-    const [examsCount, activeList, attemptsCount, unreviewedCount, subjectsList, proctorCount] = await Promise.all([
+    const [
+      totalSchoolExams,
+      guruExams,
+      activeList,
+      totalSchoolAttempts,
+      guruAttempts,
+      unreviewedCount,
+      subjectsList,
+      proctorCount
+    ] = await Promise.all([
+      prisma.exam.count(),
       prisma.exam.count({
         where: isSuperAdmin ? undefined : examFilterForGuru
       }),
       prisma.exam.findMany({
         where: { 
-          status: 'ACTIVE',
-          ...(isSuperAdmin ? {} : examFilterForGuru)
+          status: { in: ['ACTIVE', 'PUBLISHED'] },
+          ...(isSuperAdmin ? {} : {
+            OR: [
+              ...(examFilterForGuru.OR || []),
+              ...(proctorConditions.length > 0 ? proctorConditions : [])
+            ]
+          })
         },
         include: {
           _count: {
@@ -75,21 +94,37 @@ export default async function PortalGuru() {
         take: 2,
       }),
       prisma.examAttempt.count({
-        where: isSuperAdmin ? undefined : {
-          exam: examFilterForGuru
+        where: { status: 'SUBMITTED' }
+      }),
+      prisma.examAttempt.count({
+        where: isSuperAdmin ? { status: 'SUBMITTED' } : {
+          exam: examFilterForGuru,
+          status: 'SUBMITTED'
         }
       }),
       prisma.assignmentSubmission.count({
-        where: { grade: null }
+        where: {
+          grade: null,
+          ...(isSuperAdmin ? {} : {
+            assignment: {
+              OR: [
+                { authorName: { equals: teacherName, mode: 'insensitive' as const } },
+                { authorName: { contains: teacherName, mode: 'insensitive' as const } },
+              ]
+            }
+          })
+        }
       }),
       prisma.subject.findMany({
         where: {
           status: 'ACTIVE',
-          OR: [
-            ...(dbUser?.id ? [{ teacherId: dbUser.id }] : []),
-            ...(teacherName ? [{ teacherName: { equals: teacherName, mode: 'insensitive' as const } }] : []),
-            ...(teacherName ? [{ teacherName: { contains: teacherName, mode: 'insensitive' as const } }] : []),
-          ],
+          ...(isSuperAdmin ? {} : {
+            OR: [
+              ...(dbUser?.id ? [{ teacherId: dbUser.id }] : []),
+              ...(teacherName ? [{ teacherName: { equals: teacherName, mode: 'insensitive' as const } }] : []),
+              ...(teacherName ? [{ teacherName: { contains: teacherName, mode: 'insensitive' as const } }] : []),
+            ],
+          })
         },
         include: {
           _count: { select: { grades: true } },
@@ -98,15 +133,22 @@ export default async function PortalGuru() {
       }),
       proctorConditions.length > 0 ? prisma.exam.count({ where: { OR: proctorConditions } }) : 0,
     ]);
-    totalExams = examsCount;
+
+    schoolExamsCount = totalSchoolExams;
+    myExamsCount = guruExams;
+    totalExams = isSuperAdmin ? totalSchoolExams : guruExams;
     activeExams = activeList;
-    totalAttempts = attemptsCount;
+    schoolAttemptsCount = totalSchoolAttempts;
+    myAttemptsCount = guruAttempts;
+    totalAttempts = isSuperAdmin ? totalSchoolAttempts : (guruAttempts > 0 ? guruAttempts : totalSchoolAttempts);
     unreviewedSubmissions = unreviewedCount;
     teacherSubjects = subjectsList;
     assignedProctorCount = proctorCount;
   } catch (err) {
     console.error('Error fetching guru stats:', err);
   }
+
+  const totalTeachingHours = teacherSubjects.reduce((sum: number, s: any) => sum + (s.credits || 4), 0);
 
   const classes = teacherSubjects.map((s) => ({
     id: s.id,
@@ -226,43 +268,81 @@ export default async function PortalGuru() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* 1. Total Paket CBT */}
           <div className="bg-white dark:bg-gray-900 p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm flex items-center gap-4">
             <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 rounded-2xl flex items-center justify-center font-bold">
               <MonitorPlay size={22} />
             </div>
-            <div>
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Total Paket CBT</p>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{totalExams} Ujian</h3>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 truncate">Total Paket CBT</p>
+              <div className="flex items-baseline gap-2">
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {isSuperAdmin ? `${schoolExamsCount} Ujian` : (myExamsCount > 0 ? `${myExamsCount} Ujian` : `${schoolExamsCount} Ujian`)}
+                </h3>
+                {!isSuperAdmin && schoolExamsCount > 0 && (
+                  <span className="text-[10px] font-semibold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/50 px-2 py-0.5 rounded-full whitespace-nowrap">
+                    {schoolExamsCount} Total CBT
+                  </span>
+                )}
+              </div>
+              {!isSuperAdmin && (
+                <p className="text-[11px] text-gray-400 mt-0.5 truncate">
+                  {myExamsCount > 0 ? `${myExamsCount} paket Anda • ${assignedProctorCount} jadwal pengawas` : `${schoolExamsCount} bank soal sekolah siap`}
+                </p>
+              )}
             </div>
           </div>
 
+          {/* 2. Peserta CBT Tuntas */}
           <div className="bg-white dark:bg-gray-900 p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm flex items-center gap-4">
             <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center font-bold">
               <Award size={22} />
             </div>
-            <div>
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Peserta CBT Tuntas</p>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{totalAttempts} Siswa</h3>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 truncate">Peserta CBT Tuntas</p>
+              <div className="flex items-baseline gap-2">
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {isSuperAdmin ? `${schoolAttemptsCount} Siswa` : (myAttemptsCount > 0 ? `${myAttemptsCount} Siswa` : `${schoolAttemptsCount} Siswa`)}
+                </h3>
+                {!isSuperAdmin && schoolAttemptsCount > 0 && (
+                  <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full whitespace-nowrap">
+                    {schoolAttemptsCount} Total Siswa
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-gray-400 mt-0.5 truncate">
+                {myAttemptsCount > 0 ? `${myAttemptsCount} siswa di paket Anda • ${schoolAttemptsCount} di sekolah` : `${schoolAttemptsCount} sesi ujian tuntas di sekolah`}
+              </p>
             </div>
           </div>
 
+          {/* 3. Tugas Belum Dinilai */}
           <div className="bg-white dark:bg-gray-900 p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm flex items-center gap-4">
             <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center font-bold">
               <FileText size={22} />
             </div>
-            <div>
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Tugas Belum Dinilai</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 truncate">Tugas Belum Dinilai</p>
               <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{unreviewedSubmissions} Berkas</h3>
+              <p className="text-[11px] text-gray-400 mt-0.5 truncate">
+                {unreviewedSubmissions > 0 ? 'Menunggu koreksi nilai' : 'Semua berkas telah dinilai'}
+              </p>
             </div>
           </div>
 
+          {/* 4. Jam Mengajar */}
           <div className="bg-white dark:bg-gray-900 p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm flex items-center gap-4">
             <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center font-bold">
               <Clock size={22} />
             </div>
-            <div>
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Jam Mengajar</p>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">24 Jam / Mgg</h3>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 truncate">Jam Mengajar</p>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                {totalTeachingHours > 0 ? `${totalTeachingHours} JP / Mgg` : `${classes.length > 0 ? classes.length * 4 : 24} Jam / Mgg`}
+              </h3>
+              <p className="text-[11px] text-gray-400 mt-0.5 truncate">
+                {classes.length > 0 ? `${classes.length} Rombel Terplotting Aktif` : 'Beban Jam Mengajar Mingguan'}
+              </p>
             </div>
           </div>
         </div>
