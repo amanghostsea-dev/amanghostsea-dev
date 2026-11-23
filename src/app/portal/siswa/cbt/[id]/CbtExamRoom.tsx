@@ -34,6 +34,7 @@ import { formatExamScheduleRange, getExamScheduleState, isExamTokenActive, forma
 import CbtRichText from '@/components/cbt/CbtRichText';
 import CbtQuestionImageViewer from '@/components/cbt/CbtQuestionImageViewer';
 import CbtQuestionContent from '@/components/cbt/CbtQuestionContent';
+import { normalizeOptions } from '@/lib/cbt-bank-soal';
 
 interface QuestionItem {
   id: string;
@@ -901,14 +902,8 @@ export default function CbtExamRoom({
   const answeredCount = Object.keys(answers).length;
   const currentQ = questions[currentIndex];
 
-  let parsedOptions: string[] = [];
-  if (currentQ) {
-    try {
-      parsedOptions = JSON.parse(currentQ.options);
-    } catch {
-      parsedOptions = [];
-    }
-  }
+  // 🛡️ Auto-healing & normalisasi opsi (memisahkan pilihan yang tidak sengaja tergabung secara otomatis)
+  const parsedOptions: string[] = currentQ ? normalizeOptions(currentQ.options) : [];
 
   // Format Timer
   const formatTime = (seconds: number) => {

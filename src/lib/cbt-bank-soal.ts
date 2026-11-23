@@ -71,17 +71,69 @@ export function unescapeCsvCell(val: string): string {
 }
 
 /**
- * Normalisasi opsi jawaban dari JSON string atau array
+ * Membersihkan awalan label opsi yang berulang atau mubazir seperti "A. ", "a. ", "A) ", "(A) ", "A.\t", "A: "
+ */
+export function cleanOptionText(text: string): string {
+  if (!text || typeof text !== 'string') return '';
+  return text
+    .trim()
+    .replace(/^(?:\(?\s*[A-Ea-e]\s*[\.\)\:\-]\s*|\([A-Ea-e]\)\s*)/, '')
+    .trim();
+}
+
+/**
+ * Normalisasi opsi jawaban dari JSON string atau array dengan fitur Auto-Healing
+ * Membedah opsi secara cerdas jika ada pilihan berikutnya yang tertelan ke dalam satu string (misal C dan D dalam 1 baris)
  */
 export function normalizeOptions(options: string | string[]): string[] {
-  if (Array.isArray(options)) return options.map(String);
-  try {
-    const parsed = JSON.parse(options);
-    if (Array.isArray(parsed)) return parsed.map(String);
-  } catch {
-    // fallback jika bukan JSON
+  let rawList: string[] = [];
+  if (Array.isArray(options)) {
+    rawList = options.map(String);
+  } else if (typeof options === 'string') {
+    try {
+      const parsed = JSON.parse(options);
+      if (Array.isArray(parsed)) rawList = parsed.map(String);
+      else if (typeof parsed === 'string') rawList = [parsed];
+    } catch {
+      if (options.includes('\n')) {
+        rawList = options.split('\n').map((s) => s.trim()).filter(Boolean);
+      } else {
+        rawList = [options];
+      }
+    }
   }
-  return [];
+
+  if (rawList.length === 0) return [];
+
+  // 🛡️ Auto-healing: bedah opsi jika ada pilihan berikutnya yang tertelan di dalam opsi sebelumnya
+  const healed: string[] = [];
+  for (let i = 0; i < rawList.length; i++) {
+    const currentText = rawList[i].trim();
+    if (!currentText) continue;
+
+    const currentExpectedLetter = String.fromCharCode(65 + healed.length); // A, B, C, D, E...
+    const nextExpectedLetter = String.fromCharCode(currentExpectedLetter.charCodeAt(0) + 1); // B, C, D, E...
+
+    // Cek apakah string ini mengandung penanda huruf berikutnya, misal "C. ..." atau "D. ..."
+    const embeddedRegex = new RegExp(`[\\t ]+(?:${nextExpectedLetter}[\\.\\)]|\\(${nextExpectedLetter}\\))[\\t ]*(.*)`, 'i');
+    const match = currentText.match(embeddedRegex);
+
+    if (match && healed.length < 5) {
+      const part1 = currentText.slice(0, match.index).trim();
+      const part2 = match[1].trim();
+      if (part1) healed.push(cleanOptionText(part1));
+      if (part2) healed.push(cleanOptionText(part2));
+    } else {
+      healed.push(cleanOptionText(currentText));
+    }
+  }
+
+  // Jika setelah dipecah jumlahnya melebihi 5 dan elemen terakhir duplikat identik, rapikan
+  if (healed.length > 5 && healed[healed.length - 1] === healed[healed.length - 2]) {
+    healed.pop();
+  }
+
+  return healed;
 }
 
 /**
@@ -475,10 +527,10 @@ export function parseBulkQuestions(rawText: string, defaultPoints: number = 10):
   const lines = isDelimited
     ? splitCsvRows(trimmed).filter((l) => !l.toLowerCase().startsWith('sep='))
     : trimmed
-        .split(/\r?\n/)
-        .map((l) => l.trim())
-        .filter(Boolean)
-        .filter((l) => !l.toLowerCase().startsWith('sep='));
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .filter((l) => !l.toLowerCase().startsWith('sep='));
 
   if (isDelimited) {
     const results: ParsedQuestion[] = [];
@@ -617,7 +669,9 @@ export function parseBulkQuestions(rawText: string, defaultPoints: number = 10):
   const parsedResults: ParsedQuestion[] = [];
 
   for (const block of rawBlocks) {
-    const bLines = block.split('\n').map((l) => l.trim()).filter(Boolean);
+    // 💡 Pecah opsi horizontal / 2-kolom Word (misal "A. Jakarta   B. Bandung" atau "C. ...   D. ...")
+    const expandedBlock = block.replace(/(?<=\S)[\t ]{2,}(?=(?:\(?[B-Eb-e][\.\)]|\b[B-Eb-e]\.\s+))/g, '\n');
+    const bLines = expandedBlock.split('\n').map((l) => l.trim()).filter(Boolean);
     if (bLines.length === 0) continue;
 
     let qTextParts: string[] = [];
@@ -666,7 +720,7 @@ export function parseBulkQuestions(rawText: string, defaultPoints: number = 10):
       const oMatch = bLine.match(optionRegex);
       if (oMatch) {
         const optText = oMatch[4] || '';
-        options.push(optText.trim());
+        options.push(cleanOptionText(optText));
         continue;
       }
 
@@ -683,14 +737,17 @@ export function parseBulkQuestions(rawText: string, defaultPoints: number = 10):
       let rawQ = qTextParts.join('\n').trim();
       rawQ = rawQ.replace(/^(?:Soal\s*)?\d+[\.\:\)]\s*/i, '').trim();
 
-      while (options.length < 4) {
-        options.push(`Pilihan ${String.fromCharCode(65 + options.length)}`);
+      // 🛡️ Auto-healing: pastikan semua opsi terbebas dari penggabungan horizontal
+      const normalizedOpts = normalizeOptions(options);
+
+      while (normalizedOpts.length < 4) {
+        normalizedOpts.push(`Pilihan ${String.fromCharCode(65 + normalizedOpts.length)}`);
       }
 
       parsedResults.push({
         questionText: rawQ,
         imageUrl,
-        options,
+        options: normalizedOpts,
         correctAnswer,
         points,
       });

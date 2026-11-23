@@ -106,6 +106,7 @@ import {
   triggerBrowserDownload,
   splitCsvRows,
   keyToLetter,
+  normalizeOptions,
   parseBulkQuestions,
   ParsedQuestion,
 } from '@/lib/cbt-bank-soal';
@@ -1318,12 +1319,8 @@ Poin: 10
     }
     setEditImageUrl(q.imageUrl || '');
     setShowEditImageDrawer(Boolean(q.imageUrl && q.imageUrl.trim()));
-    try {
-      const parsedOpts = JSON.parse(q.options);
-      setEditOptions(Array.isArray(parsedOpts) && parsedOpts.length >= 2 ? parsedOpts : ['', '', '', '']);
-    } catch {
-      setEditOptions(['', '', '', '']);
-    }
+    const parsedOpts = normalizeOptions(q.options);
+    setEditOptions(parsedOpts.length >= 2 ? parsedOpts : ['', '', '', '']);
     setEditCorrectAnswer(q.correctAnswer || '0');
     setEditPoints(q.points || 10);
     setIsEditQModal(true);
@@ -1982,12 +1979,7 @@ Poin: 10
               )}
 
               {questions.map((q, idx) => {
-                let parsedOptions: string[] = [];
-                try {
-                  parsedOptions = JSON.parse(q.options);
-                } catch {
-                  parsedOptions = [];
-                }
+                const parsedOptions = normalizeOptions(q.options);
                 const correctIdx = parseInt(q.correctAnswer, 10);
                 const isSelected = selectedQIds.includes(q.id);
 
