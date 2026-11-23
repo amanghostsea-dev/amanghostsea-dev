@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { 
   Award, 
   CheckCircle2, 
@@ -38,7 +38,7 @@ import {
   CbtDigitalStamp,
   CbtPrintModalWrapper
 } from '@/components/cbt/CbtOfficialPrintComponents';
-import { extractJurusanCode, getJurusanFullName, CbtTimezone, DEFAULT_CBT_TIMEZONE, formatScheduleTime } from '@/lib/cbt-schedule';
+import { extractJurusanCode, getJurusanFullName, CbtTimezone, DEFAULT_CBT_TIMEZONE, formatScheduleTime, isClassTargetMatch } from '@/lib/cbt-schedule';
 
 export interface ReportAttemptItem {
   id: string;
@@ -67,6 +67,14 @@ export interface ReportExamItem {
   };
 }
 
+export interface SubjectWithKkmItem {
+  id?: string;
+  name: string;
+  kkm: number;
+  classTarget?: string | null;
+  teacherName?: string | null;
+}
+
 interface CbtReportViewProps {
   exams: ReportExamItem[];
   currentUser?: {
@@ -75,7 +83,7 @@ interface CbtReportViewProps {
   };
   classPresets?: string[];
   subjectPresets?: string[];
-  subjectsWithKkm?: { name: string; kkm: number }[];
+  subjectsWithKkm?: SubjectWithKkmItem[];
   kopSuratConfig?: KopSuratConfig;
   cbtTimezone?: CbtTimezone;
 }
@@ -93,18 +101,43 @@ export default function CbtReportView({
   const isGuru = currentUser?.role === 'Guru';
   const currentUserName = currentUser?.name || '';
 
-  // 🗺️ Map Nama Mata Pelajaran -> Standar KKM Resmi dari Master Data Mapel
-  const subjectKkmMap = useMemo(() => {
-    const map = new Map<string, number>();
-    if (subjectsWithKkm && subjectsWithKkm.length > 0) {
-      subjectsWithKkm.forEach((s) => {
-        if (s.name) {
-          map.set(s.name.trim().toLowerCase(), s.kkm ?? 75);
-        }
+  // 🎯 Pilihan Mode KKM:
+  // true = 100% Otomatis mengikuti KKM yang diinput oleh masing-masing Guru Pengampu di Master Mapel (Default)
+  // false = Mode Manual Override oleh Admin Utama
+  const [isAutoKkmFromTeacher, setIsAutoKkmFromTeacher] = useState(true);
+  const [customKkmScore, setCustomKkmScore] = useState(75);
+
+  // 🗺️ Helper Pencarian KKM Guru Resmi per Mata Pelajaran & Kelas Target
+  const getSubjectKkm = useCallback((subjectName: string, studentClass?: string): number => {
+    if (!subjectName) return 75;
+    const cleanSub = subjectName.trim().toLowerCase();
+
+    // 1. Prioritas Utama: Cari mapel yang cocok spesifik dengan nama mapel dan kelas siswa
+    if (studentClass && subjectsWithKkm && subjectsWithKkm.length > 0) {
+      const matchWithClass = subjectsWithKkm.find((s) => {
+        if (s.name.trim().toLowerCase() !== cleanSub) return false;
+        if (!s.classTarget) return false;
+        return isClassTargetMatch(s.classTarget, studentClass);
       });
+      if (matchWithClass?.kkm) return matchWithClass.kkm;
     }
-    return map;
+
+    // 2. Fallback: Cocokkan berdasarkan nama mapel saja
+    if (subjectsWithKkm && subjectsWithKkm.length > 0) {
+      const match = subjectsWithKkm.find((s) => s.name.trim().toLowerCase() === cleanSub);
+      if (match?.kkm) return match.kkm;
+    }
+
+    return 75; // Nilai standar dasar sekolah
   }, [subjectsWithKkm]);
+
+  // ⚡ Fungsi Penentu KKM Efektif untuk Setiap Baris Siswa (Otomatis Guru vs Manual)
+  const getRowEffectiveKkm = useCallback((subjectName: string, studentClass?: string): number => {
+    if (!isAutoKkmFromTeacher) {
+      return customKkmScore;
+    }
+    return getSubjectKkm(subjectName, studentClass);
+  }, [isAutoKkmFromTeacher, customKkmScore, getSubjectKkm]);
 
   // Filter States
   const [examFilter, setExamFilter] = useState('ALL');
@@ -114,21 +147,20 @@ export default function CbtReportView({
   const [passingFilter, setPassingFilter] = useState<'ALL' | 'PASSED' | 'REMEDIAL' | 'IN_PROGRESS'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [onlyMyExams, setOnlyMyExams] = useState(isGuru);
-  const [kkmScore, setKkmScore] = useState(75);
 
-  // Otomatis sinkronkan ambang KKM sesuai Mapel atau Paket Ujian yang dipilih
+  // Otomatis sinkronkan nilai KKM kustom jika admin memilih filter mapel tertentu
   useEffect(() => {
     if (subjectFilter !== 'ALL') {
-      const found = subjectKkmMap.get(subjectFilter.trim().toLowerCase());
-      if (found) setKkmScore(found);
+      const found = getSubjectKkm(subjectFilter);
+      if (found) setCustomKkmScore(found);
     } else if (examFilter !== 'ALL') {
       const selected = exams.find((e) => e.id === examFilter);
       if (selected?.subject) {
-        const found = subjectKkmMap.get(selected.subject.trim().toLowerCase());
-        if (found) setKkmScore(found);
+        const found = getSubjectKkm(selected.subject);
+        if (found) setCustomKkmScore(found);
       }
     }
-  }, [subjectFilter, examFilter, subjectKkmMap, exams]);
+  }, [subjectFilter, examFilter, getSubjectKkm, exams]);
 
   // Action States
   const [syncingExamId, setSyncingExamId] = useState<string | null>(null);
@@ -274,8 +306,14 @@ export default function CbtReportView({
       }
       if (classFilter !== 'ALL' && r.studentClass !== classFilter) return false;
       if (subjectFilter !== 'ALL' && r.subject !== subjectFilter) return false;
-      if (passingFilter === 'PASSED' && (Math.round(r.score) < kkmScore || r.status !== 'SUBMITTED')) return false;
-      if (passingFilter === 'REMEDIAL' && (Math.round(r.score) >= kkmScore || r.status !== 'SUBMITTED')) return false;
+      if (passingFilter === 'PASSED') {
+        const kkm = getRowEffectiveKkm(r.subject, r.studentClass);
+        if (Math.round(r.score) < kkm || r.status !== 'SUBMITTED') return false;
+      }
+      if (passingFilter === 'REMEDIAL') {
+        const kkm = getRowEffectiveKkm(r.subject, r.studentClass);
+        if (Math.round(r.score) >= kkm || r.status !== 'SUBMITTED') return false;
+      }
       if (passingFilter === 'IN_PROGRESS' && r.status !== 'IN_PROGRESS') return false;
 
       if (searchQuery.trim()) {
@@ -290,14 +328,14 @@ export default function CbtReportView({
       }
       return true;
     });
-  }, [allRows, isGuru, onlyMyExams, currentUserName, examFilter, jurusanFilter, classFilter, subjectFilter, passingFilter, searchQuery, kkmScore]);
+  }, [allRows, isGuru, onlyMyExams, currentUserName, examFilter, jurusanFilter, classFilter, subjectFilter, passingFilter, searchQuery, getRowEffectiveKkm]);
 
   // Analytics Metrics
   const totalAttempts = filteredRows.length;
   const submittedRows = filteredRows.filter((r) => r.status === 'SUBMITTED');
   const submittedCount = submittedRows.length;
-  const passedCount = submittedRows.filter((r) => Math.round(r.score) >= kkmScore).length;
-  const remedialCount = submittedRows.filter((r) => Math.round(r.score) < kkmScore).length;
+  const passedCount = submittedRows.filter((r) => Math.round(r.score) >= getRowEffectiveKkm(r.subject, r.studentClass)).length;
+  const remedialCount = submittedRows.filter((r) => Math.round(r.score) < getRowEffectiveKkm(r.subject, r.studentClass)).length;
   const passRate = submittedCount > 0 ? Math.round((passedCount / submittedCount) * 100) : 0;
   const avgScore = submittedCount > 0
     ? Math.round(submittedRows.reduce((sum, r) => sum + r.score, 0) / submittedCount)
@@ -395,10 +433,9 @@ export default function CbtReportView({
 
   // 🎯 KKM Spesifik Kartu Siswa (diambil dari Master Mapel siswa atau nilai KKM toolbar aktif)
   const effectiveCardKkm = useMemo(() => {
-    if (!printStudentCard) return kkmScore;
-    const sub = (printStudentCard.subject || '').trim().toLowerCase();
-    return subjectKkmMap.get(sub) ?? kkmScore ?? 75;
-  }, [printStudentCard, subjectKkmMap, kkmScore]);
+    if (!printStudentCard) return customKkmScore;
+    return getRowEffectiveKkm(printStudentCard.subject || '', printStudentCard.studentClass);
+  }, [printStudentCard, getRowEffectiveKkm, customKkmScore]);
 
   // Group classes for filter dropdown
   const groupedClasses = useMemo(() => {
@@ -480,7 +517,7 @@ export default function CbtReportView({
         `"${r.subject}"`,
         `"${r.examTitle.replace(/"/g, '""')}"`,
         r.score,
-        r.status === 'SUBMITTED' ? (Math.round(r.score) >= kkmScore ? 'TUNTAS' : 'REMEDIAL') : 'SEDANG DIKERJAKAN',
+        r.status === 'SUBMITTED' ? (Math.round(r.score) >= getRowEffectiveKkm(r.subject, r.studentClass) ? 'TUNTAS' : 'REMEDIAL') : 'SEDANG DIKERJAKAN',
         r.totalCorrect,
         r.totalQuestions,
         r.tabSwitchCount,
@@ -658,17 +695,43 @@ export default function CbtReportView({
               </button>
             )}
 
-            {/* Quick KKM Adjuster */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700 shadow-xs" title="Standar Kriteria Ketuntasan Minimal (KKM) Ujian">
-              <span className="text-[10px] text-slate-500 uppercase tracking-wider font-extrabold">KKM:</span>
-              <input
-                type="number"
-                min={50}
-                max={100}
-                value={kkmScore}
-                onChange={(e) => setKkmScore(Number(e.target.value) || 75)}
-                className="w-12 text-center text-xs font-black bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-0.5 text-purple-700 dark:text-purple-300 outline-none focus:ring-1 focus:ring-purple-500"
-              />
+            {/* Quick KKM Mode Toggle: Otomatis KKM Guru vs Manual */}
+            <div className="inline-flex items-center gap-1 p-0.5 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-700 shadow-xs" title="Pengaturan Ambang Batas KKM">
+              <button
+                type="button"
+                onClick={() => setIsAutoKkmFromTeacher(true)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                  isAutoKkmFromTeacher
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+                title="Gunakan nilai KKM resmi yang sudah diinput masing-masing guru pengampu di Master Mapel"
+              >
+                <span>⚡ KKM Guru (Auto)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAutoKkmFromTeacher(false)}
+                className={`px-2 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                  !isAutoKkmFromTeacher
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+                title="Atur KKM manual seragam untuk simulasi"
+              >
+                <span>Manual</span>
+              </button>
+              {!isAutoKkmFromTeacher && (
+                <input
+                  type="number"
+                  min={50}
+                  max={100}
+                  value={customKkmScore}
+                  onChange={(e) => setCustomKkmScore(Number(e.target.value) || 75)}
+                  className="w-11 text-center text-xs font-black bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg py-0.5 text-purple-700 dark:text-purple-300 focus:outline-none"
+                  title="Nilai KKM manual seragam"
+                />
+              )}
             </div>
 
             {/* Quick Sync to Raport Button */}
@@ -792,8 +855,8 @@ export default function CbtReportView({
               className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none cursor-pointer truncate col-span-2 sm:col-span-1"
             >
               <option value="ALL">Semua Status Ketuntasan</option>
-              <option value="PASSED">✅ Tuntas (Skor ≥ {kkmScore})</option>
-              <option value="REMEDIAL">⚠️ Remedial (Skor &lt; {kkmScore})</option>
+              <option value="PASSED">✅ Tuntas {isAutoKkmFromTeacher ? '(Sesuai KKM Guru)' : `(Skor ≥ ${customKkmScore})`}</option>
+              <option value="REMEDIAL">⚠️ Remedial {isAutoKkmFromTeacher ? '(Sesuai KKM Guru)' : `(Skor < ${customKkmScore})`}</option>
               <option value="IN_PROGRESS">⏳ Sedang Mengerjakan</option>
             </select>
           </div>
@@ -849,7 +912,7 @@ export default function CbtReportView({
           <div className="min-w-0">
             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">Perlu Remedial</div>
             <div className="text-base sm:text-lg font-black text-amber-600 dark:text-amber-400 leading-tight">
-              {remedialCount} <span className="text-[10px] font-semibold text-slate-400">Siswa (&lt; {kkmScore})</span>
+              {remedialCount} <span className="text-[10px] font-semibold text-slate-400">Siswa {isAutoKkmFromTeacher ? '(di bawah KKM guru)' : `(< ${customKkmScore})`}</span>
             </div>
           </div>
         </div>
@@ -871,7 +934,7 @@ export default function CbtReportView({
       {/* 📊 4. GRAFIK & ANALITIK CBT (MUNCUL LANGSUNG DI ATAS TANPA SCROLL!) */}
       {(viewLayout === 'BOTH' || viewLayout === 'CHARTS') && (
         <div className="animate-in fade-in duration-300">
-          <CbtAnalyticsCharts rows={filteredRows} kkmScore={kkmScore} />
+          <CbtAnalyticsCharts rows={filteredRows} kkmScore={isAutoKkmFromTeacher ? (printMetadata.singleSubject ? getSubjectKkm(printMetadata.singleSubject) : 75) : customKkmScore} />
         </div>
       )}
 
@@ -899,7 +962,14 @@ export default function CbtReportView({
                 <th className="p-4">Rombel Kelas</th>
                 <th className="p-4">Paket Ujian / Mapel</th>
                 <th className="p-4 text-center">Skor Nilai</th>
-                <th className="p-4 text-center">Ketuntasan (KKM: {kkmScore})</th>
+                <th className="p-4 text-center">
+                  <div className="flex flex-col items-center">
+                    <span>Ketuntasan Nilai</span>
+                    <span className="text-[9px] font-normal normal-case tracking-normal text-purple-600 dark:text-purple-400">
+                      {isAutoKkmFromTeacher ? '(Otomatis KKM Guru)' : `(Manual: ${customKkmScore})`}
+                    </span>
+                  </div>
+                </th>
                 <th className="p-4 text-center">Benar / Soal</th>
                 <th className="p-4 text-center">Anti-Curang</th>
                 <th className="p-4">Status & Waktu Selesai</th>
@@ -916,7 +986,8 @@ export default function CbtReportView({
                 </tr>
               ) : (
                 filteredRows.map((row, idx) => {
-                  const isPassed = Math.round(row.score) >= kkmScore;
+                  const rowKkm = getRowEffectiveKkm(row.subject, row.studentClass);
+                  const isPassed = Math.round(row.score) >= rowKkm;
                   const isSubmitted = row.status === 'SUBMITTED';
 
                   return (
@@ -979,13 +1050,23 @@ export default function CbtReportView({
                             ⏳ Sedang Ujian
                           </span>
                         ) : isPassed ? (
-                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500 text-white shadow-sm shadow-emerald-500/20 whitespace-nowrap">
-                            ✓ TUNTAS KKM
-                          </span>
+                          <div className="inline-flex flex-col items-center">
+                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500 text-white shadow-sm shadow-emerald-500/20 whitespace-nowrap">
+                              ✓ TUNTAS KKM
+                            </span>
+                            <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-400 mt-0.5">
+                              KKM: {rowKkm}
+                            </span>
+                          </div>
                         ) : (
-                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500 text-white shadow-sm shadow-amber-500/20 whitespace-nowrap" title={`Nilai ${Math.round(row.score)} di bawah standar KKM ${kkmScore}`}>
-                            REMEDIAL
-                          </span>
+                          <div className="inline-flex flex-col items-center">
+                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500 text-white shadow-sm shadow-amber-500/20 whitespace-nowrap" title={`Nilai ${Math.round(row.score)} di bawah standar KKM ${rowKkm}`}>
+                              REMEDIAL
+                            </span>
+                            <span className="text-[9px] font-bold text-amber-700 dark:text-amber-400 mt-0.5">
+                              KKM: {rowKkm}
+                            </span>
+                          </div>
                         )}
                       </td>
 
@@ -1092,8 +1173,8 @@ export default function CbtReportView({
                     <span>: <strong>{printMetadata.examTitle}</strong></span>
                   </div>
                   <div className="flex">
-                    <span className="w-32 font-bold text-slate-700">Standar KKM Sekolah</span>
-                    <span>: <strong>{Number(kkmScore).toFixed(2)}</strong> (Kriteria Ketuntasan Minimal)</span>
+                    <span className="w-32 font-bold text-slate-700">Standar KKM</span>
+                    <span>: <strong>{isAutoKkmFromTeacher ? (printMetadata.singleSubject ? `${getSubjectKkm(printMetadata.singleSubject)}.00 (Guru Mapel)` : 'Sesuai KKM Guru per Mapel') : `${Number(customKkmScore).toFixed(2)} (Manual)`}</strong></span>
                   </div>
                   <div className="flex">
                     <span className="w-32 font-bold text-slate-700">Guru / Pengampu</span>
@@ -1129,13 +1210,14 @@ export default function CbtReportView({
                       </tr>
                     ) : (
                       sortedFilteredRows.map((r, idx) => {
-                        const isTuntas = r.score >= kkmScore;
+                        const rowKkm = getRowEffectiveKkm(r.subject, r.studentClass);
+                        const isTuntas = Math.round(r.score) >= rowKkm;
                         const isSubmitted = r.status === 'SUBMITTED';
                         let grade = '-';
                         if (isSubmitted) {
                           if (r.score >= 90) grade = 'A';
                           else if (r.score >= 80) grade = 'B';
-                          else if (r.score >= kkmScore) grade = 'C+';
+                          else if (r.score >= rowKkm) grade = 'C+';
                           else if (r.score >= 60) grade = 'C';
                           else grade = 'D';
                         }
@@ -1180,7 +1262,7 @@ export default function CbtReportView({
                         {avgScore}
                       </td>
                       <td className="py-2 px-2 text-center border-r border-black font-black">
-                        {avgScore >= kkmScore ? 'TUNTAS' : 'REMED'}
+                        {passRate >= 75 ? 'TUNTAS' : 'EVAL'}
                       </td>
                       <td colSpan={2} className="py-2 px-2 text-center font-bold">
                         {passRate}% Kelulusan ({passedCount} Tuntas / {remedialCount} Remedial)

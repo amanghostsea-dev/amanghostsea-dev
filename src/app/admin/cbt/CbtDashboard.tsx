@@ -156,7 +156,7 @@ interface CbtDashboardProps {
   initialTab?: 'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend' | 'logins';
   dynamicClassPresets?: string[];
   dynamicSubjectPresets?: string[];
-  subjectsWithKkm?: { name: string; kkm: number }[];
+  subjectsWithKkm?: { id?: string; name: string; kkm: number; classTarget?: string | null; teacherName?: string | null }[];
   kopSuratConfig?: KopSuratConfig;
   teachers?: TeacherUserItem[];
   initialTimezone?: CbtTimezone;

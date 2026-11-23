@@ -83,8 +83,7 @@ export default async function AdminCbtPage({
     }),
     getDynamicClassTargets(),
     prisma.subject.findMany({
-      select: { name: true, kkm: true },
-      distinct: ['name'],
+      select: { id: true, name: true, kkm: true, classTarget: true, teacherName: true },
       orderBy: { name: 'asc' },
     }),
     getKopSuratConfig(),
@@ -113,7 +112,7 @@ export default async function AdminCbtPage({
         currentUser={{ name: userName, role: userRole }} 
         initialTab={initialTab}
         dynamicClassPresets={classTargets}
-        dynamicSubjectPresets={subjects.map(s => s.name)}
+        dynamicSubjectPresets={Array.from(new Set(subjects.map(s => s.name)))}
         subjectsWithKkm={subjects}
         kopSuratConfig={kopSuratConfig}
         teachers={teachers}
