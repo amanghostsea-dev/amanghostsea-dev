@@ -31,6 +31,13 @@ export default async function PortalGuru() {
 
   const isSuperAdmin = dbUser?.role === 'Super Admin' || dbUser?.role === 'Admin Utama';
 
+  const examFilterForGuru = isSuperAdmin ? {} : {
+    OR: [
+      { authorName: { equals: teacherName, mode: 'insensitive' as const } },
+      { authorName: { contains: teacherName, mode: 'insensitive' as const } },
+    ]
+  };
+
   // Fetch Live Database Stats
   let totalExams = 0;
   let schoolExamsCount = 0;
@@ -53,13 +60,6 @@ export default async function PortalGuru() {
       proctorConditions.push({ proctorName: { equals: teacherName, mode: 'insensitive' as const } });
       proctorConditions.push({ proctor2Name: { equals: teacherName, mode: 'insensitive' as const } });
     }
-
-    const examFilterForGuru = isSuperAdmin ? {} : {
-      OR: [
-        { authorName: { equals: teacherName, mode: 'insensitive' as const } },
-        { authorName: { contains: teacherName, mode: 'insensitive' as const } },
-      ]
-    };
 
     const [
       totalSchoolExams,
@@ -140,12 +140,56 @@ export default async function PortalGuru() {
     activeExams = activeList;
     schoolAttemptsCount = totalSchoolAttempts;
     myAttemptsCount = guruAttempts;
-    totalAttempts = isSuperAdmin ? totalSchoolAttempts : (guruAttempts > 0 ? guruAttempts : totalSchoolAttempts);
+    totalAttempts = isSuperAdmin ? totalSchoolAttempts : guruAttempts;
     unreviewedSubmissions = unreviewedCount;
     teacherSubjects = subjectsList;
     assignedProctorCount = proctorCount;
   } catch (err) {
     console.error('Error fetching guru stats:', err);
+  }
+
+  // Hitung jumlah siswa yang secara resmi mengikuti mata pelajaran guru ini
+  let enrolledStudentsCount = 0;
+  let targetClassLabel = 'Rombel Kelas';
+  try {
+    const allActiveStudents = await prisma.user.findMany({
+      where: { role: 'Siswa', status: 'Aktif' },
+      select: { id: true, studentClass: true }
+    });
+
+    if (isSuperAdmin) {
+      enrolledStudentsCount = allActiveStudents.length;
+      targetClassLabel = 'Semua Kelas';
+    } else {
+      const teacherClassSet = new Set<string>();
+      teacherSubjects.forEach((s: any) => {
+        if (s.classTarget) {
+          s.classTarget.split(',').forEach((c: string) => {
+            const trimmed = c.trim();
+            if (trimmed && trimmed !== 'Semua Kelas') teacherClassSet.add(trimmed);
+          });
+        }
+      });
+
+      const teacherExams = await prisma.exam.findMany({
+        where: examFilterForGuru,
+        select: { classTarget: true }
+      });
+      teacherExams.forEach((e: any) => {
+        if (e.classTarget) {
+          e.classTarget.split(',').forEach((c: string) => {
+            const trimmed = c.trim();
+            if (trimmed && trimmed !== 'Semua Kelas') teacherClassSet.add(trimmed);
+          });
+        }
+      });
+
+      const matching = allActiveStudents.filter(st => st.studentClass && teacherClassSet.has(st.studentClass));
+      enrolledStudentsCount = matching.length;
+      targetClassLabel = Array.from(teacherClassSet).join(', ') || 'Kelas Diampu';
+    }
+  } catch (err) {
+    console.error('Error calculating enrolled students:', err);
   }
 
   const totalTeachingHours = teacherSubjects.reduce((sum: number, s: any) => sum + (s.credits || 4), 0);
@@ -293,25 +337,37 @@ export default async function PortalGuru() {
             </div>
           </div>
 
-          {/* 2. Peserta CBT Tuntas */}
+          {/* 2. Peserta CBT / Siswa Mengikuti Mapel */}
           <div className="bg-white dark:bg-gray-900 p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm flex items-center gap-4">
             <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center font-bold">
               <Award size={22} />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 truncate">Peserta CBT Tuntas</p>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 truncate">
+                {isSuperAdmin 
+                  ? "Peserta CBT Tuntas" 
+                  : (myAttemptsCount > 0 ? "Peserta CBT Tuntas" : "Siswa Mengikuti Mapel")}
+              </p>
               <div className="flex items-baseline gap-2">
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {isSuperAdmin ? `${schoolAttemptsCount} Siswa` : (myAttemptsCount > 0 ? `${myAttemptsCount} Siswa` : `${schoolAttemptsCount} Siswa`)}
+                  {isSuperAdmin
+                    ? `${schoolAttemptsCount} Siswa`
+                    : (myAttemptsCount > 0 
+                        ? `${myAttemptsCount} Siswa` 
+                        : `${enrolledStudentsCount} Siswa`)}
                 </h3>
-                {!isSuperAdmin && schoolAttemptsCount > 0 && (
+                {!isSuperAdmin && (
                   <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full whitespace-nowrap">
-                    {schoolAttemptsCount} Total Siswa
+                    {enrolledStudentsCount} Siswa Mapel
                   </span>
                 )}
               </div>
               <p className="text-[11px] text-gray-400 mt-0.5 truncate">
-                {myAttemptsCount > 0 ? `${myAttemptsCount} siswa di paket Anda • ${schoolAttemptsCount} di sekolah` : `${schoolAttemptsCount} sesi ujian tuntas di sekolah`}
+                {isSuperAdmin
+                  ? `${enrolledStudentsCount} total siswa aktif terdaftar di sekolah`
+                  : (myAttemptsCount > 0
+                      ? `${myAttemptsCount} dari ${enrolledStudentsCount} siswa tuntas di kelas ${targetClassLabel}`
+                      : `${enrolledStudentsCount} siswa terdaftar di kelas ${targetClassLabel}`)}
               </p>
             </div>
           </div>
