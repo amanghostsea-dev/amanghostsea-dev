@@ -37,6 +37,18 @@ export default async function ExamDetailPage({ params }: { params: Promise<{ id:
     notFound();
   }
 
+  // Ambil KKM resmi dari Master Data Mata Pelajaran
+  let subjectKkm = 75;
+  if (exam.subject) {
+    const sub = await prisma.subject.findFirst({
+      where: { name: { equals: exam.subject.trim(), mode: 'insensitive' } },
+      select: { kkm: true },
+    });
+    if (sub?.kkm) {
+      subjectKkm = sub.kkm;
+    }
+  }
+
   // Otorisasi Akses Paket Ujian:
   // - Admin Utama (Super Admin) memiliki hak akses penuh ke seluruh paket ujian.
   // - Guru Pengampu dapat mengelola bank soal & paket ujian miliknya sendiri.
@@ -64,6 +76,7 @@ export default async function ExamDetailPage({ params }: { params: Promise<{ id:
       kopSuratConfig={kopSuratConfig} 
       currentUser={{ name: userName, role: userRole }}
       isProctorMode={isProctorMode}
+      subjectKkm={subjectKkm}
     />
   );
 }

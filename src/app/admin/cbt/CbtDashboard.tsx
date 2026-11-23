@@ -156,6 +156,7 @@ interface CbtDashboardProps {
   initialTab?: 'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend' | 'logins';
   dynamicClassPresets?: string[];
   dynamicSubjectPresets?: string[];
+  subjectsWithKkm?: { name: string; kkm: number }[];
   kopSuratConfig?: KopSuratConfig;
   teachers?: TeacherUserItem[];
   initialTimezone?: CbtTimezone;
@@ -168,6 +169,7 @@ export default function CbtDashboard({
   initialTab = 'exams',
   dynamicClassPresets,
   dynamicSubjectPresets,
+  subjectsWithKkm,
   kopSuratConfig,
   teachers = [],
   initialTimezone,
@@ -2325,6 +2327,7 @@ export default function CbtDashboard({
           currentUser={currentUser}
           classPresets={classPresets}
           subjectPresets={subjectPresets}
+          subjectsWithKkm={subjectsWithKkm}
           kopSuratConfig={kopSuratConfig}
           cbtTimezone={cbtTimezone}
         />

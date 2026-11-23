@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   Award, 
   CheckCircle2, 
@@ -75,6 +75,7 @@ interface CbtReportViewProps {
   };
   classPresets?: string[];
   subjectPresets?: string[];
+  subjectsWithKkm?: { name: string; kkm: number }[];
   kopSuratConfig?: KopSuratConfig;
   cbtTimezone?: CbtTimezone;
 }
@@ -84,12 +85,26 @@ export default function CbtReportView({
   currentUser,
   classPresets = [],
   subjectPresets = [],
+  subjectsWithKkm = [],
   kopSuratConfig,
   cbtTimezone = DEFAULT_CBT_TIMEZONE,
 }: CbtReportViewProps) {
   const isSuperAdmin = currentUser?.role === 'Super Admin' || currentUser?.role === 'Admin Utama';
   const isGuru = currentUser?.role === 'Guru';
   const currentUserName = currentUser?.name || '';
+
+  // 🗺️ Map Nama Mata Pelajaran -> Standar KKM Resmi dari Master Data Mapel
+  const subjectKkmMap = useMemo(() => {
+    const map = new Map<string, number>();
+    if (subjectsWithKkm && subjectsWithKkm.length > 0) {
+      subjectsWithKkm.forEach((s) => {
+        if (s.name) {
+          map.set(s.name.trim().toLowerCase(), s.kkm ?? 75);
+        }
+      });
+    }
+    return map;
+  }, [subjectsWithKkm]);
 
   // Filter States
   const [examFilter, setExamFilter] = useState('ALL');
@@ -99,7 +114,21 @@ export default function CbtReportView({
   const [passingFilter, setPassingFilter] = useState<'ALL' | 'PASSED' | 'REMEDIAL' | 'IN_PROGRESS'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [onlyMyExams, setOnlyMyExams] = useState(isGuru);
-  const [kkmScore] = useState(75);
+  const [kkmScore, setKkmScore] = useState(75);
+
+  // Otomatis sinkronkan ambang KKM sesuai Mapel atau Paket Ujian yang dipilih
+  useEffect(() => {
+    if (subjectFilter !== 'ALL') {
+      const found = subjectKkmMap.get(subjectFilter.trim().toLowerCase());
+      if (found) setKkmScore(found);
+    } else if (examFilter !== 'ALL') {
+      const selected = exams.find((e) => e.id === examFilter);
+      if (selected?.subject) {
+        const found = subjectKkmMap.get(selected.subject.trim().toLowerCase());
+        if (found) setKkmScore(found);
+      }
+    }
+  }, [subjectFilter, examFilter, subjectKkmMap, exams]);
 
   // Action States
   const [syncingExamId, setSyncingExamId] = useState<string | null>(null);
@@ -364,6 +393,13 @@ export default function CbtReportView({
     };
   }, [examFilter, subjectFilter, classFilter, jurusanFilter, exams, filteredRows, isGuru, currentUserName, currentUser]);
 
+  // 🎯 KKM Spesifik Kartu Siswa (diambil dari Master Mapel siswa atau nilai KKM toolbar aktif)
+  const effectiveCardKkm = useMemo(() => {
+    if (!printStudentCard) return kkmScore;
+    const sub = (printStudentCard.subject || '').trim().toLowerCase();
+    return subjectKkmMap.get(sub) ?? kkmScore ?? 75;
+  }, [printStudentCard, subjectKkmMap, kkmScore]);
+
   // Group classes for filter dropdown
   const groupedClasses = useMemo(() => {
     const onlyClasses = classPresets.filter((c) => c !== 'Semua Kelas');
@@ -621,6 +657,19 @@ export default function CbtReportView({
                 {onlyMyExams ? 'Ujian Saya' : 'Semua Ujian'}
               </button>
             )}
+
+            {/* Quick KKM Adjuster */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700 shadow-xs" title="Standar Kriteria Ketuntasan Minimal (KKM) Ujian">
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider font-extrabold">KKM:</span>
+              <input
+                type="number"
+                min={50}
+                max={100}
+                value={kkmScore}
+                onChange={(e) => setKkmScore(Number(e.target.value) || 75)}
+                className="w-12 text-center text-xs font-black bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-0.5 text-purple-700 dark:text-purple-300 outline-none focus:ring-1 focus:ring-purple-500"
+              />
+            </div>
 
             {/* Quick Sync to Raport Button */}
             {examFilter !== 'ALL' && (
@@ -1040,7 +1089,7 @@ export default function CbtReportView({
                   </div>
                   <div className="flex">
                     <span className="w-32 font-bold text-slate-700">Standar KKM Sekolah</span>
-                    <span>: <strong>75.00</strong> (Kriteria Ketuntasan Minimal)</span>
+                    <span>: <strong>{Number(kkmScore).toFixed(2)}</strong> (Kriteria Ketuntasan Minimal)</span>
                   </div>
                   <div className="flex">
                     <span className="w-32 font-bold text-slate-700">Guru / Pengampu</span>
@@ -1082,7 +1131,7 @@ export default function CbtReportView({
                         if (isSubmitted) {
                           if (r.score >= 90) grade = 'A';
                           else if (r.score >= 80) grade = 'B';
-                          else if (r.score >= 75) grade = 'C+';
+                          else if (r.score >= kkmScore) grade = 'C+';
                           else if (r.score >= 60) grade = 'C';
                           else grade = 'D';
                         }
@@ -1127,7 +1176,7 @@ export default function CbtReportView({
                         {avgScore}
                       </td>
                       <td className="py-2 px-2 text-center border-r border-black font-black">
-                        {avgScore >= 75 ? 'TUNTAS' : 'REMED'}
+                        {avgScore >= kkmScore ? 'TUNTAS' : 'REMED'}
                       </td>
                       <td colSpan={2} className="py-2 px-2 text-center font-bold">
                         {passRate}% Kelulusan ({passedCount} Tuntas / {remedialCount} Remedial)
@@ -1204,7 +1253,7 @@ export default function CbtReportView({
                 <span>•</span>
                 <span>Guru Pengampu: <strong>{printStudentCard.examAuthor || 'Guru Pengampu'}</strong></span>
                 <span>•</span>
-                <span>KKM: <strong>75.00</strong></span>
+                <span>KKM: <strong>{Number(effectiveCardKkm).toFixed(2)}</strong></span>
                 <span>•</span>
                 <span>Total Soal: <strong>{printStudentCard.totalQuestions} Butir</strong></span>
               </div>
@@ -1220,13 +1269,13 @@ export default function CbtReportView({
                   {Math.round(printStudentCard.score)} <span className="text-xs font-normal text-slate-500">/ 100</span>
                 </div>
                 <span className="text-[10px] text-slate-500 italic block mt-0.5">
-                  Terbilang: {printStudentCard.score >= 90 ? 'Sangat Baik' : printStudentCard.score >= 80 ? 'Baik' : printStudentCard.score >= 75 ? 'Cukup (Tuntas KKM)' : 'Perlu Peningkatan'}
+                  Terbilang: {printStudentCard.score >= 90 ? 'Sangat Baik' : printStudentCard.score >= 80 ? 'Baik' : printStudentCard.score >= effectiveCardKkm ? 'Cukup (Tuntas KKM)' : 'Perlu Peningkatan'}
                 </span>
               </div>
 
               <div className="text-right space-y-1">
                 <span className="text-[10px] font-bold text-slate-600 uppercase block">Status Kriteria Ketuntasan:</span>
-                {printStudentCard.score >= kkmScore ? (
+                {printStudentCard.score >= effectiveCardKkm ? (
                   <span className="inline-block px-3 py-1 bg-black text-white text-xs font-black border border-black uppercase tracking-wider">
                     ✓ LULUS / TUNTAS
                   </span>

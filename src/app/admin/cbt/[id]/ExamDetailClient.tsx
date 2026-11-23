@@ -191,6 +191,7 @@ interface ExamDetailProps {
     role: string;
   };
   isProctorMode?: boolean;
+  subjectKkm?: number;
 }
 
 export default function ExamDetailClient({ 
@@ -198,12 +199,15 @@ export default function ExamDetailClient({
   kopSuratConfig, 
   currentUser,
   isProctorMode: propIsProctorMode,
+  subjectKkm = 75,
 }: ExamDetailProps) {
   const isSuperAdmin = currentUser?.role === 'Super Admin' || currentUser?.role === 'Admin Utama';
   const cleanCurrentName = (currentUser?.name || '').trim().toLowerCase();
   const authorName = (exam.authorName || '').trim().toLowerCase();
   const isAuthor = !!cleanCurrentName && (authorName === cleanCurrentName || authorName.includes(cleanCurrentName) || cleanCurrentName.includes(authorName));
   const isOwner = isSuperAdmin || isAuthor;
+
+  const [kkmScore, setKkmScore] = useState(subjectKkm);
 
   const p1 = (exam.proctorName || '').trim().toLowerCase();
   const p2 = (exam.proctor2Name || '').trim().toLowerCase();
@@ -552,7 +556,7 @@ export default function ExamDetailClient({
 
     filteredAttempts.forEach((a: AttemptItem) => {
       scoreSum += a.score;
-      if (a.score >= 75) passed++;
+      if (a.score >= kkmScore) passed++;
       tabSwitchTotal += a.tabSwitchCount || 0;
     });
 
@@ -563,7 +567,7 @@ export default function ExamDetailClient({
       remedial: total - passed,
       tabSwitchTotal,
     };
-  }, [filteredAttempts]);
+  }, [filteredAttempts, kkmScore]);
 
   // Export to CSV / Excel: Mendukung export seluruh siswa, per jurusan, atau per rombel
   const handleExportCsv = (customAttempts?: AttemptItem[], customLabel?: string) => {
@@ -593,7 +597,7 @@ export default function ExamDetailClient({
     const rows = dataToExport.map((att: AttemptItem, index: number) => {
       const jur = extractJurusanCode(att.studentClass) || '-';
       const statusKetuntasan = att.status === 'SUBMITTED' 
-        ? (att.score >= 75 ? 'TUNTAS' : 'REMEDIAL') 
+        ? (att.score >= kkmScore ? 'TUNTAS' : 'REMEDIAL') 
         : 'SEDANG UJIAN';
 
       return [
@@ -2239,7 +2243,7 @@ Poin: 10
                 <strong className="text-indigo-700 dark:text-indigo-300 font-black text-sm">{resultStats.avg}</strong>
               </div>
               <div className="p-2 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30">
-                <span className="text-emerald-600 dark:text-emerald-400 block text-[10px]">Tuntas (≥75)</span>
+                <span className="text-emerald-600 dark:text-emerald-400 block text-[10px]">Tuntas (≥{kkmScore})</span>
                 <strong className="text-emerald-700 dark:text-emerald-300 font-black text-sm">{resultStats.passed}</strong>
               </div>
               <div className="p-2 rounded-xl bg-amber-50/70 dark:bg-amber-950/30">
@@ -2316,7 +2320,7 @@ Poin: 10
                         </td>
                         <td className="py-4 px-6">
                           <span className={`inline-flex px-3 py-1 rounded-full font-bold text-sm ${
-                            att.score >= 75
+                            att.score >= kkmScore
                               ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
                               : 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
                           }`}>
@@ -4186,7 +4190,7 @@ Poin: 15`}
                   </div>
                   <div className="flex">
                     <span className="w-32 font-bold text-slate-700">Standar KKM Sekolah</span>
-                    <span>: <strong>75.00</strong> (Kriteria Ketuntasan Minimal)</span>
+                    <span>: <strong>{Number(kkmScore).toFixed(2)}</strong> (Kriteria Ketuntasan Minimal)</span>
                   </div>
                   <div className="flex">
                     <span className="w-32 font-bold text-slate-700">Guru / Pengampu</span>
@@ -4226,11 +4230,11 @@ Poin: 15`}
                       </tr>
                     ) : (
                       filteredAttempts.map((att: AttemptItem, idx: number) => {
-                        const isTuntas = att.score >= 75;
+                        const isTuntas = att.score >= kkmScore;
                         let grade = 'C';
                         if (att.score >= 90) grade = 'A';
                         else if (att.score >= 80) grade = 'B';
-                        else if (att.score >= 75) grade = 'C+';
+                        else if (att.score >= kkmScore) grade = 'C+';
                         else if (att.score >= 60) grade = 'C';
                         else grade = 'D';
 
@@ -4271,10 +4275,10 @@ Poin: 15`}
                           {Math.round((filteredAttempts.reduce((a: number, b: AttemptItem) => a + b.score, 0) / filteredAttempts.length) * 10) / 10}
                         </td>
                         <td className="py-2 px-2 text-center border-r border-black font-black">
-                          {Math.round((filteredAttempts.reduce((a: number, b: AttemptItem) => a + b.score, 0) / filteredAttempts.length)) >= 75 ? 'TUNTAS' : 'REMED'}
+                          {Math.round((filteredAttempts.reduce((a: number, b: AttemptItem) => a + b.score, 0) / filteredAttempts.length)) >= kkmScore ? 'TUNTAS' : 'REMED'}
                         </td>
                         <td colSpan={2} className="py-2 px-2 text-center font-bold">
-                          {Math.round((filteredAttempts.filter((a: AttemptItem) => a.score >= 75).length / filteredAttempts.length) * 100)}% Kelulusan ({filteredAttempts.filter((a: AttemptItem) => a.score >= 75).length} Tuntas / {filteredAttempts.filter((a: AttemptItem) => a.score < 75).length} Remedial)
+                          {Math.round((filteredAttempts.filter((a: AttemptItem) => a.score >= kkmScore).length / filteredAttempts.length) * 100)}% Kelulusan ({filteredAttempts.filter((a: AttemptItem) => a.score >= kkmScore).length} Tuntas / {filteredAttempts.filter((a: AttemptItem) => a.score < kkmScore).length} Remedial)
                         </td>
                       </tr>
                     </tfoot>
