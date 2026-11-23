@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import {
   ShieldCheck,
@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { formatExamScheduleRange, getExamScheduleState, formatClassTargetDisplay, isClassOverlap } from '@/lib/cbt-schedule';
 import { normalizeReligion, getReligionConfig, ReligionCode, ReligionOption } from '@/lib/cbt-religion';
+import ExamCountdownWidget from '@/components/cbt/ExamCountdownWidget';
 
 export interface AssignedExamItem {
   id: string;
@@ -96,16 +97,34 @@ export default function ProctorScheduleClient({
 
   const isSuperAdmin = currentUser.role === 'Super Admin' || currentUser.role === 'Admin Utama';
 
+  // ⏱️ Real-time ticker to recompute overall exam status dynamically every 10 seconds
+  const [currentTime, setCurrentTime] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 10000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Process status for each exam
   const examItemsWithState = useMemo(() => {
+    const nowDate = new Date(currentTime);
     return exams.map((ex) => {
-      const scheduleState = getExamScheduleState(ex.startTime, ex.endTime, ex.status);
+      const scheduleState = getExamScheduleState(
+        ex.startTime,
+        ex.endTime,
+        ex.status,
+        nowDate,
+        undefined,
+        ex.duration
+      );
       return {
         ...ex,
         scheduleState,
       };
     });
-  }, [exams]);
+  }, [exams, currentTime]);
 
   // Filtered exams
   const filteredExams = useMemo(() => {
@@ -495,6 +514,14 @@ export default function ProctorScheduleClient({
                         </div>
                       )}
                     </div>
+
+                    {/* ⏱️ WIDGET HITUNG MUNDUR CANGGIH */}
+                    <ExamCountdownWidget
+                      startTime={exam.startTime}
+                      endTime={exam.endTime}
+                      duration={exam.duration}
+                      roomName={exam.roomName || 'Ruang CBT'}
+                    />
 
                     {/* Schedule detail */}
                     <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-xs space-y-1.5 border border-slate-100 dark:border-slate-800">
