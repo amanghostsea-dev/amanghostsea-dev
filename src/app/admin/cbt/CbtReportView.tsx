@@ -274,8 +274,8 @@ export default function CbtReportView({
       }
       if (classFilter !== 'ALL' && r.studentClass !== classFilter) return false;
       if (subjectFilter !== 'ALL' && r.subject !== subjectFilter) return false;
-      if (passingFilter === 'PASSED' && (r.score < kkmScore || r.status !== 'SUBMITTED')) return false;
-      if (passingFilter === 'REMEDIAL' && (r.score >= kkmScore || r.status !== 'SUBMITTED')) return false;
+      if (passingFilter === 'PASSED' && (Math.round(r.score) < kkmScore || r.status !== 'SUBMITTED')) return false;
+      if (passingFilter === 'REMEDIAL' && (Math.round(r.score) >= kkmScore || r.status !== 'SUBMITTED')) return false;
       if (passingFilter === 'IN_PROGRESS' && r.status !== 'IN_PROGRESS') return false;
 
       if (searchQuery.trim()) {
@@ -296,8 +296,8 @@ export default function CbtReportView({
   const totalAttempts = filteredRows.length;
   const submittedRows = filteredRows.filter((r) => r.status === 'SUBMITTED');
   const submittedCount = submittedRows.length;
-  const passedCount = submittedRows.filter((r) => r.score >= kkmScore).length;
-  const remedialCount = submittedRows.filter((r) => r.score < kkmScore).length;
+  const passedCount = submittedRows.filter((r) => Math.round(r.score) >= kkmScore).length;
+  const remedialCount = submittedRows.filter((r) => Math.round(r.score) < kkmScore).length;
   const passRate = submittedCount > 0 ? Math.round((passedCount / submittedCount) * 100) : 0;
   const avgScore = submittedCount > 0
     ? Math.round(submittedRows.reduce((sum, r) => sum + r.score, 0) / submittedCount)
@@ -480,7 +480,7 @@ export default function CbtReportView({
         `"${r.subject}"`,
         `"${r.examTitle.replace(/"/g, '""')}"`,
         r.score,
-        r.status === 'SUBMITTED' ? (r.score >= kkmScore ? 'TUNTAS' : 'REMEDIAL') : 'SEDANG DIKERJAKAN',
+        r.status === 'SUBMITTED' ? (Math.round(r.score) >= kkmScore ? 'TUNTAS' : 'REMEDIAL') : 'SEDANG DIKERJAKAN',
         r.totalCorrect,
         r.totalQuestions,
         r.tabSwitchCount,
@@ -899,10 +899,10 @@ export default function CbtReportView({
                 <th className="p-4">Rombel Kelas</th>
                 <th className="p-4">Paket Ujian / Mapel</th>
                 <th className="p-4 text-center">Skor Nilai</th>
-                <th className="p-4 text-center">Status</th>
+                <th className="p-4 text-center">Ketuntasan (KKM: {kkmScore})</th>
                 <th className="p-4 text-center">Benar / Soal</th>
                 <th className="p-4 text-center">Anti-Curang</th>
-                <th className="p-4">Waktu Submit</th>
+                <th className="p-4">Status & Waktu Selesai</th>
                 <th className="p-4 text-center">Aksi</th>
               </tr>
             </thead>
@@ -916,7 +916,7 @@ export default function CbtReportView({
                 </tr>
               ) : (
                 filteredRows.map((row, idx) => {
-                  const isPassed = row.score >= kkmScore;
+                  const isPassed = Math.round(row.score) >= kkmScore;
                   const isSubmitted = row.status === 'SUBMITTED';
 
                   return (
@@ -975,15 +975,15 @@ export default function CbtReportView({
 
                       <td className="p-4 text-center">
                         {!isSubmitted ? (
-                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600">
-                            Sedang Ujian
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 whitespace-nowrap">
+                            ⏳ Sedang Ujian
                           </span>
                         ) : isPassed ? (
-                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500 text-white shadow-sm shadow-emerald-500/20">
-                            ✓ TUNTAS
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500 text-white shadow-sm shadow-emerald-500/20 whitespace-nowrap">
+                            ✓ TUNTAS KKM
                           </span>
                         ) : (
-                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500 text-white shadow-sm shadow-amber-500/20">
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500 text-white shadow-sm shadow-amber-500/20 whitespace-nowrap" title={`Nilai ${Math.round(row.score)} di bawah standar KKM ${kkmScore}`}>
                             REMEDIAL
                           </span>
                         )}
@@ -1005,14 +1005,18 @@ export default function CbtReportView({
 
                       <td className="p-4 text-slate-500 dark:text-slate-400 font-mono text-[11px]">
                         {row.submittedAt ? (
-                          <div>
-                            <div>{new Date(row.submittedAt).toLocaleDateString('id-ID')}</div>
-                            <div className="text-[10px] text-slate-400">
+                          <div className="space-y-0.5">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/60">
+                              ✓ Selesai Submit
+                            </span>
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400">
                               {formatScheduleTime(row.submittedAt, cbtTimezone)}
                             </div>
                           </div>
                         ) : (
-                          'Belum selesai'
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800/60">
+                            ⏳ Belum Submit
+                          </span>
                         )}
                       </td>
 
