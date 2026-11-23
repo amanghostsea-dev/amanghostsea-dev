@@ -93,11 +93,11 @@ export default function CbtStudentLoginMonitorView({
     return () => clearTimeout(timer);
   }, [toastMessage]);
 
-  // Fetch data dari server sesuai scope yang dipilih
+  // Fetch data dari server (memuat semua aktivitas hari ini agar perpindahan tab instant & konsisten)
   const fetchLogins = useCallback(async (isSilent = false) => {
     if (!isSilent) setIsLoading(true);
     try {
-      const res = await getGlobalStudentLoginsAction({ scope: viewScope });
+      const res = await getGlobalStudentLoginsAction({ scope: 'ALL_TODAY' });
       if (res && res.success && res.data) {
         setLogins(res.data);
         setScopeCounts({
@@ -117,7 +117,7 @@ export default function CbtStudentLoginMonitorView({
     } finally {
       if (!isSilent) setIsLoading(false);
     }
-  }, [viewScope, onActiveLoginCountChange]);
+  }, [onActiveLoginCountChange]);
 
   // Initial fetch and auto-refresh polling every 10 seconds
   useEffect(() => {
@@ -175,15 +175,28 @@ export default function CbtStudentLoginMonitorView({
     return Array.from(map.entries()).map(([id, title]) => ({ id, title }));
   }, [logins]);
 
-  // Filter siswa berdasarkan input pencarian & dropdown
+  // Filter siswa berdasarkan tab aktif (viewScope), input pencarian & dropdown
   const filteredLogins = useMemo(() => {
-    const todayStr = new Date().toISOString().split('T')[0];
-
     return logins.filter((item) => {
-      // Filter Tanggal Hari Ini
+      const statusUpper = (item.status || '').toUpperCase().trim();
+      const isItemSubmitted = statusUpper === 'SUBMITTED' || Boolean(item.submittedAt);
+      const isItemActive = !isItemSubmitted;
+
+      // Filter berdasarkan Scope Tab (Radar Siswa Ujian / Selesai Hari Ini / Semua Aktivitas)
+      if (viewScope === 'ACTIVE_ONLY' && !isItemActive) return false;
+      if (viewScope === 'SUBMITTED_TODAY' && !isItemSubmitted) return false;
+
+      // Filter Tanggal Hari Ini (menggunakan perbandingan tanggal lokal)
       if (filterTodayOnly) {
-        const itemDateStr = item.startedAt ? item.startedAt.split('T')[0] : '';
-        if (itemDateStr !== todayStr) return false;
+        const targetDate = item.submittedAt ? new Date(item.submittedAt) : (item.startedAt ? new Date(item.startedAt) : null);
+        if (targetDate) {
+          const now = new Date();
+          const isToday =
+            targetDate.getFullYear() === now.getFullYear() &&
+            targetDate.getMonth() === now.getMonth() &&
+            targetDate.getDate() === now.getDate();
+          if (!isToday) return false;
+        }
       }
 
       // Filter Pencarian Teks
@@ -209,14 +222,14 @@ export default function CbtStudentLoginMonitorView({
         return false;
       }
 
-      // Filter Status
-      if (selectedStatus === 'IN_PROGRESS' && item.status !== 'IN_PROGRESS') return false;
-      if (selectedStatus === 'SUBMITTED' && item.status !== 'SUBMITTED') return false;
+      // Filter Status Dropdown
+      if (selectedStatus === 'IN_PROGRESS' && isItemSubmitted) return false;
+      if (selectedStatus === 'SUBMITTED' && !isItemSubmitted) return false;
       if (selectedStatus === 'BLOCKED' && !item.isBlocked && item.tabSwitchCount < 3) return false;
 
       return true;
     });
-  }, [logins, searchQuery, selectedClass, selectedExam, selectedStatus, filterTodayOnly]);
+  }, [logins, viewScope, searchQuery, selectedClass, selectedExam, selectedStatus, filterTodayOnly]);
 
   // Metrik ringkas
   const distinctClassesCount = useMemo(() => {
@@ -713,6 +726,8 @@ export default function CbtStudentLoginMonitorView({
                 {filteredLogins.map((item, idx) => {
                   const progressPct = item.totalQuestions > 0 ? Math.round((item.answeredCount / item.totalQuestions) * 100) : 0;
                   const isSuspended = item.isBlocked || item.tabSwitchCount >= 3;
+                  const statusUpper = (item.status || '').toUpperCase().trim();
+                  const isSubmitted = statusUpper === 'SUBMITTED' || Boolean(item.submittedAt);
 
                   return (
                     <tr
@@ -768,9 +783,9 @@ export default function CbtStudentLoginMonitorView({
                           <span>{new Date(item.startedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB</span>
                         </div>
                         <div className="text-[10px] text-slate-400 mt-0.5">
-                          {item.status === 'SUBMITTED' && item.submittedAt ? (
+                          {isSubmitted ? (
                             <span className="text-blue-600 dark:text-blue-400 font-semibold">
-                              Selesai: {new Date(item.submittedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                              Selesai: {item.submittedAt ? new Date(item.submittedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-'}
                             </span>
                           ) : (
                             <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center justify-center gap-1">
@@ -795,7 +810,7 @@ export default function CbtStudentLoginMonitorView({
                           <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                             <div
                               className={`h-full transition-all duration-300 ${
-                                item.status === 'SUBMITTED'
+                                isSubmitted
                                   ? 'bg-blue-500'
                                   : progressPct === 100
                                   ? 'bg-emerald-500'
@@ -804,7 +819,7 @@ export default function CbtStudentLoginMonitorView({
                               style={{ width: `${progressPct}%` }}
                             />
                           </div>
-                          {item.status === 'SUBMITTED' ? (
+                          {isSubmitted ? (
                             <div className="text-[10px] font-black text-blue-600 dark:text-blue-400">
                               Nilai: {item.score} ({item.totalCorrect} Benar)
                             </div>
@@ -827,7 +842,7 @@ export default function CbtStudentLoginMonitorView({
                             <ShieldAlert size={11} />
                             {item.tabSwitchCount >= 5 ? 'DISKUALIFIKASI' : 'SUSPEND'}
                           </span>
-                        ) : item.status === 'SUBMITTED' ? (
+                        ) : isSubmitted ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                             <CheckCircle2 size={11} /> Selesai
                           </span>
@@ -888,11 +903,23 @@ export default function CbtStudentLoginMonitorView({
             <div className="flex items-center gap-1.5">
               <Info size={14} className="text-emerald-600 shrink-0" />
               <span>
-                <strong>Live Active Radar:</strong> Hanya menampilkan siswa yang detik ini aktif di ruang ujian. Siswa yang logout atau selesai akan otomatis hilang dari daftar ini.
+                {viewScope === 'ACTIVE_ONLY' ? (
+                  <>
+                    <strong>Live Active Radar:</strong> Hanya menampilkan siswa yang detik ini aktif di ruang ujian. Siswa yang selesai akan otomatis berpindah ke tab &ldquo;Selesai Hari Ini&rdquo;.
+                  </>
+                ) : viewScope === 'SUBMITTED_TODAY' ? (
+                  <>
+                    <strong>Rekap Selesai Ujian:</strong> Menampilkan siswa yang telah menyelesaikan atau mengumpulkan lembar jawaban ujian pada hari ini.
+                  </>
+                ) : (
+                  <>
+                    <strong>Seluruh Aktivitas:</strong> Menampilkan seluruh sesi dan riwayat siswa baik yang sedang aktif maupun yang telah selesai hari ini.
+                  </>
+                )}
               </span>
             </div>
             <div className="font-mono text-[11px]">
-              Total Aktif Ditampilkan: {filteredLogins.length}
+              Total Ditampilkan: {filteredLogins.length} {viewScope === 'ACTIVE_ONLY' ? 'Siswa Aktif' : viewScope === 'SUBMITTED_TODAY' ? 'Siswa Selesai' : 'Siswa'}
             </div>
           </div>
         </div>

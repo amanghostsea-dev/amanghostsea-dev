@@ -2062,7 +2062,11 @@ export async function getGlobalStudentLoginsAction(options?: {
     const [attempts, activeSessions] = await Promise.all([
       prisma.examAttempt.findMany({
         where: {
-          startedAt: { gte: twentyFourHoursAgo },
+          OR: [
+            { startedAt: { gte: twentyFourHoursAgo } },
+            { submittedAt: { gte: twentyFourHoursAgo } },
+            { status: 'IN_PROGRESS' },
+          ],
         },
         include: {
           exam: {
@@ -2141,8 +2145,9 @@ export async function getGlobalStudentLoginsAction(options?: {
       const cleanNis = (att.studentNis || '').trim().toLowerCase();
       const session = sessionMapByName.get(cleanName) || (cleanNis ? sessionMapByNis.get(cleanNis) : undefined);
 
-      const isAttemptInProgress = att.status === 'IN_PROGRESS';
-      const isAttemptSubmitted = att.status === 'SUBMITTED';
+      const statusUpper = (att.status || '').toUpperCase().trim();
+      const isAttemptSubmitted = statusUpper === 'SUBMITTED' || Boolean(att.submittedAt);
+      const isAttemptInProgress = statusUpper === 'IN_PROGRESS' && !att.submittedAt;
 
       // 🎯 Penentuan Siswa Sedang Aktif di Ujian:
       // 1. Status attempt masih 'IN_PROGRESS' (belum submit)
@@ -2183,7 +2188,7 @@ export async function getGlobalStudentLoginsAction(options?: {
         examAuthorName: att.exam?.authorName || null,
         examRoomName: att.exam?.roomName || att.exam?.proctorName || null,
         examDuration: att.exam?.duration || 0,
-        status: att.status,
+        status: isAttemptSubmitted ? 'SUBMITTED' : att.status,
         startedAt: att.startedAt.toISOString(),
         submittedAt: att.submittedAt ? att.submittedAt.toISOString() : null,
         answeredCount: answered,
