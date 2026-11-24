@@ -97,6 +97,7 @@ import CbtQuestionImageViewer from '@/components/cbt/CbtQuestionImageViewer';
 import CbtQuestionContent, { parseQuestionContent } from '@/components/cbt/CbtQuestionContent';
 import CbtMathToolbar from '@/components/cbt/CbtMathToolbar';
 import CbtOptionInputItem from '@/components/cbt/CbtOptionInputItem';
+import { compressQuestionImage, formatFileSize } from '@/lib/image-compress';
 import CbtTableBuilderModal from '@/components/cbt/CbtTableBuilderModal';
 import CbtFormatToolbar from '@/components/cbt/CbtFormatToolbar';
 import {
@@ -687,7 +688,7 @@ export default function ExamDetailClient({
   const [correctAnswer, setCorrectAnswer] = useState('0');
   const [points, setPoints] = useState(10);
 
-  // Upload handler for question visual images
+  // Upload handler for question visual images (with auto-compress)
   const handleUploadQuestionImage = async (file: File, isEdit: boolean = false) => {
     if (!file) return;
     if (isEdit) {
@@ -696,8 +697,18 @@ export default function ExamDetailClient({
       setUploadingImage(true);
     }
     try {
+      // 🗜️ AUTO-COMPRESS: Kompres gambar di browser sebelum upload ke server
+      const compressResult = await compressQuestionImage(file);
+      const fileToUpload = compressResult.file;
+
+      if (compressResult.wasCompressed) {
+        console.log(
+          `[Auto-Compress] ${formatFileSize(compressResult.originalSize)} → ${formatFileSize(compressResult.compressedSize)} (${Math.round(compressResult.compressionRatio * 100)}% dari asli)`
+        );
+      }
+
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', fileToUpload);
       const res = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
