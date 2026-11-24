@@ -23,14 +23,13 @@ export async function GET(
       return new NextResponse(body, {
         status: 200,
         headers: {
-          'Content-Type': cached.contentType || 'application/octet-stream',
+          'Content-Type': cached.contentType || 'image/png',
           'Content-Length': cached.buffer.length.toString(),
           'Content-Disposition': `inline; filename="${encodeURIComponent(cached.fileName)}"`,
           'Cache-Control': 'public, max-age=31536000, immutable',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
           'X-Content-Type-Options': 'nosniff',
-          'Content-Security-Policy': "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox",
-          'X-Frame-Options': 'SAMEORIGIN',
-          'Referrer-Policy': 'no-referrer',
           'X-Cache': 'HIT',
         },
       });
@@ -47,21 +46,21 @@ export async function GET(
 
     // Ubah base64 kembali menjadi buffer binary
     const fileBuffer = Buffer.from(file.fileData, 'base64');
+    const body = new Uint8Array(fileBuffer);
 
     // 🗄️ SMART CACHE: Simpan ke cache agar request berikutnya tidak query database lagi
-    setCachedFile(id, fileBuffer, file.fileType || 'application/octet-stream', file.fileName);
+    setCachedFile(id, fileBuffer, file.fileType || 'image/png', file.fileName);
 
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(body, {
       status: 200,
       headers: {
-        'Content-Type': file.fileType || 'application/octet-stream',
+        'Content-Type': file.fileType || 'image/png',
         'Content-Length': fileBuffer.length.toString(),
         'Content-Disposition': `inline; filename="${encodeURIComponent(file.fileName)}"`,
         'Cache-Control': 'public, max-age=31536000, immutable',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
         'X-Content-Type-Options': 'nosniff',
-        'Content-Security-Policy': "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox",
-        'X-Frame-Options': 'SAMEORIGIN',
-        'Referrer-Policy': 'no-referrer',
         'X-Cache': 'MISS',
       },
     });
@@ -69,4 +68,15 @@ export async function GET(
     console.error('Error fetching file:', error);
     return NextResponse.json({ error: 'Gagal memuat berkas.' }, { status: 500 });
   }
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+      'Access-Control-Allow-Headers': '*',
+    },
+  });
 }

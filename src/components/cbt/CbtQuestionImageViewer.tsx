@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ZoomIn, X, RotateCcw, Image as ImageIcon, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
 
 interface CbtQuestionImageViewerProps {
@@ -20,20 +20,24 @@ export default function CbtQuestionImageViewer({
   const [zoomScale, setZoomScale] = useState(1);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const [retryKey, setRetryKey] = useState(0);
+  const [retryKey, setRetryKey] = useState<number>(0);
+  const autoRetryCountRef = useRef(0);
+
+  const cleanUrl = imageUrl?.trim() || '';
 
   // Reset status saat URL gambar atau nomor soal berganti
   useEffect(() => {
     setImageLoaded(false);
     setImageError(false);
     setRetryKey(0);
-  }, [imageUrl]);
+    autoRetryCountRef.current = 0;
+  }, [cleanUrl]);
 
-  if (!imageUrl || !imageUrl.trim()) return null;
+  if (!cleanUrl) return null;
 
   const currentSrc = retryKey > 0 
-    ? `${imageUrl}${imageUrl.includes('?') ? '&' : '?'}_r=${retryKey}`
-    : imageUrl;
+    ? `${cleanUrl}${cleanUrl.includes('?') ? '&' : '?'}_t=${retryKey}`
+    : cleanUrl;
 
   const handleOpen = () => {
     if (imageError) return;
@@ -46,11 +50,26 @@ export default function CbtQuestionImageViewer({
     setZoomScale(1);
   };
 
+  // Otomatis coba ulang 1x jika gagal sebelum menampilkan UI error merah
+  const handleImageError = () => {
+    if (autoRetryCountRef.current < 2) {
+      autoRetryCountRef.current += 1;
+      setTimeout(() => {
+        setRetryKey(Date.now());
+      }, 600);
+    } else {
+      setImageError(true);
+      setImageLoaded(false);
+    }
+  };
+
   const handleRetry = (e: React.MouseEvent) => {
     e.stopPropagation();
     setImageError(false);
     setImageLoaded(false);
-    setRetryKey((prev) => prev + 1);
+    autoRetryCountRef.current = 0;
+    // Cache buster unik berbasis timestamp agar browser mengunduh ulang berkas segar
+    setRetryKey(Date.now());
   };
 
   return (
@@ -112,10 +131,7 @@ export default function CbtQuestionImageViewer({
                 setImageLoaded(true);
                 setImageError(false);
               }}
-              onError={() => {
-                setImageError(true);
-                setImageLoaded(false);
-              }}
+              onError={handleImageError}
             />
 
             {/* 🔍 Hover Pill Badge jika gambar telah berhasil dimuat */}
