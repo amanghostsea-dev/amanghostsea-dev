@@ -483,7 +483,7 @@ export async function updateExam(
         ...(data.token !== undefined && { token: data.token?.trim() || null }),
         ...(data.description !== undefined && { description: data.description }),
         ...(data.status && { status: data.status }),
-        ...(isSuperAdmin && data.authorName && { authorName: data.authorName.trim() }),
+        // 🔒 authorName bersifat immutable saat update paket ujian demi mencegah kebocoran bank soal
         ...(data.shuffleQuestions !== undefined && { shuffleQuestions: data.shuffleQuestions }),
         ...(data.startTime !== undefined && { startTime: toSafeDateInTimezone(data.startTime) }),
         ...(data.endTime !== undefined && { endTime: toSafeDateInTimezone(data.endTime) }),
