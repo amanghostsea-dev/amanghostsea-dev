@@ -150,12 +150,16 @@ export default function ExamCountdownWidget({
       <div
         className={`relative overflow-hidden rounded-2xl p-3.5 sm:p-4 text-white transition-all duration-300 shadow-lg ${
           isImminent
-            ? 'bg-gradient-to-br from-rose-950 via-slate-900 to-indigo-950 border-2 border-rose-500/80 shadow-rose-950/40 ring-2 ring-rose-500/20'
+            ? 'bg-gradient-to-br from-rose-950 via-slate-900 to-amber-950 border-2 border-amber-500/90 shadow-xl shadow-rose-950/50 ring-4 ring-amber-500/30 animate-pulse'
             : 'bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30 shadow-indigo-950/20'
         } ${className}`}
       >
         {/* Decorative background glow */}
-        <div className="absolute top-0 right-0 -mr-6 -mt-6 w-28 h-28 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
+        <div
+          className={`absolute top-0 right-0 -mr-6 -mt-6 w-28 h-28 rounded-full blur-2xl pointer-events-none ${
+            isImminent ? 'bg-amber-500/20' : 'bg-cyan-500/10'
+          }`}
+        />
 
         <div className="relative z-10 space-y-2.5">
           {/* Header Row */}
@@ -164,29 +168,30 @@ export default function ExamCountdownWidget({
               <span className="relative flex h-2.5 w-2.5">
                 <span
                   className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                    isImminent ? 'bg-rose-400' : 'bg-cyan-400'
+                    isImminent ? 'bg-amber-400' : 'bg-cyan-400'
                   }`}
                 />
                 <span
                   className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
-                    isImminent ? 'bg-rose-500' : 'bg-cyan-500'
+                    isImminent ? 'bg-amber-500' : 'bg-cyan-500'
                   }`}
                 />
               </span>
               <span
                 className={`text-[11px] font-black uppercase tracking-wider flex items-center gap-1 ${
-                  isImminent ? 'text-rose-300' : 'text-cyan-300'
+                  isImminent ? 'text-amber-300' : 'text-cyan-300'
                 }`}
               >
-                <Hourglass size={12} className={isImminent ? 'text-rose-400 animate-spin' : 'text-cyan-400'} />
+                <Hourglass size={12} className={isImminent ? 'text-amber-400 animate-spin' : 'text-cyan-400'} />
                 Waktu Mundur Mulai Ujian
               </span>
             </div>
 
             {/* Urgency Badge */}
             {isImminent ? (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500/30 text-rose-200 border border-rose-400/50 animate-pulse">
-                <AlertTriangle size={11} className="text-rose-300" />
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black bg-gradient-to-r from-amber-500 to-rose-600 text-white border border-amber-300/60 shadow-md shadow-rose-950/50 animate-bounce">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+                <AlertTriangle size={11} className="text-white" />
                 Segera Dimulai (&lt; 15 Menit)
               </span>
             ) : countdown.isVerySoon ? (
@@ -205,45 +210,119 @@ export default function ExamCountdownWidget({
           <div className="flex items-center justify-center gap-1.5 sm:gap-2 pt-1 pb-1">
             {countdown.days > 0 && (
               <>
-                <div className="flex flex-col items-center justify-center min-w-[48px] sm:min-w-[56px] py-1.5 px-2 rounded-xl bg-white/10 dark:bg-slate-800/80 backdrop-blur-md border border-white/15 dark:border-slate-700/60 shadow-inner">
-                  <span className="text-xl sm:text-2xl font-black font-mono tracking-tight text-cyan-300">
+                <div
+                  className={`flex flex-col items-center justify-center min-w-[48px] sm:min-w-[56px] py-1.5 px-2 rounded-xl backdrop-blur-md border shadow-inner ${
+                    isImminent
+                      ? 'bg-amber-950/40 border-amber-500/30'
+                      : 'bg-white/10 dark:bg-slate-800/80 border-white/15 dark:border-slate-700/60'
+                  }`}
+                >
+                  <span
+                    className={`text-xl sm:text-2xl font-black font-mono tracking-tight ${
+                      isImminent ? 'text-amber-300 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]' : 'text-cyan-300'
+                    }`}
+                  >
                     {String(countdown.days).padStart(2, '0')}
                   </span>
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-200/80">
+                  <span
+                    className={`text-[9px] font-bold uppercase tracking-wider ${
+                      isImminent ? 'text-amber-200/80' : 'text-indigo-200/80'
+                    }`}
+                  >
                     Hari
                   </span>
                 </div>
-                <span className="text-xl font-black text-cyan-400/60 pb-3 select-none">:</span>
+                <span
+                  className={`text-xl font-black pb-3 select-none ${
+                    isImminent ? 'text-amber-400/80' : 'text-cyan-400/60'
+                  }`}
+                >
+                  :
+                </span>
               </>
             )}
 
-            <div className="flex flex-col items-center justify-center min-w-[48px] sm:min-w-[56px] py-1.5 px-2 rounded-xl bg-white/10 dark:bg-slate-800/80 backdrop-blur-md border border-white/15 dark:border-slate-700/60 shadow-inner">
-              <span className="text-xl sm:text-2xl font-black font-mono tracking-tight text-cyan-300">
+            <div
+              className={`flex flex-col items-center justify-center min-w-[48px] sm:min-w-[56px] py-1.5 px-2 rounded-xl backdrop-blur-md border shadow-inner ${
+                isImminent
+                  ? 'bg-amber-950/40 border-amber-500/30'
+                  : 'bg-white/10 dark:bg-slate-800/80 border-white/15 dark:border-slate-700/60'
+              }`}
+            >
+              <span
+                className={`text-xl sm:text-2xl font-black font-mono tracking-tight ${
+                  isImminent ? 'text-amber-300 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]' : 'text-cyan-300'
+                }`}
+              >
                 {String(countdown.hours).padStart(2, '0')}
               </span>
-              <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-200/80">
+              <span
+                className={`text-[9px] font-bold uppercase tracking-wider ${
+                  isImminent ? 'text-amber-200/80' : 'text-indigo-200/80'
+                }`}
+              >
                 Jam
               </span>
             </div>
 
-            <span className="text-xl font-black text-cyan-400/60 pb-3 select-none animate-pulse">:</span>
+            <span
+              className={`text-xl font-black pb-3 select-none ${
+                isImminent ? 'text-amber-400 animate-ping' : 'text-cyan-400/60 animate-pulse'
+              }`}
+            >
+              :
+            </span>
 
-            <div className="flex flex-col items-center justify-center min-w-[48px] sm:min-w-[56px] py-1.5 px-2 rounded-xl bg-white/10 dark:bg-slate-800/80 backdrop-blur-md border border-white/15 dark:border-slate-700/60 shadow-inner">
-              <span className="text-xl sm:text-2xl font-black font-mono tracking-tight text-cyan-300">
+            <div
+              className={`flex flex-col items-center justify-center min-w-[48px] sm:min-w-[56px] py-1.5 px-2 rounded-xl backdrop-blur-md border shadow-inner ${
+                isImminent
+                  ? 'bg-amber-950/40 border-amber-500/40 ring-1 ring-amber-500/30'
+                  : 'bg-white/10 dark:bg-slate-800/80 border-white/15 dark:border-slate-700/60'
+              }`}
+            >
+              <span
+                className={`text-xl sm:text-2xl font-black font-mono tracking-tight ${
+                  isImminent ? 'text-amber-300 drop-shadow-[0_0_10px_rgba(245,158,11,0.8)]' : 'text-cyan-300'
+                }`}
+              >
                 {String(countdown.minutes).padStart(2, '0')}
               </span>
-              <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-200/80">
+              <span
+                className={`text-[9px] font-bold uppercase tracking-wider ${
+                  isImminent ? 'text-amber-200 font-black' : 'text-indigo-200/80'
+                }`}
+              >
                 Menit
               </span>
             </div>
 
-            <span className="text-xl font-black text-cyan-400/60 pb-3 select-none animate-pulse">:</span>
+            <span
+              className={`text-xl font-black pb-3 select-none ${
+                isImminent ? 'text-amber-400 animate-ping' : 'text-cyan-400/60 animate-pulse'
+              }`}
+            >
+              :
+            </span>
 
-            <div className="flex flex-col items-center justify-center min-w-[48px] sm:min-w-[56px] py-1.5 px-2 rounded-xl bg-white/10 dark:bg-slate-800/80 backdrop-blur-md border border-white/15 dark:border-slate-700/60 shadow-inner">
-              <span className="text-xl sm:text-2xl font-black font-mono tracking-tight text-cyan-300">
+            <div
+              className={`flex flex-col items-center justify-center min-w-[48px] sm:min-w-[56px] py-1.5 px-2 rounded-xl backdrop-blur-md border shadow-inner ${
+                isImminent
+                  ? 'bg-amber-950/40 border-amber-500/40 ring-1 ring-amber-500/30'
+                  : 'bg-white/10 dark:bg-slate-800/80 border-white/15 dark:border-slate-700/60'
+              }`}
+            >
+              <span
+                className={`text-xl sm:text-2xl font-black font-mono tracking-tight ${
+                  isImminent ? 'text-rose-300 drop-shadow-[0_0_10px_rgba(244,63,94,0.8)]' : 'text-cyan-300'
+                }`}
+              >
                 {String(countdown.seconds).padStart(2, '0')}
               </span>
-              <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-200/80">
+              <span
+                className={`text-[9px] font-bold uppercase tracking-wider ${
+                  isImminent ? 'text-rose-200 font-black' : 'text-indigo-200/80'
+                }`}
+              >
                 Detik
               </span>
             </div>
@@ -253,8 +332,8 @@ export default function ExamCountdownWidget({
           <div className="text-[11px] text-slate-300/90 flex items-center justify-between gap-2 pt-1 border-t border-white/10">
             <span className="truncate">
               {isImminent ? (
-                <span className="text-rose-300 font-semibold flex items-center gap-1">
-                  <span>💡</span> Buka Pratinjau Ruang Ujian untuk nyalakan token di proyektor.
+                <span className="text-amber-300 font-bold flex items-center gap-1.5">
+                  <span className="animate-bounce">🔥</span> Waktu pengerjaan &lt; 15 menit. Masuki ruang untuk persiapan rilis token.
                 </span>
               ) : (
                 <span className="text-slate-300 flex items-center gap-1">

@@ -21,7 +21,9 @@ import {
   ArrowLeft,
   CalendarX2,
   ShieldAlert,
-  Play
+  Play,
+  Flame,
+  AlertTriangle
 } from 'lucide-react';
 import { formatExamScheduleRange, getExamScheduleState, formatClassTargetDisplay, isClassOverlap } from '@/lib/cbt-schedule';
 import { normalizeReligion, getReligionConfig, ReligionCode, ReligionOption } from '@/lib/cbt-religion';
@@ -97,13 +99,13 @@ export default function ProctorScheduleClient({
 
   const isSuperAdmin = currentUser.role === 'Super Admin' || currentUser.role === 'Admin Utama';
 
-  // ⏱️ Real-time ticker to recompute overall exam status dynamically every 10 seconds
+  // ⏱️ Real-time ticker to recompute overall exam status dynamically every second (precision for imminent alerts)
   const [currentTime, setCurrentTime] = useState<number>(() => Date.now());
 
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(Date.now());
-    }, 10000);
+    }, 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -140,7 +142,9 @@ export default function ProctorScheduleClient({
       if (!matchSearch) return false;
 
       if (filterTab === 'ACTIVE_TODAY') {
-        return ex.scheduleState.state === 'ONGOING' || ex.status === 'ACTIVE';
+        const start = ex.startTime ? new Date(ex.startTime).getTime() : 0;
+        const isImminent = start > 0 && start - currentTime > 0 && start - currentTime <= 15 * 60 * 1000;
+        return ex.scheduleState.state === 'ONGOING' || ex.status === 'ACTIVE' || isImminent;
       }
       if (filterTab === 'UPCOMING') {
         return ex.scheduleState.state === 'UPCOMING';
@@ -260,6 +264,13 @@ export default function ProctorScheduleClient({
     (e) => e.scheduleState.state === 'ONGOING' || e.status === 'ACTIVE'
   ).length;
 
+  const imminentCount = examItemsWithState.filter((e) => {
+    const isOngoing = e.scheduleState.state === 'ONGOING' || e.status === 'ACTIVE';
+    const isEnded = e.scheduleState.state === 'ENDED' || e.status === 'ARCHIVED';
+    const start = e.startTime ? new Date(e.startTime).getTime() : 0;
+    return !isOngoing && !isEnded && start > 0 && start - currentTime > 0 && start - currentTime <= 15 * 60 * 1000;
+  }).length;
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-4 sm:p-6 lg:p-10 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -339,6 +350,12 @@ export default function ProctorScheduleClient({
             >
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
               <span>Sedang Berlangsung ({ongoingCount})</span>
+              {imminentCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 text-white text-[10px] font-black animate-pulse flex items-center gap-0.5">
+                  <Flame size={10} className="fill-white" />
+                  <span>+{imminentCount} Siap</span>
+                </span>
+              )}
             </button>
             <button
               onClick={() => setFilterTab('UPCOMING')}
@@ -410,19 +427,28 @@ export default function ProctorScheduleClient({
               const isOngoing = exam.scheduleState.state === 'ONGOING' || exam.status === 'ACTIVE';
               const isEnded = exam.scheduleState.state === 'ENDED' || exam.status === 'ARCHIVED';
 
+              // ⏱️ Real-time Imminent Alert (< 15 Menit menuju waktu ujian)
+              const startTimeMs = exam.startTime ? new Date(exam.startTime).getTime() : null;
+              const diffToStartMs = !isOngoing && !isEnded && startTimeMs ? startTimeMs - currentTime : null;
+              const isImminent = diffToStartMs !== null && diffToStartMs > 0 && diffToStartMs <= 15 * 60 * 1000;
+              const minutesToStart = isImminent ? Math.max(1, Math.ceil(diffToStartMs / 60000)) : 0;
+
               return (
                 <div
                   key={card.id}
-                  className={`rounded-3xl p-6 bg-white dark:bg-slate-900 border transition-all duration-300 flex flex-col justify-between space-y-4 shadow-sm hover:shadow-md ${isOngoing
+                  className={`rounded-3xl p-6 bg-white dark:bg-slate-900 border transition-all duration-500 flex flex-col justify-between space-y-4 shadow-sm hover:shadow-md ${
+                    isOngoing
                       ? 'border-emerald-500 ring-2 ring-emerald-400/20 shadow-emerald-500/10'
-                      : isEnded
-                        ? 'border-slate-200 dark:border-slate-800 opacity-75'
-                        : card.isUnifiedReligion
-                          ? 'border-emerald-300 dark:border-emerald-800/80 shadow-emerald-500/5'
-                          : card.isUnifiedRoom
-                            ? 'border-indigo-300 dark:border-indigo-800/80 shadow-indigo-500/5'
-                            : 'border-slate-200 dark:border-slate-800'
-                    }`}
+                      : isImminent
+                        ? 'border-2 border-amber-500 dark:border-amber-400 ring-4 ring-amber-500/40 shadow-xl shadow-amber-500/20 animate-pulse bg-gradient-to-br from-amber-500/[0.04] via-white to-rose-500/[0.04] dark:from-amber-950/25 dark:via-slate-900 dark:to-rose-950/20'
+                        : isEnded
+                          ? 'border-slate-200 dark:border-slate-800 opacity-75'
+                          : card.isUnifiedReligion
+                            ? 'border-emerald-300 dark:border-emerald-800/80 shadow-emerald-500/5'
+                            : card.isUnifiedRoom
+                              ? 'border-indigo-300 dark:border-indigo-800/80 shadow-indigo-500/5'
+                              : 'border-slate-200 dark:border-slate-800'
+                  }`}
                 >
                   <div className="space-y-3">
                     {/* Top status line */}
@@ -443,6 +469,11 @@ export default function ProctorScheduleClient({
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 animate-pulse">
                           <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                           <span>SEDANG BERLANGSUNG</span>
+                        </span>
+                      ) : isImminent ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 text-white shadow-md shadow-amber-500/40 animate-pulse">
+                          <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
+                          <span>🔥 SEGERA DIMULAI ({minutesToStart} MENIT LAGI)</span>
                         </span>
                       ) : isEnded ? (
                         <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500">
@@ -523,6 +554,25 @@ export default function ProctorScheduleClient({
                       roomName={exam.roomName || 'Ruang CBT'}
                     />
 
+                    {/* ⚠️ HIGH-VISIBILITY IMMINENT WARNING BANNER (< 15 MENIT) */}
+                    {isImminent && (
+                      <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-rose-500/15 border-2 border-amber-500/60 text-amber-950 dark:text-amber-200 text-xs flex items-center justify-between gap-3 shadow-md shadow-amber-500/10 animate-pulse">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-rose-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm font-black text-sm">
+                            <Flame size={18} className="fill-white animate-bounce" />
+                          </div>
+                          <div className="space-y-0.5">
+                            <div className="font-black text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                              <span>PERSIAPAN PENGAWAS ({minutesToStart} MENIT MENUJU MULAI)</span>
+                            </div>
+                            <p className="text-[11px] text-amber-800 dark:text-amber-300/90 leading-snug">
+                              Ujian ini segera dimulai! Harap buka ruang pengawasan sekarang untuk persiapan rilis token & proyektor.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Schedule detail */}
                     <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-xs space-y-1.5 border border-slate-100 dark:border-slate-800">
                       <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
@@ -549,24 +599,34 @@ export default function ProctorScheduleClient({
                     <span className="text-[11px] text-slate-400 font-medium">
                       {card.combinedAttempts > 0
                         ? `${card.combinedAttempts} Siswa Mengerjakan`
-                        : card.isUnifiedReligion
-                          ? 'Siap Diawasi (Sesi Terpadu)'
-                          : 'Siap Diawasi'}
+                        : isImminent
+                          ? '🔥 Persiapan Pengawas (< 15 Menit)'
+                          : card.isUnifiedReligion
+                            ? 'Siap Diawasi (Sesi Terpadu)'
+                            : 'Siap Diawasi'}
                     </span>
 
                     <Link
                       href={`/portal/pengawas/cbt/${card.primaryExam.id}`}
-                      className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer ${isOngoing
+                      className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer ${
+                        isOngoing
                           ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/25 ring-2 ring-emerald-400/40'
-                          : card.isUnifiedReligion
-                            ? 'bg-gradient-to-r from-emerald-600 to-sky-600 hover:from-emerald-500 hover:to-sky-500 text-white shadow-emerald-500/20'
-                            : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25'
-                        }`}
+                          : isImminent
+                            ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 hover:from-amber-600 hover:to-rose-700 text-white shadow-lg shadow-amber-500/40 ring-4 ring-amber-400/50 animate-pulse hover:animate-none font-black tracking-wide'
+                            : card.isUnifiedReligion
+                              ? 'bg-gradient-to-r from-emerald-600 to-sky-600 hover:from-emerald-500 hover:to-sky-500 text-white shadow-emerald-500/20'
+                              : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25'
+                      }`}
                     >
                       {isOngoing ? (
                         <>
                           <Play size={15} />
                           <span>{card.isUnifiedReligion ? 'Mulai Pengawasan Terpadu (Live)' : 'Mulai Pengawasan (Live)'}</span>
+                        </>
+                      ) : isImminent ? (
+                        <>
+                          <Sparkles size={15} className="animate-spin text-amber-200" />
+                          <span>Buka Ruang Ujian Sekarang</span>
                         </>
                       ) : (
                         <>

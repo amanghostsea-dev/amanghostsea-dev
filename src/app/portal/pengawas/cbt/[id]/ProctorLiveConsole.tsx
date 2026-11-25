@@ -714,6 +714,17 @@ export default function ProctorLiveConsole({
                 </span>
               </div>
             )}
+
+            {examStatus !== 'ACTIVE' && scheduleState.state === 'UPCOMING' && (
+              <div className="mt-2 p-2.5 rounded-2xl bg-indigo-950/40 border border-indigo-700/50 text-indigo-200 text-xs flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <Clock size={15} className="shrink-0 text-cyan-400" />
+                  <span>
+                    <strong>Pemeriksaan Jadwal:</strong> Ujian ini belum dimulai ({scheduleState.countdown}). Jadwal resmi: <strong>{scheduleText}</strong>. Pastikan Anda berada di sesi ujian yang sesuai.
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* TOKEN & SESSION ACTION BOX */}
