@@ -28,6 +28,9 @@ interface CbtOptionInputItemProps {
   onSelectCorrect: () => void;
   onChangeText: (text: string) => void;
   onDelete: () => void;
+  // 🎛️ Single-active accordion toolbar:
+  isToolbarOpen?: boolean;
+  onToggleToolbar?: () => void;
 }
 
 export default function CbtOptionInputItem({
@@ -40,9 +43,22 @@ export default function CbtOptionInputItem({
   onSelectCorrect,
   onChangeText,
   onDelete,
+  isToolbarOpen,
+  onToggleToolbar,
 }: CbtOptionInputItemProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const [showStudioToolbar, setShowStudioToolbar] = useState(false);
+  const [internalShowStudioToolbar, setInternalShowStudioToolbar] = useState(false);
+  const showStudioToolbar = isToolbarOpen !== undefined ? isToolbarOpen : internalShowStudioToolbar;
+
+  const handleToggleStudioToolbar = () => {
+    if (onToggleToolbar) {
+      onToggleToolbar();
+    } else {
+      setInternalShowStudioToolbar((prev) => !prev);
+    }
+    setShowImageModal(false);
+  };
+
   const [showImageModal, setShowImageModal] = useState(false);
   const [imageInputUrl, setImageInputUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -176,10 +192,7 @@ export default function CbtOptionInputItem({
           {/* Tombol Studio Format (Toggle Lengkap) */}
           <button
             type="button"
-            onClick={() => {
-              setShowStudioToolbar(!showStudioToolbar);
-              setShowImageModal(false);
-            }}
+            onClick={handleToggleStudioToolbar}
             className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-2xs ${
               showStudioToolbar
                 ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 text-white shadow-purple-600/30 font-bold ring-2 ring-purple-600/20'
@@ -198,7 +211,9 @@ export default function CbtOptionInputItem({
             type="button"
             onClick={() => {
               setShowImageModal(!showImageModal);
-              if (!showImageModal) setShowStudioToolbar(false);
+              if (!showImageModal && showStudioToolbar) {
+                handleToggleStudioToolbar();
+              }
             }}
             className={`px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-2xs ${
               attachedImageUrl
@@ -257,7 +272,7 @@ export default function CbtOptionInputItem({
             showPreviewToggle={false}
             defaultCollapsed={false}
             disableLocalStorageState={true}
-            onClose={() => setShowStudioToolbar(false)}
+            onClose={handleToggleStudioToolbar}
             onInsertMath={(snippet) => {
               const wrapped = snippet.startsWith('$') ? snippet : `$${snippet}$`;
               const newText = value.trim() ? `${value.trim()} ${wrapped}` : wrapped;

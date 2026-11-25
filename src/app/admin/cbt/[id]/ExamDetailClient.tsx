@@ -685,6 +685,7 @@ export default function ExamDetailClient({
   const [uploadingImage, setUploadingImage] = useState(false);
   const [showLivePreview, setShowLivePreview] = useState(true);
   const [options, setOptions] = useState(['', '', '', '']);
+  const [activeCreateOptionToolbarIdx, setActiveCreateOptionToolbarIdx] = useState<number | null>(null);
   const [correctAnswer, setCorrectAnswer] = useState('0');
   const [points, setPoints] = useState(10);
 
@@ -1284,6 +1285,7 @@ Poin: 10
   const [editUploadingImage, setEditUploadingImage] = useState(false);
   const [showEditPreview, setShowEditPreview] = useState(true);
   const [editOptions, setEditOptions] = useState(['', '', '', '']);
+  const [activeEditOptionToolbarIdx, setActiveEditOptionToolbarIdx] = useState<number | null>(null);
   const [editCorrectAnswer, setEditCorrectAnswer] = useState('0');
   const [editPoints, setEditPoints] = useState(10);
 
@@ -1310,6 +1312,7 @@ Poin: 10
   };
 
   const handleOpenEditModal = (q: QuestionItem) => {
+    setActiveEditOptionToolbarIdx(null);
     setEditingQId(q.id);
     const hasImage = Boolean(q.imageUrl && q.imageUrl.trim());
     const parsed = parseQuestionContent(q.questionText, q.imageUrl);
@@ -2761,6 +2764,10 @@ Poin: 10
                       onSelectCorrect={() => setCorrectAnswer(String(idx))}
                       onChangeText={(text) => handleOptionChange(idx, text)}
                       onDelete={() => handleRemoveOption(idx)}
+                      isToolbarOpen={activeCreateOptionToolbarIdx === idx}
+                      onToggleToolbar={() => {
+                        setActiveCreateOptionToolbarIdx((prev) => (prev === idx ? null : idx));
+                      }}
                     />
                   );
                 })}
@@ -3627,6 +3634,10 @@ Poin: 15`}
                         setEditOptions(updated);
                       }}
                       onDelete={() => handleRemoveEditOption(idx)}
+                      isToolbarOpen={activeEditOptionToolbarIdx === idx}
+                      onToggleToolbar={() => {
+                        setActiveEditOptionToolbarIdx((prev) => (prev === idx ? null : idx));
+                      }}
                     />
                   );
                 })}
