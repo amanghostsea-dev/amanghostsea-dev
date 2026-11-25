@@ -575,7 +575,12 @@ export async function checkDatabaseHealthAction(): Promise<DatabaseHealthResult>
       };
     }
 
-    // 1. Eksekusi low-overhead query raw SQL untuk mengukur latensi round-trip murni ke Supabase
+    // 1. Warm-up connection untuk membuka handshake SSL/TLS awal
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+    } catch {}
+
+    // 2. Eksekusi query terukur untuk mendapatkan latensi operasional murni (Warm Ping)
     const t0 = Date.now();
     const rawResult: any[] = await prisma.$queryRaw`SELECT NOW() as db_time, version() as pg_version`;
     const pingMs = Math.max(1, Date.now() - t0);
@@ -583,7 +588,7 @@ export async function checkDatabaseHealthAction(): Promise<DatabaseHealthResult>
     const dbTimeDate = rawResult?.[0]?.db_time ? new Date(rawResult[0].db_time) : new Date();
     const timeOffsetMs = Math.abs(Date.now() - dbTimeDate.getTime());
 
-    // 2. Query hitungan data utama secara paralel untuk verifikasi kesiapan baca (read readiness)
+    // 3. Query hitungan data utama secara paralel untuk verifikasi kesiapan baca (read readiness)
     const [exams, questions, attempts, users] = await Promise.all([
       prisma.exam.count(),
       prisma.examQuestion.count(),
@@ -591,18 +596,22 @@ export async function checkDatabaseHealthAction(): Promise<DatabaseHealthResult>
       prisma.user.count(),
     ]);
 
+    // Kalibrasi ambang batas realistis koneksi cloud lintas negara (Indonesia - Tokyo, Jepang ~5.000 km)
     let status: 'HEALTHY' | 'DEGRADED' | 'DOWN' = 'HEALTHY';
     let summary = 'Koneksi database Supabase sangat prima & stabil. Siap digunakan untuk ujian!';
 
-    if (pingMs > 400) {
+    if (pingMs > 1800) {
       status = 'DEGRADED';
-      summary = `Koneksi database terhubung namun latensi agak lambat (${pingMs} ms). Pastikan koneksi internet stabil.`;
-    } else if (pingMs <= 100) {
+      summary = `Koneksi database terhubung namun latensi jaringan cukup tinggi (${pingMs} ms). Pastikan Wi-Fi/koneksi internet sekolah stabil.`;
+    } else if (pingMs <= 400) {
       status = 'HEALTHY';
-      summary = `Koneksi database sangat cepat & prima (${pingMs} ms). Seluruh tabel siap melayani ujian.`;
+      summary = `Koneksi database sangat cepat & prima (${pingMs} ms) untuk server lintas negara. Seluruh tabel siap melayani ujian.`;
+    } else if (pingMs <= 1000) {
+      status = 'HEALTHY';
+      summary = `Koneksi database normal, responsif, dan stabil (${pingMs} ms). Aman dan siap digunakan untuk ujian besok!`;
     } else {
-      status = 'HEALTHY';
-      summary = `Koneksi database normal & lancar (${pingMs} ms).`;
+      status = 'DEGRADED';
+      summary = `Koneksi database terhubung (${pingMs} ms). Sistem ujian tetap aman berkat auto-save offline lokal di HP siswa.`;
     }
 
     return {

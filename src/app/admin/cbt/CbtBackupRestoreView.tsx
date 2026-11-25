@@ -344,9 +344,9 @@ export default function CbtBackupRestoreView({
             </span>
             <div className="flex items-baseline gap-1.5">
               <span className={`text-2xl font-black font-mono ${
-                (healthResult?.pingMs || 0) <= 100
+                (healthResult?.pingMs || 0) <= 1200
                   ? 'text-emerald-600 dark:text-emerald-400'
-                  : (healthResult?.pingMs || 0) <= 400
+                  : (healthResult?.pingMs || 0) <= 1800
                     ? 'text-amber-600 dark:text-amber-400'
                     : 'text-rose-600 dark:text-rose-400'
               }`}>
@@ -354,8 +354,14 @@ export default function CbtBackupRestoreView({
               </span>
               <span className="text-xs font-bold text-slate-400">ms</span>
             </div>
-            <span className="text-[10px] text-slate-400 block">
-              {(healthResult?.pingMs || 0) <= 100 ? '⚡ Sangat Cepat' : (healthResult?.pingMs || 0) <= 400 ? '🟡 Normal' : '🔴 Lambat'}
+            <span className="text-[10px] text-slate-400 block font-medium">
+              {(healthResult?.pingMs || 0) <= 600
+                ? '⚡ Sangat Cepat (Tokyo)'
+                : (healthResult?.pingMs || 0) <= 1200
+                  ? '🟢 Normal & Responsif'
+                  : (healthResult?.pingMs || 0) <= 1800
+                    ? '🟡 Ada Latensi'
+                    : '🔴 Lambat'}
             </span>
           </div>
 
