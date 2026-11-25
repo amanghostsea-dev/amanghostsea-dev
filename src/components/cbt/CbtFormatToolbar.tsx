@@ -125,6 +125,17 @@ export default function CbtFormatToolbar({
 
   const toolbarRef = useRef<HTMLDivElement | null>(null);
 
+  // 🧭 Posisi Menu Adaptif (Auto-flip ke atas bila dekat batas bawah layar)
+  const [openUpward, setOpenUpward] = useState<Record<string, boolean>>({});
+
+  const checkPlacement = (menuKey: string, el: HTMLElement | null) => {
+    if (!el || typeof window === 'undefined') return;
+    const rect = el.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const shouldOpenUp = spaceBelow < 290;
+    setOpenUpward((prev) => ({ ...prev, [menuKey]: shouldOpenUp }));
+  };
+
   // Menu Dropdowns
   const [showPreview, setShowPreview] = useState(false);
   const [showColorMenu, setShowColorMenu] = useState(false);
@@ -632,7 +643,8 @@ export default function CbtFormatToolbar({
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
+                onClick={(e) => {
+                  checkPlacement('font', e.currentTarget);
                   setShowFontMenu((p) => !p);
                   setShowColorMenu(false);
                   setShowHighlightMenu(false);
@@ -651,7 +663,9 @@ export default function CbtFormatToolbar({
               </button>
 
               {showFontMenu && (
-                <div className="absolute left-0 top-full mt-1 w-48 max-w-[calc(100vw-2rem)] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-1 z-[60] max-h-72 overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+                <div className={`absolute left-0 w-48 max-w-[calc(100vw-2rem)] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-1 z-[60] max-h-72 overflow-y-auto animate-in fade-in zoom-in-95 duration-150 ${
+                  openUpward['font'] ? 'bottom-full mb-1.5' : 'top-full mt-1'
+                }`}>
                   <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800">
                     Pilih Jenis Huruf
                   </div>
@@ -699,7 +713,8 @@ export default function CbtFormatToolbar({
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
+                onClick={(e) => {
+                  checkPlacement('size', e.currentTarget);
                   setShowSizeMenu((p) => !p);
                   setShowColorMenu(false);
                   setShowHighlightMenu(false);
@@ -717,7 +732,9 @@ export default function CbtFormatToolbar({
               </button>
 
               {showSizeMenu && (
-                <div className="absolute left-0 top-full mt-1 w-48 max-w-[calc(100vw-2rem)] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-1 z-[60] max-h-72 overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+                <div className={`absolute left-0 w-48 max-w-[calc(100vw-2rem)] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-1 z-[60] max-h-72 overflow-y-auto animate-in fade-in zoom-in-95 duration-150 ${
+                  openUpward['size'] ? 'bottom-full mb-1.5' : 'top-full mt-1'
+                }`}>
                   <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800">
                     Ukuran Huruf
                   </div>
@@ -844,7 +861,8 @@ export default function CbtFormatToolbar({
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
+                onClick={(e) => {
+                  checkPlacement('align', e.currentTarget);
                   setShowAlignMenu((p) => !p);
                   setShowColorMenu(false);
                   setShowHighlightMenu(false);
@@ -871,7 +889,9 @@ export default function CbtFormatToolbar({
               </button>
 
               {showAlignMenu && (
-                <div className="absolute left-0 sm:left-0 top-full mt-1 w-48 max-w-[calc(100vw-2rem)] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-1 z-[60] max-h-72 overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+                <div className={`absolute left-0 sm:left-0 w-48 max-w-[calc(100vw-2rem)] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-1 z-[60] max-h-72 overflow-y-auto animate-in fade-in zoom-in-95 duration-150 ${
+                  openUpward['align'] ? 'bottom-full mb-1.5' : 'top-full mt-1'
+                }`}>
                   <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800">
                     Posisi Perataan Teks
                   </div>
@@ -937,7 +957,8 @@ export default function CbtFormatToolbar({
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
+                onClick={(e) => {
+                  checkPlacement('color', e.currentTarget);
                   setShowColorMenu((p) => !p);
                   setShowHighlightMenu(false);
                   setShowFontMenu(false);
@@ -956,7 +977,9 @@ export default function CbtFormatToolbar({
               </button>
 
               {showColorMenu && (
-                <div className="absolute left-0 top-full mt-1 w-48 max-w-[calc(100vw-2rem)] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-2 z-[60] max-h-72 overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+                <div className={`absolute left-0 w-48 max-w-[calc(100vw-2rem)] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-2 z-[60] max-h-72 overflow-y-auto animate-in fade-in zoom-in-95 duration-150 ${
+                  openUpward['color'] ? 'bottom-full mb-1.5' : 'top-full mt-1'
+                }`}>
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 px-1">
                     Warna Teks
                   </div>
@@ -1048,7 +1071,8 @@ export default function CbtFormatToolbar({
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
+                onClick={(e) => {
+                  checkPlacement('highlight', e.currentTarget);
                   setShowHighlightMenu((p) => !p);
                   setShowColorMenu(false);
                   setShowFontMenu(false);
@@ -1067,7 +1091,9 @@ export default function CbtFormatToolbar({
               </button>
 
               {showHighlightMenu && (
-                <div className="absolute left-0 top-full mt-1 w-48 max-w-[calc(100vw-2rem)] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-2 z-[60] max-h-72 overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+                <div className={`absolute left-0 w-48 max-w-[calc(100vw-2rem)] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-2 z-[60] max-h-72 overflow-y-auto animate-in fade-in zoom-in-95 duration-150 ${
+                  openUpward['highlight'] ? 'bottom-full mb-1.5' : 'top-full mt-1'
+                }`}>
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 px-1">
                     Sorotan Stabilo
                   </div>
@@ -1135,7 +1161,8 @@ export default function CbtFormatToolbar({
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
+                onClick={(e) => {
+                  checkPlacement('list', e.currentTarget);
                   setShowListMenu((p) => !p);
                   setShowColorMenu(false);
                   setShowHighlightMenu(false);
@@ -1154,7 +1181,9 @@ export default function CbtFormatToolbar({
               </button>
 
               {showListMenu && (
-                <div className="absolute left-0 top-full mt-1 w-56 max-w-[calc(100vw-2rem)] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-1 z-[60] max-h-72 overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+                <div className={`absolute left-0 w-56 max-w-[calc(100vw-2rem)] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-1 z-[60] max-h-72 overflow-y-auto animate-in fade-in zoom-in-95 duration-150 ${
+                  openUpward['list'] ? 'bottom-full mb-1.5' : 'top-full mt-1'
+                }`}>
                   <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800">
                     Format Penomoran Soal
                   </div>
@@ -1210,7 +1239,8 @@ export default function CbtFormatToolbar({
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
+                onClick={(e) => {
+                  checkPlacement('insert', e.currentTarget);
                   setShowInsertMenu((p) => !p);
                   setShowColorMenu(false);
                   setShowHighlightMenu(false);
@@ -1229,7 +1259,9 @@ export default function CbtFormatToolbar({
               </button>
 
               {showInsertMenu && (
-                <div className="absolute left-0 sm:left-0 top-full mt-1 w-64 max-w-[calc(100vw-2rem)] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-1 z-[60] max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+                <div className={`absolute left-0 sm:left-0 w-64 max-w-[calc(100vw-2rem)] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-1 z-[60] max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-150 ${
+                  openUpward['insert'] ? 'bottom-full mb-1.5' : 'top-full mt-1'
+                }`}>
                   <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800">
                     Elemen Khusus Soal
                   </div>
@@ -1361,7 +1393,8 @@ export default function CbtFormatToolbar({
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
+                onClick={(e) => {
+                  checkPlacement('math', e.currentTarget);
                   setShowMathMenu((p) => !p);
                   setShowColorMenu(false);
                   setShowHighlightMenu(false);
@@ -1380,7 +1413,9 @@ export default function CbtFormatToolbar({
               </button>
 
               {showMathMenu && (
-                <div className="absolute right-0 sm:right-0 top-full mt-1 w-72 max-w-[calc(100vw-2rem)] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-2 z-[60] max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+                <div className={`absolute right-0 sm:right-0 w-72 max-w-[calc(100vw-2rem)] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-2 z-[60] max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-150 ${
+                  openUpward['math'] ? 'bottom-full mb-1.5' : 'top-full mt-1'
+                }`}>
                   <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1 border-b border-slate-100 dark:border-slate-800 pb-1">
                     <span>Pintasan Rumus KaTeX</span>
                     <span className="text-indigo-600 font-mono text-[9px]">$...$</span>
