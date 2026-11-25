@@ -4,7 +4,6 @@ import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { formatScheduleDate, formatScheduleTime, getExamScheduleState, isExamTokenActive, isClassTargetMatch, formatClassTargetDisplay } from '@/lib/cbt-schedule';
 import { getCbtTimezone } from '@/lib/settings';
-import { touchDeviceSession } from '@/lib/device-session';
 
 export async function getExamSessionStatus(examId: string) {
   try {
@@ -226,10 +225,16 @@ export async function saveProgress(
     const current = await prisma.examAttempt.findUnique({
       where: { id: attemptId },
       select: {
+        id: true,
+        status: true,
         answers: true,
         proctorNotes: true,
         isBlocked: true,
         tabSwitchCount: true,
+        extraTimeMinutes: true,
+        score: true,
+        totalCorrect: true,
+        totalQuestions: true,
         studentName: true,
         studentNis: true,
       },
@@ -255,21 +260,6 @@ export async function saveProgress(
       mergedAnswers = { ...mergedAnswers, ...answers };
     }
     const safeAnswersJson = JSON.stringify(mergedAnswers);
-
-    // 💓 Heartbeat: Perbarui lastActive sesi perangkat siswa secara otomatis di latar belakang
-    if (current.studentNis || current.studentName) {
-      prisma.user.findFirst({
-        where: {
-          OR: [
-            ...(current.studentNis ? [{ nisn: current.studentNis }, { username: current.studentNis }] : []),
-            { name: { equals: current.studentName, mode: 'insensitive' as const } },
-          ],
-        },
-        select: { id: true },
-      }).then((u) => {
-        if (u) touchDeviceSession(u.id).catch(() => {});
-      }).catch(() => {});
-    }
 
     const hasAdminOverride = 
       current.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]') || 
@@ -339,28 +329,40 @@ export async function saveProgress(
       }
     }
 
-    const updated = await prisma.examAttempt.update({
-      where: { id: attemptId },
-      data: {
-        answers: safeAnswersJson,
-        tabSwitchCount: effectiveTabCount,
-        isBlocked: shouldBlock,
-        proctorNotes: newNotes,
-        ...(isDisqualified ? { status: 'SUBMITTED', submittedAt: new Date() } : {}),
-      },
-      select: {
-        id: true,
-        status: true,
-        isBlocked: true,
-        tabSwitchCount: true,
-        proctorNotes: true,
-        extraTimeMinutes: true,
-        score: true,
-        totalCorrect: true,
-        totalQuestions: true,
-        answers: true,
-      },
-    });
+    // 🚀 NO-OP OPTIMIZATION: Jika jawaban & status pelanggaran tidak ada perubahan,
+    // langsung kembalikan data saat ini tanpa memicu query UPDATE ke database!
+    const isAnswersSame = current.answers === safeAnswersJson;
+    const isTabSame = (current.tabSwitchCount || 0) === effectiveTabCount;
+    const isBlockSame = current.isBlocked === shouldBlock;
+    const isNotesSame = (current.proctorNotes || '') === newNotes;
+
+    let updated;
+    if (isAnswersSame && isTabSame && isBlockSame && isNotesSame && !isDisqualified) {
+      updated = current;
+    } else {
+      updated = await prisma.examAttempt.update({
+        where: { id: attemptId },
+        data: {
+          answers: safeAnswersJson,
+          tabSwitchCount: effectiveTabCount,
+          isBlocked: shouldBlock,
+          proctorNotes: newNotes,
+          ...(isDisqualified ? { status: 'SUBMITTED', submittedAt: new Date() } : {}),
+        },
+        select: {
+          id: true,
+          status: true,
+          isBlocked: true,
+          tabSwitchCount: true,
+          proctorNotes: true,
+          extraTimeMinutes: true,
+          score: true,
+          totalCorrect: true,
+          totalQuestions: true,
+          answers: true,
+        },
+      });
+    }
 
     const isStrike2Locked = updated.tabSwitchCount === 2 && !hasProctorPermission && !updated.isBlocked;
     const isStrike4FatalLocked = updated.tabSwitchCount === 4 && !hasProctorFatalPermission && updated.isBlocked;

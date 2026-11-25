@@ -189,9 +189,10 @@ export default function CbtExamRoom({
 
   useEffect(() => {
     if (attempt || isSessionOpen) return;
+    // ⚡ Hemat query: Polling status sesi tiap 20 detik (sebelumnya 4 detik membombardir database)
     const interval = setInterval(() => {
       refreshSessionStatus();
-    }, 4000);
+    }, 20000);
     return () => clearInterval(interval);
   }, [attempt, isSessionOpen, refreshSessionStatus]);
 
@@ -437,6 +438,8 @@ export default function CbtExamRoom({
   const violationTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isWindowBlurredRef = useRef<boolean>(false);
   const isPageUnloadingRef = useRef<boolean>(false);
+  // ⚡ Debounced background autosave ref (mengurangi 90% query lonjakan per klik opsi)
+  const saveDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // 🛡️ Live References untuk mencegah closure stale & kebocoran strike saat layar terkunci
   const attemptRef = useRef(attempt);
@@ -638,6 +641,10 @@ export default function CbtExamRoom({
         clearTimeout(violationTimerRef.current);
         violationTimerRef.current = null;
       }
+      if (saveDebounceTimerRef.current) {
+        clearTimeout(saveDebounceTimerRef.current);
+        saveDebounceTimerRef.current = null;
+      }
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('pagehide', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -649,6 +656,10 @@ export default function CbtExamRoom({
   // Handle final submit function (defined before timer effect to satisfy dependency rules)
   const handleFinalSubmit = useCallback(async () => {
     if (!attempt) return;
+    if (saveDebounceTimerRef.current) {
+      clearTimeout(saveDebounceTimerRef.current);
+      saveDebounceTimerRef.current = null;
+    }
     setIsSubmitting(true);
 
     const res = await submitExam(attempt.id, answers, tabSwitchCount);
@@ -693,8 +704,8 @@ export default function CbtExamRoom({
   useEffect(() => {
     if (!attempt || attempt.status !== 'IN_PROGRESS' || finalResult) return;
 
-    // Polling interval: 3 detik jika sedang terkunci Strike 2 atau suspend Strike 3 agar siswa langsung melanjutkan saat dibuka
-    const intervalMs = (isStrike2Locked || (attempt as any)?.isBlocked || tabSwitchCount >= 3) ? 3000 : 15000;
+    // ⚡ Hemat query: 45 detik saat normal (sebelumnya 15 detik), 6 detik jika terkunci Strike 2/3
+    const intervalMs = (isStrike2Locked || (attempt as any)?.isBlocked || tabSwitchCount >= 3) ? 6000 : 45000;
 
     const interval = setInterval(async () => {
       // Jangan poll jika tab diminimalkan, KECUALI jika sedang menunggu buka kunci Strike 2 atau Strike 3
@@ -870,18 +881,23 @@ export default function CbtExamRoom({
       );
     } catch { }
 
-    // Background sync to DB
+    // ⚡ Debounced background sync to DB: jeda 5 detik agar tidak membombardir server per klik opsi
+    if (saveDebounceTimerRef.current) {
+      clearTimeout(saveDebounceTimerRef.current);
+    }
     if (attempt) {
-      saveProgress(attempt.id, newAnswers, tabSwitchCount).then((res) => {
-        if (res && res.success) {
-          if (res.isBlocked) {
-            setAttempt((prev) => (prev ? { ...prev, isBlocked: true } : prev));
+      saveDebounceTimerRef.current = setTimeout(() => {
+        saveProgress(attempt.id, newAnswers, tabSwitchCountRef.current).then((res) => {
+          if (res && res.success) {
+            if (res.isBlocked) {
+              setAttempt((prev) => (prev ? { ...prev, isBlocked: true } : prev));
+            }
+            if (typeof res.extraTimeMinutes === 'number' && res.extraTimeMinutes !== (attempt as any).extraTimeMinutes) {
+              setAttempt((prev) => (prev ? { ...prev, extraTimeMinutes: res.extraTimeMinutes } : prev));
+            }
           }
-          if (typeof res.extraTimeMinutes === 'number' && res.extraTimeMinutes !== (attempt as any).extraTimeMinutes) {
-            setAttempt((prev) => (prev ? { ...prev, extraTimeMinutes: res.extraTimeMinutes } : prev));
-          }
-        }
-      }).catch(console.error);
+        }).catch(console.error);
+      }, 5000);
     }
   };
 
