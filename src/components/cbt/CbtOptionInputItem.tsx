@@ -171,8 +171,14 @@ export default function CbtOptionInputItem({
           )}
         </div>
 
-        {/* Sisi Kanan: Tombol Aksi Bersih & Rapi */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        {/* Sisi Kanan: Tombol Aksi Auto-Hide (Muncul saat Kursor Diarahkan / Fokus / Aktif) */}
+        <div
+          className={`flex items-center gap-1.5 shrink-0 transition-all duration-200 ease-out ${
+            showStudioToolbar || showImageModal || isFocused
+              ? 'opacity-100 translate-x-0 pointer-events-auto'
+              : 'opacity-0 translate-x-2 pointer-events-none group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:translate-x-0 group-focus-within:pointer-events-auto'
+          }`}
+        >
           {/* Tombol Studio Format (Toggle Lengkap) */}
           <button
             type="button"

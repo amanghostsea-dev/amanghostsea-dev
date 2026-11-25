@@ -408,8 +408,26 @@ export default function CbtFormatToolbar({
     setShowMathMenu(false);
   };
 
+  const isAnyMenuOpen = Boolean(
+    showColorMenu || 
+    showHighlightMenu || 
+    showFontMenu || 
+    showSizeMenu || 
+    showListMenu || 
+    showInsertMenu || 
+    showAlignMenu || 
+    showMathMenu
+  );
+
   return (
     <div className="space-y-2">
+      {/* 🛡️ Backdrop Click/Touch Catcher untuk Menutup Dropdown Secara Fleksibel di Semua Perangkat */}
+      {isAnyMenuOpen && (
+        <div 
+          className="fixed inset-0 z-[55] bg-black/5 dark:bg-black/20 backdrop-blur-[0.5px] cursor-default" 
+          onClick={closeAllMenus}
+        />
+      )}
       {/* 🌟 AUTO-HIDE COMPACT BAR (Jika Toolbar Diciutkan / Mode Minimalis) */}
       {isCollapsed ? (
         <div 
@@ -623,7 +641,7 @@ export default function CbtFormatToolbar({
               </button>
 
               {showFontMenu && (
-                <div className="absolute left-0 top-full mt-1 w-48 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-1 z-[60] animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute left-0 top-full mt-1 w-48 max-w-[calc(100vw-2rem)] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-1 z-[60] max-h-72 overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
                   <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800">
                     Pilih Jenis Huruf
                   </div>
@@ -689,7 +707,7 @@ export default function CbtFormatToolbar({
               </button>
 
               {showSizeMenu && (
-                <div className="absolute left-0 top-full mt-1 w-44 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-1 z-[60] animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute left-0 top-full mt-1 w-48 max-w-[calc(100vw-2rem)] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-1 z-[60] max-h-72 overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
                   <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800">
                     Ukuran Huruf
                   </div>
@@ -843,7 +861,7 @@ export default function CbtFormatToolbar({
               </button>
 
               {showAlignMenu && (
-                <div className="absolute left-0 top-full mt-1 w-44 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-1 z-[60] animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute left-0 sm:left-0 top-full mt-1 w-48 max-w-[calc(100vw-2rem)] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-1 z-[60] max-h-72 overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
                   <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800">
                     Posisi Perataan Teks
                   </div>
@@ -928,7 +946,7 @@ export default function CbtFormatToolbar({
               </button>
 
               {showColorMenu && (
-                <div className="absolute left-0 top-full mt-1 w-44 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-2 z-[60] animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute left-0 top-full mt-1 w-48 max-w-[calc(100vw-2rem)] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-2 z-[60] max-h-72 overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 px-1">
                     Warna Teks
                   </div>
@@ -1039,7 +1057,7 @@ export default function CbtFormatToolbar({
               </button>
 
               {showHighlightMenu && (
-                <div className="absolute left-0 top-full mt-1 w-44 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-2 z-[60] animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute left-0 top-full mt-1 w-48 max-w-[calc(100vw-2rem)] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-2 z-[60] max-h-72 overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 px-1">
                     Sorotan Stabilo
                   </div>
@@ -1126,7 +1144,7 @@ export default function CbtFormatToolbar({
               </button>
 
               {showListMenu && (
-                <div className="absolute left-0 top-full mt-1 w-52 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-1 z-[60] animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute left-0 top-full mt-1 w-56 max-w-[calc(100vw-2rem)] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-1 z-[60] max-h-72 overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
                   <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800">
                     Format Penomoran Soal
                   </div>
@@ -1201,7 +1219,7 @@ export default function CbtFormatToolbar({
               </button>
 
               {showInsertMenu && (
-                <div className="absolute left-0 top-full mt-1 w-56 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-1 z-[60] max-h-72 overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute left-0 sm:left-0 top-full mt-1 w-64 max-w-[calc(100vw-2rem)] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-1 z-[60] max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
                   <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800">
                     Elemen Khusus Soal
                   </div>
@@ -1352,7 +1370,7 @@ export default function CbtFormatToolbar({
               </button>
 
               {showMathMenu && (
-                <div className="absolute left-0 top-full mt-1 w-64 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-2 z-[60] animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute right-0 sm:right-0 top-full mt-1 w-72 max-w-[calc(100vw-2rem)] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-2 z-[60] max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
                   <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1 border-b border-slate-100 dark:border-slate-800 pb-1">
                     <span>Pintasan Rumus KaTeX</span>
                     <span className="text-indigo-600 font-mono text-[9px]">$...$</span>
