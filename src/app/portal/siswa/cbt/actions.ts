@@ -38,7 +38,7 @@ export async function getExamSessionStatus(examId: string) {
       tokenStatus,
       serverTime: new Date().toISOString(),
     };
-  } catch (error) {
+  } catch {
     return { status: 'ERROR', isSessionOpen: false, hasToken: false, scheduleState: null, isTokenActive: false };
   }
 }
@@ -94,7 +94,7 @@ export async function startOrResumeAttempt(data: {
 
     if (existing) {
       let activeAttempt = existing;
-      const examDurationMs = (exam.duration + ((existing as any).extraTimeMinutes || 0)) * 60 * 1000;
+      const examDurationMs = (exam.duration + (existing.extraTimeMinutes || 0)) * 60 * 1000;
       const elapsedMs = Date.now() - new Date(existing.startedAt).getTime();
       const hasEmptyAnswers = !existing.answers || existing.answers === '{}' || existing.answers.trim() === '';
       const isSessionActive = isExamTokenActive(exam).isActive;
@@ -124,7 +124,6 @@ export async function startOrResumeAttempt(data: {
     // 📅 2. JIKA ATTEMPT BARU: Verify Schedule Window & Token Activation
     const now = new Date();
     const tokenStatus = isExamTokenActive(exam, now);
-    const schedule = getExamScheduleState(exam.startTime, exam.endTime, exam.status, now, exam.updatedAt, exam.duration);
     const cbtTimezone = await getCbtTimezone();
 
     if (tokenStatus.isExpired && !tokenStatus.isActive) {
@@ -213,8 +212,8 @@ export async function startOrResumeAttempt(data: {
     });
 
     return { success: true, attempt: newAttempt, questions: exam.questions, serverTime: new Date().toISOString() };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Terjadi kesalahan sistem.' };
   }
 }
 
@@ -289,7 +288,7 @@ export async function saveProgress(
       !current.isBlocked &&
       Boolean(current.proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]'));
 
-    let effectiveTabCount = Math.max(current.tabSwitchCount || 0, tabSwitchCount);
+    const effectiveTabCount = Math.max(current.tabSwitchCount || 0, tabSwitchCount);
     let shouldBlock = current.isBlocked;
     let newNotes = current.proctorNotes || '';
     let isDisqualified = false;
@@ -383,8 +382,8 @@ export async function saveProgress(
       answers: updated.answers,
       serverTime: new Date().toISOString(),
     };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Terjadi kesalahan sistem.' };
   }
 }
 
@@ -428,8 +427,8 @@ export async function checkStudentExamLockStatus(attemptId: string) {
       answers: attempt.answers,
       serverTime: new Date().toISOString(),
     };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Terjadi kesalahan sistem.' };
   }
 }
 
@@ -487,7 +486,7 @@ export async function submitExam(
     // Scale to 100 if points are variable
     const finalScaledScore = Math.round((totalScore / totalMaxPoints) * 100);
 
-    const updated = await prisma.examAttempt.update({
+    await prisma.examAttempt.update({
       where: { id: attemptId },
       data: {
         answers: finalAnswersJson,
@@ -504,7 +503,6 @@ export async function submitExam(
     try {
       const studentName = attempt.studentName;
       const examTitleUpper = (attempt.exam.title || '').toUpperCase();
-      const examSubjectUpper = (attempt.exam.subject || '').toUpperCase();
 
       // Cari mapel terkait di database
       const matchedSubject = await prisma.subject.findFirst({
@@ -597,8 +595,8 @@ export async function submitExam(
         tabSwitchCount,
       },
     };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Terjadi kesalahan saat mengirim jawaban.' };
   }
 }
 
@@ -649,7 +647,7 @@ export async function checkAttemptStatusAction(attemptId: string) {
       answers: attempt.answers,
       serverTime: new Date().toISOString(),
     };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Terjadi kesalahan sistem.' };
   }
 }
