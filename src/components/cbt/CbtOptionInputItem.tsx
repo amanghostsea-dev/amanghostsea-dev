@@ -171,14 +171,8 @@ export default function CbtOptionInputItem({
           )}
         </div>
 
-        {/* Sisi Kanan: Tombol Aksi Auto-Hide (Muncul saat Kursor Diarahkan / Fokus / Aktif) */}
-        <div
-          className={`flex items-center gap-1.5 shrink-0 transition-all duration-200 ease-out ${
-            showStudioToolbar || showImageModal || isFocused
-              ? 'opacity-100 translate-x-0 pointer-events-auto'
-              : 'opacity-0 translate-x-2 pointer-events-none group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:translate-x-0 group-focus-within:pointer-events-auto'
-          }`}
-        >
+        {/* Sisi Kanan: Tombol Aksi Bersih, Nyaman & Selalu Terlihat */}
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* Tombol Studio Format (Toggle Lengkap) */}
           <button
             type="button"
@@ -188,7 +182,7 @@ export default function CbtOptionInputItem({
             }}
             className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-2xs ${
               showStudioToolbar
-                ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 text-white shadow-purple-600/30 font-bold'
+                ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 text-white shadow-purple-600/30 font-bold ring-2 ring-purple-600/20'
                 : 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 border border-purple-200 dark:border-purple-800'
             }`}
             title={`Buka Studio Format Lengkap untuk Pilihan ${label} (Font, Ukuran, B, I, U, Warna, Stabilo, Rumus MTK, dll)`}
@@ -208,7 +202,7 @@ export default function CbtOptionInputItem({
             }}
             className={`px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-2xs ${
               attachedImageUrl
-                ? 'bg-blue-600 text-white shadow-blue-600/30'
+                ? 'bg-blue-600 text-white shadow-blue-600/30 font-bold ring-2 ring-blue-600/20'
                 : 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800'
             }`}
             title={`Sisipkan atau ubah foto/diagram untuk Opsi ${label}`}

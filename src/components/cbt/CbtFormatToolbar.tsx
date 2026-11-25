@@ -123,6 +123,8 @@ export default function CbtFormatToolbar({
     return false;
   });
 
+  const toolbarRef = useRef<HTMLDivElement | null>(null);
+
   // Menu Dropdowns
   const [showPreview, setShowPreview] = useState(false);
   const [showColorMenu, setShowColorMenu] = useState(false);
@@ -419,15 +421,24 @@ export default function CbtFormatToolbar({
     showMathMenu
   );
 
+  // 🛡️ Menutup dropdown secara aman saat klik di luar toolbar (tanpa backdrop overlay yang memblokir klik)
+  useEffect(() => {
+    if (!isAnyMenuOpen) return;
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (toolbarRef.current && !toolbarRef.current.contains(event.target as Node)) {
+        closeAllMenus();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isAnyMenuOpen]);
+
   return (
-    <div className="space-y-2">
-      {/* 🛡️ Backdrop Click/Touch Catcher untuk Menutup Dropdown Secara Fleksibel di Semua Perangkat */}
-      {isAnyMenuOpen && (
-        <div 
-          className="fixed inset-0 z-[55] bg-black/5 dark:bg-black/20 backdrop-blur-[0.5px] cursor-default" 
-          onClick={closeAllMenus}
-        />
-      )}
+    <div ref={toolbarRef} className="space-y-2 relative">
       {/* 🌟 AUTO-HIDE COMPACT BAR (Jika Toolbar Diciutkan / Mode Minimalis) */}
       {isCollapsed ? (
         <div 
@@ -530,8 +541,7 @@ export default function CbtFormatToolbar({
       ) : (
         /* 🛠️ FULL STUDIO TOOLBAR (Tersusun Sempurna & Tanpa Baris Terpotong) */
         <div 
-          className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs divide-y divide-slate-100 dark:divide-slate-800/80 animate-in fade-in duration-200"
-          onMouseLeave={closeAllMenus}
+          className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs divide-y divide-slate-100 dark:divide-slate-800/80 animate-in fade-in duration-200 relative z-30"
         >
           {/* ── HEADER TOOLBAR: Judul, Status Pin, dan Tombol Sembunyikan ── */}
           <div className="flex items-center justify-between px-3 py-1.5 bg-slate-50/90 dark:bg-slate-900/90 text-[11px] text-slate-500 border-b border-slate-100 dark:border-slate-800">
