@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Calculator, 
   ImageIcon, 
@@ -9,13 +9,13 @@ import {
   Upload, 
   X, 
   Sparkles, 
-  Eye, 
-  EyeOff, 
-  Check, 
   Loader2,
-  Terminal
+  Terminal,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import CbtRichText from './CbtRichText';
+import CbtFormatToolbar from './CbtFormatToolbar';
 
 interface CbtOptionInputItemProps {
   index: number;
@@ -55,7 +55,6 @@ const QUICK_OPTION_TERMINALS = [
 ];
 
 export default function CbtOptionInputItem({
-  index,
   label,
   value,
   isChecked,
@@ -66,6 +65,8 @@ export default function CbtOptionInputItem({
   onChangeText,
   onDelete,
 }: CbtOptionInputItemProps) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [showStudioToolbar, setShowStudioToolbar] = useState(false);
   const [showMathPalette, setShowMathPalette] = useState(false);
   const [showTerminalPalette, setShowTerminalPalette] = useState(false);
   const [customTerminalText, setCustomTerminalText] = useState('');
@@ -133,8 +134,8 @@ export default function CbtOptionInputItem({
       } else {
         alert(data.error || 'Gagal mengunggah foto opsi.');
       }
-    } catch (err: any) {
-      alert(err.message || 'Terjadi kesalahan jaringan saat mengunggah foto.');
+    } catch (err: unknown) {
+      alert((err instanceof Error ? err.message : '') || 'Terjadi kesalahan jaringan saat mengunggah foto.');
     } finally {
       setIsUploading(false);
     }
@@ -157,7 +158,7 @@ export default function CbtOptionInputItem({
     onChangeText(cleanText);
   };
 
-  const isAnyPaletteOpen = showMathPalette || showTerminalPalette || showImageModal;
+  const isAnyPaletteOpen = showStudioToolbar || showMathPalette || showTerminalPalette || showImageModal;
   const isAutoShow = isFocused || isAnyPaletteOpen;
 
   return (
@@ -192,15 +193,16 @@ export default function CbtOptionInputItem({
         </div>
 
         {/* Input Teks / Rumus Pilihan Jawaban */}
-        <input
-          type="text"
+        <textarea
+          ref={textareaRef}
+          rows={value.includes('\n') ? Math.min(4, Math.max(2, value.split('\n').length)) : 1}
           required={!attachedImageUrl}
           placeholder={placeholder || `Teks atau rumus pilihan jawaban ${label}...`}
           value={value}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           onChange={(e) => onChangeText(e.target.value)}
-          className="flex-1 bg-transparent text-sm focus:outline-none min-w-0 font-sans text-slate-900 dark:text-white"
+          className="flex-1 bg-transparent text-sm focus:outline-none min-w-0 font-sans text-slate-900 dark:text-white resize-none py-1 leading-relaxed"
         />
 
         {/* Indikator Mini Foto Saat Diam (Jika Ada Lampiran Gambar) */}
@@ -223,7 +225,7 @@ export default function CbtOptionInputItem({
           </span>
         )}
 
-        {/* 🎛️ Tombol-tombol Pintas: Rumus, Terminal, Foto, Hapus (Auto-Hide on Hover & Focus) */}
+        {/* 🎛️ Tombol-tombol Pintas: Studio Format, Rumus, Terminal, Foto, Hapus */}
         <div
           className={`flex items-center gap-1 flex-shrink-0 transition-all duration-200 ease-out ${
             isAutoShow
@@ -231,11 +233,34 @@ export default function CbtOptionInputItem({
               : 'opacity-0 translate-x-2 pointer-events-none group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:translate-x-0 group-focus-within:pointer-events-auto'
           }`}
         >
-          {/* Tombol Sisipkan Rumus MTK */}
+          {/* 🎨 Tombol Studio Format (Persis Toolbar di Gambar Pengguna) */}
+          <button
+            type="button"
+            onClick={() => {
+              setShowStudioToolbar(!showStudioToolbar);
+              setShowMathPalette(false);
+              setShowTerminalPalette(false);
+              setShowImageModal(false);
+            }}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-2xs ${
+              showStudioToolbar
+                ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 text-white shadow-purple-600/30 font-bold'
+                : 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 border border-purple-200 dark:border-purple-800'
+            }`}
+            title={`Buka Studio Format Lengkap untuk Pilihan ${label} (Font, Ukuran, B, I, U, Warna, Stabilo, Rumus MTK, dll)`}
+          >
+            <Sparkles size={13} className={showStudioToolbar ? 'text-white' : 'text-purple-600 dark:text-purple-400'} />
+            <span className="hidden sm:inline">Studio Format</span>
+            <span className="sm:hidden">Format</span>
+            {showStudioToolbar ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+          </button>
+
+          {/* Tombol Sisipkan Rumus MTK Cepat */}
           <button
             type="button"
             onClick={() => {
               setShowMathPalette(!showMathPalette);
+              setShowStudioToolbar(false);
               setShowTerminalPalette(false);
               setShowImageModal(false);
             }}
@@ -244,10 +269,10 @@ export default function CbtOptionInputItem({
                 ? 'bg-purple-600 text-white shadow-purple-600/30'
                 : 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 border border-purple-200 dark:border-purple-800'
             }`}
-            title={`Sisipkan rumus matematika KaTeX ke Opsi ${label}`}
+            title={`Sisipkan rumus matematika KaTeX cepat ke Opsi ${label}`}
           >
             <Calculator size={13} />
-            <span className="hidden sm:inline">Rumus</span>
+            <span className="hidden md:inline">Rumus</span>
           </button>
 
           {/* Tombol Sisipkan Kotak Terminal / Error */}
@@ -255,6 +280,7 @@ export default function CbtOptionInputItem({
             type="button"
             onClick={() => {
               setShowTerminalPalette(!showTerminalPalette);
+              setShowStudioToolbar(false);
               setShowMathPalette(false);
               setShowImageModal(false);
             }}
@@ -266,7 +292,7 @@ export default function CbtOptionInputItem({
             title={`Sisipkan kotak terminal/error output ke Opsi ${label}`}
           >
             <Terminal size={13} className={showTerminalPalette ? 'text-white' : 'text-cyan-600 dark:text-cyan-400'} />
-            <span className="hidden sm:inline">Terminal</span>
+            <span className="hidden md:inline">Terminal</span>
           </button>
 
           {/* Tombol Sisipkan Foto/Gambar */}
@@ -274,6 +300,7 @@ export default function CbtOptionInputItem({
             type="button"
             onClick={() => {
               setShowImageModal(!showImageModal);
+              setShowStudioToolbar(false);
               setShowMathPalette(false);
               setShowTerminalPalette(false);
             }}
@@ -301,6 +328,34 @@ export default function CbtOptionInputItem({
           )}
         </div>
       </div>
+
+      {/* 🎨 STUDIO FORMAT SOAL CBT UNTUK OPSI JAWABAN (Lengkap, Rapi & Elegan) */}
+      {showStudioToolbar && (
+        <div className="p-2 sm:p-2.5 bg-slate-50/80 dark:bg-slate-950/80 border-t border-purple-200/60 dark:border-purple-900/40 animate-in fade-in slide-in-from-top-1 duration-200">
+          <CbtFormatToolbar
+            textareaRef={textareaRef}
+            value={value}
+            onChange={onChangeText}
+            title={`Studio Format Pilihan ${label}`}
+            subtitle="Lengkap untuk Teks, Soal AKM, Wacana, IT, Rumus MTK & Tabel"
+            targetLabel={`pilihan ${label}`}
+            showPreviewToggle={false}
+            defaultCollapsed={false}
+            disableLocalStorageState={true}
+            onClose={() => setShowStudioToolbar(false)}
+            onInsertMath={(snippet) => {
+              const wrapped = snippet.startsWith('$') ? snippet : `$${snippet}$`;
+              const newText = value.trim() ? `${value.trim()} ${wrapped}` : wrapped;
+              onChangeText(newText);
+            }}
+            onOpenTable={() => {
+              const tableSnippet = '\n| Pilihan | Keterangan |\n| :--- | :--- |\n| Opsi 1 | Keterangan A |\n| Opsi 2 | Keterangan B |\n';
+              const newText = value ? `${value}${tableSnippet}` : tableSnippet;
+              onChangeText(newText);
+            }}
+          />
+        </div>
+      )}
 
       {/* Palet Pintasan Rumus Khusus Opsi Ini */}
       {showMathPalette && (

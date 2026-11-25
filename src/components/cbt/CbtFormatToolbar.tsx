@@ -6,8 +6,6 @@ import {
   Italic, 
   Underline, 
   Strikethrough, 
-  Subscript as SubscriptIcon,
-  Superscript as SuperscriptIcon,
   AlignLeft,
   AlignCenter,
   AlignRight,
@@ -40,14 +38,18 @@ import {
 import CbtRichText from './CbtRichText';
 
 export interface CbtFormatToolbarProps {
-  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+  textareaRef: React.RefObject<HTMLTextAreaElement | HTMLInputElement | null>;
   value: string;
   onChange: (val: string) => void;
+  title?: string;
+  subtitle?: string;
   targetLabel?: string;
   showPreviewToggle?: boolean;
   onOpenTable?: () => void;
   onInsertMath?: (snippet: string) => void;
   defaultCollapsed?: boolean;
+  disableLocalStorageState?: boolean;
+  onClose?: () => void;
 }
 
 interface FormulaQuickItem {
@@ -89,15 +91,37 @@ export default function CbtFormatToolbar({
   textareaRef,
   value,
   onChange,
+  title,
+  subtitle,
   targetLabel = 'soal ujian',
   showPreviewToggle = true,
   onOpenTable,
   onInsertMath,
   defaultCollapsed = false,
+  disableLocalStorageState = false,
+  onClose,
 }: CbtFormatToolbarProps) {
   // 🎛️ State Auto-Hide & Collapse
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(defaultCollapsed);
-  const [isPinned, setIsPinned] = useState<boolean>(false);
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    if (typeof window !== 'undefined' && !disableLocalStorageState) {
+      try {
+        const savedPinned = localStorage.getItem('cbt_format_toolbar_pinned');
+        if (savedPinned === 'true') return false;
+        const savedCollapsed = localStorage.getItem('cbt_format_toolbar_collapsed');
+        if (savedCollapsed !== null) return savedCollapsed === 'true';
+      } catch {}
+    }
+    return defaultCollapsed;
+  });
+
+  const [isPinned, setIsPinned] = useState<boolean>(() => {
+    if (typeof window !== 'undefined' && !disableLocalStorageState) {
+      try {
+        return localStorage.getItem('cbt_format_toolbar_pinned') === 'true';
+      } catch {}
+    }
+    return false;
+  });
 
   // Menu Dropdowns
   const [showPreview, setShowPreview] = useState(false);
@@ -111,21 +135,6 @@ export default function CbtFormatToolbar({
   const [showMathMenu, setShowMathMenu] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [currentAlign, setCurrentAlign] = useState<'left' | 'center' | 'right' | 'justify'>('left');
-
-  // Baca preferensi auto-hide dari localStorage
-  useEffect(() => {
-    try {
-      const savedCollapsed = localStorage.getItem('cbt_format_toolbar_collapsed');
-      if (savedCollapsed !== null) {
-        setIsCollapsed(savedCollapsed === 'true');
-      }
-      const savedPinned = localStorage.getItem('cbt_format_toolbar_pinned');
-      if (savedPinned !== null) {
-        setIsPinned(savedPinned === 'true');
-        if (savedPinned === 'true') setIsCollapsed(false);
-      }
-    } catch {}
-  }, []);
 
   const toggleCollapse = () => {
     setIsCollapsed((prev) => {
@@ -210,7 +219,9 @@ export default function CbtFormatToolbar({
     }
   };
 
+  // eslint-disable-next-line react-hooks/refs
   const canUndo = historyIndexRef.current > 0;
+  // eslint-disable-next-line react-hooks/refs
   const canRedo = historyIndexRef.current < historyRef.current.length - 1;
 
   // Helper format tag
@@ -509,34 +520,42 @@ export default function CbtFormatToolbar({
             <div className="flex items-center gap-2">
               <span className="flex items-center gap-1 font-bold text-slate-700 dark:text-slate-300">
                 <Sparkles size={13} className="text-purple-600" />
-                <span>Studio Format Soal CBT</span>
+                <span>{title || 'Studio Format Soal CBT'}</span>
               </span>
               <span className="hidden sm:inline text-slate-300 dark:text-slate-700">•</span>
               <span className="hidden sm:inline text-slate-400 dark:text-slate-500">
-                Lengkap untuk Teks, Soal AKM, Wacana, IT, Rumus MTK & Tabel
+                {subtitle || (targetLabel ? `Lengkap untuk ${targetLabel} (Teks, Rumus MTK, Font, Warna & Simbol)` : 'Lengkap untuk Teks, Soal AKM, Wacana, IT, Rumus MTK & Tabel')}
               </span>
             </div>
 
             <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={togglePin}
-                className={`flex items-center gap-1 px-2 py-0.5 rounded-md font-semibold transition cursor-pointer ${
-                  isPinned 
-                    ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300' 
-                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                }`}
-                title={isPinned ? 'Sematkan aktif: Toolbar selalu terbuka' : 'Klik untuk menyematkan agar selalu terbuka'}
-              >
-                {isPinned ? <Pin size={11} className="fill-purple-600" /> : <PinOff size={11} />}
-                <span className="hidden md:inline">{isPinned ? 'Disematkan' : 'Sematkan'}</span>
-              </button>
+              {!onClose && (
+                <button
+                  type="button"
+                  onClick={togglePin}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-md font-semibold transition cursor-pointer ${
+                    isPinned 
+                      ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300' 
+                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                  }`}
+                  title={isPinned ? 'Sematkan aktif: Toolbar selalu terbuka' : 'Klik untuk menyematkan agar selalu terbuka'}
+                >
+                  {isPinned ? <Pin size={11} className="fill-purple-600" /> : <PinOff size={11} />}
+                  <span className="hidden md:inline">{isPinned ? 'Disematkan' : 'Sematkan'}</span>
+                </button>
+              )}
 
               <button
                 type="button"
-                onClick={toggleCollapse}
+                onClick={() => {
+                  if (onClose) {
+                    onClose();
+                  } else {
+                    toggleCollapse();
+                  }
+                }}
                 className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-slate-200/80 dark:bg-slate-800 hover:bg-slate-300/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold transition cursor-pointer"
-                title="Sembunyikan toolbar ke mode auto-hide agar ruang ketik lebih lega"
+                title="Sembunyikan toolbar"
               >
                 <ChevronUp size={12} />
                 <span>Sembunyikan</span>
