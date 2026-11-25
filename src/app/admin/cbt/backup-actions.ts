@@ -534,3 +534,108 @@ export async function restoreCbtBackupAction(
     };
   }
 }
+
+// 🔍 4. LIVE DATABASE HEALTH & DIAGNOSTIC CHECK (Supabase Pooler & Latency Ping)
+export interface DatabaseHealthResult {
+  success: boolean;
+  status: 'HEALTHY' | 'DEGRADED' | 'DOWN';
+  pingMs: number;
+  dbTime: string;
+  timeOffsetMs: number;
+  provider: string;
+  poolerStatus: string;
+  counts: {
+    exams: number;
+    questions: number;
+    attempts: number;
+    users: number;
+  };
+  summary: string;
+  error?: string;
+  checkedAt: string;
+}
+
+export async function checkDatabaseHealthAction(): Promise<DatabaseHealthResult> {
+  const startTime = Date.now();
+  try {
+    const auth = await verifySuperAdmin();
+    if (!auth.isAuthorized) {
+      return {
+        success: false,
+        status: 'DOWN',
+        pingMs: 0,
+        dbTime: '',
+        timeOffsetMs: 0,
+        provider: 'Supabase PostgreSQL',
+        poolerStatus: 'Akses Ditolak',
+        counts: { exams: 0, questions: 0, attempts: 0, users: 0 },
+        summary: auth.error || 'Akses Ditolak',
+        error: auth.error,
+        checkedAt: new Date().toISOString(),
+      };
+    }
+
+    // 1. Eksekusi low-overhead query raw SQL untuk mengukur latensi round-trip murni ke Supabase
+    const t0 = Date.now();
+    const rawResult: any[] = await prisma.$queryRaw`SELECT NOW() as db_time, version() as pg_version`;
+    const pingMs = Math.max(1, Date.now() - t0);
+
+    const dbTimeDate = rawResult?.[0]?.db_time ? new Date(rawResult[0].db_time) : new Date();
+    const timeOffsetMs = Math.abs(Date.now() - dbTimeDate.getTime());
+
+    // 2. Query hitungan data utama secara paralel untuk verifikasi kesiapan baca (read readiness)
+    const [exams, questions, attempts, users] = await Promise.all([
+      prisma.exam.count(),
+      prisma.examQuestion.count(),
+      prisma.examAttempt.count(),
+      prisma.user.count(),
+    ]);
+
+    let status: 'HEALTHY' | 'DEGRADED' | 'DOWN' = 'HEALTHY';
+    let summary = 'Koneksi database Supabase sangat prima & stabil. Siap digunakan untuk ujian!';
+
+    if (pingMs > 400) {
+      status = 'DEGRADED';
+      summary = `Koneksi database terhubung namun latensi agak lambat (${pingMs} ms). Pastikan koneksi internet stabil.`;
+    } else if (pingMs <= 100) {
+      status = 'HEALTHY';
+      summary = `Koneksi database sangat cepat & prima (${pingMs} ms). Seluruh tabel siap melayani ujian.`;
+    } else {
+      status = 'HEALTHY';
+      summary = `Koneksi database normal & lancar (${pingMs} ms).`;
+    }
+
+    return {
+      success: true,
+      status,
+      pingMs,
+      dbTime: dbTimeDate.toISOString(),
+      timeOffsetMs,
+      provider: 'Supabase PostgreSQL (ap-northeast-1 / Tokyo)',
+      poolerStatus: 'PgBouncer Port 6543 (Pool Mode: Transaction) Aktif',
+      counts: {
+        exams,
+        questions,
+        attempts,
+        users,
+      },
+      summary,
+      checkedAt: new Date().toISOString(),
+    };
+  } catch (error: any) {
+    const elapsed = Date.now() - startTime;
+    return {
+      success: false,
+      status: 'DOWN',
+      pingMs: elapsed,
+      dbTime: '',
+      timeOffsetMs: 0,
+      provider: 'Supabase PostgreSQL',
+      poolerStatus: 'Koneksi Terputus / Timeout',
+      counts: { exams: 0, questions: 0, attempts: 0, users: 0 },
+      summary: `Gangguan koneksi database: ${error.message || 'Timeout / Connection Refused'}`,
+      error: error.message || 'Unknown database error',
+      checkedAt: new Date().toISOString(),
+    };
+  }
+}

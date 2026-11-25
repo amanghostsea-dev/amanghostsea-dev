@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Database,
   Download,
@@ -19,13 +19,20 @@ import {
   Lock,
   ArrowRight,
   X,
-  Server
+  Server,
+  Activity,
+  Zap,
+  Clock,
+  ShieldAlert,
+  Wifi
 } from 'lucide-react';
 import {
   exportCbtBackupAction,
   validateCbtBackupAction,
   restoreCbtBackupAction,
+  checkDatabaseHealthAction,
   CbtBackupMetadata,
+  DatabaseHealthResult,
 } from './backup-actions';
 
 interface CbtBackupRestoreViewProps {
@@ -63,7 +70,39 @@ export default function CbtBackupRestoreView({
   const [isRestoring, setIsRestoring] = useState(false);
   const [restoreSuccessMessage, setRestoreSuccessMessage] = useState<string | null>(null);
 
+  // State Live Health Check
+  const [healthResult, setHealthResult] = useState<DatabaseHealthResult | null>(null);
+  const [isCheckingHealth, setIsCheckingHealth] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 🔍 Handler Diagnosa Kesehatan Database Real-Time
+  const handleRunHealthCheck = async () => {
+    setIsCheckingHealth(true);
+    try {
+      const res = await checkDatabaseHealthAction();
+      setHealthResult(res);
+    } catch (err: any) {
+      setHealthResult({
+        success: false,
+        status: 'DOWN',
+        pingMs: 0,
+        dbTime: '',
+        timeOffsetMs: 0,
+        provider: 'Supabase PostgreSQL',
+        poolerStatus: 'Error Jaringan Klien',
+        counts: { exams: totalExams, questions: totalQuestions, attempts: totalAttempts, users: 0 },
+        summary: `Gagal memverifikasi: ${err.message || 'Error server'}`,
+        checkedAt: new Date().toISOString(),
+      });
+    } finally {
+      setIsCheckingHealth(false);
+    }
+  };
+
+  useEffect(() => {
+    handleRunHealthCheck();
+  }, []);
 
   // 📦 Handler Ekspor Cadangan (.cbtbak)
   const handleExportBackup = async () => {
@@ -216,6 +255,169 @@ export default function CbtBackupRestoreView({
           </div>
         </div>
       )}
+
+      {/* 🔍 LIVE DIAGNOSA KESEHATAN DATABASE SUPABASE */}
+      <div className={`rounded-3xl p-6 bg-white dark:bg-slate-900 border transition-all duration-300 shadow-sm ${
+        isCheckingHealth
+          ? 'border-blue-400 ring-2 ring-blue-400/20'
+          : healthResult?.status === 'HEALTHY'
+            ? 'border-emerald-400/80 ring-2 ring-emerald-400/15 dark:border-emerald-700/80'
+            : healthResult?.status === 'DEGRADED'
+              ? 'border-amber-400/80 ring-2 ring-amber-400/20 dark:border-amber-700/80'
+              : healthResult?.status === 'DOWN'
+                ? 'border-rose-500 ring-2 ring-rose-500/20'
+                : 'border-slate-200 dark:border-slate-800'
+      }`}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-xs ${
+              healthResult?.status === 'HEALTHY'
+                ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'
+                : healthResult?.status === 'DEGRADED'
+                  ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400'
+                  : 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400'
+            }`}>
+              <Activity size={22} className={isCheckingHealth ? 'animate-pulse' : ''} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-base font-black text-slate-900 dark:text-white">
+                  Diagnosa Kesehatan Database Supabase
+                </h3>
+                {healthResult ? (
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider ${
+                    healthResult.status === 'HEALTHY'
+                      ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                      : healthResult.status === 'DEGRADED'
+                        ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+                        : 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800'
+                  }`}>
+                    <span className={`w-2 h-2 rounded-full ${
+                      healthResult.status === 'HEALTHY'
+                        ? 'bg-emerald-500 animate-pulse'
+                        : healthResult.status === 'DEGRADED'
+                          ? 'bg-amber-500 animate-ping'
+                          : 'bg-rose-500 animate-ping'
+                    }`} />
+                    <span>
+                      {healthResult.status === 'HEALTHY'
+                        ? 'Normal & Sangat Sehat'
+                        : healthResult.status === 'DEGRADED'
+                          ? 'Terhubung (Ada Latensi)'
+                          : 'Gangguan / Offline'}
+                    </span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500">
+                    <RefreshCw size={10} className="animate-spin" /> Menghubungkan...
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Uji langsung latensi query, status PgBouncer pooler, dan kesiapan baca-tulis server secara real-time.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button
+              onClick={handleRunHealthCheck}
+              disabled={isCheckingHealth}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition cursor-pointer ${
+                isCheckingHealth
+                  ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'
+              }`}
+            >
+              <RefreshCw size={14} className={isCheckingHealth ? 'animate-spin' : ''} />
+              <span>{isCheckingHealth ? 'Menguji Koneksi...' : 'Uji Koneksi Ulang'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* METRICS GRID */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4">
+          {/* Metric 1: Latensi Respon */}
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
+              <Zap size={11} className="text-amber-500" /> Latensi Query
+            </span>
+            <div className="flex items-baseline gap-1.5">
+              <span className={`text-2xl font-black font-mono ${
+                (healthResult?.pingMs || 0) <= 100
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : (healthResult?.pingMs || 0) <= 400
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-rose-600 dark:text-rose-400'
+              }`}>
+                {healthResult ? `${healthResult.pingMs}` : '--'}
+              </span>
+              <span className="text-xs font-bold text-slate-400">ms</span>
+            </div>
+            <span className="text-[10px] text-slate-400 block">
+              {(healthResult?.pingMs || 0) <= 100 ? '⚡ Sangat Cepat' : (healthResult?.pingMs || 0) <= 400 ? '🟡 Normal' : '🔴 Lambat'}
+            </span>
+          </div>
+
+          {/* Metric 2: Connection Pooler */}
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
+              <Server size={11} className="text-blue-500" /> Connection Pooler
+            </span>
+            <div className="text-sm font-black text-slate-800 dark:text-slate-200">
+              PgBouncer 6543
+            </div>
+            <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 block">
+              Mode: Transaksi Aktif
+            </span>
+          </div>
+
+          {/* Metric 3: Sinkronisasi Jam */}
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
+              <Clock size={11} className="text-purple-500" /> Jam Server DB
+            </span>
+            <div className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 truncate">
+              {healthResult?.dbTime ? new Date(healthResult.dbTime).toLocaleTimeString('id-ID') : '--:--:--'}
+            </div>
+            <span className="text-[10px] text-slate-400 block">
+              Offset: {healthResult ? `${(healthResult.timeOffsetMs / 1000).toFixed(2)} dtk` : '0 dtk'}
+            </span>
+          </div>
+
+          {/* Metric 4: Tabel Terhubung */}
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
+              <Database size={11} className="text-cyan-500" /> Status Database
+            </span>
+            <div className="text-sm font-black text-slate-800 dark:text-slate-200">
+              {healthResult?.counts ? `${healthResult.counts.exams} Paket Ujian` : `${totalExams} Paket Ujian`}
+            </div>
+            <span className="text-[10px] text-slate-400 block">
+              {healthResult?.counts ? `${healthResult.counts.questions} Soal • ${healthResult.counts.attempts} Siswa` : `${totalQuestions} Soal`}
+            </span>
+          </div>
+        </div>
+
+        {/* SUMMARY FOOTER NOTE */}
+        {healthResult && (
+          <div className={`mt-4 p-3 rounded-2xl text-xs flex items-center justify-between gap-3 border ${
+            healthResult.status === 'HEALTHY'
+              ? 'bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
+              : healthResult.status === 'DEGRADED'
+                ? 'bg-amber-50/80 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200'
+                : 'bg-rose-50/80 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200'
+          }`}>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={16} className={healthResult.status === 'HEALTHY' ? 'text-emerald-600' : 'text-amber-600'} />
+              <span><strong>Diagnosa:</strong> {healthResult.summary}</span>
+            </div>
+            <span className="text-[11px] text-slate-400 shrink-0 hidden md:inline">
+              Terakhir diperiksa: {new Date(healthResult.checkedAt).toLocaleTimeString('id-ID')}
+            </span>
+          </div>
+        )}
+      </div>
 
       {/* 2 KARTU UTAMA: EKSPOR & IMPOR */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

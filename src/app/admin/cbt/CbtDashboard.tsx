@@ -2274,9 +2274,9 @@ export default function CbtDashboard({
                 }`}
               >
                 <Database size={16} className={`shrink-0 group-hover:scale-115 transition-transform duration-200 ${activeMainTab === 'backup' ? 'text-white' : 'text-blue-500'}`} />
-                <span className="truncate">Cadangan CBT</span>
-                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-blue-500/20 text-blue-300 border border-blue-400/30 shrink-0 font-mono">
-                  BAK
+                <span className="truncate">Cadangan & Diagnosa</span>
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 shrink-0 font-mono">
+                  HEALTH
                 </span>
               </button>
             )}
@@ -2308,6 +2308,17 @@ export default function CbtDashboard({
           </div>
 
           <div className="flex items-center gap-2">
+            {isSuperAdmin && (
+              <button
+                type="button"
+                onClick={() => handleTabSwitch('backup')}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition cursor-pointer shadow-2xs"
+                title="Buka Diagnosa Real-time & Kesehatan Database Supabase"
+              >
+                <Activity size={13} className="text-emerald-600 dark:text-emerald-400 animate-pulse" />
+                <span>Status DB Supabase</span>
+              </button>
+            )}
             <span className="text-xs text-slate-400 font-medium hidden sm:inline">Status Jadwal:</span>
             {systemConflicts.length === 0 ? (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
