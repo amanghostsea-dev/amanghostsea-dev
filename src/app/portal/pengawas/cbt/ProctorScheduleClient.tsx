@@ -23,7 +23,11 @@ import {
   ShieldAlert,
   Play,
   Flame,
-  AlertTriangle
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  History,
+  Zap
 } from 'lucide-react';
 import { formatExamScheduleRange, getExamScheduleState, formatClassTargetDisplay, isClassOverlap } from '@/lib/cbt-schedule';
 import { normalizeReligion, getReligionConfig, ReligionCode, ReligionOption } from '@/lib/cbt-religion';
@@ -96,6 +100,7 @@ export default function ProctorScheduleClient({
 }: ProctorScheduleClientProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTab, setFilterTab] = useState<'ALL' | 'ACTIVE_TODAY' | 'UPCOMING' | 'FINISHED'>('ALL');
+  const [showFinished, setShowFinished] = useState(true);
 
   const isSuperAdmin = currentUser.role === 'Super Admin' || currentUser.role === 'Admin Utama';
 
@@ -260,6 +265,84 @@ export default function ProctorScheduleClient({
     return cards;
   }, [filteredExams]);
 
+  // 🧭 Helper evaluasi urgensi kartu secara presisi
+  const getCardUrgency = (card: UnifiedExamCardItem, now: number) => {
+    const exam = card.primaryExam;
+    const isOngoing = exam.scheduleState.state === 'ONGOING' || exam.status === 'ACTIVE';
+    const isEnded = exam.scheduleState.state === 'ENDED' || exam.status === 'ARCHIVED';
+    const startTimeMs = exam.startTime ? new Date(exam.startTime).getTime() : null;
+    const endTimeMs = exam.endTime ? new Date(exam.endTime).getTime() : null;
+    const diffToStartMs = !isOngoing && !isEnded && startTimeMs ? startTimeMs - now : null;
+    const isImminent = diffToStartMs !== null && diffToStartMs > 0 && diffToStartMs <= 15 * 60 * 1000;
+
+    let tier = 3; // Tier 3: Mendatang
+    if (isOngoing) tier = 1; // Tier 1: LIVE NOW
+    else if (isImminent) tier = 2; // Tier 2: Segera Dimulai (< 15 Min)
+    else if (isEnded) tier = 4; // Tier 4: Selesai
+
+    return {
+      tier,
+      isOngoing,
+      isImminent,
+      isEnded,
+      startTimeMs,
+      endTimeMs,
+      diffToStartMs,
+    };
+  };
+
+  // ⚡ SMART URGENCY SORTING (Kronologis Prioritas Canggih)
+  // Urutan:
+  // 1. Sedang Berlangsung (Live) di paling atas
+  // 2. Segera Dimulai (< 15 Menit) di urutan berikutnya
+  // 3. Jadwal Mendatang secara kronologis waktu terdekat
+  // 4. Jadwal Selesai / Arsip di urutan paling bawah
+  const sortedGroupedCards = useMemo(() => {
+    return [...groupedExamCards].sort((cardA, cardB) => {
+      const urgA = getCardUrgency(cardA, currentTime);
+      const urgB = getCardUrgency(cardB, currentTime);
+
+      // Urgency Tier (1 -> 2 -> 3 -> 4)
+      if (urgA.tier !== urgB.tier) {
+        return urgA.tier - urgB.tier;
+      }
+
+      // Dalam Tier 1 (Ongoing): Sesi yang selesai paling cepat di atas
+      if (urgA.tier === 1) {
+        return (urgA.endTimeMs || 0) - (urgB.endTimeMs || 0);
+      }
+
+      // Dalam Tier 2 & 3 (Imminent & Upcoming): Sesi dengan waktu mulai paling dekat di atas
+      if (urgA.tier === 2 || urgA.tier === 3) {
+        return (urgA.startTimeMs || 0) - (urgB.startTimeMs || 0);
+      }
+
+      // Dalam Tier 4 (Selesai): Ujian yang paling baru selesai di atas, ujian lama di bawah
+      return (urgB.endTimeMs || urgB.startTimeMs || 0) - (urgA.endTimeMs || urgA.startTimeMs || 0);
+    });
+  }, [groupedExamCards, currentTime]);
+
+  const activeAndImminentCards = useMemo(() => {
+    return sortedGroupedCards.filter((card) => {
+      const urg = getCardUrgency(card, currentTime);
+      return urg.tier === 1 || urg.tier === 2;
+    });
+  }, [sortedGroupedCards, currentTime]);
+
+  const upcomingCards = useMemo(() => {
+    return sortedGroupedCards.filter((card) => {
+      const urg = getCardUrgency(card, currentTime);
+      return urg.tier === 3;
+    });
+  }, [sortedGroupedCards, currentTime]);
+
+  const finishedCards = useMemo(() => {
+    return sortedGroupedCards.filter((card) => {
+      const urg = getCardUrgency(card, currentTime);
+      return urg.tier === 4;
+    });
+  }, [sortedGroupedCards, currentTime]);
+
   const ongoingCount = examItemsWithState.filter(
     (e) => e.scheduleState.state === 'ONGOING' || e.status === 'ACTIVE'
   ).length;
@@ -270,6 +353,236 @@ export default function ProctorScheduleClient({
     const start = e.startTime ? new Date(e.startTime).getTime() : 0;
     return !isOngoing && !isEnded && start > 0 && start - currentTime > 0 && start - currentTime <= 15 * 60 * 1000;
   }).length;
+
+  // 🎴 Helper Render Kartu Ujian Lengkap & Reaktif
+  const renderExamCard = (card: UnifiedExamCardItem) => {
+    const exam = card.primaryExam;
+    const sched = formatExamScheduleRange(exam.startTime, exam.endTime);
+    const isOngoing = exam.scheduleState.state === 'ONGOING' || exam.status === 'ACTIVE';
+    const isEnded = exam.scheduleState.state === 'ENDED' || exam.status === 'ARCHIVED';
+
+    // ⏱️ Real-time Imminent Alert (< 15 Menit menuju waktu ujian)
+    const startTimeMs = exam.startTime ? new Date(exam.startTime).getTime() : null;
+    const diffToStartMs = !isOngoing && !isEnded && startTimeMs ? startTimeMs - currentTime : null;
+    const isImminent = diffToStartMs !== null && diffToStartMs > 0 && diffToStartMs <= 15 * 60 * 1000;
+    const minutesToStart = isImminent ? Math.max(1, Math.ceil(diffToStartMs / 60000)) : 0;
+
+    return (
+      <div
+        key={card.id}
+        className={`rounded-3xl p-6 bg-white dark:bg-slate-900 border transition-all duration-500 flex flex-col justify-between space-y-4 shadow-sm hover:shadow-md ${
+          isOngoing
+            ? 'border-emerald-500 ring-2 ring-emerald-400/20 shadow-emerald-500/10'
+            : isImminent
+              ? 'border-2 border-amber-500 dark:border-amber-400 ring-4 ring-amber-500/40 shadow-xl shadow-amber-500/20 animate-pulse bg-gradient-to-br from-amber-500/[0.04] via-white to-rose-500/[0.04] dark:from-amber-950/25 dark:via-slate-900 dark:to-rose-950/20'
+              : isEnded
+                ? 'border-slate-200 dark:border-slate-800 opacity-75'
+                : card.isUnifiedReligion
+                  ? 'border-emerald-300 dark:border-emerald-800/80 shadow-emerald-500/5'
+                  : card.isUnifiedRoom
+                    ? 'border-indigo-300 dark:border-indigo-800/80 shadow-indigo-500/5'
+                    : 'border-slate-200 dark:border-slate-800'
+        }`}
+      >
+        <div className="space-y-3">
+          {/* Top status line */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300">
+                {card.isUnifiedRoom
+                  ? [exam, ...card.partnerExams].map((e) => formatClassTargetDisplay(e.classTarget, true)).join(' + ')
+                  : formatClassTargetDisplay(exam.classTarget)}
+              </span>
+              <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                <MapPin size={12} className="text-blue-500" />
+                <span>{exam.roomName || 'Ruang Utama'}</span>
+              </span>
+            </div>
+
+            {isOngoing ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 animate-pulse">
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span>SEDANG BERLANGSUNG</span>
+              </span>
+            ) : isImminent ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 text-white shadow-md shadow-amber-500/40 animate-pulse">
+                <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
+                <span>🔥 SEGERA DIMULAI ({minutesToStart} MENIT LAGI)</span>
+              </span>
+            ) : isEnded ? (
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500">
+                SELESAI
+              </span>
+            ) : (
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300">
+                MENDATANG
+              </span>
+            )}
+          </div>
+
+          {/* Title & Subject */}
+          <div>
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/80">
+                Plotting Resmi Admin
+              </span>
+              {card.isUnifiedReligion ? (
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-gradient-to-r from-emerald-600 via-teal-600 to-sky-600 text-white shadow-xs flex items-center gap-1">
+                  <span>🕌 Sesi Paralel Agama Terpadu</span>
+                </span>
+              ) : card.isUnifiedRoom ? (
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white shadow-xs flex items-center gap-1">
+                  <span>🏢 Sesi Terpadu Ruangan ({card.partnerExams.length + 1} Paket)</span>
+                </span>
+              ) : null}
+            </div>
+            <h3 className="text-base font-black text-slate-900 dark:text-white line-clamp-1">
+              {card.unifiedTitle}
+            </h3>
+            <p className="text-xs font-bold text-purple-600 dark:text-purple-400 mt-0.5">
+              {card.unifiedSubject}
+            </p>
+
+            {/* Badges Multi-Paket Ruangan */}
+            {card.isUnifiedRoom && (
+              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                {[exam, ...card.partnerExams].map((ex) => (
+                  <span
+                    key={ex.id}
+                    className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/80 flex items-center gap-1"
+                  >
+                    <span>📋</span>
+                    <span>{formatClassTargetDisplay(ex.classTarget, true)}: {ex.subject}</span>
+                  </span>
+                ))}
+                <span className="text-[10px] text-slate-400 font-mono">
+                  (1 Token Bersama)
+                </span>
+              </div>
+            )}
+
+            {/* Badges Agama Terpadu */}
+            {card.isUnifiedReligion && (
+              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                {card.religionBadges.map((rb) => (
+                  <span
+                    key={rb.code}
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold border flex items-center gap-1 ${rb.bgBadge} ${rb.borderBadge} ${rb.textBadge}`}
+                  >
+                    <span>{rb.icon}</span>
+                    <span>{rb.shortLabel}</span>
+                  </span>
+                ))}
+                <span className="text-[10px] text-slate-400 font-mono">
+                  (1 Token Bersama)
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* ⏱️ WIDGET HITUNG MUNDUR CANGGIH */}
+          <ExamCountdownWidget
+            startTime={exam.startTime}
+            endTime={exam.endTime}
+            duration={exam.duration}
+            roomName={exam.roomName || 'Ruang CBT'}
+          />
+
+          {/* ⚠️ HIGH-VISIBILITY IMMINENT WARNING BANNER (< 15 MENIT) */}
+          {isImminent && (
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-rose-500/15 border-2 border-amber-500/60 text-amber-950 dark:text-amber-200 text-xs flex items-center justify-between gap-3 shadow-md shadow-amber-500/10 animate-pulse">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-rose-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm font-black text-sm">
+                  <Flame size={18} className="fill-white animate-bounce" />
+                </div>
+                <div className="space-y-0.5">
+                  <div className="font-black text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                    <span>PERSIAPAN PENGAWAS ({minutesToStart} MENIT MENUJU MULAI)</span>
+                  </div>
+                  <p className="text-[11px] text-amber-800 dark:text-amber-300/90 leading-snug">
+                    Ujian ini segera dimulai! Harap buka ruang pengawasan sekarang untuk persiapan rilis token & proyektor.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Schedule detail */}
+          <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-xs space-y-1.5 border border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+              <Clock size={14} className="text-blue-500 flex-shrink-0" />
+              <span className="font-semibold">{sched}</span>
+            </div>
+            {exam.startTime && (
+              <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 pl-5">
+                <Calendar size={12} />
+                <span>{new Date(exam.startTime).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Proctor Badge */}
+          <div className="text-[11px] text-slate-500 flex items-center justify-between pt-1">
+            <span>Pengawas 1: <strong className="text-slate-800 dark:text-slate-200">{exam.proctorName || currentUser.name}</strong></span>
+            {exam.proctor2Name && <span>Pengawas 2: <strong className="text-slate-700">{exam.proctor2Name}</strong></span>}
+          </div>
+        </div>
+
+        {/* CTA BUTTON */}
+        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+          <span className="text-[11px] text-slate-400 font-medium">
+            {card.combinedAttempts > 0
+              ? `${card.combinedAttempts} Siswa Mengerjakan`
+              : isImminent
+                ? '🔥 Persiapan Pengawas (< 15 Menit)'
+                : isEnded
+                  ? 'Ujian Telah Berakhir'
+                  : card.isUnifiedReligion
+                    ? 'Siap Diawasi (Sesi Terpadu)'
+                    : 'Siap Diawasi'}
+          </span>
+
+          <Link
+            href={`/portal/pengawas/cbt/${card.primaryExam.id}`}
+            className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer ${
+              isOngoing
+                ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/25 ring-2 ring-emerald-400/40'
+                : isImminent
+                  ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 hover:from-amber-600 hover:to-rose-700 text-white shadow-lg shadow-amber-500/40 ring-4 ring-amber-400/50 animate-pulse hover:animate-none font-black tracking-wide'
+                  : isEnded
+                    ? 'bg-slate-700 hover:bg-slate-800 text-white shadow-slate-500/20'
+                    : card.isUnifiedReligion
+                      ? 'bg-gradient-to-r from-emerald-600 to-sky-600 hover:from-emerald-500 hover:to-sky-500 text-white shadow-emerald-500/20'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25'
+            }`}
+          >
+            {isOngoing ? (
+              <>
+                <Play size={15} />
+                <span>{card.isUnifiedReligion ? 'Mulai Pengawasan Terpadu (Live)' : 'Mulai Pengawasan (Live)'}</span>
+              </>
+            ) : isImminent ? (
+              <>
+                <Sparkles size={15} className="animate-spin text-amber-200" />
+                <span>Buka Ruang Ujian Sekarang</span>
+              </>
+            ) : isEnded ? (
+              <>
+                <Eye size={15} />
+                <span>Lihat Berita Acara & Hasil</span>
+              </>
+            ) : (
+              <>
+                <Eye size={15} />
+                <span>{card.isUnifiedReligion ? 'Pratinjau Ruang Terpadu' : 'Pratinjau Ruang Ujian'}</span>
+              </>
+            )}
+            <ArrowRight size={14} />
+          </Link>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-4 sm:p-6 lg:p-10 font-sans">
@@ -377,15 +690,21 @@ export default function ProctorScheduleClient({
             </button>
           </div>
 
-          <div className="relative w-full sm:w-64">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari mapel, kelas, atau ruang..."
-              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-[11px] font-semibold text-slate-500 dark:text-slate-400 border border-slate-200/60 dark:border-slate-700/60">
+              <Zap size={13} className="text-amber-500 fill-amber-500" />
+              <span>Prioritas Otomatis Aktif</span>
+            </div>
+            <div className="relative w-full sm:w-64">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari mapel, kelas, atau ruang..."
+                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
           </div>
         </div>
 
@@ -419,227 +738,101 @@ export default function ProctorScheduleClient({
               </div>
             )}
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {groupedExamCards.map((card) => {
-              const exam = card.primaryExam;
-              const sched = formatExamScheduleRange(exam.startTime, exam.endTime);
-              const isOngoing = exam.scheduleState.state === 'ONGOING' || exam.status === 'ACTIVE';
-              const isEnded = exam.scheduleState.state === 'ENDED' || exam.status === 'ARCHIVED';
-
-              // ⏱️ Real-time Imminent Alert (< 15 Menit menuju waktu ujian)
-              const startTimeMs = exam.startTime ? new Date(exam.startTime).getTime() : null;
-              const diffToStartMs = !isOngoing && !isEnded && startTimeMs ? startTimeMs - currentTime : null;
-              const isImminent = diffToStartMs !== null && diffToStartMs > 0 && diffToStartMs <= 15 * 60 * 1000;
-              const minutesToStart = isImminent ? Math.max(1, Math.ceil(diffToStartMs / 60000)) : 0;
-
-              return (
-                <div
-                  key={card.id}
-                  className={`rounded-3xl p-6 bg-white dark:bg-slate-900 border transition-all duration-500 flex flex-col justify-between space-y-4 shadow-sm hover:shadow-md ${
-                    isOngoing
-                      ? 'border-emerald-500 ring-2 ring-emerald-400/20 shadow-emerald-500/10'
-                      : isImminent
-                        ? 'border-2 border-amber-500 dark:border-amber-400 ring-4 ring-amber-500/40 shadow-xl shadow-amber-500/20 animate-pulse bg-gradient-to-br from-amber-500/[0.04] via-white to-rose-500/[0.04] dark:from-amber-950/25 dark:via-slate-900 dark:to-rose-950/20'
-                        : isEnded
-                          ? 'border-slate-200 dark:border-slate-800 opacity-75'
-                          : card.isUnifiedReligion
-                            ? 'border-emerald-300 dark:border-emerald-800/80 shadow-emerald-500/5'
-                            : card.isUnifiedRoom
-                              ? 'border-indigo-300 dark:border-indigo-800/80 shadow-indigo-500/5'
-                              : 'border-slate-200 dark:border-slate-800'
-                  }`}
-                >
-                  <div className="space-y-3">
-                    {/* Top status line */}
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300">
-                          {card.isUnifiedRoom
-                            ? [exam, ...card.partnerExams].map((e) => formatClassTargetDisplay(e.classTarget, true)).join(' + ')
-                            : formatClassTargetDisplay(exam.classTarget)}
-                        </span>
-                        <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                          <MapPin size={12} className="text-blue-500" />
-                          <span>{exam.roomName || 'Ruang Utama'}</span>
-                        </span>
-                      </div>
-
-                      {isOngoing ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 animate-pulse">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                          <span>SEDANG BERLANGSUNG</span>
-                        </span>
-                      ) : isImminent ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 text-white shadow-md shadow-amber-500/40 animate-pulse">
-                          <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
-                          <span>🔥 SEGERA DIMULAI ({minutesToStart} MENIT LAGI)</span>
-                        </span>
-                      ) : isEnded ? (
-                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500">
-                          SELESAI
-                        </span>
-                      ) : (
-                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300">
-                          MENDATANG
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Title & Subject */}
-                    <div>
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/80">
-                          Plotting Resmi Admin
-                        </span>
-                        {card.isUnifiedReligion ? (
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-gradient-to-r from-emerald-600 via-teal-600 to-sky-600 text-white shadow-xs flex items-center gap-1">
-                            <span>🕌 Sesi Paralel Agama Terpadu</span>
-                          </span>
-                        ) : card.isUnifiedRoom ? (
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white shadow-xs flex items-center gap-1">
-                            <span>🏢 Sesi Terpadu Ruangan ({card.partnerExams.length + 1} Paket)</span>
-                          </span>
-                        ) : null}
-                      </div>
-                      <h3 className="text-base font-black text-slate-900 dark:text-white line-clamp-1">
-                        {card.unifiedTitle}
-                      </h3>
-                      <p className="text-xs font-bold text-purple-600 dark:text-purple-400 mt-0.5">
-                        {card.unifiedSubject}
-                      </p>
-
-                      {/* Badges Multi-Paket Ruangan */}
-                      {card.isUnifiedRoom && (
-                        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                          {[exam, ...card.partnerExams].map((ex) => (
-                            <span
-                              key={ex.id}
-                              className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/80 flex items-center gap-1"
-                            >
-                              <span>📋</span>
-                              <span>{formatClassTargetDisplay(ex.classTarget, true)}: {ex.subject}</span>
-                            </span>
-                          ))}
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            (1 Token Bersama)
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Badges Agama Terpadu */}
-                      {card.isUnifiedReligion && (
-                        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                          {card.religionBadges.map((rb) => (
-                            <span
-                              key={rb.code}
-                              className={`px-2 py-0.5 rounded-md text-[10px] font-bold border flex items-center gap-1 ${rb.bgBadge} ${rb.borderBadge} ${rb.textBadge}`}
-                            >
-                              <span>{rb.icon}</span>
-                              <span>{rb.shortLabel}</span>
-                            </span>
-                          ))}
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            (1 Token Bersama)
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* ⏱️ WIDGET HITUNG MUNDUR CANGGIH */}
-                    <ExamCountdownWidget
-                      startTime={exam.startTime}
-                      endTime={exam.endTime}
-                      duration={exam.duration}
-                      roomName={exam.roomName || 'Ruang CBT'}
-                    />
-
-                    {/* ⚠️ HIGH-VISIBILITY IMMINENT WARNING BANNER (< 15 MENIT) */}
-                    {isImminent && (
-                      <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-rose-500/15 border-2 border-amber-500/60 text-amber-950 dark:text-amber-200 text-xs flex items-center justify-between gap-3 shadow-md shadow-amber-500/10 animate-pulse">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-rose-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm font-black text-sm">
-                            <Flame size={18} className="fill-white animate-bounce" />
-                          </div>
-                          <div className="space-y-0.5">
-                            <div className="font-black text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
-                              <span>PERSIAPAN PENGAWAS ({minutesToStart} MENIT MENUJU MULAI)</span>
-                            </div>
-                            <p className="text-[11px] text-amber-800 dark:text-amber-300/90 leading-snug">
-                              Ujian ini segera dimulai! Harap buka ruang pengawasan sekarang untuk persiapan rilis token & proyektor.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Schedule detail */}
-                    <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-xs space-y-1.5 border border-slate-100 dark:border-slate-800">
-                      <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                        <Clock size={14} className="text-blue-500 flex-shrink-0" />
-                        <span className="font-semibold">{sched}</span>
-                      </div>
-                      {exam.startTime && (
-                        <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 pl-5">
-                          <Calendar size={12} />
-                          <span>{new Date(exam.startTime).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Proctor Badge */}
-                    <div className="text-[11px] text-slate-500 flex items-center justify-between pt-1">
-                      <span>Pengawas 1: <strong className="text-slate-800 dark:text-slate-200">{exam.proctorName || currentUser.name}</strong></span>
-                      {exam.proctor2Name && <span>Pengawas 2: <strong className="text-slate-700">{exam.proctor2Name}</strong></span>}
-                    </div>
-                  </div>
-
-                  {/* CTA BUTTON */}
-                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
-                    <span className="text-[11px] text-slate-400 font-medium">
-                      {card.combinedAttempts > 0
-                        ? `${card.combinedAttempts} Siswa Mengerjakan`
-                        : isImminent
-                          ? '🔥 Persiapan Pengawas (< 15 Menit)'
-                          : card.isUnifiedReligion
-                            ? 'Siap Diawasi (Sesi Terpadu)'
-                            : 'Siap Diawasi'}
+        ) : filterTab === 'ALL' ? (
+          <div className="space-y-8">
+            {/* ⚡ SEKSI 1: SESI AKTIF & SEGERA DIMULAI (Prioritas Tertinggi Pengawas) */}
+            {activeAndImminentCards.length > 0 && (
+              <section className="space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b-2 border-emerald-500/30">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-3 w-3 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
                     </span>
-
-                    <Link
-                      href={`/portal/pengawas/cbt/${card.primaryExam.id}`}
-                      className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer ${
-                        isOngoing
-                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/25 ring-2 ring-emerald-400/40'
-                          : isImminent
-                            ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 hover:from-amber-600 hover:to-rose-700 text-white shadow-lg shadow-amber-500/40 ring-4 ring-amber-400/50 animate-pulse hover:animate-none font-black tracking-wide'
-                            : card.isUnifiedReligion
-                              ? 'bg-gradient-to-r from-emerald-600 to-sky-600 hover:from-emerald-500 hover:to-sky-500 text-white shadow-emerald-500/20'
-                              : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25'
-                      }`}
-                    >
-                      {isOngoing ? (
-                        <>
-                          <Play size={15} />
-                          <span>{card.isUnifiedReligion ? 'Mulai Pengawasan Terpadu (Live)' : 'Mulai Pengawasan (Live)'}</span>
-                        </>
-                      ) : isImminent ? (
-                        <>
-                          <Sparkles size={15} className="animate-spin text-amber-200" />
-                          <span>Buka Ruang Ujian Sekarang</span>
-                        </>
-                      ) : (
-                        <>
-                          <Eye size={15} />
-                          <span>{card.isUnifiedReligion ? 'Pratinjau Ruang Terpadu' : 'Pratinjau Ruang Ujian'}</span>
-                        </>
-                      )}
-                      <ArrowRight size={14} />
-                    </Link>
+                    <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                      <span>⚡ Sesi Aktif & Segera Dimulai</span>
+                      <span className="px-2 py-0.5 rounded-full text-xs font-black bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                        {activeAndImminentCards.length} Sesi
+                      </span>
+                    </h2>
                   </div>
+                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hidden sm:inline">
+                    Prioritas Utama Pengawasan Saat Ini
+                  </span>
                 </div>
-              );
-            })}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {activeAndImminentCards.map(renderExamCard)}
+                </div>
+              </section>
+            )}
+
+            {/* 📅 SEKSI 2: JADWAL UJIAN MENDATANG */}
+            {upcomingCards.length > 0 && (
+              <section className="space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
+                  <div className="flex items-center gap-2.5">
+                    <Calendar size={18} className="text-blue-500" />
+                    <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                      <span>📅 Jadwal Ujian Mendatang</span>
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300">
+                        {upcomingCards.length} Jadwal
+                      </span>
+                    </h2>
+                  </div>
+                  <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 hidden sm:inline">
+                    Diurutkan kronologis jadwal terdekat
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {upcomingCards.map(renderExamCard)}
+                </div>
+              </section>
+            )}
+
+            {/* 🏁 SEKSI 3: RIWAYAT UJIAN SELESAI (Paling Bawah & Kolapsibel) */}
+            {finishedCards.length > 0 && (
+              <section className="rounded-3xl bg-slate-100/70 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 p-5 transition-all">
+                <button
+                  type="button"
+                  onClick={() => setShowFinished(!showFinished)}
+                  className="w-full flex items-center justify-between cursor-pointer text-left group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                      <History size={18} />
+                    </div>
+                    <div>
+                      <h2 className="text-sm sm:text-base font-black text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                        <span>🏁 Riwayat Ujian Selesai</span>
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                          {finishedCards.length} Selesai
+                        </span>
+                      </h2>
+                      <p className="text-[11px] text-slate-500">
+                        {showFinished
+                          ? 'Ujian telah berakhir ditempatkan di paling bawah. Klik untuk ciutkan riwayat.'
+                          : 'Klik untuk membuka riwayat ujian yang telah selesai diawasi.'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 group-hover:bg-slate-50 dark:group-hover:bg-slate-700 transition">
+                    <span>{showFinished ? 'Sembunyikan' : 'Buka Riwayat'}</span>
+                    {showFinished ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                  </div>
+                </button>
+
+                {showFinished && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5 pt-5 border-t border-slate-200 dark:border-slate-800">
+                    {finishedCards.map(renderExamCard)}
+                  </div>
+                )}
+              </section>
+            )}
+          </div>
+        ) : (
+          /* Single grid untuk filter tab spesifik (Sedang Berlangsung / Mendatang / Selesai) */
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {sortedGroupedCards.map(renderExamCard)}
           </div>
         )}
 
