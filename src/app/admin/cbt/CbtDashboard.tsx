@@ -3,18 +3,18 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import {
-  BookOpen,
-  Clock,
-  Users,
-  Plus,
-  Search,
-  Edit3,
-  Trash2,
+import { 
+  BookOpen, 
+  Clock, 
+  Users, 
+  Plus, 
+  Search, 
+  Edit3, 
+  Trash2, 
   CheckCircle,
-  CheckCircle2,
-  Key,
-  ExternalLink,
+  CheckCircle2, 
+  Key, 
+  ExternalLink, 
   AlertCircle,
   FileCheck2,
   Award,
@@ -43,42 +43,43 @@ import {
   Globe,
   Activity,
   MapPin,
+  Database,
   Printer,
   LayoutGrid,
   List,
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
-import {
-  CbtOfficialKopSurat,
-  CbtOfficialSignatures,
+import { 
+  CbtOfficialKopSurat, 
+  CbtOfficialSignatures, 
   CbtSecurityValidationBox,
-  CbtPrintModalWrapper
+  CbtPrintModalWrapper 
 } from '@/components/cbt/CbtOfficialPrintComponents';
 import ConfirmModal from '@/components/ConfirmModal';
 import CbtParticipantCardModal from '@/components/cbt/CbtParticipantCardModal';
 import CbtDownloadBankSoalModal from '@/components/cbt/CbtDownloadBankSoalModal';
-import {
-  createExam,
-  updateExam,
-  deleteExam,
-  toggleExamSession,
-  checkExamScheduleConflict,
+import { 
+  createExam, 
+  updateExam, 
+  deleteExam, 
+  toggleExamSession, 
+  checkExamScheduleConflict, 
   ScheduleConflictExam,
   batchUpdateExamSchedules,
   batchCreateExamsWithSchedule,
   saveCbtTimezone,
   exportExamQuestionsAction
 } from './actions';
-import {
+import { 
   generateExamQuestionsCsv,
   triggerBrowserDownload,
   ExportableQuestionItem
 } from '@/lib/cbt-bank-soal';
-import {
-  formatExamScheduleRange,
+import { 
+  formatExamScheduleRange, 
   getExamScheduleDetails,
-  getExamScheduleState,
+  getExamScheduleState, 
   isExamTokenActive,
   ExamTokenStatus,
   checkScheduleDiscrepancy,
@@ -100,6 +101,7 @@ import CbtReportView from './CbtReportView';
 import CbtProctorPlottingView, { TeacherUserItem } from './CbtProctorPlottingView';
 import CbtSuspendCenterView from './CbtSuspendCenterView';
 import CbtStudentLoginMonitorView from './CbtStudentLoginMonitorView';
+import CbtBackupRestoreView from './CbtBackupRestoreView';
 import { KopSuratConfig } from '@/app/admin/settings/types';
 import { ShieldCheck, ShieldAlert } from 'lucide-react';
 import { SuspendedStudentItem } from './actions';
@@ -153,7 +155,7 @@ interface CbtDashboardProps {
     name: string;
     role: string;
   };
-  initialTab?: 'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend' | 'logins';
+  initialTab?: 'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend' | 'logins' | 'backup';
   dynamicClassPresets?: string[];
   dynamicSubjectPresets?: string[];
   subjectsWithKkm?: { id?: string; name: string; kkm: number; classTarget?: string | null; teacherName?: string | null }[];
@@ -271,8 +273,8 @@ export default function CbtDashboard({
   } | null>(null);
 
   const showAlert = (
-    title: string,
-    message: React.ReactNode,
+    title: string, 
+    message: React.ReactNode, 
     variant: 'danger' | 'warning' | 'info' | 'success' = 'info',
     confirmText: string = 'Mengerti'
   ) => {
@@ -339,8 +341,8 @@ export default function CbtDashboard({
     }
   };
 
-  // Main View Tab: 'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend' | 'logins'
-  const [activeMainTab, setActiveMainTab] = useState<'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend' | 'logins'>(initialTab as any);
+  // Main View Tab: 'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend' | 'logins' | 'backup'
+  const [activeMainTab, setActiveMainTab] = useState<'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend' | 'logins' | 'backup'>(initialTab as any);
   const [selectedClassFilter, setSelectedClassFilter] = useState('ALL');
   const [selectedDateFilter, setSelectedDateFilter] = useState('ALL');
   const [selectedRoomFilter, setSelectedRoomFilter] = useState('ALL');
@@ -800,6 +802,8 @@ export default function CbtDashboard({
       setActiveMainTab('suspend');
     } else if (tabParam === 'logins' || tabParam === 'login' || tabParam === 'presensi') {
       setActiveMainTab('logins');
+    } else if (tabParam === 'backup' || tabParam === 'cadangan') {
+      setActiveMainTab('backup');
     } else if (tabParam === 'ujian' || !tabParam) {
       setActiveMainTab('exams');
     }
@@ -820,6 +824,8 @@ export default function CbtDashboard({
         setActiveMainTab('suspend');
       } else if (tabParam === 'logins' || tabParam === 'login' || tabParam === 'presensi') {
         setActiveMainTab('logins');
+      } else if (tabParam === 'backup' || tabParam === 'cadangan') {
+        setActiveMainTab('backup');
       } else {
         setActiveMainTab('exams');
       }
@@ -831,7 +837,7 @@ export default function CbtDashboard({
   // ⚡ Fast Response Tab Switch (0ms):
   // Menghindari server component re-fetch (router.replace) yang membuat jeda 2-3 detik.
   // Tab langsung berpindah instan di UI dan URL address bar tetap terupdate rapi!
-  const handleTabSwitch = (tab: 'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend' | 'logins') => {
+  const handleTabSwitch = (tab: 'exams' | 'schedule' | 'reports' | 'proctors' | 'suspend' | 'logins' | 'backup') => {
     setActiveMainTab(tab);
     let targetUrl = '/admin/cbt';
     if (tab === 'schedule') {
@@ -844,6 +850,8 @@ export default function CbtDashboard({
       targetUrl = '/admin/cbt?tab=suspend';
     } else if (tab === 'logins') {
       targetUrl = '/admin/cbt?tab=logins';
+    } else if (tab === 'backup') {
+      targetUrl = '/admin/cbt?tab=backup';
     }
     if (typeof window !== 'undefined') {
       window.history.replaceState(null, '', targetUrl);
@@ -874,7 +882,7 @@ export default function CbtDashboard({
       if (e.attempts) {
         for (const a of e.attempts) {
           const isDisqualified = (a.tabSwitchCount ?? 0) >= 5 || (a as any).proctorNotes?.includes('[DISKUALIFIKASI_FINAL]');
-          const isStrike3Suspended =
+          const isStrike3Suspended = 
             (a.isBlocked || (a.tabSwitchCount ?? 0) >= 3 || (a as any).proctorNotes?.includes('[STRIKE_3_BLOKIR]')) &&
             !(a as any).proctorNotes?.includes('[ADMIN_UNBLOCK_ACTIVE]');
           if (isDisqualified || isStrike3Suspended) count++;
@@ -966,7 +974,7 @@ export default function CbtDashboard({
     const fromDb = (dynamicSubjectPresets || []).map((s: string) => s?.trim()).filter(Boolean);
     // 2. Ambil mapel dari seluruh paket ujian yang aktif di sistem
     const fromExams = exams.map((e) => e.subject?.trim()).filter(Boolean) as string[];
-
+    
     const combined = Array.from(new Set([...fromDb, ...fromExams]));
     if (combined.length > 0) {
       return combined.sort((a, b) => a.localeCompare(b, 'id'));
@@ -1093,7 +1101,7 @@ export default function CbtDashboard({
         setConflicts([]);
         setConflictWarning(null);
       }
-    } catch { }
+    } catch {}
     setCheckingConflict(false);
   };
 
@@ -1628,10 +1636,10 @@ export default function CbtDashboard({
       prev.map((e) =>
         e.id === exam.id
           ? {
-            ...e,
-            status: optimisticStatus,
-            updatedAt: new Date().toISOString(),
-          }
+              ...e,
+              status: optimisticStatus,
+              updatedAt: new Date().toISOString(),
+            }
           : e
       )
     );
@@ -1644,11 +1652,11 @@ export default function CbtDashboard({
         prev.map((e) =>
           e.id === exam.id
             ? {
-              ...e,
-              status: res.data.status,
-              token: res.data.token,
-              updatedAt: res.data.updatedAt || new Date().toISOString(),
-            }
+                ...e, 
+                status: res.data.status, 
+                token: res.data.token,
+                updatedAt: res.data.updatedAt || new Date().toISOString(),
+              }
             : e
         )
       );
@@ -1664,11 +1672,11 @@ export default function CbtDashboard({
     e.preventDefault();
     setLoading(true);
 
-    const startIso = formData.enableSchedule && formData.startTime
-      ? parseDateTimeInputToIso(formData.startTime, cbtTimezone)
+    const startIso = formData.enableSchedule && formData.startTime 
+      ? parseDateTimeInputToIso(formData.startTime, cbtTimezone) 
       : null;
-    const endIso = formData.enableSchedule && formData.endTime
-      ? parseDateTimeInputToIso(formData.endTime, cbtTimezone)
+    const endIso = formData.enableSchedule && formData.endTime 
+      ? parseDateTimeInputToIso(formData.endTime, cbtTimezone) 
       : null;
 
     if (startIso && endIso) {
@@ -1748,20 +1756,20 @@ export default function CbtDashboard({
     if (norm !== 'ALL') return norm;
     const sub = `${exam.subject || ''} ${exam.title || ''}`.toUpperCase();
     if (
-      sub.includes('ISLAM') ||
-      sub.includes('PAI') ||
-      sub.includes('PABP') ||
-      sub.includes('BTA') ||
-      sub.includes('BTQ') ||
-      sub.includes('QURAN') ||
-      sub.includes("QUR'AN") ||
-      sub.includes('TAHFIDZ') ||
-      sub.includes('FIQIH') ||
+      sub.includes('ISLAM') || 
+      sub.includes('PAI') || 
+      sub.includes('PABP') || 
+      sub.includes('BTA') || 
+      sub.includes('BTQ') || 
+      sub.includes('QURAN') || 
+      sub.includes("QUR'AN") || 
+      sub.includes('TAHFIDZ') || 
+      sub.includes('FIQIH') || 
       sub.includes('AQIDAH')
     ) return 'ISLAM';
     if (
-      sub.includes('KRISTEN') ||
-      sub.includes('PAK') ||
+      sub.includes('KRISTEN') || 
+      sub.includes('PAK') || 
       sub.includes('PROTESTAN')
     ) return 'KRISTEN';
     if (sub.includes('KATOLIK')) return 'KATOLIK';
@@ -1814,7 +1822,7 @@ export default function CbtDashboard({
       const matchesSubject = selectedSubjectFilter === 'ALL' || exam.subject === selectedSubjectFilter;
       const examRoom = exam.roomName?.trim() || 'Ruang Utama';
       const matchesRoom = selectedRoomFilter === 'ALL' || examRoom === selectedRoomFilter;
-
+      
       const schedState = getExamScheduleState(exam.startTime, exam.endTime, exam.status);
       const matchesSchedule =
         scheduleFilter === 'ALL' ||
@@ -1877,7 +1885,7 @@ export default function CbtDashboard({
         exam.subject.toLowerCase().includes(q) ||
         exam.classTarget.toLowerCase().includes(q) ||
         (exam.authorName && exam.authorName.toLowerCase().includes(q));
-
+      
       const matchesClass =
         selectedClassFilter === 'ALL' ||
         exam.classTarget === selectedClassFilter ||
@@ -2054,8 +2062,8 @@ export default function CbtDashboard({
           const key = (a.studentNis && a.studentNis.trim() !== '')
             ? `nis:${a.studentNis.trim()}`
             : (a.studentName && a.studentName.trim() !== '')
-              ? `name:${a.studentName.trim().toLowerCase()}`
-              : (a.id ? `id:${a.id}` : null);
+            ? `name:${a.studentName.trim().toLowerCase()}`
+            : (a.id ? `id:${a.id}` : null);
           if (key) {
             uniqueStudentKeys.add(key);
           }
@@ -2137,14 +2145,15 @@ export default function CbtDashboard({
       {/* 🌟 VIEW MODE SELECTOR TABS (CYBER COMMAND NAVIGATION BAR - RESPONSIVE SEGMENTED CONTROL) */}
       <div className="space-y-3 border-b border-slate-200 dark:border-slate-800 pb-3 sm:pb-4 w-full">
         <div className="w-full p-1.5 sm:p-2 rounded-2xl bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 shadow-inner backdrop-blur-md">
-          <div className={`grid grid-cols-2 ${isSuperAdmin ? 'lg:grid-cols-6 sm:grid-cols-3' : 'lg:grid-cols-4 sm:grid-cols-2'} gap-1.5 sm:gap-2 w-full`}>
+          <div className={`grid grid-cols-2 ${isSuperAdmin ? 'lg:grid-cols-7 sm:grid-cols-3 md:grid-cols-4' : 'lg:grid-cols-4 sm:grid-cols-2'} gap-1.5 sm:gap-2 w-full`}>
             <button
               type="button"
               onClick={() => handleTabSwitch('exams')}
-              className={`group w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer min-w-0 ${activeMainTab === 'exams'
+              className={`group w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer min-w-0 ${
+                activeMainTab === 'exams'
                   ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-500/25 ring-1 ring-purple-400/40'
                   : 'bg-white/80 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 shadow-2xs'
-                }`}
+              }`}
             >
               <BookOpen size={16} className={`shrink-0 group-hover:scale-115 transition-transform duration-200 ${activeMainTab === 'exams' ? 'text-white' : 'text-purple-500'}`} />
               <span className="truncate">Daftar Paket Ujian</span>
@@ -2156,10 +2165,11 @@ export default function CbtDashboard({
             <button
               type="button"
               onClick={() => handleTabSwitch('schedule')}
-              className={`group w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer min-w-0 ${activeMainTab === 'schedule'
+              className={`group w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer min-w-0 ${
+                activeMainTab === 'schedule'
                   ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/25 ring-1 ring-indigo-400/40'
                   : 'bg-white/80 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 shadow-2xs'
-                }`}
+              }`}
             >
               <Calendar size={16} className={`shrink-0 group-hover:scale-115 transition-transform duration-200 ${activeMainTab === 'schedule' ? 'text-white' : 'text-indigo-500'}`} />
               <span className="truncate">Matriks Jadwal Ujian</span>
@@ -2173,10 +2183,11 @@ export default function CbtDashboard({
             <button
               type="button"
               onClick={() => handleTabSwitch('reports')}
-              className={`group w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer min-w-0 ${activeMainTab === 'reports'
+              className={`group w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer min-w-0 ${
+                activeMainTab === 'reports'
                   ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/25 ring-1 ring-emerald-400/40'
                   : 'bg-white/80 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 shadow-2xs'
-                }`}
+              }`}
             >
               <FileSpreadsheet size={16} className={`shrink-0 group-hover:scale-115 transition-transform duration-200 ${activeMainTab === 'reports' ? 'text-white' : 'text-emerald-500'}`} />
               <span className="truncate">Laporan & Rekap Nilai</span>
@@ -2185,10 +2196,11 @@ export default function CbtDashboard({
             <button
               type="button"
               onClick={() => handleTabSwitch('proctors')}
-              className={`group w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer min-w-0 ${activeMainTab === 'proctors'
+              className={`group w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer min-w-0 ${
+                activeMainTab === 'proctors'
                   ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 ring-1 ring-blue-400/40'
                   : 'bg-white/80 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 shadow-2xs'
-                }`}
+              }`}
             >
               <ShieldCheck size={16} className={`shrink-0 group-hover:scale-115 transition-transform duration-200 ${activeMainTab === 'proctors' ? 'text-white' : 'text-blue-500'}`} />
               <span className="truncate">Plotting Pengawas</span>
@@ -2204,10 +2216,11 @@ export default function CbtDashboard({
               <button
                 type="button"
                 onClick={() => handleTabSwitch('suspend')}
-                className={`group w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer min-w-0 ${activeMainTab === 'suspend'
+                className={`group w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer min-w-0 ${
+                  activeMainTab === 'suspend'
                     ? 'bg-gradient-to-r from-rose-600 to-red-600 text-white shadow-md shadow-rose-500/25 ring-1 ring-rose-400/40'
                     : 'bg-white/80 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 shadow-2xs'
-                  }`}
+                }`}
               >
                 <ShieldAlert size={16} className={`shrink-0 group-hover:scale-115 transition-transform duration-200 ${activeMainTab === 'suspend' ? 'text-white' : 'text-rose-500'}`} />
                 <span className="truncate">Pusat Suspend</span>
@@ -2228,10 +2241,11 @@ export default function CbtDashboard({
               <button
                 type="button"
                 onClick={() => handleTabSwitch('logins')}
-                className={`group w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer min-w-0 ${activeMainTab === 'logins'
+                className={`group w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer min-w-0 ${
+                  activeMainTab === 'logins'
                     ? 'bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-md shadow-teal-500/25 ring-1 ring-teal-400/40'
                     : 'bg-white/80 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 shadow-2xs'
-                  }`}
+                }`}
               >
                 <Activity size={16} className={`shrink-0 group-hover:scale-115 transition-transform duration-200 ${activeMainTab === 'logins' ? 'text-white' : 'text-teal-500'}`} />
                 <span className="truncate">Siswa Login</span>
@@ -2245,6 +2259,25 @@ export default function CbtDashboard({
                     0
                   </span>
                 )}
+              </button>
+            )}
+
+            {/* 💾 TAB KHUSUS ADMIN UTAMA: CADANGAN & PEMULIHAN DATABASE CBT (.cbtbak) */}
+            {isSuperAdmin && (
+              <button
+                type="button"
+                onClick={() => handleTabSwitch('backup')}
+                className={`group w-full px-3 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer min-w-0 ${
+                  activeMainTab === 'backup'
+                    ? 'bg-gradient-to-r from-blue-700 via-indigo-700 to-purple-700 text-white shadow-md shadow-blue-500/25 ring-1 ring-blue-400/40'
+                    : 'bg-white/80 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 shadow-2xs'
+                }`}
+              >
+                <Database size={16} className={`shrink-0 group-hover:scale-115 transition-transform duration-200 ${activeMainTab === 'backup' ? 'text-white' : 'text-blue-500'}`} />
+                <span className="truncate">Cadangan CBT</span>
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-blue-500/20 text-blue-300 border border-blue-400/30 shrink-0 font-mono">
+                  BAK
+                </span>
               </button>
             )}
           </div>
@@ -2262,10 +2295,11 @@ export default function CbtDashboard({
                 key={tz}
                 type="button"
                 onClick={() => handleTimezoneChange(tz)}
-                className={`px-2 py-0.5 sm:px-2.5 sm:py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${cbtTimezone === tz
+                className={`px-2 py-0.5 sm:px-2.5 sm:py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  cbtTimezone === tz
                     ? 'bg-purple-600 text-white shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-purple-700 dark:hover:text-purple-300'
-                  }`}
+                }`}
                 title={`Beralih ke zona waktu ${tz} (${tz === 'WIB' ? 'UTC+7' : tz === 'WITA' ? 'UTC+8' : 'UTC+9'})`}
               >
                 {tz}
@@ -2290,7 +2324,14 @@ export default function CbtDashboard({
         </div>
       </div>
 
-      {activeMainTab === 'logins' && isSuperAdmin ? (
+      {activeMainTab === 'backup' && isSuperAdmin ? (
+        <CbtBackupRestoreView
+          currentUser={currentUser}
+          totalExams={totalExams}
+          totalQuestions={totalQuestions}
+          totalAttempts={totalAttempts}
+        />
+      ) : activeMainTab === 'logins' && isSuperAdmin ? (
         <CbtStudentLoginMonitorView
           currentUser={currentUser}
           isSuperAdmin={isSuperAdmin}
@@ -2582,10 +2623,11 @@ export default function CbtDashboard({
                     <button
                       key={s.id}
                       onClick={() => setScheduleFilter(s.id as any)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer whitespace-nowrap active:scale-95 ${scheduleFilter === s.id
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer whitespace-nowrap active:scale-95 ${
+                        scheduleFilter === s.id
                           ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-sm font-extrabold'
                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
-                        }`}
+                      }`}
                     >
                       {s.label}
                     </button>
@@ -2804,10 +2846,11 @@ export default function CbtDashboard({
               <button
                 type="button"
                 onClick={() => setScheduleViewMode('roster')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${scheduleViewMode === 'roster'
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
+                  scheduleViewMode === 'roster'
                     ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-sm font-black'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
-                  }`}
+                }`}
               >
                 <LayoutGrid size={13} className="stroke-[2.5]" />
                 <span>Agenda & Sesi Roster</span>
@@ -2815,10 +2858,11 @@ export default function CbtDashboard({
               <button
                 type="button"
                 onClick={() => setScheduleViewMode('table')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${scheduleViewMode === 'table'
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
+                  scheduleViewMode === 'table'
                     ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-sm font-black'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
-                  }`}
+                }`}
               >
                 <List size={13} className="stroke-[2.5]" />
                 <span>Matriks Tabel</span>
@@ -2877,16 +2921,18 @@ export default function CbtDashboard({
                         {/* Day Card Header */}
                         <div
                           onClick={() => toggleDayCollapse(day.dateKey)}
-                          className={`p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 cursor-pointer select-none transition-colors ${isToday
+                          className={`p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 cursor-pointer select-none transition-colors ${
+                            isToday
                               ? 'bg-gradient-to-r from-purple-500/15 via-indigo-500/10 to-transparent dark:from-purple-950/40 dark:via-indigo-950/30'
                               : 'bg-slate-50/80 dark:bg-slate-800/50 hover:bg-slate-100/80 dark:hover:bg-slate-800/80'
-                            }`}
+                          }`}
                         >
                           <div className="flex items-center gap-3">
-                            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-white shadow-md shrink-0 ${isToday
+                            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-white shadow-md shrink-0 ${
+                              isToday
                                 ? 'bg-gradient-to-br from-purple-600 to-indigo-600 shadow-purple-500/30 ring-4 ring-purple-500/10'
                                 : 'bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-700 dark:to-slate-800 shadow-slate-900/10'
-                              }`}>
+                            }`}>
                               <Calendar size={20} className="stroke-[2.2]" />
                             </div>
                             <div>
@@ -3007,11 +3053,12 @@ export default function CbtDashboard({
                                                 👤 {exam.authorName}
                                               </span>
                                             )}
-                                            <span
-                                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold truncate max-w-[170px] ${exam.proctorName
-                                                  ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/50'
+                                            <span 
+                                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold truncate max-w-[170px] ${
+                                                exam.proctorName 
+                                                  ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/50' 
                                                   : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-dashed border-amber-300 dark:border-amber-700'
-                                                }`}
+                                              }`}
                                               title={exam.proctorName ? `Pengawas: ${exam.proctorName}${exam.proctor2Name ? ` & ${exam.proctor2Name}` : ''}` : 'Belum ada pengawas yang di-plot'}
                                             >
                                               🛡️ {exam.proctorName ? exam.proctorName : 'Pengawas: Belum Di-plot'}
@@ -3128,762 +3175,771 @@ export default function CbtDashboard({
           ) : (
             /* Table Mode */
             <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50/80 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[11px] border-b border-slate-200/80 dark:border-slate-800">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50/80 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[11px] border-b border-slate-200/80 dark:border-slate-800">
+                  <tr>
+                    <th className="py-4 px-3 text-center w-10">
+                      <input
+                        type="checkbox"
+                        checked={scheduledExams.length > 0 && scheduledExams.every((e) => selectedExamIds.includes(e.id))}
+                        onChange={() => toggleSelectAll(scheduledExams)}
+                        className="w-4 h-4 text-purple-600 rounded cursor-pointer"
+                        title="Pilih / Batal Semua"
+                      />
+                    </th>
+                    <th className="py-4 px-2 text-center w-10">No</th>
+                    <th className="py-4 px-4">Mata Pelajaran & Judul</th>
+                    <th className="py-4 px-4">Target Kelas</th>
+                    <th className="py-4 px-4">Guru Pengampu</th>
+                    <th className="py-4 px-4">Jadwal Pelaksanaan ({cbtTimezone})</th>
+                    <th className="py-4 px-4 text-center">Durasi</th>
+                    <th className="py-4 px-4">Status Waktu</th>
+                    <th className="py-4 px-4 text-center">Token</th>
+                    <th className="py-4 px-4 text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {scheduledExams.length === 0 ? (
                     <tr>
-                      <th className="py-4 px-3 text-center w-10">
-                        <input
-                          type="checkbox"
-                          checked={scheduledExams.length > 0 && scheduledExams.every((e) => selectedExamIds.includes(e.id))}
-                          onChange={() => toggleSelectAll(scheduledExams)}
-                          className="w-4 h-4 text-purple-600 rounded cursor-pointer"
-                          title="Pilih / Batal Semua"
-                        />
-                      </th>
-                      <th className="py-4 px-2 text-center w-10">No</th>
-                      <th className="py-4 px-4">Mata Pelajaran & Judul</th>
-                      <th className="py-4 px-4">Target Kelas</th>
-                      <th className="py-4 px-4">Guru Pengampu</th>
-                      <th className="py-4 px-4">Jadwal Pelaksanaan ({cbtTimezone})</th>
-                      <th className="py-4 px-4 text-center">Durasi</th>
-                      <th className="py-4 px-4">Status Waktu</th>
-                      <th className="py-4 px-4 text-center">Token</th>
-                      <th className="py-4 px-4 text-right">Aksi</th>
+                      <td colSpan={10} className="py-12 text-center text-slate-400">
+                        Tidak ada jadwal ujian yang sesuai filter.
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {scheduledExams.length === 0 ? (
-                      <tr>
-                        <td colSpan={10} className="py-12 text-center text-slate-400">
-                          Tidak ada jadwal ujian yang sesuai filter.
-                        </td>
-                      </tr>
-                    ) : (
-                      scheduledExams.map((exam, idx) => {
-                        const schedState = getExamScheduleState(exam.startTime, exam.endTime, exam.status);
-                        const isSelected = selectedExamIds.includes(exam.id);
+                  ) : (
+                    scheduledExams.map((exam, idx) => {
+                      const schedState = getExamScheduleState(exam.startTime, exam.endTime, exam.status);
+                      const isSelected = selectedExamIds.includes(exam.id);
 
-                        return (
-                          <tr
-                            key={exam.id}
-                            className={`transition-colors ${isSelected
-                                ? 'bg-purple-50/60 dark:bg-purple-950/30'
-                                : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'
-                              }`}
-                          >
-                            <td className="py-3.5 px-3 text-center">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => toggleSelectExam(exam.id)}
-                                className="w-4 h-4 text-purple-600 rounded cursor-pointer"
-                              />
-                            </td>
-                            <td className="py-3.5 px-2 text-center font-bold text-slate-400">{idx + 1}</td>
-                            <td className="py-3.5 px-4">
-                              <span className="font-bold text-slate-900 dark:text-white block text-sm">{exam.title}</span>
-                              <span className="text-[11px] text-purple-600 dark:text-purple-400 font-medium">{exam.subject}</span>
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <span
-                                className="px-2.5 py-1 rounded-lg font-bold text-[11px] bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 inline-block max-w-[200px] truncate"
-                                title={exam.classTarget}
-                              >
-                                {formatClassTargetDisplay(exam.classTarget)}
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300 font-medium">
-                              {exam.authorName || 'Guru Pengampu'}
-                            </td>
-                            <td className="py-3.5 px-4">
-                              {isInlineEditMode ? (
-                                <div className="space-y-1.5 py-1 min-w-[240px]">
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-[10px] text-slate-400 font-bold w-12">Mulai:</span>
-                                    <input
-                                      type="datetime-local"
-                                      value={inlineSchedules[exam.id]?.startTime || ''}
-                                      onChange={(e) => handleInlineChange(exam.id, 'startTime', e.target.value)}
-                                      className="px-2 py-1 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono outline-none focus:ring-1 focus:ring-purple-500 w-full"
-                                    />
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-[10px] text-slate-400 font-bold w-12">Selesai:</span>
-                                    <input
-                                      type="datetime-local"
-                                      value={inlineSchedules[exam.id]?.endTime || ''}
-                                      onChange={(e) => handleInlineChange(exam.id, 'endTime', e.target.value)}
-                                      className="px-2 py-1 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono outline-none focus:ring-1 focus:ring-purple-500 w-full"
-                                    />
-                                  </div>
-                                  <div className="flex items-center gap-1 pt-0.5">
-                                    <span className="text-[9px] text-slate-400 font-bold">Preset:</span>
-                                    {[30, 45, 60, 90, 120].map((m) => (
-                                      <button
-                                        key={m}
-                                        type="button"
-                                        onClick={() => handleInlinePreset(exam.id, m)}
-                                        className="px-1.5 py-0.5 rounded bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 text-[10px] font-bold cursor-pointer"
-                                      >
-                                        +{m}m
-                                      </button>
-                                    ))}
-                                  </div>
+                      return (
+                        <tr
+                          key={exam.id}
+                          className={`transition-colors ${
+                            isSelected
+                              ? 'bg-purple-50/60 dark:bg-purple-950/30'
+                              : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'
+                          }`}
+                        >
+                          <td className="py-3.5 px-3 text-center">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleSelectExam(exam.id)}
+                              className="w-4 h-4 text-purple-600 rounded cursor-pointer"
+                            />
+                          </td>
+                          <td className="py-3.5 px-2 text-center font-bold text-slate-400">{idx + 1}</td>
+                          <td className="py-3.5 px-4">
+                            <span className="font-bold text-slate-900 dark:text-white block text-sm">{exam.title}</span>
+                            <span className="text-[11px] text-purple-600 dark:text-purple-400 font-medium">{exam.subject}</span>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span 
+                              className="px-2.5 py-1 rounded-lg font-bold text-[11px] bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 inline-block max-w-[200px] truncate"
+                              title={exam.classTarget}
+                            >
+                              {formatClassTargetDisplay(exam.classTarget)}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300 font-medium">
+                            {exam.authorName || 'Guru Pengampu'}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            {isInlineEditMode ? (
+                              <div className="space-y-1.5 py-1 min-w-[240px]">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[10px] text-slate-400 font-bold w-12">Mulai:</span>
+                                  <input
+                                    type="datetime-local"
+                                    value={inlineSchedules[exam.id]?.startTime || ''}
+                                    onChange={(e) => handleInlineChange(exam.id, 'startTime', e.target.value)}
+                                    className="px-2 py-1 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono outline-none focus:ring-1 focus:ring-purple-500 w-full"
+                                  />
                                 </div>
-                              ) : (
-                                <div>
-                                  <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
-                                    <Calendar size={13} className="text-purple-600 dark:text-purple-400 flex-shrink-0" />
-                                    <span>{getExamScheduleDetails(exam.startTime, exam.endTime, cbtTimezone).dateText}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1 text-[11px] font-mono font-bold text-purple-700 dark:text-purple-300 mt-0.5">
-                                    <Clock size={11} className="text-purple-500 shrink-0" />
-                                    <span>{getExamScheduleDetails(exam.startTime, exam.endTime, cbtTimezone).timeRangeText}</span>
-                                  </div>
-                                  <span className="text-[10px] text-slate-400 block mt-0.5">{schedState.countdown}</span>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[10px] text-slate-400 font-bold w-12">Selesai:</span>
+                                  <input
+                                    type="datetime-local"
+                                    value={inlineSchedules[exam.id]?.endTime || ''}
+                                    onChange={(e) => handleInlineChange(exam.id, 'endTime', e.target.value)}
+                                    className="px-2 py-1 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono outline-none focus:ring-1 focus:ring-purple-500 w-full"
+                                  />
                                 </div>
-                              )}
-                            </td>
-                            <td className="py-3.5 px-4 text-center font-semibold text-slate-600 dark:text-slate-300">
-                              {exam.duration} mnt
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${schedState.badgeClass}`}>
-                                {schedState.label}
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-4 text-center">
-                              <span className="font-mono font-bold text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md text-slate-700 dark:text-slate-200">
-                                {(exam.token || '').split('|')[0] || 'Tanpa Token'}
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-4 text-right">
-                              <div className="flex items-center justify-end gap-1.5">
-                                {isExamOwner(exam) && (
-                                  <>
+                                <div className="flex items-center gap-1 pt-0.5">
+                                  <span className="text-[9px] text-slate-400 font-bold">Preset:</span>
+                                  {[30, 45, 60, 90, 120].map((m) => (
                                     <button
+                                      key={m}
                                       type="button"
-                                      onClick={() => handleQuickDownloadExamQuestions(exam)}
-                                      disabled={downloadingExamId === exam.id}
-                                      className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors cursor-pointer disabled:opacity-50"
-                                      title={`Unduh Bank Soal (${exam._count?.questions || 0} Soal) - Format Siap Upload`}
+                                      onClick={() => handleInlinePreset(exam.id, m)}
+                                      className="px-1.5 py-0.5 rounded bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 text-[10px] font-bold cursor-pointer"
                                     >
-                                      {downloadingExamId === exam.id ? (
-                                        <RefreshCw size={14} className="animate-spin text-emerald-600" />
-                                      ) : (
-                                        <Download size={14} />
-                                      )}
+                                      +{m}m
                                     </button>
-                                    <button
-                                      onClick={() => handleOpenEdit(exam)}
-                                      className="px-2.5 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 font-bold text-xs transition-colors flex items-center gap-1 cursor-pointer"
-                                    >
-                                      <Edit3 size={13} /> Atur Jadwal
-                                    </button>
-                                  </>
-                                )}
-                                <Link
-                                  href={`/admin/cbt/${exam.id}`}
-                                  className={`p-1.5 rounded-lg transition-colors cursor-pointer ${isExamProctor(exam)
-                                      ? 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
-                                      : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
-                                    }`}
-                                  title={isExamProctor(exam) ? 'Buka Ruang Pengawasan' : 'Buka Bank Soal'}
-                                >
-                                  {isExamProctor(exam) ? <ShieldCheck size={15} /> : <ExternalLink size={15} />}
-                                </Link>
+                                  ))}
+                                </div>
                               </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                            ) : (
+                              <div>
+                                <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
+                                  <Calendar size={13} className="text-purple-600 dark:text-purple-400 flex-shrink-0" />
+                                  <span>{getExamScheduleDetails(exam.startTime, exam.endTime, cbtTimezone).dateText}</span>
+                                </div>
+                                <div className="flex items-center gap-1 text-[11px] font-mono font-bold text-purple-700 dark:text-purple-300 mt-0.5">
+                                  <Clock size={11} className="text-purple-500 shrink-0" />
+                                  <span>{getExamScheduleDetails(exam.startTime, exam.endTime, cbtTimezone).timeRangeText}</span>
+                                </div>
+                                <span className="text-[10px] text-slate-400 block mt-0.5">{schedState.countdown}</span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 text-center font-semibold text-slate-600 dark:text-slate-300">
+                            {exam.duration} mnt
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${schedState.badgeClass}`}>
+                              {schedState.label}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-center">
+                            <span className="font-mono font-bold text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md text-slate-700 dark:text-slate-200">
+                              {(exam.token || '').split('|')[0] || 'Tanpa Token'}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {isExamOwner(exam) && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuickDownloadExamQuestions(exam)}
+                                    disabled={downloadingExamId === exam.id}
+                                    className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors cursor-pointer disabled:opacity-50"
+                                    title={`Unduh Bank Soal (${exam._count?.questions || 0} Soal) - Format Siap Upload`}
+                                  >
+                                    {downloadingExamId === exam.id ? (
+                                      <RefreshCw size={14} className="animate-spin text-emerald-600" />
+                                    ) : (
+                                      <Download size={14} />
+                                    )}
+                                  </button>
+                                  <button
+                                    onClick={() => handleOpenEdit(exam)}
+                                    className="px-2.5 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 font-bold text-xs transition-colors flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <Edit3 size={13} /> Atur Jadwal
+                                  </button>
+                                </>
+                              )}
+                              <Link
+                                href={`/admin/cbt/${exam.id}`}
+                                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                                  isExamProctor(exam)
+                                    ? 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
+                                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                }`}
+                                title={isExamProctor(exam) ? 'Buka Ruang Pengawasan' : 'Buka Bank Soal'}
+                              >
+                                {isExamProctor(exam) ? <ShieldCheck size={15} /> : <ExternalLink size={15} />}
+                              </Link>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
+          </div>
           )}
         </div>
       ) : (
         <div className="space-y-8">
-          {/* Stats Cards (4 KPI Cards Elegan, Modern & Beranimasi) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Card 1: Total Paket Ujian */}
-            <div className="group p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
-                <BookOpen size={24} />
-              </div>
-              <div className="min-w-0">
-                <div className="text-2xl font-bold text-slate-900 dark:text-white flex items-baseline gap-1.5">
-                  <span>{totalExams}</span>
-                  <span className="text-xs font-semibold text-slate-400">Paket</span>
-                </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Total Paket Ujian</div>
-                <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-0.5 truncate">
-                  {selectedSubjectFilter !== 'ALL' ? `Mapel: ${selectedSubjectFilter}` : unscheduledCount > 0 ? `${unscheduledCount} belum terjadwal` : 'Semua sudah terjadwal'}
-                </div>
-              </div>
+      {/* Stats Cards (4 KPI Cards Elegan, Modern & Beranimasi) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Total Paket Ujian */}
+        <div className="group p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
+            <BookOpen size={24} />
+          </div>
+          <div className="min-w-0">
+            <div className="text-2xl font-bold text-slate-900 dark:text-white flex items-baseline gap-1.5">
+              <span>{totalExams}</span>
+              <span className="text-xs font-semibold text-slate-400">Paket</span>
             </div>
-
-            {/* Card 2: Total Butir Soal */}
-            <div className="group p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
-                <FileCheck2 size={24} />
-              </div>
-              <div className="min-w-0">
-                <div className="text-2xl font-bold text-slate-900 dark:text-white flex items-baseline gap-1.5">
-                  <span>{totalQuestions}</span>
-                  <span className="text-xs font-semibold text-slate-400">Soal</span>
-                </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Total Butir Soal</div>
-                <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-0.5">
-                  Bank Soal Terpasang
-                </div>
-              </div>
-            </div>
-
-            {/* Card 3: Siswa Mengerjakan (Siswa Unik Nyata) */}
-            <div className="group p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
-                <Users size={24} />
-              </div>
-              <div className="min-w-0">
-                <div className="text-2xl font-bold text-slate-900 dark:text-white flex items-baseline gap-1.5">
-                  <span>{totalUniqueStudents}</span>
-                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">Siswa Unik</span>
-                </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Siswa Mengerjakan</div>
-                <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-0.5 flex items-center gap-1 truncate" title={`Akumulasi lembar ujian: ${totalAttempts} sesi`}>
-                  <CheckCircle2 size={10} className="text-emerald-500 shrink-0" />
-                  <span>{totalAttempts} Sesi Lembar{selectedSubjectFilter !== 'ALL' ? ` (${selectedSubjectFilter})` : ' (Seluruh Mapel)'}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Card 4: Rata-Rata Nilai */}
-            <div className="group p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
-                <Award size={24} />
-              </div>
-              <div className="min-w-0">
-                <div className="text-2xl font-bold text-slate-900 dark:text-white flex items-baseline gap-1.5">
-                  <span>{avgScore}</span>
-                  <span className="text-xs font-semibold text-slate-400">/ 100</span>
-                </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Rata-Rata Nilai</div>
-                <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-0.5">
-                  Dari siswa yang submit
-                </div>
-              </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Total Paket Ujian</div>
+            <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-0.5 truncate">
+              {selectedSubjectFilter !== 'ALL' ? `Mapel: ${selectedSubjectFilter}` : unscheduledCount > 0 ? `${unscheduledCount} belum terjadwal` : 'Semua sudah terjadwal'}
             </div>
           </div>
+        </div>
 
-          {/* 🎛️ Unified Command Center & Filter Bar */}
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-4 sm:p-5 shadow-xs space-y-3.5">
-            {/* Top Row: Search Input + Result Counter + Quick Actions */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
-                <input
-                  type="text"
-                  placeholder="Cari nama ujian, mapel, kelas, guru pengampu..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-9 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 rounded-2xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:bg-white dark:focus:bg-slate-900 transition-all placeholder:text-slate-400"
-                />
-                {searchTerm && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchTerm('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 cursor-pointer"
-                    title="Hapus pencarian"
-                  >
-                    <X size={15} />
-                  </button>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs font-bold px-3 py-2 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/60">
-                  {filteredExams.length} Paket Ujian
-                </span>
-                <button
-                  type="button"
-                  onClick={handleOpenCreate}
-                  className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs shadow-sm shadow-purple-500/20 flex items-center gap-1.5 transition-all cursor-pointer"
-                >
-                  <Plus size={15} />
-                  <span>Buat Paket</span>
-                </button>
-              </div>
+        {/* Card 2: Total Butir Soal */}
+        <div className="group p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
+            <FileCheck2 size={24} />
+          </div>
+          <div className="min-w-0">
+            <div className="text-2xl font-bold text-slate-900 dark:text-white flex items-baseline gap-1.5">
+              <span>{totalQuestions}</span>
+              <span className="text-xs font-semibold text-slate-400">Soal</span>
             </div>
-
-            {/* Middle Row: Status Ruang Ujian Segmented Tabs (Dedicated Row - Anti-Overlap & Anti-Truncate) */}
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:pb-0 w-full sm:w-auto">
-                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 shrink-0 mr-1 hidden md:inline">
-                    Status Ruang:
-                  </span>
-                  <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-950/80 p-1.5 rounded-2xl border border-slate-200/70 dark:border-slate-800/80 shrink-0">
-                    {[
-                      { id: 'ALL', label: 'Semua Status', count: statusCounts.all },
-                      { id: 'ACTIVE', label: '🟢 Sesi Aktif', count: statusCounts.active },
-                      { id: 'PUBLISHED', label: '⏳ Ruang Tunggu', count: statusCounts.published },
-                      { id: 'DRAFT', label: '📝 Draft', count: statusCounts.draft },
-                    ].map((st) => (
-                      <button
-                        key={st.id}
-                        type="button"
-                        onClick={() => setStatusFilter(st.id)}
-                        className={`shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${statusFilter === st.id
-                            ? 'bg-purple-600 text-white shadow-sm shadow-purple-600/30 ring-1 ring-purple-500'
-                            : 'bg-white/90 dark:bg-slate-900/90 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white border border-slate-200/60 dark:border-slate-800'
-                          }`}
-                      >
-                        <span>{st.label}</span>
-                        <span
-                          className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${statusFilter === st.id
-                              ? 'bg-white/25 text-white'
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                            }`}
-                        >
-                          {st.count}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Quick Filter Reset Button (if any filter is active) */}
-                {(searchTerm || statusFilter !== 'ALL' || scheduleFilter !== 'ALL' || selectedSubjectFilter !== 'ALL' || selectedRoomFilter !== 'ALL' || mineOnlyFilter || adminTeacherFilter !== 'ALL') && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearchTerm('');
-                      setStatusFilter('ALL');
-                      setScheduleFilter('ALL');
-                      setSelectedSubjectFilter('ALL');
-                      setSelectedRoomFilter('ALL');
-                      setMineOnlyFilter(false);
-                      setAdminTeacherFilter('ALL');
-                    }}
-                    className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-200/60 dark:border-rose-900/50 transition-colors flex items-center gap-1.5 cursor-pointer ml-auto sm:ml-0"
-                    title="Reset seluruh filter pencarian kembali ke default"
-                  >
-                    <RotateCcw size={12} />
-                    <span>Reset Filter</span>
-                  </button>
-                )}
-              </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Total Butir Soal</div>
+            <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-0.5">
+              Bank Soal Terpasang
             </div>
+          </div>
+        </div>
 
-            {/* Bottom Row: Granular Filters (Jadwal, Ruangan Fisik, Mapel, Guru, Ujian Saya) */}
-            <div className="flex flex-wrap items-center gap-2.5 pt-3 border-t border-slate-100/90 dark:border-slate-800/90">
-              {/* Filter Jadwal Pelaksanaan */}
-              <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/60 dark:border-slate-700/60 overflow-x-auto no-scrollbar shrink-0">
+        {/* Card 3: Siswa Mengerjakan (Siswa Unik Nyata) */}
+        <div className="group p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
+            <Users size={24} />
+          </div>
+          <div className="min-w-0">
+            <div className="text-2xl font-bold text-slate-900 dark:text-white flex items-baseline gap-1.5">
+              <span>{totalUniqueStudents}</span>
+              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">Siswa Unik</span>
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Siswa Mengerjakan</div>
+            <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-0.5 flex items-center gap-1 truncate" title={`Akumulasi lembar ujian: ${totalAttempts} sesi`}>
+              <CheckCircle2 size={10} className="text-emerald-500 shrink-0" />
+              <span>{totalAttempts} Sesi Lembar{selectedSubjectFilter !== 'ALL' ? ` (${selectedSubjectFilter})` : ' (Seluruh Mapel)'}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 4: Rata-Rata Nilai */}
+        <div className="group p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
+            <Award size={24} />
+          </div>
+          <div className="min-w-0">
+            <div className="text-2xl font-bold text-slate-900 dark:text-white flex items-baseline gap-1.5">
+              <span>{avgScore}</span>
+              <span className="text-xs font-semibold text-slate-400">/ 100</span>
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Rata-Rata Nilai</div>
+            <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-0.5">
+              Dari siswa yang submit
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 🎛️ Unified Command Center & Filter Bar */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-4 sm:p-5 shadow-xs space-y-3.5">
+        {/* Top Row: Search Input + Result Counter + Quick Actions */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
+            <input
+              type="text"
+              placeholder="Cari nama ujian, mapel, kelas, guru pengampu..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-9 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 rounded-2xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:bg-white dark:focus:bg-slate-900 transition-all placeholder:text-slate-400"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 cursor-pointer"
+                title="Hapus pencarian"
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs font-bold px-3 py-2 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/60">
+              {filteredExams.length} Paket Ujian
+            </span>
+            <button
+              type="button"
+              onClick={handleOpenCreate}
+              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs shadow-sm shadow-purple-500/20 flex items-center gap-1.5 transition-all cursor-pointer"
+            >
+              <Plus size={15} />
+              <span>Buat Paket</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Middle Row: Status Ruang Ujian Segmented Tabs (Dedicated Row - Anti-Overlap & Anti-Truncate) */}
+        <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:pb-0 w-full sm:w-auto">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 shrink-0 mr-1 hidden md:inline">
+                Status Ruang:
+              </span>
+              <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-950/80 p-1.5 rounded-2xl border border-slate-200/70 dark:border-slate-800/80 shrink-0">
                 {[
-                  { id: 'ALL', label: 'Semua Jadwal' },
-                  { id: 'TODAY', label: 'Hari Ini' },
-                  { id: 'UPCOMING', label: 'Akan Datang' },
-                  { id: 'ONGOING', label: 'Berlangsung' },
-                  { id: 'ENDED', label: 'Selesai' },
-                ].map((s) => (
+                  { id: 'ALL', label: 'Semua Status', count: statusCounts.all },
+                  { id: 'ACTIVE', label: '🟢 Sesi Aktif', count: statusCounts.active },
+                  { id: 'PUBLISHED', label: '⏳ Ruang Tunggu', count: statusCounts.published },
+                  { id: 'DRAFT', label: '📝 Draft', count: statusCounts.draft },
+                ].map((st) => (
                   <button
-                    key={s.id}
+                    key={st.id}
                     type="button"
-                    onClick={() => setScheduleFilter(s.id as any)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${scheduleFilter === s.id
-                        ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-xs font-bold'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                      }`}
+                    onClick={() => setStatusFilter(st.id)}
+                    className={`shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                      statusFilter === st.id
+                        ? 'bg-purple-600 text-white shadow-sm shadow-purple-600/30 ring-1 ring-purple-500'
+                        : 'bg-white/90 dark:bg-slate-900/90 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white border border-slate-200/60 dark:border-slate-800'
+                    }`}
                   >
-                    {s.label}
+                    <span>{st.label}</span>
+                    <span
+                      className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                        statusFilter === st.id
+                          ? 'bg-white/25 text-white'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                      }`}
+                    >
+                      {st.count}
+                    </span>
                   </button>
                 ))}
               </div>
-
-              {/* Filter Ruang Ujian Fisik (Dinamis dari exam.roomName) */}
-              {availableRooms.length > 0 && (
-                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 text-xs font-semibold text-slate-700 dark:text-slate-200 shrink-0">
-                  <MapPin size={13} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <select
-                    value={selectedRoomFilter}
-                    onChange={(e) => setSelectedRoomFilter(e.target.value)}
-                    className="bg-transparent border-none text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[140px] truncate"
-                    title="Filter paket ujian berdasarkan Ruang Ujian fisik"
-                  >
-                    <option value="ALL">Semua Ruang ({availableRooms.length})</option>
-                    {availableRooms.map((r) => (
-                      <option key={r.name} value={r.name}>
-                        {r.name} ({r.count})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Filter Mata Pelajaran */}
-              {availableSubjects.length > 0 && (
-                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 text-xs font-semibold text-slate-700 dark:text-slate-200 shrink-0">
-                  <BookOpen size={13} className="text-purple-600 dark:text-purple-400 shrink-0" />
-                  <select
-                    value={selectedSubjectFilter}
-                    onChange={(e) => setSelectedSubjectFilter(e.target.value)}
-                    className="bg-transparent border-none text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[150px] truncate"
-                    title="Filter paket ujian berdasarkan Mata Pelajaran"
-                  >
-                    <option value="ALL">Semua Mapel ({availableSubjects.length})</option>
-                    {availableSubjects.map((sub) => (
-                      <option key={sub} value={sub}>
-                        {sub}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Filter Guru Pengampu (Khusus Super Admin) */}
-              {isSuperAdmin && (
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setMineOnlyFilter(!mineOnlyFilter)}
-                    className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${mineOnlyFilter
-                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-200'
-                      }`}
-                    title="Tampilkan hanya paket ujian yang dibuat akun Admin ini"
-                  >
-                    <UserCheck size={13} />
-                    <span>Ujian Saya</span>
-                  </button>
-                  {teachers.length > 0 && (
-                    <select
-                      value={adminTeacherFilter}
-                      onChange={(e) => setAdminTeacherFilter(e.target.value)}
-                      className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer max-w-[140px] truncate"
-                      title="Filter paket ujian berdasarkan Guru Pengampu"
-                    >
-                      <option value="ALL">Semua Guru ({teachers.length})</option>
-                      {teachers.map((t) => (
-                        <option key={t.id} value={t.name}>
-                          {t.name}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-              )}
             </div>
-          </div>
 
-          {/* Exam List Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
-            {filteredExams.length === 0 ? (
-              <div className="col-span-full py-16 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-xs">
-                <BookOpen className="mx-auto text-slate-300 dark:text-slate-600 mb-3" size={48} />
-                <p className="text-slate-500 font-medium">Belum ada paket ujian yang sesuai filter.</p>
-                <button
-                  type="button"
-                  onClick={handleOpenCreate}
-                  className="mt-4 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer"
-                >
-                  Buat Paket Ujian Baru
-                </button>
-              </div>
-            ) : (
-              filteredExams.map((exam) => {
-                const tokenStatus = isExamTokenActive(exam);
-                const schedState = getExamScheduleState(exam.startTime, exam.endTime, exam.status, new Date(), exam.updatedAt, exam.duration);
-                const schedDetails = getExamScheduleDetails(exam.startTime, exam.endTime, cbtTimezone);
-                const isLive = tokenStatus.isActive;
-                const isSessionLoading = sessionLoadingId === exam.id;
-
-                return (
-                  <div
-                    key={exam.id}
-                    className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 hover:border-purple-300 dark:hover:border-purple-700/60 shadow-xs hover:shadow-lg transition-all duration-200 flex flex-col justify-between overflow-hidden group h-full"
-                  >
-                    <div className="p-4 sm:p-5 flex-1 flex flex-col">
-                      {/* Top Status & Subject Bar */}
-                      <div className="flex items-start justify-between gap-2 mb-2.5">
-                        <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-                          <span
-                            className="px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/60 truncate max-w-[170px]"
-                            title={exam.subject}
-                          >
-                            {exam.subject}
-                          </span>
-                          {exam.targetReligion && exam.targetReligion !== 'ALL' && (() => {
-                            const rel = getReligionConfig(exam.targetReligion);
-                            return (
-                              <span
-                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold border inline-flex items-center gap-1 shrink-0 ${rel.bgBadge} ${rel.borderBadge} ${rel.textBadge}`}
-                                title={`Khusus Siswa: ${rel.label}`}
-                              >
-                                <span>{rel.icon}</span>
-                                <span>{rel.badgeLabel}</span>
-                              </span>
-                            );
-                          })()}
-                        </div>
-                        <span
-                          className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-bold shrink-0 ${isLive
-                              ? tokenStatus.isSusulan
-                                ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 animate-pulse'
-                                : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 animate-pulse'
-                              : tokenStatus.isExpired
-                                ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800'
-                                : exam.status === 'PUBLISHED'
-                                  ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
-                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                            }`}
-                        >
-                          {isLive
-                            ? tokenStatus.isSusulan
-                              ? '⚠️ Sesi Live (Susulan)'
-                              : '🟢 Sesi Live'
-                            : tokenStatus.isExpired
-                              ? '⌛ Waktu Berakhir'
-                              : exam.status === 'PUBLISHED'
-                                ? '⏳ Ruang Tunggu'
-                                : 'Draft'}
-                        </span>
-                      </div>
-
-                      <h3
-                        className="font-bold text-base sm:text-lg text-slate-900 dark:text-white line-clamp-2 min-h-[2.85rem] mb-1.5 group-hover:text-purple-600 transition-colors"
-                        title={exam.title}
-                      >
-                        {exam.title}
-                      </h3>
-
-                      {/* Author / Teacher Line */}
-                      <div className="text-[11px] text-slate-500 mb-3 flex items-center justify-between gap-1.5 flex-wrap">
-                        <div className="flex items-center gap-1.5 truncate">
-                          <span>Guru:</span>
-                          <strong className="text-slate-700 dark:text-slate-300 font-semibold truncate" title={exam.authorName || 'Guru Pengampu'}>
-                            {exam.authorName || 'Guru Pengampu'}
-                          </strong>
-                        </div>
-                        {isExamProctor(exam) && (
-                          <span className="px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 font-bold text-[10px] shrink-0">
-                            Pengawas {exam.roomName ? `Ruang ${exam.roomName}` : ''}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* 📅 EXAM SCHEDULE & TIME BOX */}
-                      <div className="p-3 rounded-2xl bg-gradient-to-br from-purple-50/70 to-indigo-50/40 dark:from-purple-950/30 dark:to-indigo-950/20 border border-purple-200/70 dark:border-purple-800/50 mb-3 space-y-2">
-                        {/* Row 1: Tanggal Pelaksanaan & Status Sesi */}
-                        <div className="flex flex-wrap items-center justify-between gap-1.5">
-                          <div className="flex items-center gap-1.5 font-bold text-xs text-slate-800 dark:text-slate-100">
-                            <Calendar size={13} className="text-purple-600 dark:text-purple-400 shrink-0" />
-                            <span title={schedDetails.dateText}>{schedDetails.dateText}</span>
-                          </div>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border shrink-0 ${schedState.badgeClass}`}>
-                            {schedState.label}
-                          </span>
-                        </div>
-
-                        {/* Row 2: Jam Mulai & Jam Berakhir */}
-                        <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl bg-white/95 dark:bg-slate-900/90 border border-purple-100 dark:border-purple-900/50 shadow-2xs">
-                          <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 text-xs">
-                            <Clock size={12} className="text-purple-500 shrink-0" />
-                            <span className="text-[11px] font-semibold">Jam Ujian:</span>
-                          </div>
-                          <div className="font-mono font-black text-xs text-purple-700 dark:text-purple-300 tracking-tight">
-                            {schedDetails.timeRangeText}
-                          </div>
-                        </div>
-
-                        {/* Row 3: Countdown / Sisa Waktu Menuju Ujian */}
-                        {schedState.countdown && (
-                          <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-0.5 px-0.5">
-                            <span className="font-medium">Waktu Pengerjaan:</span>
-                            <span className={`font-bold ${isLive && schedState.isOutsideSchedule ? 'text-amber-600 dark:text-amber-400' : 'text-purple-700 dark:text-purple-300'}`}>
-                              {schedState.countdown}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Notice informatif jika sesi aktif di luar jadwal resmi (Susulan) */}
-                        {isLive && schedState.isOutsideSchedule && (
-                          <div className="mt-1.5 p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-[10px] flex items-start gap-1.5 leading-tight">
-                            <AlertTriangle size={13} className="shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
-                            <div>
-                              <strong className="font-semibold">Info Ujian Susulan:</strong> Sesi aktif dibuka pengawas di luar jadwal resmi. Siswa tetap dapat login & mengerjakan ujian.
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Description with unified min-height */}
-                      <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 min-h-[2rem] mb-3">
-                        {exam.description || 'Tidak ada deskripsi tambahan.'}
-                      </p>
-
-                      {/* 📊 3-Column Metrics Grid */}
-                      <div className="grid grid-cols-3 gap-1.5 text-center mb-3">
-                        <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                          <div className="text-[10px] text-slate-400 font-semibold">Durasi</div>
-                          <div className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-0.5 flex items-center justify-center gap-1">
-                            <Clock size={11} className="text-purple-500 shrink-0" />
-                            <span>{exam.duration} Mnt</span>
-                          </div>
-                        </div>
-                        <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                          <div className="text-[10px] text-slate-400 font-semibold">Target Kelas</div>
-                          <div className="text-xs font-bold text-blue-600 dark:text-blue-400 mt-0.5 truncate px-0.5" title={exam.classTarget}>
-                            {formatClassTargetDisplay(exam.classTarget, true)}
-                          </div>
-                        </div>
-                        <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                          <div className="text-[10px] text-slate-400 font-semibold">Butir Soal</div>
-                          <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-0.5 flex items-center justify-center gap-1">
-                            <FileCheck2 size={11} className="text-emerald-500 shrink-0" />
-                            <span>{exam._count.questions} Soal</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* 🚀 QUICK TOKEN CONTROL BANNER */}
-                      <div className={`p-3 rounded-2xl border flex items-center justify-between gap-2.5 text-xs mb-3 transition-colors ${tokenStatus.isActive
-                          ? tokenStatus.isSusulan
-                            ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/50 text-amber-900 dark:text-amber-200'
-                            : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/50 text-emerald-900 dark:text-emerald-200'
-                          : tokenStatus.isExpired
-                            ? 'bg-rose-50/60 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/50 text-rose-900 dark:text-rose-200'
-                            : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-slate-300'
-                        }`}>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 font-bold uppercase text-[9.5px] tracking-wider text-slate-400 truncate">
-                            <Key size={12} className={tokenStatus.isActive ? "text-amber-500" : "text-slate-400"} />
-                            <span>{tokenStatus.statusLabel}</span>
-                            {tokenStatus.isActive && (
-                              <span className="font-mono text-[8.5px] px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-500/30">
-                                {tokenStatus.isSusulan ? `${tokenStatus.remainingSusulanMinutes || exam.duration} MNT` : '10 MNT'}
-                              </span>
-                            )}
-                            {!tokenStatus.isActive && tokenStatus.isExpired && (
-                              <span className="text-[8.5px] px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-700 dark:text-rose-300 font-bold border border-rose-500/30">
-                                KADALUARSA
-                              </span>
-                            )}
-                          </div>
-                          <div className="font-mono font-black text-sm mt-0.5 truncate flex items-center gap-1.5">
-                            {tokenStatus.isActive ? (
-                              <>
-                                <span className="text-slate-900 dark:text-white tracking-wider">{tokenStatus.rawToken}</span>
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block"></span>
-                              </>
-                            ) : (
-                              <span className={tokenStatus.isExpired ? "text-rose-600 dark:text-rose-400 font-bold text-xs" : "text-slate-500 dark:text-slate-400 font-bold text-xs"}>
-                                {tokenStatus.displayToken}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleQuickToggleSession(exam)}
-                          disabled={isSessionLoading}
-                          className={`group relative overflow-hidden px-3.5 py-1.5 rounded-xl font-black text-xs flex items-center gap-1.5 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] shadow-xs hover:shadow-md shrink-0 cursor-pointer disabled:opacity-50 ${tokenStatus.isActive
-                              ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/20 hover:shadow-rose-600/30'
-                              : tokenStatus.isExpired
-                                ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/20 hover:shadow-amber-600/30'
-                                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20 hover:shadow-emerald-600/30'
-                            }`}
-                        >
-                          <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
-                          {isSessionLoading ? (
-                            <RefreshCw size={12} className="animate-spin" />
-                          ) : tokenStatus.isActive ? (
-                            <>
-                              <Square size={12} className="fill-white group-hover:scale-110 transition-transform duration-200" /> <span>Tutup Sesi</span>
-                            </>
-                          ) : tokenStatus.isExpired ? (
-                            <>
-                              <Play size={12} className="fill-white group-hover:scale-115 group-hover:translate-x-0.5 transition-transform duration-200" /> <span>Rilis Susulan</span>
-                            </>
-                          ) : (
-                            <>
-                              <Play size={12} className="fill-white group-hover:scale-115 group-hover:translate-x-0.5 transition-transform duration-200" /> <span>Rilis Token</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Bottom Action Buttons */}
-                    <div className="p-3 sm:p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/20 flex items-center justify-between gap-2 mt-auto">
-                      {isExamProctor(exam) ? (
-                        <Link
-                          href={`/admin/cbt/${exam.id}`}
-                          className="group relative overflow-hidden flex-1 text-center py-2.5 px-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-bold text-xs transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] flex items-center justify-center gap-1.5"
-                        >
-                          <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
-                          <ShieldCheck size={14} className="group-hover:scale-110 transition-transform duration-200" />
-                          <span>Ruang Pengawasan & Monitoring</span>
-                        </Link>
-                      ) : (
-                        <>
-                          <Link
-                            href={`/admin/cbt/${exam.id}`}
-                            className="group relative overflow-hidden flex-1 text-center py-2.5 px-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-bold text-xs transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] flex items-center justify-center gap-1.5"
-                          >
-                            <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
-                            <BookOpen size={14} className="group-hover:scale-110 transition-transform duration-200" />
-                            <span>Buka Bank Soal & Nilai</span>
-                          </Link>
-                          {isExamOwner(exam) && (
-                            <div className="flex items-center gap-1 shrink-0">
-                              <button
-                                type="button"
-                                onClick={() => handleQuickDownloadExamQuestions(exam)}
-                                disabled={downloadingExamId === exam.id}
-                                className="group p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-xl hover:scale-115 active:scale-90 transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-xs disabled:opacity-50"
-                                title={`Unduh Bank Soal (${exam._count?.questions || 0} Soal) - Format Excel/CSV Siap Upload`}
-                              >
-                                {downloadingExamId === exam.id ? (
-                                  <RefreshCw size={15} className="animate-spin text-emerald-600" />
-                                ) : (
-                                  <Download size={15} className="group-hover:-translate-y-0.5 transition-transform duration-200" />
-                                )}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEdit(exam)}
-                                className="group p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/40 rounded-xl hover:scale-115 active:scale-90 transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-xs"
-                                title="Edit Pengaturan Ujian"
-                              >
-                                <Edit3 size={15} className="group-hover:rotate-12 transition-transform duration-200" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setDeleteTargetId(exam.id);
-                                  setIsDeleteModalOpen(true);
-                                }}
-                                className="group p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl hover:scale-115 active:scale-90 transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-xs"
-                                title="Hapus Ujian"
-                              >
-                                <Trash2 size={15} className="group-hover:rotate-12 group-hover:scale-110 transition-transform duration-200" />
-                              </button>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
+            {/* Quick Filter Reset Button (if any filter is active) */}
+            {(searchTerm || statusFilter !== 'ALL' || scheduleFilter !== 'ALL' || selectedSubjectFilter !== 'ALL' || selectedRoomFilter !== 'ALL' || mineOnlyFilter || adminTeacherFilter !== 'ALL') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm('');
+                  setStatusFilter('ALL');
+                  setScheduleFilter('ALL');
+                  setSelectedSubjectFilter('ALL');
+                  setSelectedRoomFilter('ALL');
+                  setMineOnlyFilter(false);
+                  setAdminTeacherFilter('ALL');
+                }}
+                className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-200/60 dark:border-rose-900/50 transition-colors flex items-center gap-1.5 cursor-pointer ml-auto sm:ml-0"
+                title="Reset seluruh filter pencarian kembali ke default"
+              >
+                <RotateCcw size={12} />
+                <span>Reset Filter</span>
+              </button>
             )}
           </div>
         </div>
+
+        {/* Bottom Row: Granular Filters (Jadwal, Ruangan Fisik, Mapel, Guru, Ujian Saya) */}
+        <div className="flex flex-wrap items-center gap-2.5 pt-3 border-t border-slate-100/90 dark:border-slate-800/90">
+          {/* Filter Jadwal Pelaksanaan */}
+          <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/60 dark:border-slate-700/60 overflow-x-auto no-scrollbar shrink-0">
+            {[
+              { id: 'ALL', label: 'Semua Jadwal' },
+              { id: 'TODAY', label: 'Hari Ini' },
+              { id: 'UPCOMING', label: 'Akan Datang' },
+              { id: 'ONGOING', label: 'Berlangsung' },
+              { id: 'ENDED', label: 'Selesai' },
+            ].map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setScheduleFilter(s.id as any)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                  scheduleFilter === s.id
+                    ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-xs font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Filter Ruang Ujian Fisik (Dinamis dari exam.roomName) */}
+          {availableRooms.length > 0 && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 text-xs font-semibold text-slate-700 dark:text-slate-200 shrink-0">
+              <MapPin size={13} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <select
+                value={selectedRoomFilter}
+                onChange={(e) => setSelectedRoomFilter(e.target.value)}
+                className="bg-transparent border-none text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[140px] truncate"
+                title="Filter paket ujian berdasarkan Ruang Ujian fisik"
+              >
+                <option value="ALL">Semua Ruang ({availableRooms.length})</option>
+                {availableRooms.map((r) => (
+                  <option key={r.name} value={r.name}>
+                    {r.name} ({r.count})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Filter Mata Pelajaran */}
+          {availableSubjects.length > 0 && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 text-xs font-semibold text-slate-700 dark:text-slate-200 shrink-0">
+              <BookOpen size={13} className="text-purple-600 dark:text-purple-400 shrink-0" />
+              <select
+                value={selectedSubjectFilter}
+                onChange={(e) => setSelectedSubjectFilter(e.target.value)}
+                className="bg-transparent border-none text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[150px] truncate"
+                title="Filter paket ujian berdasarkan Mata Pelajaran"
+              >
+                <option value="ALL">Semua Mapel ({availableSubjects.length})</option>
+                {availableSubjects.map((sub) => (
+                  <option key={sub} value={sub}>
+                    {sub}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Filter Guru Pengampu (Khusus Super Admin) */}
+          {isSuperAdmin && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setMineOnlyFilter(!mineOnlyFilter)}
+                className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                  mineOnlyFilter
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-200'
+                }`}
+                title="Tampilkan hanya paket ujian yang dibuat akun Admin ini"
+              >
+                <UserCheck size={13} />
+                <span>Ujian Saya</span>
+              </button>
+              {teachers.length > 0 && (
+                <select
+                  value={adminTeacherFilter}
+                  onChange={(e) => setAdminTeacherFilter(e.target.value)}
+                  className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer max-w-[140px] truncate"
+                  title="Filter paket ujian berdasarkan Guru Pengampu"
+                >
+                  <option value="ALL">Semua Guru ({teachers.length})</option>
+                  {teachers.map((t) => (
+                    <option key={t.id} value={t.name}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Exam List Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
+        {filteredExams.length === 0 ? (
+          <div className="col-span-full py-16 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-xs">
+            <BookOpen className="mx-auto text-slate-300 dark:text-slate-600 mb-3" size={48} />
+            <p className="text-slate-500 font-medium">Belum ada paket ujian yang sesuai filter.</p>
+            <button
+              type="button"
+              onClick={handleOpenCreate}
+              className="mt-4 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer"
+            >
+              Buat Paket Ujian Baru
+            </button>
+          </div>
+        ) : (
+          filteredExams.map((exam) => {
+            const tokenStatus = isExamTokenActive(exam);
+            const schedState = getExamScheduleState(exam.startTime, exam.endTime, exam.status, new Date(), exam.updatedAt, exam.duration);
+            const schedDetails = getExamScheduleDetails(exam.startTime, exam.endTime, cbtTimezone);
+            const isLive = tokenStatus.isActive;
+            const isSessionLoading = sessionLoadingId === exam.id;
+
+            return (
+              <div
+                key={exam.id}
+                className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 hover:border-purple-300 dark:hover:border-purple-700/60 shadow-xs hover:shadow-lg transition-all duration-200 flex flex-col justify-between overflow-hidden group h-full"
+              >
+                <div className="p-4 sm:p-5 flex-1 flex flex-col">
+                  {/* Top Status & Subject Bar */}
+                  <div className="flex items-start justify-between gap-2 mb-2.5">
+                    <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                      <span 
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/60 truncate max-w-[170px]"
+                        title={exam.subject}
+                      >
+                        {exam.subject}
+                      </span>
+                      {exam.targetReligion && exam.targetReligion !== 'ALL' && (() => {
+                        const rel = getReligionConfig(exam.targetReligion);
+                        return (
+                          <span 
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold border inline-flex items-center gap-1 shrink-0 ${rel.bgBadge} ${rel.borderBadge} ${rel.textBadge}`}
+                            title={`Khusus Siswa: ${rel.label}`}
+                          >
+                            <span>{rel.icon}</span>
+                            <span>{rel.badgeLabel}</span>
+                          </span>
+                        );
+                      })()}
+                    </div>
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-bold shrink-0 ${
+                        isLive
+                          ? tokenStatus.isSusulan
+                            ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 animate-pulse'
+                            : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 animate-pulse'
+                          : tokenStatus.isExpired
+                          ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800'
+                          : exam.status === 'PUBLISHED'
+                          ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      {isLive 
+                        ? tokenStatus.isSusulan
+                          ? '⚠️ Sesi Live (Susulan)'
+                          : '🟢 Sesi Live' 
+                        : tokenStatus.isExpired
+                        ? '⌛ Waktu Berakhir'
+                        : exam.status === 'PUBLISHED' 
+                        ? '⏳ Ruang Tunggu' 
+                        : 'Draft'}
+                    </span>
+                  </div>
+
+                  <h3 
+                    className="font-bold text-base sm:text-lg text-slate-900 dark:text-white line-clamp-2 min-h-[2.85rem] mb-1.5 group-hover:text-purple-600 transition-colors"
+                    title={exam.title}
+                  >
+                    {exam.title}
+                  </h3>
+
+                  {/* Author / Teacher Line */}
+                  <div className="text-[11px] text-slate-500 mb-3 flex items-center justify-between gap-1.5 flex-wrap">
+                    <div className="flex items-center gap-1.5 truncate">
+                      <span>Guru:</span>
+                      <strong className="text-slate-700 dark:text-slate-300 font-semibold truncate" title={exam.authorName || 'Guru Pengampu'}>
+                        {exam.authorName || 'Guru Pengampu'}
+                      </strong>
+                    </div>
+                    {isExamProctor(exam) && (
+                      <span className="px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 font-bold text-[10px] shrink-0">
+                        Pengawas {exam.roomName ? `Ruang ${exam.roomName}` : ''}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* 📅 EXAM SCHEDULE & TIME BOX */}
+                  <div className="p-3 rounded-2xl bg-gradient-to-br from-purple-50/70 to-indigo-50/40 dark:from-purple-950/30 dark:to-indigo-950/20 border border-purple-200/70 dark:border-purple-800/50 mb-3 space-y-2">
+                    {/* Row 1: Tanggal Pelaksanaan & Status Sesi */}
+                    <div className="flex flex-wrap items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-1.5 font-bold text-xs text-slate-800 dark:text-slate-100">
+                        <Calendar size={13} className="text-purple-600 dark:text-purple-400 shrink-0" />
+                        <span title={schedDetails.dateText}>{schedDetails.dateText}</span>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border shrink-0 ${schedState.badgeClass}`}>
+                        {schedState.label}
+                      </span>
+                    </div>
+
+                    {/* Row 2: Jam Mulai & Jam Berakhir */}
+                    <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl bg-white/95 dark:bg-slate-900/90 border border-purple-100 dark:border-purple-900/50 shadow-2xs">
+                      <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 text-xs">
+                        <Clock size={12} className="text-purple-500 shrink-0" />
+                        <span className="text-[11px] font-semibold">Jam Ujian:</span>
+                      </div>
+                      <div className="font-mono font-black text-xs text-purple-700 dark:text-purple-300 tracking-tight">
+                        {schedDetails.timeRangeText}
+                      </div>
+                    </div>
+
+                    {/* Row 3: Countdown / Sisa Waktu Menuju Ujian */}
+                    {schedState.countdown && (
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-0.5 px-0.5">
+                        <span className="font-medium">Waktu Pengerjaan:</span>
+                        <span className={`font-bold ${isLive && schedState.isOutsideSchedule ? 'text-amber-600 dark:text-amber-400' : 'text-purple-700 dark:text-purple-300'}`}>
+                          {schedState.countdown}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Notice informatif jika sesi aktif di luar jadwal resmi (Susulan) */}
+                    {isLive && schedState.isOutsideSchedule && (
+                      <div className="mt-1.5 p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-[10px] flex items-start gap-1.5 leading-tight">
+                        <AlertTriangle size={13} className="shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                        <div>
+                          <strong className="font-semibold">Info Ujian Susulan:</strong> Sesi aktif dibuka pengawas di luar jadwal resmi. Siswa tetap dapat login & mengerjakan ujian.
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Description with unified min-height */}
+                  <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 min-h-[2rem] mb-3">
+                    {exam.description || 'Tidak ada deskripsi tambahan.'}
+                  </p>
+
+                  {/* 📊 3-Column Metrics Grid */}
+                  <div className="grid grid-cols-3 gap-1.5 text-center mb-3">
+                    <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                      <div className="text-[10px] text-slate-400 font-semibold">Durasi</div>
+                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-0.5 flex items-center justify-center gap-1">
+                        <Clock size={11} className="text-purple-500 shrink-0" />
+                        <span>{exam.duration} Mnt</span>
+                      </div>
+                    </div>
+                    <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                      <div className="text-[10px] text-slate-400 font-semibold">Target Kelas</div>
+                      <div className="text-xs font-bold text-blue-600 dark:text-blue-400 mt-0.5 truncate px-0.5" title={exam.classTarget}>
+                        {formatClassTargetDisplay(exam.classTarget, true)}
+                      </div>
+                    </div>
+                    <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                      <div className="text-[10px] text-slate-400 font-semibold">Butir Soal</div>
+                      <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-0.5 flex items-center justify-center gap-1">
+                        <FileCheck2 size={11} className="text-emerald-500 shrink-0" />
+                        <span>{exam._count.questions} Soal</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 🚀 QUICK TOKEN CONTROL BANNER */}
+                  <div className={`p-3 rounded-2xl border flex items-center justify-between gap-2.5 text-xs mb-3 transition-colors ${
+                    tokenStatus.isActive 
+                      ? tokenStatus.isSusulan
+                        ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/50 text-amber-900 dark:text-amber-200'
+                        : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/50 text-emerald-900 dark:text-emerald-200' 
+                      : tokenStatus.isExpired
+                        ? 'bg-rose-50/60 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/50 text-rose-900 dark:text-rose-200'
+                        : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-slate-300'
+                  }`}>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 font-bold uppercase text-[9.5px] tracking-wider text-slate-400 truncate">
+                        <Key size={12} className={tokenStatus.isActive ? "text-amber-500" : "text-slate-400"} />
+                        <span>{tokenStatus.statusLabel}</span>
+                        {tokenStatus.isActive && (
+                          <span className="font-mono text-[8.5px] px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-500/30">
+                            {tokenStatus.isSusulan ? `${tokenStatus.remainingSusulanMinutes || exam.duration} MNT` : '10 MNT'}
+                          </span>
+                        )}
+                        {!tokenStatus.isActive && tokenStatus.isExpired && (
+                          <span className="text-[8.5px] px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-700 dark:text-rose-300 font-bold border border-rose-500/30">
+                            KADALUARSA
+                          </span>
+                        )}
+                      </div>
+                      <div className="font-mono font-black text-sm mt-0.5 truncate flex items-center gap-1.5">
+                        {tokenStatus.isActive ? (
+                          <>
+                            <span className="text-slate-900 dark:text-white tracking-wider">{tokenStatus.rawToken}</span>
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block"></span>
+                          </>
+                        ) : (
+                          <span className={tokenStatus.isExpired ? "text-rose-600 dark:text-rose-400 font-bold text-xs" : "text-slate-500 dark:text-slate-400 font-bold text-xs"}>
+                            {tokenStatus.displayToken}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleQuickToggleSession(exam)}
+                      disabled={isSessionLoading}
+                      className={`group relative overflow-hidden px-3.5 py-1.5 rounded-xl font-black text-xs flex items-center gap-1.5 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] shadow-xs hover:shadow-md shrink-0 cursor-pointer disabled:opacity-50 ${
+                        tokenStatus.isActive
+                          ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/20 hover:shadow-rose-600/30'
+                          : tokenStatus.isExpired
+                          ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/20 hover:shadow-amber-600/30'
+                          : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20 hover:shadow-emerald-600/30'
+                      }`}
+                    >
+                      <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                      {isSessionLoading ? (
+                        <RefreshCw size={12} className="animate-spin" />
+                      ) : tokenStatus.isActive ? (
+                        <>
+                          <Square size={12} className="fill-white group-hover:scale-110 transition-transform duration-200" /> <span>Tutup Sesi</span>
+                        </>
+                      ) : tokenStatus.isExpired ? (
+                        <>
+                          <Play size={12} className="fill-white group-hover:scale-115 group-hover:translate-x-0.5 transition-transform duration-200" /> <span>Rilis Susulan</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play size={12} className="fill-white group-hover:scale-115 group-hover:translate-x-0.5 transition-transform duration-200" /> <span>Rilis Token</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Bottom Action Buttons */}
+                <div className="p-3 sm:p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/20 flex items-center justify-between gap-2 mt-auto">
+                  {isExamProctor(exam) ? (
+                    <Link
+                      href={`/admin/cbt/${exam.id}`}
+                      className="group relative overflow-hidden flex-1 text-center py-2.5 px-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-bold text-xs transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] flex items-center justify-center gap-1.5"
+                    >
+                      <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                      <ShieldCheck size={14} className="group-hover:scale-110 transition-transform duration-200" />
+                      <span>Ruang Pengawasan & Monitoring</span>
+                    </Link>
+                  ) : (
+                    <>
+                      <Link
+                        href={`/admin/cbt/${exam.id}`}
+                        className="group relative overflow-hidden flex-1 text-center py-2.5 px-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-bold text-xs transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] flex items-center justify-center gap-1.5"
+                      >
+                        <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                        <BookOpen size={14} className="group-hover:scale-110 transition-transform duration-200" />
+                        <span>Buka Bank Soal & Nilai</span>
+                      </Link>
+                      {isExamOwner(exam) && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleQuickDownloadExamQuestions(exam)}
+                            disabled={downloadingExamId === exam.id}
+                            className="group p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-xl hover:scale-115 active:scale-90 transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-xs disabled:opacity-50"
+                            title={`Unduh Bank Soal (${exam._count?.questions || 0} Soal) - Format Excel/CSV Siap Upload`}
+                          >
+                            {downloadingExamId === exam.id ? (
+                              <RefreshCw size={15} className="animate-spin text-emerald-600" />
+                            ) : (
+                              <Download size={15} className="group-hover:-translate-y-0.5 transition-transform duration-200" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(exam)}
+                            className="group p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/40 rounded-xl hover:scale-115 active:scale-90 transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-xs"
+                            title="Edit Pengaturan Ujian"
+                          >
+                            <Edit3 size={15} className="group-hover:rotate-12 transition-transform duration-200" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeleteTargetId(exam.id);
+                              setIsDeleteModalOpen(true);
+                            }}
+                            className="group p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl hover:scale-115 active:scale-90 transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-xs"
+                            title="Hapus Ujian"
+                          >
+                            <Trash2 size={15} className="group-hover:rotate-12 group-hover:scale-110 transition-transform duration-200" />
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+      </div>
       )}
 
       {/* Modal Buat / Edit Ujian */}
@@ -3999,36 +4055,39 @@ export default function CbtDashboard({
                       Pilih seluruh jurusan dalam 1 tingkat, beberapa rombel, atau 1 kelas spesifik
                     </span>
                   </div>
-
+                  
                   {/* Mode switcher tabs */}
                   <div className="flex items-center gap-1 bg-white dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-[11px]">
                     <button
                       type="button"
                       onClick={() => setClassTargetMode('preset')}
-                      className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${classTargetMode === 'preset'
+                      className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                        classTargetMode === 'preset'
                           ? 'bg-purple-600 text-white shadow-xs'
                           : 'text-slate-600 dark:text-slate-400 hover:text-purple-600'
-                        }`}
+                      }`}
                     >
                       🎯 Tingkat / Dropdown
                     </button>
                     <button
                       type="button"
                       onClick={() => setClassTargetMode('multi')}
-                      className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${classTargetMode === 'multi'
+                      className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                        classTargetMode === 'multi'
                           ? 'bg-purple-600 text-white shadow-xs'
                           : 'text-slate-600 dark:text-slate-400 hover:text-purple-600'
-                        }`}
+                      }`}
                     >
                       👥 Multi-Jurusan
                     </button>
                     <button
                       type="button"
                       onClick={() => setClassTargetMode('custom')}
-                      className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${classTargetMode === 'custom'
+                      className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                        classTargetMode === 'custom'
                           ? 'bg-purple-600 text-white shadow-xs'
                           : 'text-slate-600 dark:text-slate-400 hover:text-purple-600'
-                        }`}
+                      }`}
                     >
                       ✏️ Manual
                     </button>
@@ -4049,10 +4108,11 @@ export default function CbtDashboard({
                             runConflictCheck(formData.startTime, formData.endTime, val);
                           }
                         }}
-                        className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border transition-all text-left flex items-center justify-between cursor-pointer ${formData.classTarget === 'Semua Kelas X (Semua Jurusan)'
+                        className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border transition-all text-left flex items-center justify-between cursor-pointer ${
+                          formData.classTarget === 'Semua Kelas X (Semua Jurusan)'
                             ? 'bg-purple-600 text-white border-purple-600 shadow-xs ring-2 ring-purple-400/30'
                             : 'bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-purple-300'
-                          }`}
+                        }`}
                       >
                         <span className="truncate">🎯 Tingkat X (Semua)</span>
                         {formData.classTarget === 'Semua Kelas X (Semua Jurusan)' && <Check size={13} className="shrink-0 ml-1" />}
@@ -4066,10 +4126,11 @@ export default function CbtDashboard({
                             runConflictCheck(formData.startTime, formData.endTime, val);
                           }
                         }}
-                        className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border transition-all text-left flex items-center justify-between cursor-pointer ${formData.classTarget === 'Semua Kelas XI (Semua Jurusan)'
+                        className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border transition-all text-left flex items-center justify-between cursor-pointer ${
+                          formData.classTarget === 'Semua Kelas XI (Semua Jurusan)'
                             ? 'bg-purple-600 text-white border-purple-600 shadow-xs ring-2 ring-purple-400/30'
                             : 'bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-purple-300'
-                          }`}
+                        }`}
                       >
                         <span className="truncate">🎯 Tingkat XI (Semua)</span>
                         {formData.classTarget === 'Semua Kelas XI (Semua Jurusan)' && <Check size={13} className="shrink-0 ml-1" />}
@@ -4083,10 +4144,11 @@ export default function CbtDashboard({
                             runConflictCheck(formData.startTime, formData.endTime, val);
                           }
                         }}
-                        className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border transition-all text-left flex items-center justify-between cursor-pointer ${formData.classTarget === 'Semua Kelas XII (Semua Jurusan)'
+                        className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border transition-all text-left flex items-center justify-between cursor-pointer ${
+                          formData.classTarget === 'Semua Kelas XII (Semua Jurusan)'
                             ? 'bg-purple-600 text-white border-purple-600 shadow-xs ring-2 ring-purple-400/30'
                             : 'bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-purple-300'
-                          }`}
+                        }`}
                       >
                         <span className="truncate">🎯 Tingkat XII (Semua)</span>
                         {formData.classTarget === 'Semua Kelas XII (Semua Jurusan)' && <Check size={13} className="shrink-0 ml-1" />}
@@ -4100,10 +4162,11 @@ export default function CbtDashboard({
                             runConflictCheck(formData.startTime, formData.endTime, val);
                           }
                         }}
-                        className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border transition-all text-left flex items-center justify-between cursor-pointer ${formData.classTarget === 'Semua Kelas'
+                        className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border transition-all text-left flex items-center justify-between cursor-pointer ${
+                          formData.classTarget === 'Semua Kelas'
                             ? 'bg-purple-600 text-white border-purple-600 shadow-xs ring-2 ring-purple-400/30'
                             : 'bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-purple-300'
-                          }`}
+                        }`}
                       >
                         <span className="truncate">🌐 Seluruh Sekolah</span>
                         {formData.classTarget === 'Semua Kelas' && <Check size={13} className="shrink-0 ml-1" />}
@@ -4229,13 +4292,15 @@ export default function CbtDashboard({
                                   key={c}
                                   type="button"
                                   onClick={() => handleToggleMultiClass(c)}
-                                  className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${isChecked
+                                  className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                                    isChecked
                                       ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
                                       : 'bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-purple-300'
-                                    }`}
+                                  }`}
                                 >
-                                  <div className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] ${isChecked ? 'bg-white text-purple-600 font-black' : 'border border-slate-300 dark:border-slate-700'
-                                    }`}>
+                                  <div className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] ${
+                                    isChecked ? 'bg-white text-purple-600 font-black' : 'border border-slate-300 dark:border-slate-700'
+                                  }`}>
                                     {isChecked && '✓'}
                                   </div>
                                   <span>{c}</span>
@@ -4257,13 +4322,15 @@ export default function CbtDashboard({
                                   key={c}
                                   type="button"
                                   onClick={() => handleToggleMultiClass(c)}
-                                  className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${isChecked
+                                  className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                                    isChecked
                                       ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
                                       : 'bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-purple-300'
-                                    }`}
+                                  }`}
                                 >
-                                  <div className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] ${isChecked ? 'bg-white text-purple-600 font-black' : 'border border-slate-300 dark:border-slate-700'
-                                    }`}>
+                                  <div className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] ${
+                                    isChecked ? 'bg-white text-purple-600 font-black' : 'border border-slate-300 dark:border-slate-700'
+                                  }`}>
                                     {isChecked && '✓'}
                                   </div>
                                   <span>{c}</span>
@@ -4285,13 +4352,15 @@ export default function CbtDashboard({
                                   key={c}
                                   type="button"
                                   onClick={() => handleToggleMultiClass(c)}
-                                  className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${isChecked
+                                  className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                                    isChecked
                                       ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
                                       : 'bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-purple-300'
-                                    }`}
+                                  }`}
                                 >
-                                  <div className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] ${isChecked ? 'bg-white text-purple-600 font-black' : 'border border-slate-300 dark:border-slate-700'
-                                    }`}>
+                                  <div className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] ${
+                                    isChecked ? 'bg-white text-purple-600 font-black' : 'border border-slate-300 dark:border-slate-700'
+                                  }`}>
                                     {isChecked && '✓'}
                                   </div>
                                   <span>{c}</span>
@@ -4408,10 +4477,11 @@ export default function CbtDashboard({
                             key={tz}
                             type="button"
                             onClick={() => handleTimezoneChange(tz)}
-                            className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${cbtTimezone === tz
+                            className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                              cbtTimezone === tz
                                 ? 'bg-purple-600 text-white shadow-xs'
                                 : 'text-slate-600 dark:text-slate-400 hover:text-purple-700 dark:hover:text-purple-300'
-                              }`}
+                            }`}
                           >
                             {tz} {tz === 'WIB' ? '(UTC+7)' : tz === 'WITA' ? '(UTC+8)' : '(UTC+9)'}
                           </button>
@@ -4527,23 +4597,25 @@ export default function CbtDashboard({
                       const isWindowEnough = windowMinutes >= (formData.duration || 60);
 
                       return (
-                        <div className={`p-3 rounded-xl border text-xs transition-all ${!isEndAfterStart
+                        <div className={`p-3 rounded-xl border text-xs transition-all ${
+                          !isEndAfterStart
                             ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200'
                             : !isWindowEnough
-                              ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200'
-                              : 'bg-indigo-50/70 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800/60 text-indigo-950 dark:text-indigo-200'
-                          }`}>
+                            ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200'
+                            : 'bg-indigo-50/70 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800/60 text-indigo-950 dark:text-indigo-200'
+                        }`}>
                           <div className="flex items-center justify-between gap-2 mb-1.5">
                             <div className="flex items-center gap-1.5 font-bold">
                               <Calendar size={13} className="text-purple-600 dark:text-purple-400 shrink-0" />
                               <span>Pratinjau Jadwal Terkunci ({cbtTimezone})</span>
                             </div>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${!isEndAfterStart
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              !isEndAfterStart
                                 ? 'bg-rose-200 text-rose-800 dark:bg-rose-900 dark:text-rose-200'
                                 : !isWindowEnough
-                                  ? 'bg-amber-200 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
-                                  : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200'
-                              }`}>
+                                ? 'bg-amber-200 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
+                                : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200'
+                            }`}>
                               {!isEndAfterStart ? '⚠️ Waktu Tidak Valid' : !isWindowEnough ? '⚠️ Jendela Terlalu Singkat' : '✓ Jadwal Tepat & Terkunci'}
                             </span>
                           </div>
@@ -4820,10 +4892,11 @@ export default function CbtDashboard({
                       key={tz}
                       type="button"
                       onClick={() => handleTimezoneChange(tz)}
-                      className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${cbtTimezone === tz
+                      className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                        cbtTimezone === tz
                           ? 'bg-purple-600 text-white shadow-xs'
                           : 'text-slate-600 dark:text-slate-400 hover:text-purple-700'
-                        }`}
+                      }`}
                     >
                       {tz}
                     </button>
@@ -4839,20 +4912,22 @@ export default function CbtDashboard({
                 <button
                   type="button"
                   onClick={() => setBatchMode('PARALLEL')}
-                  className={`py-2 px-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer ${batchMode === 'PARALLEL'
+                  className={`py-2 px-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    batchMode === 'PARALLEL'
                       ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-sm'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                    }`}
+                  }`}
                 >
                   <Clock size={14} /> Jam Serentak (Paralel)
                 </button>
                 <button
                   type="button"
                   onClick={() => setBatchMode('SEQUENTIAL')}
-                  className={`py-2 px-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer ${batchMode === 'SEQUENTIAL'
+                  className={`py-2 px-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    batchMode === 'SEQUENTIAL'
                       ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-sm'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                    }`}
+                  }`}
                 >
                   <Layers size={14} /> Sesi Berurutan (Shift Otomatis)
                 </button>
@@ -5004,10 +5079,11 @@ export default function CbtDashboard({
                             key={mins}
                             type="button"
                             onClick={() => setBatchBreakMinutes(mins)}
-                            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${batchBreakMinutes === mins
+                            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                              batchBreakMinutes === mins
                                 ? 'bg-purple-600 text-white shadow-xs'
                                 : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-                              }`}
+                            }`}
                           >
                             {mins} mnt
                           </button>
@@ -5183,11 +5259,11 @@ export default function CbtDashboard({
 
       {/* ⚠️ MODAL PERINGATAN / NOTIFIKASI KETIDAKSESUAIAN JADWAL RILIS TOKEN (Compact & Elegan) */}
       {scheduleNoticeModal && (
-        <div
+        <div 
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setScheduleNoticeModal(null)}
         >
-          <div
+          <div 
             className="relative bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800/90 rounded-[1.75rem] max-w-md w-full p-5 sm:p-6 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.4)] overflow-hidden space-y-4 animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
@@ -5356,7 +5432,7 @@ export default function CbtDashboard({
         }
       >
         {/* 🎛️ PANEL PENETAPAN KETUA PANITIA UJIAN (HANYA BISA DIUBAH ADMIN UTAMA) - DILUAR DOKUMEN CETAK */}
-        <div
+        <div 
           id="cbt-committee-selector-banner"
           className="print:hidden cbt-ignore-pdf mb-4 p-3.5 bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 border border-purple-200 dark:border-purple-800/40 rounded-2xl shadow-xs font-sans text-xs"
         >

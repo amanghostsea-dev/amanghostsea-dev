@@ -24,6 +24,8 @@ export default async function AdminCbtPage({
     ? 'suspend'
     : sp?.tab === 'logins' || sp?.tab === 'login' || sp?.tab === 'presensi'
     ? 'logins'
+    : sp?.tab === 'backup' || sp?.tab === 'cadangan'
+    ? 'backup'
     : 'exams';
 
   const cookieStore = await cookies();
