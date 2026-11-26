@@ -1198,9 +1198,9 @@ export async function syncCbtScoresToStudentGradesAction(examId: string, customS
         },
       });
 
-      let assignment = existingGrade ? existingGrade.assignment : 85;
-      let midExam = existingGrade ? existingGrade.midExam : 80;
-      let finalExam = existingGrade ? existingGrade.finalExam : 85;
+      let assignment = existingGrade && existingGrade.assignment > 0 ? existingGrade.assignment : 85;
+      let midExam = existingGrade && existingGrade.midExam > 0 ? existingGrade.midExam : 80;
+      let finalExam = existingGrade && existingGrade.finalExam > 0 ? existingGrade.finalExam : 85;
 
       if (isUTS) {
         midExam = score;
@@ -2388,15 +2388,19 @@ export async function proctorForceSubmitAction(attemptId: string) {
       answersObj = JSON.parse(attempt.answers || '{}');
     } catch { }
 
+    let totalScore = 0;
     let correctCount = 0;
     const questions = attempt.exam.questions;
+    const totalMaxPoints = questions.reduce((sum, q) => sum + q.points, 0) || 100;
+
     questions.forEach((q) => {
-      if (answersObj[q.id] !== undefined && String(answersObj[q.id]) === String(q.correctAnswer)) {
+      if (answersObj[q.id] !== undefined && String(answersObj[q.id]).trim() === String(q.correctAnswer).trim()) {
+        totalScore += q.points;
         correctCount++;
       }
     });
 
-    const score = questions.length > 0 ? (correctCount / questions.length) * 100 : 0;
+    const score = Math.round((totalScore / totalMaxPoints) * 100);
 
     const updated = await prisma.examAttempt.update({
       where: { id: attemptId },

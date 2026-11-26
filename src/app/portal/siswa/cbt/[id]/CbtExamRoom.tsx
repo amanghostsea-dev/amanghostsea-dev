@@ -996,6 +996,15 @@ export default function CbtExamRoom({
             </div>
           </div>
 
+          <div className="p-3.5 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800 text-left text-xs space-y-1">
+            <span className="font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+              <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-400" /> Skor Murni Terverifikasi Resmi
+            </span>
+            <p className="text-[11px] text-emerald-700/90 dark:text-emerald-300/80 leading-relaxed">
+              Skor murni ujian Anda adalah <strong>{finalResult.score}</strong> ({finalResult.totalCorrect} dari {finalResult.totalQuestions} soal benar). Nilai ini telah tercatat di konsol pengawas dan otomatis disinkronkan ke buku nilai rapor sekolah.
+            </p>
+          </div>
+
           <Link
             href="/portal/siswa/cbt"
             className="w-full block py-3.5 px-4 bg-gradient-to-r from-[#4d8675] via-[#5fa08d] to-[#caa55d] hover:from-[#5aa08c] hover:to-[#dfba6f] text-white rounded-xl font-bold text-sm shadow-md shadow-[#5fa08d]/25 transition-all text-center"

@@ -134,6 +134,17 @@ export default function SiswaDashboardClient({
   const [gradeCategoryFilter, setGradeCategoryFilter] = useState('ALL');
   const [gradeStatusFilter, setGradeStatusFilter] = useState('ALL');
 
+  // 🛡️ FORMULA NILAI RAPOR CERDAS:
+  // Jika nilai tugas/UTS belum diisi guru (masih 0), jangan mendiskon nilai ujian akhir menjadi nilai D (30-38).
+  const computeItemFinalScore = (item: { assignment: number; midExam: number; finalExam: number }) => {
+    if (item.assignment === 0 && item.midExam === 0 && item.finalExam > 0) {
+      return item.finalExam;
+    }
+    const effAssign = item.assignment > 0 ? item.assignment : 85;
+    const effMid = item.midExam > 0 ? item.midExam : 80;
+    return Math.round(effAssign * 0.3 + effMid * 0.3 + item.finalExam * 0.4);
+  };
+
   // Hitung Nilai Rata-Rata & IPK hanya dari mata pelajaran yang telah dinilai
   const gradedList = fullGrades.filter(
     (g) => g.assignment > 0 || g.midExam > 0 || g.finalExam > 0
@@ -142,7 +153,7 @@ export default function SiswaDashboardClient({
   const calculatedAvgScore = gradedList.length > 0
     ? Math.round(
         (gradedList.reduce(
-          (acc, g) => acc + (g.assignment * 0.3 + g.midExam * 0.3 + g.finalExam * 0.4),
+          (acc, g) => acc + computeItemFinalScore(g),
           0
         ) /
           gradedList.length) *
@@ -155,7 +166,7 @@ export default function SiswaDashboardClient({
     : 0;
 
   const passedCount = gradedList.filter((g) => {
-    const score = Math.round(g.assignment * 0.3 + g.midExam * 0.3 + g.finalExam * 0.4);
+    const score = computeItemFinalScore(g);
     return score >= (g.kkm || 75);
   }).length;
 
@@ -941,8 +952,8 @@ export default function SiswaDashboardClient({
                       <th className="py-4 px-4">Mata Pelajaran & Guru Pengampu</th>
                       <th className="py-4 px-4 text-center">Tugas & Kuis (30%)</th>
                       <th className="py-4 px-4 text-center">UTS / PTS (30%)</th>
-                      <th className="py-4 px-4 text-center">UAS / PAS (40%)</th>
-                      <th className="py-4 px-4 text-center">Nilai Akhir</th>
+                      <th className="py-4 px-4 text-center">UAS / CBT (40%)</th>
+                      <th className="py-4 px-4 text-center">Nilai Rapor Akhir</th>
                       <th className="py-4 px-4 text-center">Predikat & Status</th>
                     </tr>
                   </thead>
@@ -960,9 +971,7 @@ export default function SiswaDashboardClient({
                     ) : (
                       filteredGrades.map((g, idx) => {
                         const isEvaluated = g.assignment > 0 || g.midExam > 0 || g.finalExam > 0;
-                        const finalScore = isEvaluated
-                          ? Math.round(g.assignment * 0.3 + g.midExam * 0.3 + g.finalExam * 0.4)
-                          : 0;
+                        const finalScore = isEvaluated ? computeItemFinalScore(g) : 0;
                         const kkm = g.kkm || 75;
                         const isPassed = isEvaluated ? finalScore >= kkm : false;
 
@@ -1022,16 +1031,18 @@ export default function SiswaDashboardClient({
                               )}
                             </td>
 
-                            {/* Nilai UAS */}
+                            {/* Nilai UAS / CBT */}
                             <td className="py-4 px-4 text-center font-semibold text-slate-700 dark:text-slate-300">
                               {g.finalExam > 0 ? (
-                                <span className="font-bold text-slate-900 dark:text-white">{g.finalExam}</span>
+                                <span className="inline-flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-lg border border-emerald-200/60 dark:border-emerald-800/40" title="Skor murni ujian CBT">
+                                  {g.finalExam}
+                                </span>
                               ) : (
                                 <span className="text-slate-400">-</span>
                               )}
                             </td>
 
-                            {/* Nilai Akhir */}
+                            {/* Nilai Rapor Akhir */}
                             <td className="py-4 px-4 text-center">
                               {isEvaluated ? (
                                 <div className="inline-flex flex-col items-center">
@@ -1042,6 +1053,7 @@ export default function SiswaDashboardClient({
                                   }`}>
                                     {finalScore}
                                   </span>
+                                  <span className="text-[9px] text-slate-400 font-medium">Kumulatif</span>
                                 </div>
                               ) : (
                                 <span className="text-slate-400 font-medium">-</span>

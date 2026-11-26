@@ -527,9 +527,13 @@ export async function submitExam(
         const isMidExam = examTitleUpper.includes('UTS') || examTitleUpper.includes('PTS') || examTitleUpper.includes('TENGAH');
         const isFinalExam = examTitleUpper.includes('UAS') || examTitleUpper.includes('PAS') || examTitleUpper.includes('AKHIR');
 
-        let assignment = existingGrade ? existingGrade.assignment : 85;
-        let midExam = existingGrade ? existingGrade.midExam : 80;
-        let finalExam = existingGrade ? existingGrade.finalExam : 85;
+        // 🛡️ ANTI-GRADE-DROP PROTECTION:
+        // Jika nilai tugas atau UTS sebelumnya masih 0 (belum diinput manual oleh guru),
+        // gunakan nilai baseline standar sekolah (85 tugas, 80 UTS) agar siswa yang baru menyelesaikan
+        // ujian UAS/CBT tidak terdzolimi mendapatkan nilai rapor 30-38 (Grade D).
+        let assignment = existingGrade && existingGrade.assignment > 0 ? existingGrade.assignment : 85;
+        let midExam = existingGrade && existingGrade.midExam > 0 ? existingGrade.midExam : 80;
+        let finalExam = existingGrade && existingGrade.finalExam > 0 ? existingGrade.finalExam : 85;
 
         if (isMidExam) {
           midExam = finalScaledScore;
@@ -541,7 +545,7 @@ export async function submitExam(
         }
 
         // Hitung nilai akhir berbobot: Tugas & Kuis 30%, UTS 30%, UAS 40%
-        const weightedScore = (assignment * 0.3) + (midExam * 0.3) + (finalExam * 0.4);
+        const weightedScore = Math.round((assignment * 0.3) + (midExam * 0.3) + (finalExam * 0.4));
         let finalGradeLetter = 'B';
         if (weightedScore >= 90) finalGradeLetter = 'A';
         else if (weightedScore >= 85) finalGradeLetter = 'A-';
