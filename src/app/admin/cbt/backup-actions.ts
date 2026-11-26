@@ -13,6 +13,7 @@ export interface CbtBackupSummary {
   attemptsCount: number;
   gradesCount: number;
   settingsCount: number;
+  uploadedFilesCount?: number;
 }
 
 export interface CbtBackupMetadata {
@@ -35,6 +36,7 @@ export interface CbtBackupPayload {
     attempts: any[];
     grades: any[];
     settings: any[];
+    uploadedFiles?: any[];
   };
 }
 
@@ -69,8 +71,8 @@ export async function exportCbtBackupAction(): Promise<{
       return { success: false, error: auth.error };
     }
 
-    // Ambil data lengkap seluruh ekosistem CBT secara paralel
-    const [users, subjects, exams, questions, attempts, grades, settings] = await Promise.all([
+    // Ambil data lengkap seluruh ekosistem CBT secara paralel (termasuk berkas gambar visualisasi soal)
+    const [users, subjects, exams, questions, attempts, grades, settings, uploadedFiles] = await Promise.all([
       // 1. Akun CBT (Siswa, Guru, Super Admin)
       prisma.user.findMany({
         select: {
@@ -121,6 +123,8 @@ export async function exportCbtBackupAction(): Promise<{
           },
         },
       }),
+      // 8. Berkas Gambar Visualisasi Soal (UploadedFile)
+      prisma.uploadedFile.findMany(),
     ]);
 
     const schoolSetting = settings.find((s) => s.key === 'school_name');
@@ -134,6 +138,7 @@ export async function exportCbtBackupAction(): Promise<{
       attempts,
       grades,
       settings,
+      uploadedFiles,
     };
 
     // Hitung Checksum SHA-256 untuk memvalidasi integritas data (anti-korup / anti-tamper)
@@ -148,6 +153,7 @@ export async function exportCbtBackupAction(): Promise<{
       attemptsCount: attempts.length,
       gradesCount: grades.length,
       settingsCount: settings.length,
+      uploadedFilesCount: uploadedFiles.length,
     };
 
     const metadata: CbtBackupMetadata = {
@@ -261,7 +267,7 @@ export async function restoreCbtBackupAction(
     }
 
     const parsed: CbtBackupPayload = JSON.parse(backupJsonString);
-    const { users, subjects, exams, questions, attempts, grades, settings } = parsed.data;
+    const { users, subjects, exams, questions, attempts, grades, settings, uploadedFiles } = parsed.data;
 
     // 2. Eksekusi restore dalam 1 transaksi ACID utuh (Timeout 120 detik)
     // Jika 1 tabel gagal, seluruh proses dibatalkan otomatis (Rollback Bersih)
@@ -507,6 +513,30 @@ export async function restoreCbtBackupAction(
                 },
               });
             }
+          }
+        }
+
+        // 8. PEMULIHAN BERKAS GAMBAR SOAL (UploadedFile)
+        if (uploadedFiles && Array.isArray(uploadedFiles)) {
+          for (const uf of uploadedFiles) {
+            if (!uf || !uf.id || !uf.fileData) continue;
+            await tx.uploadedFile.upsert({
+              where: { id: uf.id },
+              update: {
+                fileName: uf.fileName,
+                fileType: uf.fileType,
+                fileSize: uf.fileSize,
+                fileData: uf.fileData,
+              },
+              create: {
+                id: uf.id,
+                fileName: uf.fileName,
+                fileType: uf.fileType,
+                fileSize: uf.fileSize,
+                fileData: uf.fileData,
+                createdAt: uf.createdAt ? new Date(uf.createdAt) : new Date(),
+              },
+            });
           }
         }
       },

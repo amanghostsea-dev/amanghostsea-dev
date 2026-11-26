@@ -22,6 +22,7 @@ export default function CbtQuestionImageViewer({
   const [imageError, setImageError] = useState(false);
   const [retryKey, setRetryKey] = useState<number>(0);
   const autoRetryCountRef = useRef(0);
+  const imgRef = useRef<HTMLImageElement>(null);
 
   const cleanUrl = imageUrl?.trim() || '';
 
@@ -33,11 +34,19 @@ export default function CbtQuestionImageViewer({
     autoRetryCountRef.current = 0;
   }, [cleanUrl]);
 
-  if (!cleanUrl) return null;
-
   const currentSrc = retryKey > 0 
     ? `${cleanUrl}${cleanUrl.includes('?') ? '&' : '?'}_t=${retryKey}`
     : cleanUrl;
+
+  // Verifikasi apakah gambar sudah tersimpan di cache memori browser (Complete)
+  useEffect(() => {
+    if (imgRef.current && imgRef.current.complete && imgRef.current.naturalWidth > 0) {
+      setImageLoaded(true);
+      setImageError(false);
+    }
+  }, [currentSrc]);
+
+  if (!cleanUrl) return null;
 
   const handleOpen = () => {
     if (imageError) return;
@@ -50,13 +59,13 @@ export default function CbtQuestionImageViewer({
     setZoomScale(1);
   };
 
-  // Otomatis coba ulang 1x jika gagal sebelum menampilkan UI error merah
+  // Otomatis coba ulang bertahap jika gagal sebelum menampilkan UI error merah
   const handleImageError = () => {
-    if (autoRetryCountRef.current < 2) {
+    if (autoRetryCountRef.current < 3) {
       autoRetryCountRef.current += 1;
       setTimeout(() => {
         setRetryKey(Date.now());
-      }, 600);
+      }, 700 * autoRetryCountRef.current);
     } else {
       setImageError(true);
       setImageLoaded(false);
@@ -119,6 +128,7 @@ export default function CbtQuestionImageViewer({
 
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
+              ref={imgRef}
               key={currentSrc}
               src={currentSrc}
               alt={alt}

@@ -36,9 +36,40 @@ export async function GET(
     }
 
     // Cache MISS — ambil dari database
-    const file = await prisma.uploadedFile.findUnique({
+    let file = await prisma.uploadedFile.findUnique({
       where: { id },
     });
+
+    // 🛡️ ULTRA-RESILIENT FALLBACK:
+    // Jika berkas belum ditemukan di database utama, cek cadangan database lama dan migrasikan otomatis
+    if (!file) {
+      try {
+        const OLD_DB_URL = 'postgres://f1cc277514c298a72feac2c71483f5c570e9d5b98550da6f46b106ebdcca5443:sk__sEhfauJwpJFTdP5zYQVE@db.prisma.io:5432/postgres?sslmode=require';
+        const { PrismaClient } = await import('@prisma/client');
+        const fallbackClient = new PrismaClient({ datasources: { db: { url: OLD_DB_URL } } });
+        const oldFile = await fallbackClient.uploadedFile.findUnique({ where: { id } });
+        await fallbackClient.$disconnect();
+
+        if (oldFile) {
+          // Simpan ke database Supabase agar request berikutnya instan
+          try {
+            await prisma.uploadedFile.upsert({
+              where: { id: oldFile.id },
+              update: {},
+              create: {
+                id: oldFile.id,
+                fileName: oldFile.fileName,
+                fileType: oldFile.fileType,
+                fileSize: oldFile.fileSize,
+                fileData: oldFile.fileData,
+                createdAt: oldFile.createdAt,
+              },
+            });
+          } catch {}
+          file = oldFile;
+        }
+      } catch {}
+    }
 
     if (!file) {
       return NextResponse.json({ error: 'Berkas tidak ditemukan.' }, { status: 404 });
